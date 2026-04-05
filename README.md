@@ -171,7 +171,7 @@ cd TaiwanAgriPlatform
 
 ```env
 # SQL Server
-SA_PASSWORD=YourStrong!Password123
+SA_PASSWORD=你的密碼
 
 # Redis
 REDIS_PASSWORD=
@@ -185,7 +185,7 @@ MOA_API_KEY=你的api_key
 ```json
 {
   "ConnectionStrings": {
-    "WeatherDb": "Server=localhost,1433;Database=TaiwanAgriPlatform;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True"
+    "WeatherDb": "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=你的帳號;Password=你的密碼;TrustServerCertificate=True"
   },
   "MoaApiConfig": {
     "BaseUrl": "https://data.moa.gov.tw/api/v1",
