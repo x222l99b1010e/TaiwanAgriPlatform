@@ -27,6 +27,11 @@ secrets.json
 appsettings.json
 appsettings.*.json
 
+# Environment variables / Secrets
+.env
+.env.*
+!.env.example
+
 # Rider / ReSharper / dotCover
 _ReSharper*/
 *.DotSettings.user
