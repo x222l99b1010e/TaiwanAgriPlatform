@@ -64,17 +64,17 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    農業部 Open Data API                       │
+│                    農業部 Open Data API                      │
 │              data.moa.gov.tw  (60 支 REST API)               │
 └──────────────────────┬──────────────────────────────────────┘
                        │ HTTP / IHttpClientFactory
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  TaiwanAgri.Worker                           │
-│    .NET Worker Service + Hangfire                            │
-│    WeatherSyncWorker | PestAlertSyncWorker                   │
-│    RainfallSyncWorker | PestDecadeSyncWorker                 │
-│    PriceHistoryWorker | DisasterEventWorker                  │
+│                  TaiwanAgri.Worker                          │
+│    .NET Worker Service + Hangfire                           │
+│    WeatherSyncWorker | PestAlertSyncWorker                  │
+│    RainfallSyncWorker | PestDecadeSyncWorker                │
+│    PriceHistoryWorker | DisasterEventWorker                 │
 └──────────┬──────────────────────┬───────────────────────────┘
            │ EF Core              │ RabbitMQ
            ▼                      ▼
@@ -86,17 +86,17 @@
                                          │ Subscribe
                                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  TaiwanAgri.Web                              │
-│    ASP.NET Core 8 Web API + MVC                              │
-│    IHostedService (RabbitMQ Consumer)                        │
-│    Controller → Service → Repository                         │
+│                  TaiwanAgri.Web                             │
+│    ASP.NET Core 8 Web API + MVC                             │
+│    IHostedService (RabbitMQ Consumer)                       │
+│    Controller → Service → Repository                        │
 └──────────┬──────────────────────┬───────────────────────────┘
            │ Cache-Aside           │ HTTP JSON
            ▼                      ▼
 ┌──────────────────┐    ┌─────────────────────────────────────┐
-│      Redis       │    │         Vue 3 Frontend               │
-│   TTL 25hr       │    │  Vite + TailwindCSS + Chart.js       │
-│   (StackExch.)   │    │  Leaflet.js + Pinia                  │
+│      Redis       │    │         Vue 3 Frontend              │
+│   TTL 25hr       │    │  Vite + TailwindCSS + Chart.js      │
+│   (StackExch.)   │    │  Leaflet.js + Pinia                 │
 └──────────────────┘    └─────────────────────────────────────┘
 ```
 
@@ -129,7 +129,7 @@ TaiwanAgriPlatform/
 | 層次 | 技術 | 版本 | 用途 |
 |------|------|------|------|
 | 後端框架 | ASP.NET Core Web API + MVC | 8.0 LTS | 主要後端框架 |
-| ORM | Entity Framework Core | 8.0 | Code First + Migration |
+| ORM | Entity Framework Core | 10.0 | Code First + Migration |
 | 資料庫 | SQL Server | 2022 | Window Functions、時序查詢 |
 | 背景排程 | .NET Worker Service + Hangfire | 最新穩定版 | 資料同步排程 |
 | 訊息佇列 | RabbitMQ | 3.13 | 非同步事件推播 |
@@ -148,7 +148,7 @@ TaiwanAgriPlatform/
 
 ### 前置需求
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Visual Studio 2022 / 2026](https://visualstudio.microsoft.com/)（含 ASP.NET 工作負載）
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Node.js 20+](https://nodejs.org/)（前端建置用）
