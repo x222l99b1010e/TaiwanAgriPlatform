@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>aspnet-TaiwanAgri.Web-1c2154a8-9bc0-413a-a64f-86b353b1a676</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.5" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.5" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TaiwanAgri.Core\TaiwanAgri.Core.csproj" />
+    <ProjectReference Include="..\TaiwanAgri.Modules.FoodSafety\TaiwanAgri.Modules.FoodSafety.csproj" />
+    <ProjectReference Include="..\TaiwanAgri.Modules.Market\TaiwanAgri.Modules.Market.csproj" />
+    <ProjectReference Include="..\TaiwanAgri.Modules.Pet\TaiwanAgri.Modules.Pet.csproj" />
+    <ProjectReference Include="..\TaiwanAgri.Modules.Weather\TaiwanAgri.Modules.Weather.csproj" />
+  </ItemGroup>
+
+</Project>
