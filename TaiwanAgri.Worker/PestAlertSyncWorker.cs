@@ -89,70 +89,33 @@ namespace TaiwanAgri.Worker
 				.Distinct()
 				.ToHashSet();
 
-			// ── 這裡開始修改 ────────────────────────────────────────────────
-
-			// 1. 抓出資料庫中符合這些 Hash 的「完整實體」，而不是只有 Hash 字串
-			var existingEntities = await db.PestAlerts
+			
+			var existingHashes = (await db.PestAlerts
 				.Where(p => targetHashes.Contains(p.SourceHash))
-				.ToListAsync(stoppingToken);
+				.Select(p =>p.SourceHash)
+				.ToListAsync(stoppingToken))
+				.ToHashSet();
+			var newPestAlerts = incoming
+				.Where(p => !existingHashes.Contains(p.SourceHash))
+				.ToList();
 
-			// 2. 將查出來的實體轉成 Dictionary，讓後續比對速度維持 O(1)
-			var existingDict = existingEntities.ToDictionary(e => e.SourceHash);
-
-			var newPestAlerts = new List<PestAlert>();
-			int updateCount = 0;
-
-			// 3. 逐一比對進來的資料
-			foreach (var item in incoming)
+			if ( newPestAlerts.Count == 0)
 			{
-				if (existingDict.TryGetValue(item.SourceHash, out var existingItem))
-				{
-					// 狀況 A：Hash 存在（同一天、同一標題）。檢查內容是否變更？
-					if (existingItem.Body != item.Body || existingItem.Prescription != item.Prescription)
-					{
-						// 內容不同，進行更新（EF Core 會自動追蹤這些改變）
-						existingItem.Body = item.Body;
-						existingItem.Prescription = item.Prescription;
-						// 也可以順便更新可能變動的欄位，例如 CitiesRaw, PlantNamesRaw 等
-						existingItem.SyncedAt = DateTime.Now;
-
-						updateCount++;
-					}
-					// 如果內容完全一樣，什麼都不做（略過）
-				}
-				else
-				{
-					// 狀況 B：Hash 不存在，是一筆全新公告
-					newPestAlerts.Add(item);
-				}
+				_logger.LogInformation("[PestAlertSync] 無新資料需要同步");
+				return;
 			}
 
-			// 4. 寫入資料庫
-			if (newPestAlerts.Any())
-			{
-				await db.PestAlerts.AddRangeAsync(newPestAlerts, stoppingToken);
-			}
-
-			// 只要有「新增」或「更新」，就呼叫 SaveChanges
-			if (newPestAlerts.Any() || updateCount > 0)
-			{
-				await db.SaveChangesAsync(stoppingToken);
-
-				_logger.LogInformation("[PestAlertSync] 同步完成。新增 {InsertCount} 筆，更新 {UpdateCount} 筆，略過 {Skipped} 筆未異動",
-					newPestAlerts.Count,
-					updateCount,
-					incoming.Count - newPestAlerts.Count - updateCount);
-			}
-			else
-			{
-				_logger.LogInformation("[PestAlertSync] 無新資料且無內容異動，不需要寫入");
-			}
+			await db.PestAlerts.AddRangeAsync(newPestAlerts, stoppingToken);
+			await db.SaveChangesAsync(stoppingToken);
+			_logger.LogInformation("[PestAlertSync] 成功同步 {Count} 筆新資料 略過 {Skipped} 筆重複", 
+				newPestAlerts.Count, 
+				incoming.Count - newPestAlerts.Count);
 		}
 
 		private PestAlert? MapToEntity(PestAlertDto dto)
 		{
 			// TIME 格式是 "2026/04/02 11:00"，需要轉成 DateTime
-			if (!DateOnly.TryParseExact(dto.PubDate, "yyyy/MM/dd", null, System.Globalization.DateTimeStyles.None, out var pubDate))
+			if (!DateOnly.TryParseExact(dto.PubDate, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var pubDate))
 			{
 				_logger.LogWarning("[PestAlertSync] 時間格式錯誤，略過主題 {Subject}: {PubDate}",dto.Subject,dto.PubDate);
 				return null;
