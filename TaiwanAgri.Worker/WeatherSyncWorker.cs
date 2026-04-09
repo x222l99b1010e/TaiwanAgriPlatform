@@ -79,7 +79,7 @@ namespace TaiwanAgri.Worker
 			int Page = 1;
 			while (true) 
 			{
-				var url = Page == 1 ? MoaApiEndpoints.AutoWeatherStation : $"{MoaApiEndpoints.AutoWeatherStation}?page={Page}";
+				var url = (Page == 1) ? MoaApiEndpoints.AutoWeatherStation : $"{MoaApiEndpoints.AutoWeatherStation}?page={Page}";
 
 				var json = await _httpClient.GetStringAsync(url, stoppingToken);
 				var response = JsonSerializer.Deserialize<WeatherApiResponse>(json);
