@@ -12,6 +12,8 @@ namespace TaiwanAgri.Modules.Weather.Data
 		public DbSet<PestAlert> PestAlerts => Set<PestAlert>();
 		public DbSet<PestAlertCity> PestAlertCities => Set<PestAlertCity>();
 		public DbSet<PestAlertCrop> PestAlertCrops => Set<PestAlertCrop>();
+		public DbSet<RainfallStation> RainfallStations => Set<RainfallStation>();
+		public DbSet<RainfallObservation> RainfallObservations => Set<RainfallObservation>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -59,6 +61,24 @@ namespace TaiwanAgri.Modules.Weather.Data
 				entity.ToTable("PestAlertCrops");
 				entity.HasIndex(e => e.CropName)
 					  .HasDatabaseName("IX_PestAlertCrops_CropName");
+			});
+			// RainfallStation：StationId 設為 Unique
+			modelBuilder.Entity<RainfallStation>(entity =>
+			{
+				entity.ToTable("RainfallStations");
+				// StationId 是唯一識別碼，應該建立唯一索引
+				entity.HasIndex(e => e.StationId)
+					  .IsUnique()
+					  .HasDatabaseName("IX_RainfallStations_StationId");
+			});
+			// RainfallObservation：建立自然鍵的 Unique Index
+			modelBuilder.Entity<RainfallObservation>(entity =>
+			{
+				entity.ToTable("RainfallObservations");
+				// 自然鍵去重：同一個站台 + 同一個時間點只能有一筆
+				entity.HasIndex(e => new { e.StationId, e.ObservedAt })
+					  .IsUnique()
+					  .HasDatabaseName("IX_RainfallObservations_StationId_ObservedAt");
 			});
 		}
 	}
