@@ -67,7 +67,7 @@ namespace TaiwanAgri.Worker
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
 			// ── 步驟 1：清除 30 天前的舊資料 ──────────────────────────────────
-			var cutoff = DateTime.Now.AddDays(-30);
+			var cutoff = DateTime.UtcNow.AddDays(-30);
 			var deleted = await db.WeatherObservations
 				.Where(o => o.ObservedAt < cutoff)
 				.ExecuteDeleteAsync(stoppingToken);
@@ -187,7 +187,7 @@ namespace TaiwanAgri.Worker
 					CityName = dto.CityName,
 					TownCode = NullIfEmpty(dto.TownCode),
 					TownName = NullIfEmpty(dto.TownName),
-					SyncedAt = DateTime.Now
+					SyncedAt = DateTime.UtcNow
 				};
 			}
 			// ── 防呆輔助方法 ─────────────────────────────────────────────────────

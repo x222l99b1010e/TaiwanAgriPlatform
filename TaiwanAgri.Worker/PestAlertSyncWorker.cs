@@ -83,6 +83,12 @@ namespace TaiwanAgri.Worker
 				.Cast<PestAlert>()
 				.ToList();
 
+			if (incoming.Count == 0)
+			{
+				_logger.LogWarning("[PestAlertSync] 全部資料轉換失敗（MapToEntity 皆回 null）");
+				return;
+			}
+
 			// 計算所有 incoming 資料的 SourceHash
 			var targetHashes = incoming
 				.Select(p => p.SourceHash)
@@ -95,6 +101,7 @@ namespace TaiwanAgri.Worker
 				.Select(p =>p.SourceHash)
 				.ToListAsync(stoppingToken))
 				.ToHashSet();
+
 			var newPestAlerts = incoming
 				.Where(p => !existingHashes.Contains(p.SourceHash))
 				.ToList();
@@ -131,7 +138,7 @@ namespace TaiwanAgri.Worker
 				PubDate = pubDate,
 				Issue = dto.Issue,
 				SourceHash = ComputeHash(dto.Subject + "|" + dto.PubDate),
-				SyncedAt = DateTime.Now,
+				SyncedAt = DateTime.UtcNow,
 
 				Cities = string.IsNullOrWhiteSpace(dto.City)
 					? new List<PestAlertCity>()
