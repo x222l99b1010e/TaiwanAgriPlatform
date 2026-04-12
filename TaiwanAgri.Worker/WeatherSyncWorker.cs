@@ -22,6 +22,7 @@ namespace TaiwanAgri.Worker
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
+				// [DEBUG HISTORY] 以下為初版測試寫法，保留作為實作思路對照，非遺留廢碼
 				//try
 				//{
 				//	var json = await _httpClient.GetStringAsync(

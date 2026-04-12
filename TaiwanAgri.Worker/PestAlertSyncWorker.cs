@@ -56,7 +56,7 @@ namespace TaiwanAgri.Worker
 				if (response?.RS != "OK" || response.Data.Count == 0)
 				{
 					if (Page == 1)
-						_logger.LogWarning("[PestAlertSync] API 回傳異常或無資料");
+						_logger.LogWarning("[PestAlertSync] API回應異常或無資料，停止同步");
 					else
 						_logger.LogInformation("[PestAlertSync] 第 {Page} 頁無資料或無分頁權限，停止抓取", Page);
 					break;
@@ -121,7 +121,7 @@ namespace TaiwanAgri.Worker
 
 		private PestAlert? MapToEntity(PestAlertDto dto)
 		{
-			// TIME 格式是 "2026/04/02 11:00"，需要轉成 DateTime
+			// TIME 格式是 "2026-04-02"，需要轉成 DateTime
 			if (!DateOnly.TryParseExact(dto.PubDate, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var pubDate))
 			{
 				_logger.LogWarning("[PestAlertSync] 時間格式錯誤，略過主題 {Subject}: {PubDate}",dto.Subject,dto.PubDate);

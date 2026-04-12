@@ -8,8 +8,8 @@ namespace TaiwanAgri.Core.Constants
 	{
 		// 模組 2：氣象
 		public const string AutoWeatherStation = "api/v1/AutoWeatherStationType/";
-		public const string AutoRainfallStation = "api/v1/AutoRainfallStationType/";
-		public const string TaiwanRainfallStationInformation = "api/v1/TaiwanRainfallStationInformationType/";
+		public const string AutoRainfall = "api/v1/AutoRainfallStationType/";
+		public const string RainfallStation = "api/v1/TaiwanRainfallStationInformationType/";
 		public const string PlantEpidemic = "api/v1/PlantEpidemicType/";
 		public const string FruitPestControl = "api/v1/FruitVegetalePestControlType/";
 
