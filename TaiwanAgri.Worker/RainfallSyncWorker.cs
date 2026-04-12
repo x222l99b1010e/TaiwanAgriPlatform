@@ -1,8 +1,9 @@
-﻿using TaiwanAgri.Modules.Weather.Data;
-using Microsoft.EntityFrameworkCore;
-using TaiwanAgri.Modules.Weather.Dtos;
-using TaiwanAgri.Core.Constants;
+﻿using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 using System.Text.Json;
+using TaiwanAgri.Core.Constants;
+using TaiwanAgri.Modules.Weather.Data;
+using TaiwanAgri.Modules.Weather.Dtos;
 using TaiwanAgri.Modules.Weather.Entities;
 
 namespace TaiwanAgri.Worker
@@ -57,11 +58,11 @@ namespace TaiwanAgri.Worker
 			var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
 			//從API取得資料
 			var allDtos = new List<RainfallObservationDto>();
-			int Page = 1;
+			int page = 1;
 			while (true) 
 			{
 				//Moa API的分頁機制：第一頁不帶page參數，第二頁開始帶?page=2
-				var url = (Page == 1) ? MoaApiEndpoints.AutoRainfall :$"{MoaApiEndpoints.AutoRainfall}?page={Page}";
+				var url = (page == 1) ? MoaApiEndpoints.AutoRainfall :$"{MoaApiEndpoints.AutoRainfall}?page={page}";
 				//發送HTTP請求
 				var json = await _httpClient.GetStringAsync(url, stoppingToken);
 				//反序列化JSON為DTO列表
@@ -69,19 +70,19 @@ namespace TaiwanAgri.Worker
 
 				if (response?.RS != "OK" || response.Data.Count == 0)
 				{
-					if (Page == 1)  _logger.LogWarning("[RainfallSync] API回應異常或無資料");
+					if (page == 1)  _logger.LogWarning("[RainfallSync] API回應異常或無資料");
 
 					else _logger.LogInformation("[RainfallSync] 已無更多資料，完成同步");
 
 					break;
 				}
-				_logger.LogInformation("[RainfallSync] 取得第 {Page} 頁資料，共 {Count} 筆", Page, response.Data.Count);
+				_logger.LogInformation("[RainfallSync] 取得第 {Page} 頁資料，共 {Count} 筆", page, response.Data.Count);
 				allDtos.AddRange(response.Data);
 				if (!response.Next)
 					break;
-				Page ++;
+				page ++;
 				//
-				if (Page > 20) //安全機制，避免無限迴圈
+				if (page > 20) //安全機制，避免無限迴圈
 				{
 					_logger.LogWarning("[RainfallSync] 已達分頁上限（20頁），停止繼續抓取");
 					break;
@@ -127,14 +128,45 @@ namespace TaiwanAgri.Worker
 				.GroupBy(d => d.StationId)
 				.Select(g => g.First()); // 每個站取一筆就夠，座標不會變
 
-
+			// [DEBUG HISTORY] 以下為初版測試寫法，保留作為實作思路對照，非遺留廢碼
 			//這裡每個站台都打一次 DB 查詢。如果有 500 個站台，就是 500 次查詢。現在先這樣跑沒問題，
 			//之後如果發現這段很慢，可以改成一次把所有站台撈出來再比對——但這是優化，不是現在的優先項。
+			//foreach (var dto in stationUpdates)
+			//{
+			//	var station = await db.RainfallStations
+			//		.FirstOrDefaultAsync(s => s.StationId == dto.StationId, stoppingToken);
+			//	if (station != null)
+			//	{
+			//		station.Latitude = ParseDecimal(dto.Latitude);
+			//		station.Longitude = ParseDecimal(dto.Longitude);
+			//		station.Elevation = ParseInt(dto.Elevation);
+			//		station.UpdatedAt = DateTime.UtcNow;
+			//	}
+			//}
+
+			//======================================================
+			// 批撈：一次 DB 查詢，取代 N 次
+			// 先把這批 DTO 裡有哪些 StationId 收集起來
+
+			//EF Core 的 Change Tracker 會追蹤你從 db.RainfallStations 拿出來的物件。
+			//你用 ToDictionaryAsync 把這些物件存進字典，字典裡的物件仍然被 Change Tracker 追蹤著。
+			//所以你在 foreach 裡直接改 station.Latitude，EF Core 知道這個物件被修改了，
+			//最後 SaveChangesAsync 時會自動產生對應的 UPDATE SQL。
+			//原理和之前 RainfallStationSyncWorker 的 Upsert 完全一樣，只是這次改的是座標欄位。
+			//DB 查詢從 500 次變成 1 次
+			var stationIdsToUpdate = stationUpdates
+				.Select(d => d.StationId)
+				.ToHashSet();
+
+			// 一次從 DB 撈出所有相關站台，存成字典方便查找
+			var stationDict = await db.RainfallStations
+				.Where(s => stationIdsToUpdate.Contains(s.StationId))
+				.ToDictionaryAsync(s => s.StationId, stoppingToken);
+
+			// 在記憶體裡用字典查找，完全不打 DB
 			foreach (var dto in stationUpdates)
 			{
-				var station = await db.RainfallStations
-					.FirstOrDefaultAsync(s => s.StationId == dto.StationId, stoppingToken);
-				if (station != null)
+				if (stationDict.TryGetValue(dto.StationId, out var station))
 				{
 					station.Latitude = ParseDecimal(dto.Latitude);
 					station.Longitude = ParseDecimal(dto.Longitude);

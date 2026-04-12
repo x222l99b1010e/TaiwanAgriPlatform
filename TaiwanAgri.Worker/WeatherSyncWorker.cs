@@ -77,30 +77,30 @@ namespace TaiwanAgri.Worker
 
 			// ── 步驟 2：分頁抓取所有資料 ─────────────────────────────────────
 			var allDtos = new List<WeatherStationDto>();
-			int Page = 1;
+			int page = 1;
 			while (true) 
 			{
-				var url = (Page == 1) ? MoaApiEndpoints.AutoWeatherStation : $"{MoaApiEndpoints.AutoWeatherStation}?page={Page}";
+				var url = (page == 1) ? MoaApiEndpoints.AutoWeatherStation : $"{MoaApiEndpoints.AutoWeatherStation}?page={page}";
 
 				var json = await _httpClient.GetStringAsync(url, stoppingToken);
 				var response = JsonSerializer.Deserialize<WeatherApiResponse>(json);
 
 				if (response?.RS != "OK" || response.Data.Count == 0)
 				{
-					if (Page == 1)
+					if (page == 1)
 						_logger.LogWarning("[WeatherSync] API 回傳異常或無資料");
 					else
-						_logger.LogInformation("[WeatherSync] 第 {Page} 頁無資料或無分頁權限，停止抓取", Page);
+						_logger.LogInformation("[WeatherSync] 第 {Page} 頁無資料或無分頁權限，停止抓取", page);
 					break;
 				}
-				_logger.LogInformation("[WeatherSync] 第 {Page} 頁，回傳 {Count} 筆", Page, response.Data.Count);
+				_logger.LogInformation("[WeatherSync] 第 {Page} 頁，回傳 {Count} 筆", page, response.Data.Count);
 				allDtos.AddRange(response.Data);
 				if (!response.Next)
 					break; // 沒有下一頁了
-				Page++;
+				page++;
 
 				// 安全保護：最多抓 20 頁（約 20000 筆），避免無限迴圈
-				if (Page > 20)
+				if (page > 20)
 				{
 					_logger.LogWarning("[WeatherSync] 已達分頁上限（20頁），停止繼續抓取");
 					break;

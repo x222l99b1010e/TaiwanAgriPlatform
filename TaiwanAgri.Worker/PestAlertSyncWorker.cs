@@ -45,30 +45,30 @@ namespace TaiwanAgri.Worker
 			var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
 			//抓取分頁資料
 			var allDtos = new List<PestAlertDto>();
-			int Page = 1;
+			int page = 1;
 			while (true)
 			{
-				var url = (Page == 1) ? MoaApiEndpoints.PlantEpidemic : $"{MoaApiEndpoints.PlantEpidemic}?page={Page}";
+				var url = (page == 1) ? MoaApiEndpoints.PlantEpidemic : $"{MoaApiEndpoints.PlantEpidemic}?page={page}";
 
 				var json = await _httpClient.GetStringAsync(url, stoppingToken);
 				var response = JsonSerializer.Deserialize<PestAlertApiResponse>(json);
 
 				if (response?.RS != "OK" || response.Data.Count == 0)
 				{
-					if (Page == 1)
+					if (page == 1)
 						_logger.LogWarning("[PestAlertSync] API回應異常或無資料，停止同步");
 					else
-						_logger.LogInformation("[PestAlertSync] 第 {Page} 頁無資料或無分頁權限，停止抓取", Page);
+						_logger.LogInformation("[PestAlertSync] 第 {Page} 頁無資料或無分頁權限，停止抓取", page);
 					break;
 				}
-				_logger.LogInformation("[PestAlertSync] 成功抓取第 {Page} 頁，共 {Count} 筆資料", Page, response.Data.Count);
+				_logger.LogInformation("[PestAlertSync] 成功抓取第 {Page} 頁，共 {Count} 筆資料", page, response.Data.Count);
 				//將Data加入DTO
 				allDtos.AddRange(response.Data);
 				if (!response.Next)
 					break;
-				Page ++;
+				page ++;
 				//
-				if (Page > 20) //安全機制，避免無限迴圈
+				if (page > 20) //安全機制，避免無限迴圈
 				{
 					_logger.LogWarning("[PestAlertSync] 已達分頁上限（20頁），停止繼續抓取");
 					break;
