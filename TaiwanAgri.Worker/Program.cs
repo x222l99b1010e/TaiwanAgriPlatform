@@ -31,6 +31,7 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<PestAlertSyncWorker>();
 			builder.Services.AddHostedService<RainfallStationSyncWorker>();
 			builder.Services.AddHostedService<RainfallSyncWorker>();
+			builder.Services.AddHostedService<PestDecadeSyncWorker>();
 
 
 

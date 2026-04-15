@@ -14,6 +14,7 @@ namespace TaiwanAgri.Modules.Weather.Data
 		public DbSet<PestAlertCrop> PestAlertCrops => Set<PestAlertCrop>();
 		public DbSet<RainfallStation> RainfallStations => Set<RainfallStation>();
 		public DbSet<RainfallObservation> RainfallObservations => Set<RainfallObservation>();
+		public DbSet<PestDecadeSummary> PestDecadeSummaries => Set<PestDecadeSummary>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -79,6 +80,19 @@ namespace TaiwanAgri.Modules.Weather.Data
 				entity.HasIndex(e => new { e.StationId, e.ObservedAt })
 					  .IsUnique()
 					  .HasDatabaseName("IX_RainfallObservations_StationId_ObservedAt");
+			});
+			//PestDecadeSummary：建立自然鍵的 Unique Index
+			modelBuilder.Entity<PestDecadeSummary>(entity =>
+			{
+				entity.ToTable("PestDecadeSummaries");
+				// 自然鍵去重：同一個害蟲 + 同一年 + 同一月 + 同一旬 + 同一城市 + 同一鄉鎮只能有一筆
+				entity.HasIndex(e => new { e.PestName, e.Year, e.Month, e.TenDays, e.City, e.Town })
+					  .IsUnique()
+					  .HasDatabaseName("IX_PestDecadeSummaries_Unique");
+				entity.Property(e => e.Average)
+					  .HasColumnType("decimal(10,2)");
+				entity.Property(e => e.ProportionIsland)
+					  .HasColumnType("decimal(10,2)");
 			});
 		}
 	}
