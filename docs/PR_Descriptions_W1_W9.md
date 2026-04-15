@@ -512,13 +512,36 @@ var incoming = allDtos
  
 DTO 補上 `Month` 欄位，並加 `[JsonPropertyName("Month")]`。這個發現再次確認：API 文件是參考，真實回傳才是設計依據，每次接新 API 一定要實際打一次看資料。
  
-**遇到的死碼問題**
+**發現死碼，追查根因，修正上游設計**
  
-MapToEntity 的回傳型別是 `PestDecadeSummary`（非 nullable），所以在 incoming 後面加的 `.Where(e => e != null)` 是死碼——編譯器保證這個方法永遠不回傳 null，這個 check 永遠不會過濾掉任何東西。對比 `WeatherSyncWorker` 的 `MapToEntity` 回傳 `WeatherObservation?`——那個需要 null check 是因為時間格式解析失敗時需要跳過那筆。`PestDecadeSummary` 的 MapToEntity 沒有任何可能失敗的解析路徑，不需要 nullable。刪掉這行，型別更清晰。
+`incoming` 後面加了 `.Where(e => e != null)` 之後，發現這是死碼——`MapToEntity` 的回傳型別是非 nullable，編譯器保證它永遠不回傳 null，這個 check 永遠不會過濾掉任何東西。
  
-**驗收標準**
+一開始的直覺是直接刪掉。但先問了一句：「為什麼 `MapToEntity` 沒有失敗路徑？它應該有嗎？」這一問讓真正的問題浮出來。
  
-Worker 啟動後，Log 顯示 `[PestDecadeSync] 第 1 頁取得 N 筆資料`，接著顯示實際寫入筆數（首次同步應有數百筆）。SQL Server 物件總管中，`PestDecadeSummaries` 表有資料，`Year`、`Month`、`TenDays` 欄位是 `int` 型別（非字串）。重複執行 Worker 後 Log 顯示「無新資料」，資料筆數不變。`Average` 和 `ProportionIsland` 欄位目前為 `NULL`（對應 API 的空字串）。
+`MapToEntity` 裡的 `ParseInt` 在解析失敗時回傳 `0`，而不是 null 或例外：
+ 
+```csharp
+// 原本的寫法：解析失敗靜默回傳 0
+private static int ParseInt(string s)
+    => int.TryParse(s, out var v) ? v : 0;
+```
+ 
+`Year`、`Month`、`TenDays` 任何一個欄位解析失敗，都會寫進 Year=0、Month=0 這樣的無意義資料，安靜地進資料庫，通過 Unique Index，程式繼續跑，Log 不報警。這是靜默錯誤，比拋例外更難察覺。
+ 
+修正方式是把 `MapToEntity` 改為回傳 `PestDecadeSummary?`，在方法開頭用衛語句擋住解析失敗的情況：
+ 
+```csharp
+// 修正後：解析失敗明確回傳 null，跳過這筆資料
+private PestDecadeSummary? MapToEntity(PestDecadeSummaryDto dto)
+{
+    if (!int.TryParse(dto.Year, out var year)) return null;
+    if (!int.TryParse(dto.Month, out var month)) return null;
+    if (!int.TryParse(dto.Decade, out var tenDays)) return null;
+    return new PestDecadeSummary { Year = year, Month = month, TenDays = tenDays, ... };
+}
+```
+ 
+`MapToEntity` 現在有了真正的失敗路徑，`.Where(e => e != null)` 也從死碼變回了有意義的防禦。整個修正的邏輯是：死碼是症狀 → 追查根因 → 發現是 ParseInt 設計缺陷 → 修正上游 → 防禦鏈閉合。
 
 ---
 

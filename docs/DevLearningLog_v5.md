@@ -860,26 +860,48 @@ API 資料有重複的可能性時，先在 incoming 層加 `DistinctBy`，再�
  
 ---
  
-### 條目 036 — .Where(e => e != null) 在不可能為 null 的情況下是死碼
+### 條目 036 — 死碼是症狀，根本問題是 ParseInt 靜默回傳 0
  
 **我做了什麼**
 模仿 `WeatherSyncWorker` 的寫法，在 `incoming` 後面加了 `.Where(e => e != null)`，覺得這是防禦性寫法，加了比較安全。
  
 **我遇到的問題**
-`WeatherSyncWorker` 的 `MapToEntity` 回傳 `WeatherObservation?`（nullable），是因為時間格式解析失敗時需要回傳 null 跳過那筆資料。但 `PestDecadeSummary` 的 `MapToEntity` 回傳的是 `PestDecadeSummary`（非 nullable），裡面沒有任何解析失敗就 return null 的路徑，這個方法在任何情況下都會回傳一個有效的 Entity。
- 
-`.Where(e => e != null)` 永遠不會過濾掉任何東西——這是死碼。
+`WeatherSyncWorker` 的 `MapToEntity` 回傳 `WeatherObservation?`（nullable），是因為時間格式解析失敗時需要回傳 null 跳過那筆資料。但 `PestDecadeSummary` 的 `MapToEntity` 回傳的是 `PestDecadeSummary`（非 nullable），裡面沒有任何解析失敗就 return null 的路徑，這個方法在任何情況下都會回傳一個有效的 Entity。`.Where(e => e != null)` 永遠不會過濾掉任何東西——這是死碼。
  
 **我怎麼想通的**
-「防禦性寫法」要有防禦的對象。`WeatherSyncWorker` 的 null check 防的是「時間格式解析失敗」，是真實存在的失敗路徑。`PestDecadeSummary` 的 MapToEntity 沒有失敗路徑，null check 防的是一個不可能發生的情況，留在程式碼裡只會讓讀程式碼的人困惑「這裡為什麼需要過濾 null？是不是有什麼我不知道的失敗情況？」
+一開始的直覺是「死碼，刪掉就好」。但刪之前多問了一句：「為什麼 `MapToEntity` 沒有失敗路徑？它應該有嗎？」
  
-把死碼刪掉，讓型別系統說話：`MapToEntity` 回傳非 nullable，就代表它不會失敗，不需要外層再做 null check。
+這一問讓問題浮出來了。`MapToEntity` 裡有這樣一行：
+ 
+```csharp
+private static int ParseInt(string s)
+    => int.TryParse(s, out var v) ? v : 0;
+```
+ 
+`Year`、`Month`、`TenDays` 如果解析失敗，回傳的是 `0`，不是 null，不是例外。`0` 看起來像有效資料，一筆 Year=0、Month=0 的記錄會安靜地寫進資料庫，通過 Unique Index，程式繼續跑，Log 不報警。這就是「靜默錯誤」——比拋例外更危險，因為完全不知道資料已經壞了。
+ 
+死碼不是問題本身，死碼是症狀——它在告訴我 `MapToEntity` 根本沒有設計失敗路徑，而它應該要有。
+ 
+修正方式是把 `MapToEntity` 改成回傳 `PestDecadeSummary?`，並用衛語句在方法開頭擋住解析失敗的情況：
+ 
+```csharp
+private PestDecadeSummary? MapToEntity(PestDecadeSummaryDto dto)
+{
+    if (!int.TryParse(dto.Year, out var year)) return null;
+    if (!int.TryParse(dto.Month, out var month)) return null;
+    if (!int.TryParse(dto.Decade, out var tenDays)) return null;
+    // ...
+}
+```
+ 
+這樣 `MapToEntity` 現在真的有可能回傳 null 了。`.Where(e => e != null)` 從死碼變回了有意義的防禦，過濾的是真實可能發生的 null。
  
 **我學到的原則**
-防禦性寫法的前提是「確實存在需要防禦的情況」。複製其他 Worker 的寫法時，先問「這段 code 在那個 Worker 裡存在的原因是什麼」，再決定這個 Worker 是否需要同樣的防禦。照抄而不理解，等於把別人的業務邏輯搬進不適合的地方。
+發現死碼時，先問「為什麼它是死碼」，不要直接刪。死碼有時候是在提示你上游的設計有問題——不是「這個 check 多餘」，而是「這個 check 想防的失敗路徑根本沒有被設計進去」。找到根本問題，修正上游，死碼就自然恢復意義了。
  
 **下次遇到類似情況，我會先想到什麼**
-看到 null check，先問「這個方法真的可能回傳 null 嗎」。不可能的話，刪掉。讓型別簽名準確反映方法的行為。
+看到死碼，先往上游找：「它想防的那個情況，為什麼現在不存在？是設計刻意排除了，還是根本忘了設計？」刪死碼是最後一步，不是第一步。
+
 ---
 
 ## 跨條目的通用原則整理

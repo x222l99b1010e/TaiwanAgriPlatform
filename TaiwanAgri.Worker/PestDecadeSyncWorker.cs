@@ -74,12 +74,14 @@ namespace TaiwanAgri.Worker
 			//先從DTO 轉換成 entity，並檢查轉換失敗的情況（MapToEntity 回 null）
 			var incoming = allDtos
 				.Select(MapToEntity)
-				.DistinctBy(e => new { e.PestName, e.Year, e.Month, e.TenDays, e.City, e.Town }) // 這裡定義唯一性
+				.Where(e => e != null)
+				.Cast<PestDecadeSummary>()
+				.DistinctBy(e => new { e.PestName, e.Year, e.Month, e.TenDays, e.City, e.Town })
 				.ToList();
 
 			if (incoming.Count == 0)
 			{
-				_logger.LogWarning("[PestDecadeSync] 全部資料轉換失敗（MapToEntity 皆回 null）");
+				_logger.LogInformation("[PestDecadeSync] API 回傳資料為空，略過本次同步");
 				return;
 			}
 
@@ -114,6 +116,10 @@ namespace TaiwanAgri.Worker
 
 		private PestDecadeSummary MapToEntity(PestDecadeSummaryDto dto)
 		{
+			if (!int.TryParse(dto.Year, out var year)) return null;
+			if (!int.TryParse(dto.Month, out var month)) return null;
+			if (!int.TryParse(dto.Decade, out var tenDays)) return null;
+
 			return new PestDecadeSummary
 			{
 				PestName = dto.PestName,
