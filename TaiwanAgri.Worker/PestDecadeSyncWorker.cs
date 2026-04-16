@@ -71,7 +71,7 @@ namespace TaiwanAgri.Worker
 			}
 			_logger.LogInformation("[PestDecadeSync] 合計取得 {Count} 筆原始資料", allDtos.Count);
 
-			//先從DTO 轉換成 entity，並檢查轉換失敗的情況（MapToEntity 回 null）
+			//先從DTO 轉換成 entity，並檢查回傳資料為空的情況
 			var incoming = allDtos
 				.Select(MapToEntity)
 				.Where(e => e != null)
