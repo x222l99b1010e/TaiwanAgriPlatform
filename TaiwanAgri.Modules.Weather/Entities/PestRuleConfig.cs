@@ -22,8 +22,5 @@ namespace TaiwanAgri.Modules.Weather.Entities
 		[MaxLength]
 		public string? FilterJson { get; set; } //事件型過濾條件
 		public DateTime CreatedAt { get; set; } //規則建立時間
-
-		public ApplicationUser User { get; set; } // 導覽屬性，直接引用現有類別
-
 	}
 }

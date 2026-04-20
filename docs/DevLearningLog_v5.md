@@ -904,6 +904,219 @@ private PestDecadeSummary? MapToEntity(PestDecadeSummaryDto dto)
 
 ---
 
+### 條目 037 — 導覽屬性跨 DbContext 是「我要管這張表」的宣言，不只是方便存取
+
+**我做了什麼**
+
+設計 `PestRuleConfig` 和 `UserNotification` 時，保留了從昨天討論留下來的 `public ApplicationUser User { get; set; }` 導覽屬性。這個屬性的原意是方便從規則直接導航到使用者資訊。`Add-Migration` 之後，檢查產出的 Migration 檔案，發現裡面有一個完全沒預期到的 `CreateTable("ApplicationUser", ...)`。
+
+**我遇到的問題**
+
+Migration 自己多建了一張 `ApplicationUser` 表，跟 `ApplicationDbContext` 管的 `AspNetUsers` 完全沒有關聯，是一張孤立的冗餘表。如果跑 `Update-Database`，資料庫裡會多出一張用不到的表，而且未來可能跟真正的 Identity 表產生混淆。
+
+**我怎麼想通的**
+
+去看 EF Core 的運作方式：`Add-Migration` 執行時，EF Core 掃描所有 DbContext 知道的 Entity，決定要建哪些表。它「知道」一個 Entity 的途徑有兩個——你顯式宣告了 `DbSet<T>`，或者你在某個 Entity 上宣告了導覽屬性指向它。
+
+`WeatherDbContext` 裡面的 `PestRuleConfig` 有 `public ApplicationUser User { get; set; }`，EF Core 看到這個導覽屬性就說「`ApplicationUser` 是我管轄範圍內的 Entity，我要幫它建表」，所以 Migration 裡出現了 `CreateTable("ApplicationUser")`。
+
+這跟「方便存取」的直覺剛好相反——你以為加導覽屬性只是讓程式碼更方便，其實 EF Core 看到的意思是「你要我管這個 Entity」。導覽屬性是 EF Core 管理關聯的入口，不只是語法糖。
+
+解法是移除導覽屬性，只保留 `UserId` 字串欄位。跨 DbContext 的關聯只能存在於值層面（字串），不能存在於物件層面（導覽屬性）——這是跨模組架構必然要遵守的界線。
+
+**我學到的原則**
+
+在一個 Entity 上加導覽屬性，等於向所屬的 DbContext 宣告「我要管被導覽到的那張表」。跨 DbContext 需要關聯的情況，正確的做法是純字串 FK 欄位 + 放棄導覽屬性，讓應用程式層自己保證值的正確性。看到 Migration 裡出現意料之外的 `CreateTable`，第一個要查的就是導覽屬性。
+
+**下次遇到類似情況，我會先想到什麼**
+
+`Add-Migration` 後先檢查 `Up()` 裡有沒有意料之外的 `CreateTable`，有的話往 Entity 的導覽屬性找原因。
+
+---
+
+### 條目 038 — BackgroundService 適合「排程」，普通 Service 適合「邏輯」：從「能不能被外部呼叫」判斷
+
+**我做了什麼**
+
+設計 `PestRuleEngine` 時，面臨選擇：讓它繼承 `BackgroundService`（自己管排程 + 自己管邏輯），還是抽成普通 Service 讓一個 Worker 來持有。
+
+**我遇到的問題**
+
+一開始覺得都是「定期跑的任務」，跟其他 SyncWorker 做一樣的事，就讓它也繼承 `BackgroundService` 好了。但這個直覺有一個問題——說不清楚「為什麼其他的 SyncWorker 繼承 `BackgroundService` 是對的，`PestRuleEngine` 也繼承就是錯的」，感覺只是口味問題。
+
+**我怎麼想通的**
+
+轉折點是一個具體的問題：「未來如果你想讓管理員透過 API endpoint 手動觸發一次規則評估，你能做到嗎？」
+
+如果 `PestRuleEngine` 是 `BackgroundService`，它自己管自己的排程迴圈，外部沒有辦法直接呼叫它的方法，只能等排程時間到了才跑。手動觸發這件事做不到。
+
+如果 `PestRuleEngine` 是普通 Service，注入到任何地方後就能呼叫 `EvaluateAsync()`——無論是 Worker 的定時呼叫，還是 Controller 的手動觸發，都沒有問題。
+
+這讓我看清楚了兩者的本質差異：`BackgroundService` 適合的是「只由時間觸發、不需要被外部呼叫」的任務，也就是純排程；普通 Service 適合的是「需要被呼叫的邏輯」。`WeatherSyncWorker` 打 API 同步資料，永遠只有排程觸發，繼承 `BackgroundService` 完全合適。`PestRuleEngine` 執行規則判斷，有被其他地方呼叫的合理需求，應該抽成普通 Service。
+
+**我學到的原則**
+
+設計一個「定期執行的任務」時，先問「這個邏輯有沒有可能需要從排程以外的地方觸發？」有的話，把邏輯抽成普通 Service，Worker 只負責排程呼叫。`BackgroundService` 承擔「排程」，普通 Service 承擔「邏輯」，職責分離之後兩者都更乾淨。
+
+**下次遇到類似情況，我會先想到什麼**
+
+要寫一個定期跑的任務時，先問「這個邏輯有沒有機會被手動呼叫或被其他地方復用？」有的話就抽 Service，不要直接寫進 `BackgroundService`。
+
+---
+
+### 條目 039 — 通知去重不是過濾重複資料，而是追蹤「哪筆來源已通知過」
+
+**我做了什麼**
+
+設計 `EvaluateAsync()` 的去重邏輯時，`UserNotifications` 只有 `PestRuleConfigId` 這個欄位，初步想法是用這個欄位判斷「這條規則已經通知過了就跳過」。
+
+**我遇到的問題**
+
+這個邏輯在「一條規則一輩子只觸發一次」的假設下是對的，但病蟲害系統顯然不是這樣運作的——同一個縣市可以在一個月內收到多筆不同的榕小蜂警報，每一筆都是獨立的政府公告，應該各自通知。如果只用 `PestRuleConfigId` 去重，第一筆公告通知完之後，第二筆公告永遠被跳過，使用者收不到後來的新警報。
+
+**我怎麼想通的**
+
+問了一個更基本的問題：「引擎要判斷的不是『這條規則通知過了嗎』，而是『這筆具體的來源記錄通知過了嗎』。」這兩個問題是不同的，回答第二個問題才能解決問題。
+
+要回答「這筆來源記錄（`PestAlert Id=42`）有沒有觸發過通知」，`UserNotifications` 必須記錄「是哪一筆來源記錄觸發了這次通知」。補充 `SourceRecordId int?` 欄位，去重查詢變成 `AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id)`。兩個維度都對上才算「已通知過」，缺一不可。
+
+nullable 的原因也清楚了：數值型規則（PestDecade）觸發時也用這個欄位存 `PestDecadeSummary.Id`，但如果未來有某種規則的觸發沒有對應的單一來源記錄，這個欄位可以留 `null`，設計比較有彈性。
+
+**我學到的原則**
+
+「去重」的關鍵不是過濾掉重複的資料，而是精確定義「什麼叫做同一件事發生了兩次」。在通知系統裡，「同一件事」的定義是「同一條規則 + 同一筆來源記錄」，而不是「同一條規則」。設計去重機制之前，先把「什麼叫重複」的業務定義寫清楚，欄位設計自然跟著出來。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計通知或事件去重時，先問「我要追蹤的是哪一個層次的唯一性」——是規則層次、來源記錄層次，還是規則加來源記錄的組合？確認之後再決定需要哪些欄位。
+
+---
+
+### 條目 040 — AnyAsync：查存在性不需要撈資料，只需要問「有沒有」
+
+**我做了什麼**
+
+在 `EvaluateAsync` 的去重邏輯裡，需要查 `UserNotifications` 有沒有符合條件的記錄。第一個直覺是把資料撈出來再判斷，或者用 `.Distinct()`，兩個方向都不對。
+
+**我遇到的問題**
+
+不知道 EF Core 有什麼方法可以「只問有沒有，不撈資料本身」。問題的本質是：我不需要通知記錄的任何欄位值，我只需要知道「這筆通知存不存在」。
+
+**我怎麼想通的**
+
+這個需求和 `HashSet.Contains` 語意完全一樣——查某個東西有沒有，不拿它的值。EF Core 有對應的方法：`.AnyAsync(condition)`，回傳 `bool`，轉譯成 SQL 是 `SELECT CASE WHEN EXISTS (...) THEN 1 ELSE 0`，比先 `FirstOrDefaultAsync` 再判斷 `null` 效能高，也比撈出整個清單再 `.Any()` 省記憶體。
+
+去重查詢因此變成三行：
+
+```csharp
+var exists = await db.UserNotifications
+    .AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id);
+if (exists) continue;
+```
+
+**我學到的原則**
+
+EF Core 查詢的選擇要對應「我真正需要什麼」：需要資料本身用 `FirstOrDefaultAsync` 或 `ToListAsync`；只需要知道存不存在用 `AnyAsync`；只需要計數用 `CountAsync`。用錯了不是功能問題，是效能問題。
+
+**下次遇到類似情況，我會先想到什麼**
+
+查詢目的是「這個條件的記錄存不存在」時，直接 `AnyAsync`，不先撈資料再判斷 `null`。
+
+---
+
+### 條目 041 — 衛語句加 continue 在 switch/case 裡的跳出模式
+
+**我做了什麼**
+
+在 `foreach + switch` 的結構裡，需要對 `Threshold == null` 的情況跳過當前規則，繼續處理下一條。
+
+**我遇到的問題**
+
+不確定在 `switch` 的 `case` 裡面能不能直接用 `continue`，因為 `continue` 通常對應的是迴圈，`switch` 本身不是迴圈。
+
+**我怎麼想通的**
+
+`continue` 跳過的是最近一層的迴圈，不是 `switch`。這裡的結構是 `foreach` 包著 `switch`，所以 `switch` 裡面的 `continue` 作用是跳過 `foreach` 的當前迭代，效果就是「這條規則不處理，去下一條」。這正好是衛語句的標準用法：先用衛語句擋掉不符合條件的情況，符合條件的才繼續往下跑。
+
+這個模式讓程式碼的主線邏輯很清楚——能跑到主線查詢的，一定已經通過了所有衛語句，所以 `rule.Threshold.Value` 不會丟例外，因為 `null` 已經被上面的衛語句排掉了。
+
+**我學到的原則**
+
+`switch` 裡的 `continue` 作用在外層迴圈，不是 `switch` 本身。衛語句的核心是「讓主線邏輯只處理合法狀態」，所有邊界情況在最前面就排掉，主線程式碼因此可以假設前置條件都已滿足。
+
+**下次遇到類似情況，我會先想到什麼**
+
+`switch case` 裡需要跳過這條迭代時，直接 `continue`，作用到外層的 `foreach`。
+
+---
+
+### 條目 042 — FilterJson 的兩道衛語句：null 字串和反序列化失敗是兩個獨立的問題
+
+**我做了什麼**
+
+`PlantEpidemic` 分支需要把 `rule.FilterJson`（字串）反序列化成 `PestRuleFilter` 物件後才能查詢。一開始想在反序列化完之後，再檢查 `filter.City == null`。
+
+**我遇到的問題**
+
+這個順序是錯的。如果 `rule.FilterJson` 本身就是 `null`，`JsonSerializer.Deserialize(null)` 會拋 `NullReferenceException`，根本跑不到「檢查 `filter.City`」那一行。
+
+**我怎麼想通的**
+
+這是兩個獨立的失敗情況，需要分別處理：
+
+- 第一道衛語句擋 `rule.FilterJson == null`（字串本身為 `null`，無法反序列化）
+- 第二道衛語句擋 `filter == null`（JSON 格式錯誤，反序列化失敗，`Deserialize` 回傳 `null`）
+
+兩道擋完，能跑到查詢那行的 `filter` 一定是有效物件，`filter.City` 和 `filter.PlantName` 一定可以使用。這和 `Threshold` 的衛語句邏輯是一樣的原則：先排掉所有不合法狀態，主線只處理合法情況。
+
+**我學到的原則**
+
+涉及反序列化的地方，至少需要兩道衛語句：先擋輸入字串為 `null`，再擋反序列化結果為 `null`。這兩個失敗路徑的原因不同，錯誤訊息也要區分，才能從 Log 快速判斷是「根本沒有填 `FilterJson`」還是「`FilterJson` 格式壞了」。
+
+**下次遇到類似情況，我會先想到什麼**
+
+呼叫 `Deserialize` 之前先查字串是否為 `null`，呼叫之後再查結果是否為 `null`，兩道缺一不可。
+
+---
+
+### 條目 043 — 事件型通知用持續顯示取代重複推播
+
+**我做了什麼**
+
+設計 Event 型規則的通知行為時，討論到「引擎每天跑，同一筆公告符合條件，要不要每天通知使用者一次？」
+
+**我遇到的問題**
+
+事件型公告的性質是「持續存在的威脅」，不像旬報超過閾值那樣是「瞬時狀態」。使用者已經收到第一次通知之後，這段期間這個威脅還在，但重複通知他同樣的事會造成騷擾。
+
+**我怎麼想通的**
+
+問自己「使用者作為農民，真正需要的是什麼？」他需要的是「在有需要的時候能看到警報」，不是「每天被提醒一次同樣的事」。
+
+解法是把通知的呈現方式從「推播」改成「常駐 UI」：通知只寫一次，前台用紅點或鈴鐺圖示持續顯示「有未讀通知」，使用者主動去看。這和 App 的未讀訊息紅點邏輯一樣——有新訊息就顯示，不是每分鐘推一次。
+
+通知的生命週期由 `ExpiryDays` 控制：`ExpireAt = TriggeredAt + ExpiryDays`，到期後 `EvaluateAsync` 下次跑的時候硬刪除。規則本身的 `IsActive` 不受影響，使用者可以隨時重新啟用。
+
+**我學到的原則**
+
+通知設計要先問「使用者真正需要被告知幾次」。持續存在的事件通知一次、讓 UI 持續顯示，比反覆推播同一件事更符合使用者需求，也更符合軟體設計中「低干擾、高資訊密度」的原則。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計持續性事件的通知時，先區分「這件事需要告知幾次」和「使用者需要在什麼時候能查到這件事」，前者決定推播次數，後者決定 UI 的顯示邏輯。
+
+---
+
+### 條目 044 — 規則引擎 PestRuleEngine.EvaluateAsync()
+**（待完成後補寫）**
+
+---
+
+### 條目 045 — UserNotifications 寫入邏輯
+**（待完成後補寫）**
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。

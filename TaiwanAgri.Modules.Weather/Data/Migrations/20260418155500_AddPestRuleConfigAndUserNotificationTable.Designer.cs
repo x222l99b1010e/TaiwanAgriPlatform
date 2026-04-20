@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaiwanAgri.Modules.Weather.Data;
 
@@ -11,9 +12,11 @@ using TaiwanAgri.Modules.Weather.Data;
 namespace TaiwanAgri.Modules.Weather.Data.Migrations
 {
     [DbContext(typeof(WeatherDbContext))]
-    partial class WeatherDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260418155500_AddPestRuleConfigAndUserNotificationTable")]
+    partial class AddPestRuleConfigAndUserNotificationTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -372,9 +375,6 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("PestRuleConfigId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("SourceRecordId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("TriggeredAt")

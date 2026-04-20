@@ -15,6 +15,8 @@ namespace TaiwanAgri.Modules.Weather.Data
 		public DbSet<RainfallStation> RainfallStations => Set<RainfallStation>();
 		public DbSet<RainfallObservation> RainfallObservations => Set<RainfallObservation>();
 		public DbSet<PestDecadeSummary> PestDecadeSummaries => Set<PestDecadeSummary>();
+		public DbSet<PestRuleConfig> PestRuleConfigs => Set<PestRuleConfig>();
+		public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -93,6 +95,21 @@ namespace TaiwanAgri.Modules.Weather.Data
 					  .HasColumnType("decimal(10,2)");
 				entity.Property(e => e.ProportionIsland)
 					  .HasColumnType("decimal(10,2)");
+			});
+
+			modelBuilder.Entity<PestRuleConfig>(entity =>
+			{
+				entity.ToTable("PestRuleConfigs");
+				entity.HasIndex(p => new { p.RuleName })
+				.HasDatabaseName("IX_PestRuleConfigs_RuleName");
+				entity.HasIndex(p => new { p.UserId,p.IsActive })
+				.HasDatabaseName("IX_PestRuleConfigs_UserId_IsActive");
+			});
+
+			modelBuilder.Entity<UserNotification>(entity => {
+				entity.ToTable("UserNotifications");
+				entity.HasIndex(u => new { u.UserId, u.IsRead })
+				.HasDatabaseName("IX_UserNotifications_UserId_IsRead");
 			});
 		}
 	}

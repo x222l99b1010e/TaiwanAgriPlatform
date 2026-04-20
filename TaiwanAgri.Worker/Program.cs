@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Polly;
 using TaiwanAgri.Modules.Weather.Data;
+using TaiwanAgri.Modules.Weather.Services;
 
 namespace TaiwanAgri.Worker
 {
@@ -32,6 +33,8 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<RainfallStationSyncWorker>();
 			builder.Services.AddHostedService<RainfallSyncWorker>();
 			builder.Services.AddHostedService<PestDecadeSyncWorker>();
+			builder.Services.AddSingleton<PestRuleEngine>();
+			builder.Services.AddHostedService<PestRuleEngineWorker>();
 
 
 

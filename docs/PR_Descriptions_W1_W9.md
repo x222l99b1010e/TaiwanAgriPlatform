@@ -545,6 +545,81 @@ private PestDecadeSummary? MapToEntity(PestDecadeSummaryDto dto)
 
 ---
 
+
+## PR #012 — PestRuleConfig + UserNotifications 資料表設計、規則引擎與 Worker
+
+**標題**：`feat(pest-rule): 實作 PestRuleConfig + UserNotifications 資料表設計、PestRuleEngine 規則引擎與 PestRuleEngineWorker`
+
+**背景與動機**
+
+W5-6 下半的核心目標是讓系統從「被動收集資料」升級成「主動提醒使用者」。上半建好了三條資料收集線（氣象、雨量、旬報），下半要在這些資料上蓋一層規則評估引擎：使用者設定條件，引擎定期跑、對資料做判斷、把符合條件的事件寫入通知記錄，前台讀取通知記錄。這個 PR 完成了這條流程的資料層和邏輯層。
+
+**關鍵設計決策一：跨 DbContext 不建物理 FK，UserId 純字串邏輯 FK**
+
+`PestRuleConfig` 和 `UserNotifications` 都需要 `UserId FK → AspNetUsers`，但 `AspNetUsers` 在 `ApplicationDbContext`（Web 專案）管理，`PestRuleConfig` 在 `WeatherDbContext`（`Modules.Weather` 專案）管理，兩個不同的 DbContext。
+
+EF Core 的 FK 關係需要雙方都在同一個 DbContext 裡，跨 DbContext 建物理 FK 有兩條路：一是手動在資料庫補 FK constraint，但這讓程式碼和 Migration 不再是唯一真相來源，下次跑 Migration 可能衝突；二是強行在 `WeatherDbContext` 加入 `ApplicationUser` 的 `DbSet`，會讓模組依賴關係混亂。
+
+最終選擇：`UserId` 只是一個純字串欄位，`OnModelCreating` 裡不宣告 `HasForeignKey`，資料庫層級沒有 FK constraint，應用程式層負責保證寫入的 `UserId` 是真實存在的使用者。已知的代價是：使用者帳號被刪除後，對應的規則和通知記錄會成為孤兒（orphan records），這個清理邏輯留待 W15-16 實作登入功能時補上。
+
+**關鍵設計決策二：移除導覽屬性，避免 EF Core 跨 DbContext 多建表**
+
+`PestRuleConfig` 和 `UserNotification` 初始設計裡有 `public ApplicationUser User { get; set; }` 這個導覽屬性。第一次 `Add-Migration` 時，Migration 的 `Up()` 裡出現了一個多餘的 `CreateTable("ApplicationUser", ...)`——EF Core 看到導覽屬性就認為自己要管這個 Entity，自動在 `WeatherDbContext` 的管轄範圍裡建了一張全新的 `ApplicationUser` 表，跟 `ApplicationDbContext` 管理的 `AspNetUsers` 完全沒有關聯。
+
+解法是 `Remove-Migration`，從 `PestRuleConfig.cs` 和 `UserNotification.cs` 移除 `ApplicationUser User` 導覽屬性，再重新 `Add-Migration`。沒有導覽屬性，EF Core 就不認為自己要管 `ApplicationUser`，Migration 才是乾淨的。
+
+原則是：導覽屬性是 EF Core 管理關聯的入口，有導覽屬性就等於宣告「我的 DbContext 要管這張表」。跨 DbContext 的關聯只能存在於值層面（字串欄位），不能存在於物件層面（導覽屬性）。
+
+**關鍵設計決策三：PestRuleEngine 抽成普通 Service，由 Worker 定時呼叫**
+
+最初考慮讓 `PestRuleEngine` 直接繼承 `BackgroundService`，把排程和邏輯都放在同一個類別裡，跟其他 SyncWorker 的模式一致。最終選擇了另一種結構：
+
+```
+PestRuleEngineWorker（BackgroundService，只管排程）
+    └→ 注入 PestRuleEngine（普通 Service，只管邏輯）
+           └→ EvaluateAsync() 在這裡
+```
+
+選擇這個結構的原因是可呼叫性：如果未來想讓管理員透過 API endpoint 手動觸發一次規則評估，直接注入 `PestRuleEngine` 呼叫 `EvaluateAsync()` 就好；如果 Engine 是 `BackgroundService`，外部根本沒辦法呼叫它的方法，只能等排程時間到。
+
+`PestRuleEngine` 以 `AddSingleton<PestRuleEngine>()` 註冊，這樣它和持有它的 `PestRuleEngineWorker`（Singleton 生命週期）的生命週期一致，不會出現 Scoped 被 Singleton 持有的問題。Engine 內部用 `IServiceScopeFactory` 每次 `EvaluateAsync` 執行時動態建立 Scope 取得 DbContext，用完釋放。
+
+**關鍵設計決策四：通知去重需要 SourceRecordId**
+
+最初 `UserNotifications` 只有 `PestRuleConfigId`，邏輯是「這條規則的通知已存在就跳過」。這個設計有一個根本缺陷：同一條規則在不同時間可能觸發多次——例如 1/1 南投縣榕小蜂警報（`PestAlert Id=42`）寫了一次通知，1/9 又有一筆新的南投縣榕小蜂警報（`PestAlert Id=55`），如果只用 `PestRuleConfigId` 去重，Id=55 的新公告就會被誤判為「已通知過」跳過。
+
+補充 `SourceRecordId int?` 欄位解決這個問題：引擎對每一筆符合條件的來源記錄，去查 `UserNotifications` 有沒有 `PestRuleConfigId == rule.Id AND SourceRecordId == item.Id` 的記錄，有才跳過，沒有才寫新通知。這樣每一筆獨立的來源記錄都能對應到自己的通知，不會混淆。數值型（PestDecade）也用同一套機制，`SourceRecordId` 存 `PestDecadeSummary.Id`。
+
+**關鍵設計決策五：到期通知硬刪除，Event 型通知靠 ExpiryDays 控制生命週期**
+
+`EvaluateAsync` 的第一步是清除 `ExpireAt < DateTime.UtcNow` 的通知，直接 `RemoveRange` 硬刪除。選擇硬刪除而非軟刪除的原因是：過期通知對使用者沒有保留價值，軟刪除只是增加查詢時需要過濾的雜訊，沒有好處。
+
+事件型通知的設計原則是「發一次，讓它在通知列表裡存活 `ExpiryDays` 天，到期消失」。前台呈現用常駐 UI（紅點/鈴鐺）而非重複推播，使用者看完點掉（`IsRead = true`），通知繼續存在直到 `ExpiryDays` 到期自動清除。重複推播同一件事是騷擾，常駐顯示才是正確的持續事件提醒方式。
+
+**EvaluateAsync 完整流程**
+
+```
+1. 硬刪除 ExpireAt < now 的通知
+2. 撈出所有 IsActive = true 的 PestRuleConfig
+3. foreach rule:
+   a. switch(RuleType):
+      "Numeric" → 衛語句擋 null Threshold
+                → WHERE PestDecadeSummaries.Average > Threshold.Value
+                → foreach item: AnyAsync(PestRuleConfigId + SourceRecordId) 去重 → 寫通知
+      "Event"   → switch(SourceTable):
+                  "PlantEpidemic" → 衛語句擋 null FilterJson → Deserialize<PestRuleFilter>
+                                  → WHERE Cities.Any(city) && Crops.Any(crop)
+                                  → foreach item: AnyAsync 去重 → 寫通知
+                  "TreePest"      → LogWarning 尚未實作
+   SaveChangesAsync 在每條規則的迴圈外執行
+```
+
+**驗收標準**
+
+0 錯誤（21 個 nullable 警告不影響執行）。SQL Server 物件總管中 `PestRuleConfigs` 和 `UserNotifications` 兩張表存在，欄位與 Migration 定義一致，`SourceRecordId` 欄位在 `UserNotifications` 存在。程式啟動後 Log 顯示 `[PestRuleEngineWorker]` 開始執行但因無規則資料直接結束，不拋任何例外。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
