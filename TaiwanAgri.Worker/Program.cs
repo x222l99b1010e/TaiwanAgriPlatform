@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Polly;
+using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
 
@@ -15,6 +16,10 @@ namespace TaiwanAgri.Worker
 				options.UseSqlServer(
 					builder.Configuration.GetConnectionString("DefaultConnection")));
 
+			builder.Services.AddDbContext<MarketDbContext>(options =>
+				options.UseSqlServer(
+					builder.Configuration.GetConnectionString("DefaultConnection")));
+
 			builder.Services.AddHttpClient("MoaApi", client =>
 			{
 				client.BaseAddress = new Uri("https://data.moa.gov.tw/");
@@ -27,7 +32,7 @@ namespace TaiwanAgri.Worker
 					policy.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)));
 			// 遇到網路錯誤或 5xx，自動等待 2 秒並重試，最多 3 次
 
-
+			//Weather 註冊
 			builder.Services.AddHostedService<WeatherSyncWorker>();
 			builder.Services.AddHostedService<PestAlertSyncWorker>();
 			builder.Services.AddHostedService<RainfallStationSyncWorker>();
@@ -35,7 +40,8 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<PestDecadeSyncWorker>();
 			builder.Services.AddSingleton<PestRuleEngine>();
 			builder.Services.AddHostedService<PestRuleEngineWorker>();
-
+			//Market 註冊
+			builder.Services.AddHostedService<MarketRestDaySyncWorker>();
 
 
 			var host = builder.Build();

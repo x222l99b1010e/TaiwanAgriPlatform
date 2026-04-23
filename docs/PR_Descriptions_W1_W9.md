@@ -620,6 +620,70 @@ PestRuleEngineWorker（BackgroundService，只管排程）
 
 ---
 
+## PR #013 — Market 模組基礎建立：MarketRestDay Entity、DbContext、Migration 與 SyncWorker
+ 
+**標題**：`feat(market): 建立 Market 模組基礎 — MarketRestDay Entity、MarketDbContext、Migration 與 MarketRestDaySyncWorker`
+ 
+**背景與動機**
+ 
+W7-8 正式進入 Market 模組開發。整個模組有四支 API：`AgriProductsTrans`（農產品交易行情）、`PorkTrans`（豬肉交易行情）、`DebrisAlert`（土石流警戒）、`MarketRestDay`（休市日）。開發前先分析四支 API 之間的依賴關係，確認 `MarketRestDay` 必須先做：交易行情 API 在休市日仍會回傳資料，但 `CropName = "休市"`、價格全為 0，若 Worker 直接略過休市判斷，這些 0 值就會混入資料庫，污染後續的均價計算和走勢分析。`MarketRestDay` 是 `AgriProductsTrans` 和 `PorkTrans` 的前置參考資料，決定「哪些天不需要同步」的依據。
+ 
+這個 PR 完成了 Market 模組的基礎建設：新模組的 DbContext 建立、第一張業務資料表的 Entity 設計、Migration 跑通，以及 SyncWorker 完整實作並驗收通過（32,149 筆）。
+ 
+**關鍵設計決策一：AgriProductsTrans 遇到休市筆用 continue 跳過，不存 0 值**
+ 
+農業部的 `AgriProductsTrans` API 在休市日並不回傳空陣列，而是回傳 `CropName = "休市"`、`Upper_Price = 0`、`Middle_Price = 0`、`Lower_Price = 0`、`Avg_Price = 0`、`Trans_Quantity = 0` 的記錄。這帶出一個設計選擇：
+ 
+選項 A 是把這些休市筆原樣存進 `AgriProductsTrans` 表。好處是資料完整，壞處是當系統要做「災害發生後農產品價格波動分析」時，0 值會被計入均價，分析結果失真。
+ 
+選項 B 是 `AgriProductsTrans` 只存真實交易資料（`CropName == "休市"` 時 `continue` 跳過），另外靠 `MarketRestDay` 記錄休市資訊，前台走勢圖查不到資料的那天去 `MarketRestDay` 確認「這天是休市」，在圖上標注「休市」而非顯示斷點。
+ 
+選擇選項 B 的理由是資料純度：`AgriProductsTrans` 存的是農產品交易的業務資料，休市標記是另一個維度的資訊，兩者混在同一張表會讓查詢者永遠需要先過濾 `CropName != "休市"`，這個認知負擔不應該轉嫁給查詢端。
+ 
+**關鍵設計決策二：MarketRestDay 的資料性質判斷——快照型，不是主檔型**
+ 
+`MarketRestDay` 看起來像「固定清單」（台灣農產市場的休市日曆），但它實際的資料性質是快照型：每年的休市日曆不同，舊年份的資料不會變動，新年份的資料會在年初後陸續補入，資料量隨時間持續累積，符合快照型的定義。這個判斷決定了 Entity 設計上不需要 `IsActive` / `UpdatedAt` 欄位（那是主檔型才需要的），也決定了去重策略應該以「這一筆日期記錄已存在嗎」而非「這個市場的資料已存在嗎」為單位。
+ 
+**關鍵設計決策三：五層巢狀 JSON 攤平到關聯式資料庫**
+ 
+農業部的 `MarketRestDay` API 回傳五層巢狀結構：`市場 → 交易類型 → 年 → 月 → 休市日字串`。關聯式資料庫只接受平坦的「一列一筆」結構，需要在 SyncWorker 裡用四層 `foreach` 走訪，在最內層對 `Rest` 字串（格式為 `"05、08、12、19、22、26"`）做 `Split('、')`，每個拆出來的日期組成一筆獨立的 `MarketRestDay` Entity。
+ 
+攤平的原則是：API 的巢狀設計是為了減少傳輸重複欄位（例如 `MarketCode` 不需要重複出現在每一個月份），但資料庫需要的是每一筆記錄都自我完備，能獨立表達完整語義。攤平後一筆記錄長這樣：`MarketCode = "104"、MarketName = "台北二"、MarketType = "F"、Year = 115、Month = 1、RestDay = 5`。
+ 
+**關鍵設計決策四：多 DbContext 專案的 Migration 指令需要明確指定 -Context 和 -Project**
+ 
+這是 Market 模組的第一次 Migration，也是整個專案第一次同時存在兩個 DbContext（`WeatherDbContext` 和 `MarketDbContext`）。此時如果直接下 `Add-Migration`，EF Core 不知道要針對哪個 DbContext 操作，需要明確指定兩個額外參數：
+ 
+```
+Add-Migration AddMarketRestDayEntity -Context MarketDbContext -Project TaiwanAgri.Modules.Market
+```
+ 
+`-Context` 指定操作對象，`-Project` 指定 Migration 檔案要產生在哪個專案資料夾。同樣地，`Update-Database` 也需要加 `-Context MarketDbContext`，確保 Migration 套用到正確的 DbContext 管轄範圍。
+ 
+**關鍵設計決策五：Modular Monolith 的組裝責任在入口層**
+ 
+`MarketDbContext` 定義在 `TaiwanAgri.Modules.Market`，但連線字串的設定和 Worker 的啟動都在 `TaiwanAgri.Worker` 的 `Program.cs` 裡完成。模組本身只負責「我管哪些表、我的業務邏輯長什麼樣」，不知道也不需要知道「我要連哪個資料庫、什麼時候啟動」。連線字串屬於執行環境的設定，組裝和啟動屬於入口層的責任，這是 Modular Monolith 的核心邊界原則。
+ 
+**SyncWorker 完整流程**
+ 
+```
+1. 分頁抓取 MarketRestDay API（Next = false 時停止，加設 20 頁上限保護）
+2. 收集所有 MarketRestDayDto 到 allDtos
+3. 四層 foreach 走訪 allDtos 的巢狀結構
+4. 最內層 Split('、') 拆日期字串，int.TryParse 防禦性解析
+5. 組出 MarketRestDay Entity 收集到 entities
+6. 從資料庫撈出已存在的自然鍵組合到 HashSet
+7. Where !HashSet.Contains 過濾出 toInsert
+8. AddRange + SaveChangesAsync 寫入
+9. 每 7 天執行一次（休市日曆預告制，一年更新一次，週同步綽綽有餘）
+```
+ 
+**驗收標準**
+ 
+編譯 0 錯誤。`MarketRestDays` 表在 SQL Server 物件總管中存在，欄位與 Migration 定義一致。程式啟動後 Log 顯示 `[MarketRestDaySync] 新增 32149 筆休市日資料`，不拋任何例外。第二次執行顯示 `[MarketRestDaySync] 無新資料需要同步`，確認去重邏輯正確運作。
+ 
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
