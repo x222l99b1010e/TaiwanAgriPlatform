@@ -545,7 +545,6 @@ private PestDecadeSummary? MapToEntity(PestDecadeSummaryDto dto)
 
 ---
 
-
 ## PR #012 — PestRuleConfig + UserNotifications 資料表設計、規則引擎與 Worker
 
 **標題**：`feat(pest-rule): 實作 PestRuleConfig + UserNotifications 資料表設計、PestRuleEngine 規則引擎與 PestRuleEngineWorker`
@@ -681,7 +680,99 @@ Add-Migration AddMarketRestDayEntity -Context MarketDbContext -Project TaiwanAgr
 **驗收標準**
  
 編譯 0 錯誤。`MarketRestDays` 表在 SQL Server 物件總管中存在，欄位與 Migration 定義一致。程式啟動後 Log 顯示 `[MarketRestDaySync] 新增 32149 筆休市日資料`，不拋任何例外。第二次執行顯示 `[MarketRestDaySync] 無新資料需要同步`，確認去重邏輯正確運作。
+
+---
  
+## PR #014 — Market 模組 Schema 分離、MarketInfo 重構與 CropMarketSyncWorker
+ 
+**標題**：`feat(market): MarketInfo Entity 重構、全模組 Schema 分離與 CropMarketSyncWorker 實作`
+ 
+**背景與動機**
+ 
+這個 PR 是 Market 模組開發的第二階段，處理 CropMarketSyncWorker 的前置工作——在實作 AgriProductsTrans 的日常行情同步之前，必須先有一份正確的市場清單，AgriProductsTransSyncWorker 才能知道要對哪些市場打 API。
+ 
+這個 PR 完成了四件事：一、將整個專案的資料庫命名空間從扁平的 dbo 重構為以模組為單位的 Schema（market / weather），讓資料庫結構能對應 Modular Monolith 的架構語意；二、重構 MarketInfo Entity，因為真實 API 資料揭示了 MarketCode 不能單獨作為 PK 的事實；三、配合 Entity 重構，調整 AgriProductsTrans 與 MarketInfo 的關聯方式；四、實作 CropMarketSyncWorker，將市場清單同步進 MarketInfos 表，為後續的交易資料同步奠定基礎。
+ 
+**關鍵設計決策一：用 Schema 取代前綴字，讓資料庫結構對應模組邊界**
+ 
+最初考慮在資料表名稱加前綴（MKT_AgriProductsTrans、WEA_WeatherObservations），讓視覺上可以辨識哪個表屬於哪個模組。最終選擇了 SQL Server 的 Schema 機制：
+ 
+```sql
+market.AgriProductsTrans
+weather.WeatherObservations
+```
+ 
+選 Schema 而非前綴的理由：前綴是「用命名解決架構問題」的補丁，Schema 才是資料庫層真正支援的命名空間。在 EF Core 的 `OnModelCreating` 裡只需要一行 `entity.ToTable("TableName", schema: "market")`，Migration 會自動產生 `EnsureSchema` 並把表建在正確的 Schema 下。SQL Server Management Studio 裡也會自動按 Schema 分群顯示，不需要前綴就能一眼看出模組歸屬。
+ 
+這個改動需要重建全部 Migration——兩個模組的 Migrations 資料夾清空，刪除資料庫，重新 `Add-Migration InitialCreate` + `Update-Database`。因為都在開發階段、資料可以重跑 Worker 補回，選擇「重建」而非「補丁 Migration」，確保歷史 Migration 乾淨，不留 `ALTER SCHEMA TRANSFER` 的痕跡。
+ 
+**關鍵設計決策二：MarketInfo 的 PK 必須從 MarketCode 改成 surrogate Id**
+ 
+原始設計是以 MarketCode（string）作為 MarketInfos 的 PK，這在一開始看起來合理——MarketCode 是有業務意義的識別碼，應該當 PK。
+ 
+打開真實 API 資料之後發現了一個問題：MarketCode 514 在不同來源下有兩個名稱——Veg API 叫「溪湖鎮」，Flower API 叫「彰化市場」。這兩個名稱在查詢 AgriProductsTrans API 時各自對應不同的資料集（蔬菜交易 vs 花卉交易），必須分別存為兩筆才能讓後續的 AgriProductsTransSyncWorker 用正確的 MarketName 打 API。
+ 
+這讓「一個 MarketCode 對應一筆主檔」的假設直接失效。解法是：
+ 
+- PK 改成 surrogate Id（int IDENTITY），不與業務代碼綁定
+- Unique constraint 改為 `(MarketCode, MarketName)`——同一組 code + name 組合才視為重複，514 溪湖鎮和 514 彰化市場是不同的兩筆，自然並存
+- MarketType 欄位（Veg / Fruit / Flower）新增進來，讓 AgriProductsTransSyncWorker 知道每筆市場要用哪種類型的 API 查詢
+**關鍵設計決策三：AgriProductsTrans 改用值層面關聯，拿掉 MarketInfo FK**
+ 
+MarketInfo 的 PK 改成 surrogate Id 之後，原本 `AgriProductsTrans.MarketCode → MarketInfos.MarketCode` 的 FK 關係就無法維持——SQL Server 的 FK 只能指向 PK 或有 Unique constraint 的欄位，而 MarketCode 現在只是一個普通欄位。
+ 
+考慮把 FK 改成指向 surrogate Id，但這要求 AgriProductsTransSyncWorker 在寫入每筆交易時先查 MarketInfos 找到對應的 Id——這是額外的查詢代價，而且交易 API 回傳的就是 MarketCode 字串，本來就不需要查 MarketInfos 才能決定要存什麼。
+ 
+最終選擇移除導覽屬性和 `HasForeignKey`，讓 `AgriProductsTrans.MarketCode` 成為純字串欄位。資料完整性由應用程式層保證：AgriProductsTransSyncWorker 的市場清單本來就是從 MarketInfos 表讀出來的，寫進 AgriProductsTrans 的 MarketCode 一定有對應的主檔存在，不需要資料庫的 FK constraint 來重複保護。已知代價：MarketInfos 的記錄被刪除後 AgriProductsTrans 的歷史資料不會連帶刪除——這正是設計意圖，歷史交易快照應該被保留。
+ 
+**關鍵設計決策四：CropMarketSyncWorker 只打 Veg / Fruit / Flower，排除 ComVegFruit / ComFlower**
+ 
+農業部的 `/CropMarketType/` API 提供五種類型：Veg、Fruit、Flower、ComVegFruit、ComFlower。測試後發現：
+ 
+- ComVegFruit 回傳的市場名稱是「台北二市」、「板橋市場」、「三重市場」——這些名稱帶入 AgriProductsTrans API 的 MarketName 查詢參數回傳空陣列，API 做精確比對，不做模糊搜尋
+- ComFlower 的清單與 Flower 完全相同，是重複來源
+- Veg 和 Fruit 回傳的名稱（「台北二」、「板橋區」、「三重區」）可以正確查到交易資料
+所以 Worker 只打三隻 API，ComVegFruit 和 ComFlower 直接排除。
+ 
+**關鍵設計決策五：105 台北市場的硬編碼補丁，以及時機的重要性**
+ 
+Veg 和 Fruit API 都不包含 MarketCode 105，而 Flower API 的 105 名稱是「台北花市」，但 AgriProductsTrans API 的真實 MarketName 欄位回傳的是「台北市場」。兩個名稱不一致，無論打哪隻 API 都無法自然同步進正確的名稱。
+ 
+解法是在 Worker 啟動時硬編碼 upsert 這一筆：
+ 
+```csharp
+if (!await db.MarketInfos.AnyAsync(m => m.MarketCode == "105" && m.MarketName == "台北市場"))
+{
+    db.MarketInfos.Add(new MarketInfo { MarketCode = "105", MarketName = "台北市場", MarketType = "Flower" });
+    await db.SaveChangesAsync(stoppingToken);
+}
+```
+ 
+這筆 upsert 刻意放在三隻 API sync 之前，並且有自己的 `SaveChangesAsync`。原因是：如果放在 API sync 之後，API 打到一半失敗會導致 Worker 中斷，硬編碼那筆沒有寫進去，AgriProductsTransSyncWorker 在這個 Worker 沒有成功完成的情況下跑起來就會找不到 105 台北市場。先存確保「依賴方啟動前一定有這筆資料」。
+ 
+**關鍵設計決策六：HashSet 記憶體鏡像模式——三次 API 只查一次 DB**
+ 
+去重邏輯：從 DB 撈出已存在的 `(MarketCode, MarketName)` 組合建立 `HashSet<(string, string)>`，比對後把新資料 `Add` 進 Change Tracker，同時也 `Add` 進 HashSet——HashSet 扮演「DB + 尚未存入的資料」的聯集，下一次 API 比對時可以直接使用。三次 API 跑完後一次 `SaveChangesAsync`。
+ 
+```csharp
+// 比對、Add、HashSet 同步更新，三步合一
+var toAdd = incoming
+    .Where(m => !existingMarketCodes.Contains((m.MarketCode, m.MarketName)))
+    .ToList();
+ 
+await db.MarketInfos.AddRangeAsync(toAdd, stoppingToken);
+foreach (var m in toAdd)
+{
+    existingMarketCodes.Add((m.MarketCode, m.MarketName));  // ← 記憶體鏡像維護
+}
+```
+ 
+若不維護 HashSet，三次 API 各自查一次 DB，每次查之前還要先 `SaveChangesAsync` 讓上一輪的新資料可見——等同於 3 次查 DB + 3 次 Save，邏輯複雜且效能沒有必要。
+ 
+**驗收標準**
+ 
+編譯 0 錯誤。SQL Server 中 `market` 和 `weather` 兩個 Schema 存在，各自的資料表在對應 Schema 下。`MarketInfos` 表有 `Id`、`MarketCode`、`MarketName`、`MarketType` 欄位，`(MarketCode, MarketName)` 的 Unique Index 存在。Worker 啟動後 Log 顯示三類市場資料同步成功，MarketInfos 表中可查到 105 台北市場（MarketType = Flower）這筆記錄，514 有溪湖鎮（Veg）和彰化市場（Flower）兩筆並存。第二次執行顯示「無新資料需寫入（全部已存在）」，確認去重邏輯正確。
+
 ---
 
 ## 閱讀之後：給你的觀察指南

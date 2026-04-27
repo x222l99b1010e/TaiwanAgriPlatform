@@ -1,5 +1,5 @@
 # 開發者學習日誌
-### TaiwanAgriPlatform — Developer Learning Log v4
+### TaiwanAgriPlatform — Developer Learning Log v5
 
 > 這份文件記錄的不是「我做了什麼」，而是「我是怎麼想通的」。
 > 給六個月後的自己看。每完成一個 PR，補一個條目。
@@ -1393,6 +1393,230 @@ await db.SaveChangesAsync(stoppingToken);   // I/O，才需要 await 和 Cancell
 **下次遇到類似情況，我會先想到什麼**
  
 看到多層迴圈時，先標出每一層走訪的資料集是什麼，問「這個資料集的大小會無限增長嗎？」如果每層都有自然上限，效能通常不是問題；如果有任何一層是無限增長的，那才是需要優化的地方。
+
+---
+
+### 條目 054 — Schema 是資料庫層的模組邊界，不是前綴字的替代品
+
+**我做了什麼**
+
+發現資料庫裡的 market 和 weather 模組的資料表全部混在 dbo 下，考慮用前綴字（MKT_、WEA_）來做視覺區分，後來改成用 SQL Server 的 Schema 機制：`entity.ToTable("TableName", schema: "market")`。
+
+**我遇到的問題**
+
+不清楚為什麼業界比較推薦 Schema 而不是前綴字——兩個方式視覺上看起來效果差不多，前綴字甚至不用修改 OnModelCreating 的設定方式。
+
+**我怎麼想通的**
+
+前綴字是「用命名解決架構問題」的補丁，Schema 是資料庫本身提供的命名空間機制。具體差異：Schema 讓 SSMS 自動按模組分群顯示，查詢時也可以用 `SELECT * FROM market.AgriProductsTrans` 明確表達意圖。更重要的是，在 Modular Monolith 的語境裡，Schema 讓「模組有自己的資料邊界」這件事變得可驗證——光看資料庫結構就能確認 Market 模組沒有越界存取 Weather 模組的表。
+
+這個改動需要重建整個 Migration（清空 Migrations 資料夾、刪 DB、重新 Add-Migration）。開發階段資料可以重跑 Worker 補回，這個代價是合理的。若在已有生產資料的環境，就需要 `ALTER SCHEMA TRANSFER` 的補丁 Migration，代價更高，所以儘早統一是正確的。
+
+**我學到的原則**
+
+Schema 是 SQL Server 的命名空間機制，不是視覺糖衣。用 Schema 表達模組邊界，讓資料庫結構能對應程式碼的架構層次，這是 Modular Monolith 的資料層設計原則。EF Core 的 `ToTable("name", schema: "module")` 是宣告這個 Entity 歸屬於哪個模組的標準寫法。
+
+**下次遇到類似情況，我會先想到什麼**
+
+新增模組的第一張表時，先確認 Schema 是否已設定。如果沒有，這是最低代價的修正時機。
+
+---
+
+### 條目 055 — 真實 API 資料可以推翻 Entity 設計的假設
+
+**我做了什麼**
+
+設計 MarketInfo Entity 時，把 MarketCode 定為 PK——這是自然的選擇，MarketCode 是有業務意義的識別碼，正規化的書也說業務代碼適合當 PK。Migration 跑完、資料表建好之後，實際打開 API 回傳的 JSON，發現 MarketCode 514 在 Veg API 叫「溪湖鎮」，在 Flower API 叫「彰化市場」。
+
+**我遇到的問題**
+
+這兩個名稱分別可以查到不同的 AgriProductsTrans 交易資料（蔬菜 vs 花卉），兩筆都需要存進 MarketInfos，但 MarketCode = "514" 只能有一筆——PK 衝突。
+
+**我怎麼想通的**
+
+「一個 MarketCode 對應一筆主檔」的假設在這份資料集不成立。農業部的 API 設計讓同一個市場代碼在不同的資料類型 API 裡用不同的名稱——這不是錯誤，是業務現實的反映（溪湖鎮農產批發市場同時辦理蔬菜和花卉交易，名稱依交易類型不同）。Entity 設計必須容納這個現實，而不是試圖把現實強行fit 進一開始的假設。
+
+解法：PK 改成 surrogate Id，讓資料庫 PK 不與業務代碼綁定；Unique constraint 改為 `(MarketCode, MarketName)`，這個組合才是「重複」的真實定義。514 溪湖鎮和 514 彰化市場是兩筆不同的記錄，自然並存。
+
+**我學到的原則**
+
+Entity 設計從真實 API 資料出發，不從直覺或文件出發。業務代碼適合當 PK 是通則，但通則有例外——當同一個代碼在不同 context 下對應多筆記錄時，surrogate PK 才是正確選擇。這個發現的時機越早越好，在 Migration 跑完之前修改代價最低。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計 Entity 之前，先打一次 API 看真實回傳，特別確認「我打算當 PK 的欄位，在所有資料來源裡是否唯一」。
+
+---
+
+### 條目 056 — 同模組內也可以用值層面關聯：PK 結構改變時的 FK 取捨
+
+**我做了什麼**
+
+MarketInfo 的 PK 從 MarketCode 改成 surrogate Id 之後，`AgriProductsTrans.MarketCode → MarketInfos.MarketCode` 的 FK 關係無法維持——MarketCode 不再是 PK，SQL Server 不允許 FK 指向非 PK 非 Unique 的欄位。
+
+**我遇到的問題**
+
+考慮把 FK 改成指向 surrogate Id（`AgriProductsTrans.MarketInfoId → MarketInfos.Id`），但這要求 Worker 在寫入每筆交易前先查 MarketInfos 找到對應的 Id，多一次查詢且增加邏輯複雜度。
+
+**我怎麼想通的**
+
+先問「FK 在這裡的實際作用是什麼」。FK 的作用有兩個：一是資料完整性（防止寫入不存在的市場代碼），二是表達關聯語意（AgriProductsTrans 知道它有一個 MarketInfo 對應）。
+
+在這個 Worker 的設計裡，AgriProductsTransSyncWorker 的市場清單本來就從 MarketInfos 讀出來，寫進 AgriProductsTrans 的 MarketCode 一定是有效的，FK 的完整性保護是多餘的。而關聯語意可以靠欄位名稱和文件傳達，不一定需要物理 FK。
+
+跨 DbContext 時我們已經學過用值層面關聯的原則——這裡雖然是同一個 DbContext，但 PK 結構改變讓 FK 的建立代價高於它帶來的好處，同樣適用值層面關聯的邏輯。
+
+**我學到的原則**
+
+值層面關聯不只適用於跨 DbContext 的場景。當 FK 的維護成本（額外查詢、邏輯複雜度）高於它帶來的保護價值時，即使在同一個 DbContext 內，值層面關聯也是合理選擇。判斷標準是：應用程式層的邏輯是否已經足夠保證完整性。
+
+**下次遇到類似情況，我會先想到什麼**
+
+FK 是資料庫層的保護機制，但不是唯一的完整性保證手段。當 FK 的建立讓設計變複雜時，先問「應用程式層能不能自己保證這個約束」。
+
+---
+
+### 條目 057 — HashSet 記憶體鏡像：讓多次 API 只查一次 DB
+
+**我做了什麼**
+
+CropMarketSyncWorker 需要對三隻 API（Veg / Fruit / Flower）的回傳資料做去重，去重的 key 是 `(MarketCode, MarketName)`。去重需要知道「DB 裡已有什麼」，有兩個做法：每隻 API 打完後各查一次 DB，或是一開始查一次 DB 建 HashSet 共用。
+
+**我遇到的問題**
+
+如果一開始建一次 HashSet 共用，第二隻 API 比對時 HashSet 裡只有「DB 原有的」資料，不包含第一隻 API 剛 Add 但還沒 SaveChanges 的新資料。如果 Fruit API 恰好有跟 Veg 重複的市場，就會重複 Add，最後 SaveChanges 時撞 Unique constraint。
+
+**我怎麼想通的**
+
+HashSet 不需要只反映 DB 的狀態，可以讓它反映「DB + 尚未存入的資料」的聯集。做法：比對後把新增的 `(MarketCode, MarketName)` 不只 Add 進 Change Tracker，同時也 Add 進 HashSet。這樣 HashSet 就變成一個即時維護的記憶體鏡像，第二、三隻 API 比對時拿到的是最新狀態。
+
+三次 API 一次查 DB + 一次 SaveChanges，比「三次查 DB + 三次 SaveChanges」更清晰，也減少不必要的 I/O。
+
+```csharp
+await db.MarketInfos.AddRangeAsync(toAdd, stoppingToken);
+foreach (var m in toAdd)
+{
+    existingMarketCodes.Add((m.MarketCode, m.MarketName));  // 同步維護鏡像
+}
+```
+
+**我學到的原則**
+
+HashSet 去重模式的完整版是「比對 + Add Change Tracker + Add HashSet」三步。只做前兩步，HashSet 就會和 Change Tracker 的狀態脫節，在多輪比對的情境下去重會失效。
+
+**下次遇到類似情況，我會先想到什麼**
+
+用 HashSet 做去重時，問自己「這個 HashSet 的有效期到哪裡」。如果跨越多次資料新增，就需要在每次新增後同步維護 HashSet，讓它持續反映最新狀態。
+
+---
+
+### 條目 058 — Worker Context 注入欄位：API 不回傳的業務資訊如何寫進 Entity
+
+**我做了什麼**
+
+MarketInfo Entity 設計了 `MarketType` 欄位（Veg / Fruit / Flower），記錄這個市場是哪種類型的農產品市場。但實際打開 `/CropMarketType/` API 的 response，裡面只有 `MarketCode` 和 `MarketName` 兩個欄位，沒有 `MarketType`。
+
+**我遇到的問題**
+
+`MapToEntity(dto)` 方法需要建立 `MarketInfo`，但 `MarketType` 從哪裡來？DTO 沒有這個欄位，如果硬是在 DTO 加一個 `MarketType`，又不符合「DTO 對應 API 真實回傳」的原則。
+
+**我怎麼想通的**
+
+`MarketType` 不是 API 回傳的資料，是 Worker 在呼叫哪個 endpoint 時才知道的 context。這個 context 在迴圈變數 `item`（"Veg" / "Fruit" / "Flower"）裡。
+
+解法：`MapToEntity` 加第二個參數 `string marketType`，呼叫時把迴圈變數傳進去。這樣 DTO 不需要改，API 回傳的資料形狀不被汙染，`MarketType` 的來源明確標示在呼叫端。
+
+```csharp
+private MarketInfo MapToEntity(CropMarketTypeDto dto, string marketType)
+{
+    return new MarketInfo
+    {
+        MarketCode = dto.MarketCode,
+        MarketName = dto.MarketName,
+        MarketType = marketType,   // ← 來自 Worker context，不來自 DTO
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow
+    };
+}
+```
+
+**我學到的原則**
+
+DTO 只對應 API 回傳的資料形狀。需要補充「API 沒有回傳但 Entity 需要的欄位」時，透過方法參數把 Worker context 傳進 mapping 方法，而不是讓 DTO 承擔這個責任。這樣 DTO 的邊界清晰，mapping 方法的輸入來源也一目了然。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 mapping 方法需要一個「DTO 裡沒有」的欄位時，先判斷這個值來自哪裡。來自呼叫端的 context → 方法參數。來自其他查詢 → 方法參數或在呼叫前先查好傳進去。不應該讓 DTO 反映非 API 資料。
+
+---
+
+### 條目 059 — 硬編碼的時機原則：讓依賴方的啟動條件永遠成立
+
+**我做了什麼**
+
+MarketInfos 表需要補一筆硬編碼：105 台北市場（任何 API 都沒有這個名稱，但 AgriProductsTrans API 的交易資料裡有）。設計時需要決定這筆硬編碼放在哪個位置——三隻 API sync 之前還是之後。
+
+**我遇到的問題**
+
+放在前面還是後面好像都可以，因為 Unique constraint 是 `(MarketCode, MarketName)`，105 台北市場和 105 台北花市是不同組合，不會衝突。
+
+**我怎麼想通的**
+
+衝突問題確實不存在，但有另一個問題：如果硬編碼放在 API sync 之後，API sync 中途失敗（網路瞬斷、rate limit 被封）→ Worker 拋例外中斷 → 硬編碼那筆沒有寫進去。AgriProductsTransSyncWorker 排程跑起來，讀 MarketInfos 表，找不到 105 台北市場，這個市場的花卉交易資料就永遠無法同步，直到下一次 CropMarketSyncWorker 成功完整跑完為止。
+
+硬編碼放在 API sync 之前，並且有自己的 `SaveChangesAsync`（與 API sync 的最終 Save 分開），就能保證：不管 API sync 成功或失敗，105 台北市場一定已經在 MarketInfos 表裡。
+
+**我學到的原則**
+
+「硬編碼的時機」是一個依賴關係問題，不是衝突問題。判斷標準：「這筆資料是否是後續某個元件的啟動條件？」如果是，就要在那個元件可能被觸發之前確保它存在，並且要有獨立的 Save，不要和可能失敗的操作綁在同一個 transaction 裡。
+
+**下次遇到類似情況，我會先想到什麼**
+
+有硬編碼需求時，先畫出依賴圖：「誰需要這筆資料才能正常運作？」如果有下游依賴，就把硬編碼放在最前面並獨立 Save，確保依賴方的前提條件不受上游失敗影響。
+
+---
+
+### 條目 060 — 匿名型別的值相等性陷阱：HashSet.Contains 在匿名型別上失效
+
+**我做了什麼**
+
+從 DB 建立去重 HashSet 時，第一版寫法是：
+
+```csharp
+var existingMarketCodes = await db.MarketInfos
+    .Select(m => new { m.MarketCode, m.MarketName })
+    .ToHashSetAsync();
+```
+
+然後用 `.Contains(...)` 比對 API 回來的 MarketInfo 物件。
+
+**我遇到的問題**
+
+`existingMarketCodes` 是 `HashSet<匿名型別>`，`incoming` 是 `HashSet<MarketInfo>`，兩個型別完全不同，根本無法做比對。
+
+**我怎麼想通的**
+
+C# 的匿名型別（`new { ... }`）沒有名字，只在宣告的那行有效，無法在其他地方以型別名稱引用或作為方法參數型別。雖然 C# 對相同欄位組合的匿名型別有值相等性，但跨方法傳遞時型別已經不被識別。
+
+解法：改用 `ValueTuple`——
+
+```csharp
+var existingMarketCodes = await db.MarketInfos
+    .Select(m => new ValueTuple<string, string>(m.MarketCode, m.MarketName))
+    .ToHashSetAsync();
+```
+
+`ValueTuple` 支援值相等性比對，`HashSet<(string, string)>` 可以用 `.Contains(("514", "溪湖鎮"))` 直接比對，而且 `(string, string)` 可以在整個方法裡被正確識別和傳遞。
+
+另一種等效做法是字串拼接（`m.MarketCode + "_" + m.MarketName`），回傳 `HashSet<string>`，加底線分隔符確保不同欄位組合不會碰撞。
+
+**我學到的原則**
+
+匿名型別適合在 LINQ 查詢的同一個 scope 內用，不適合用在需要跨越方法邊界或進行精確型別比對的場景。需要可引用、可比對的複合型別時，`ValueTuple` 或具名 record 是正確選擇。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 `new { ... }` 的匿名型別準備放進 HashSet 時，先問「我之後需要用這個 HashSet 做 `.Contains()` 嗎？如果需要，被 Contains 的是什麼型別？」型別不一致就換成 `ValueTuple` 或字串拼接。
 
 ---
 

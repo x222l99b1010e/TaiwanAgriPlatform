@@ -17,7 +17,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -74,7 +74,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_PestAlerts_SourceHash");
 
-                    b.ToTable("PestAlerts", (string)null);
+                    b.ToTable("PestAlerts", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.PestAlertCity", b =>
@@ -100,7 +100,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                     b.HasIndex("CityName")
                         .HasDatabaseName("IX_PestAlertCities_CityName");
 
-                    b.ToTable("PestAlertCities", (string)null);
+                    b.ToTable("PestAlertCities", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.PestAlertCrop", b =>
@@ -126,7 +126,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                     b.HasIndex("CropName")
                         .HasDatabaseName("IX_PestAlertCrops_CropName");
 
-                    b.ToTable("PestAlertCrops", (string)null);
+                    b.ToTable("PestAlertCrops", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.PestDecadeSummary", b =>
@@ -138,6 +138,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal?>("Average")
+                        .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("City")
@@ -157,6 +158,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<decimal?>("ProportionIsland")
+                        .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<int>("TenDays")
@@ -176,7 +178,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_PestDecadeSummaries_Unique");
 
-                    b.ToTable("PestDecadeSummaries", (string)null);
+                    b.ToTable("PestDecadeSummaries", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.PestRuleConfig", b =>
@@ -230,7 +232,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                     b.HasIndex("UserId", "IsActive")
                         .HasDatabaseName("IX_PestRuleConfigs_UserId_IsActive");
 
-                    b.ToTable("PestRuleConfigs", (string)null);
+                    b.ToTable("PestRuleConfigs", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.RainfallObservation", b =>
@@ -283,7 +285,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_RainfallObservations_StationId_ObservedAt");
 
-                    b.ToTable("RainfallObservations", (string)null);
+                    b.ToTable("RainfallObservations", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.RainfallStation", b =>
@@ -346,7 +348,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_RainfallStations_StationId");
 
-                    b.ToTable("RainfallStations", (string)null);
+                    b.ToTable("RainfallStations", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.UserNotification", b =>
@@ -392,7 +394,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                     b.HasIndex("UserId", "IsRead")
                         .HasDatabaseName("IX_UserNotifications_UserId_IsRead");
 
-                    b.ToTable("UserNotifications", (string)null);
+                    b.ToTable("UserNotifications", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.WeatherObservation", b =>
@@ -489,7 +491,7 @@ namespace TaiwanAgri.Modules.Weather.Data.Migrations
                     b.HasIndex("CityCode", "ObservedAt")
                         .HasDatabaseName("IX_WeatherObservations_CityCode_ObservedAt");
 
-                    b.ToTable("WeatherObservations", (string)null);
+                    b.ToTable("WeatherObservations", "weather");
                 });
 
             modelBuilder.Entity("TaiwanAgri.Modules.Weather.Entities.PestAlertCity", b =>

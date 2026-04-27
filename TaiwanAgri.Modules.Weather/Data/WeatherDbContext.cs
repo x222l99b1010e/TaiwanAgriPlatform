@@ -23,7 +23,7 @@ namespace TaiwanAgri.Modules.Weather.Data
 
 			modelBuilder.Entity<WeatherObservation>(entity =>
 			{
-				entity.ToTable("WeatherObservations");
+				entity.ToTable("WeatherObservations", schema:"weather");
 				// 文件 6.4 節要求的複合索引：依縣市 + 時間查詢
 				entity.HasIndex(e => new { e.CityCode, e.ObservedAt })
 					  .HasDatabaseName("IX_WeatherObservations_CityCode_ObservedAt");
@@ -35,7 +35,7 @@ namespace TaiwanAgri.Modules.Weather.Data
 			// PestAlert 設定
 			modelBuilder.Entity<PestAlert>(entity =>
 			{
-				entity.ToTable("PestAlerts");
+				entity.ToTable("PestAlerts", schema: "weather");
 				// SourceHash 是用來判斷是否重複的關鍵欄位，應該建立唯一索引
 				entity.HasIndex(e => e.SourceHash)
 					  .IsUnique()
@@ -54,21 +54,21 @@ namespace TaiwanAgri.Modules.Weather.Data
 			// PestAlertCity 設定
 			modelBuilder.Entity<PestAlertCity>(entity =>
 			{
-				entity.ToTable("PestAlertCities");
+				entity.ToTable("PestAlertCities", schema: "weather");
 				entity.HasIndex(e => e.CityName)
 					  .HasDatabaseName("IX_PestAlertCities_CityName");
 			});
 			// PestAlertCrop 設定
 			modelBuilder.Entity<PestAlertCrop>(entity =>
 			{
-				entity.ToTable("PestAlertCrops");
+				entity.ToTable("PestAlertCrops", schema: "weather");
 				entity.HasIndex(e => e.CropName)
 					  .HasDatabaseName("IX_PestAlertCrops_CropName");
 			});
 			// RainfallStation：StationId 設為 Unique
 			modelBuilder.Entity<RainfallStation>(entity =>
 			{
-				entity.ToTable("RainfallStations");
+				entity.ToTable("RainfallStations", schema: "weather");
 				// StationId 是唯一識別碼，應該建立唯一索引
 				entity.HasIndex(e => e.StationId)
 					  .IsUnique()
@@ -77,7 +77,7 @@ namespace TaiwanAgri.Modules.Weather.Data
 			// RainfallObservation：建立自然鍵的 Unique Index
 			modelBuilder.Entity<RainfallObservation>(entity =>
 			{
-				entity.ToTable("RainfallObservations");
+				entity.ToTable("RainfallObservations", schema: "weather");
 				// 自然鍵去重：同一個站台 + 同一個時間點只能有一筆
 				entity.HasIndex(e => new { e.StationId, e.ObservedAt })
 					  .IsUnique()
@@ -86,20 +86,20 @@ namespace TaiwanAgri.Modules.Weather.Data
 			//PestDecadeSummary：建立自然鍵的 Unique Index
 			modelBuilder.Entity<PestDecadeSummary>(entity =>
 			{
-				entity.ToTable("PestDecadeSummaries");
+				entity.ToTable("PestDecadeSummaries", schema: "weather");
 				// 自然鍵去重：同一個害蟲 + 同一年 + 同一月 + 同一旬 + 同一城市 + 同一鄉鎮只能有一筆
 				entity.HasIndex(e => new { e.PestName, e.Year, e.Month, e.TenDays, e.City, e.Town })
 					  .IsUnique()
 					  .HasDatabaseName("IX_PestDecadeSummaries_Unique");
 				entity.Property(e => e.Average)
-					  .HasColumnType("decimal(10,2)");
+					  .HasPrecision(10, 2);
 				entity.Property(e => e.ProportionIsland)
-					  .HasColumnType("decimal(10,2)");
+					  .HasPrecision(10, 2);
 			});
 
 			modelBuilder.Entity<PestRuleConfig>(entity =>
 			{
-				entity.ToTable("PestRuleConfigs");
+				entity.ToTable("PestRuleConfigs", schema: "weather");
 				entity.HasIndex(p => new { p.RuleName })
 				.HasDatabaseName("IX_PestRuleConfigs_RuleName");
 				entity.HasIndex(p => new { p.UserId,p.IsActive })
@@ -107,7 +107,7 @@ namespace TaiwanAgri.Modules.Weather.Data
 			});
 
 			modelBuilder.Entity<UserNotification>(entity => {
-				entity.ToTable("UserNotifications");
+				entity.ToTable("UserNotifications", schema: "weather");
 				entity.HasIndex(u => new { u.UserId, u.IsRead })
 				.HasDatabaseName("IX_UserNotifications_UserId_IsRead");
 			});

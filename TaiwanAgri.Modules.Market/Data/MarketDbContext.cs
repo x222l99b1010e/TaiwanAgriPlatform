@@ -10,19 +10,55 @@ namespace TaiwanAgri.Modules.Market.Data
 
 		}
 		public DbSet<MarketRestDay> MarketRestDays => Set<MarketRestDay>();
+		public DbSet<AgriProductsTrans> AgriProductsTrans => Set<AgriProductsTrans>();
+		public DbSet<MarketInfo> MarketInfos => Set<MarketInfo>();	
+		public DbSet<CropInfo> CropInfos => Set<CropInfo>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
 
 			modelBuilder.Entity<MarketRestDay>(entity =>
 			{
-				entity.ToTable("MarketRestDays");
+				entity.ToTable("MarketRestDays", schema: "market");
 
 				entity.HasIndex(e => new { e.MarketCode, e.MarketType, e.Year, e.Month, e.RestDay })
 					  .HasDatabaseName("IX_MarketRestDays_MarketCode_MarketType_Year_Month_RestDay")
 					  .IsUnique();
 			});
-		}
 
+			modelBuilder.Entity<AgriProductsTrans>(entity =>
+			{
+				entity.ToTable("AgriProductsTrans", schema: "market");
+				entity.HasIndex(e => new { e.TransDate, e.TcType, e.CropCode, e.MarketCode })
+					  .HasDatabaseName("IX_AgriProductsTrans_TransDate_TcType_CropCode_MarketCode")
+					  .IsUnique();
+				entity.HasIndex(e => new { e.CropCode, e.TransDate })
+					  .HasDatabaseName("IX_AgriProductsTrans_CropCode_TransDate");
+				entity.HasIndex(e => new { e.MarketCode, e.TransDate })
+					  .HasDatabaseName("IX_AgriProductsTrans_MarketCode_TransDate");
+				entity.Property(e => e.UpperPrice).HasPrecision(8, 2);
+				entity.Property(e => e.MiddlePrice).HasPrecision(8, 2);
+				entity.Property(e => e.LowerPrice).HasPrecision(8, 2);
+				entity.Property(e => e.AvgPrice).HasPrecision(8, 2);
+
+				entity.HasOne(e => e.CropInfo)
+					  .WithMany()
+					  .HasForeignKey(e => e.CropCode)
+					  .OnDelete(DeleteBehavior.Restrict);
+			});
+
+			modelBuilder.Entity<MarketInfo>(entity =>
+			{
+				entity.ToTable("MarketInfos", schema: "market");
+
+				entity.HasIndex(e => new { e.MarketCode, e.MarketName })
+						.HasDatabaseName("IX_MarketInfos_MarketCode_MarketName")
+						.IsUnique();
+			});
+			modelBuilder.Entity<CropInfo>(entity =>
+			{
+				entity.ToTable("CropInfos", schema: "market");
+			});
+		}
 	}
 }

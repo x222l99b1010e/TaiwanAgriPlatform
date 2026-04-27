@@ -2,23 +2,17 @@
 
 namespace TaiwanAgri.Modules.Market.Entities
 {
-	public class MarketRestDay
+	public class MarketInfo
 	{
 		[Key]
 		public int Id { get; set; }
-		[Required, MaxLength(15)]
+		[Required, MaxLength(20)]
 		public string MarketCode { get; set; } = string.Empty;
-		[Required, MaxLength(15)]
+		[Required, MaxLength(50)]
 		public string MarketName { get; set; } = string.Empty;
 		[Required, MaxLength(20)]
 		public string MarketType { get; set; } = string.Empty;
-
-		public int  Year { get; set; }
-
-		public int Month { get; set; }
-
-		public int RestDay { get; set; }
-
 		public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+		public DateTime UpdatedAt { get; set; }
 	}
 }
