@@ -1620,6 +1620,369 @@ var existingMarketCodes = await db.MarketInfos
 
 ---
 
+### 條目 061 — ParseRocDate / FormatRocDate 的命名邏輯與 Core 層放置原則
+
+**我做了什麼**
+
+在 `TaiwanAgri.Core/Helpers/DateHelper.cs` 裡實作了兩個靜態方法，負責農業部 ROC 民國曆日期字串與 `DateOnly` 的雙向轉換。最初我把方法命名為 `GetADYear()`，後來改成 `ParseRocDate()`。
+
+**我遇到的問題**
+
+`GetADYear()` 這個名字暗示回傳一個「年份數字」，但實際回傳的是 `DateOnly`，呼叫端讀到方法名稱時會產生語意誤導。另外，我也思考過要不要把這個方法放在 Market 模組內部。
+
+**我怎麼想通的**
+
+命名要對應回傳值的語意，而不是對應「做了什麼動作」的其中一個步驟。`ParseRocDate()` 清楚說明「輸入是 ROC 格式的日期字串，輸出是一個解析後的日期物件」，而 `GetADYear()` 讓人誤以為只取出了年份數字。改名之後，呼叫端的程式碼讀起來更直白：`var transDate = DateHelper.ParseRocDate(dto.TransDate)` 一眼就懂。
+
+放置位置的選擇也是同樣的邏輯。農業部的很多 API 都用 ROC 民國曆格式（氣象類、行情類都有），如果把 `DateHelper` 放在 `Market` 模組裡，未來其他模組的 SyncWorker 就必須跨模組依賴 Market 才能使用這個工具，違反模組邊界原則。`Core` 層存放的就是「任何模組都可能需要的共用工具」，這個判斷標準讓位置決定變得簡單。
+
+**我學到的原則**
+
+方法命名應該對應方法的整體輸入輸出，而不是對應內部實作的某個中間步驟。看到方法名稱裡有「Get」但實際做的是解析轉換，就應該把名字改成 `Parse`。共用工具的放置位置取決於它的使用範圍，只有一個模組會用的邏輯留在模組裡，任何模組都可能用的提升到 Core 層。
+
+**下次遇到類似情況，我會先想到什麼**
+
+寫完方法之後，讀一遍方法簽章（名稱 + 參數 + 回傳型別），問「如果我第一次看到這個簽章，我能猜到它做什麼嗎？」如果猜不到，就改名。
+
+---
+
+### 條目 062 — SyncState 模式 vs MAX(TransDate)：為什麼看似合理的設計有致命缺陷
+
+**我做了什麼**
+
+設計 `AgriProductsTransSyncWorker` 的增量同步機制時，第一個想法是每次執行前查 `MAX(TransDate)` 當作上次同步的終點，下次從 `MAX + 1 天` 開始。後來改成在 `CoreDbContext` 建立 `SyncStates` 資料表追蹤進度。
+
+**我遇到的問題**
+
+`MAX(TransDate)` 看起來完全合理——既然 DB 裡最新的一筆是某天，那下次就從那天之後繼續，邏輯通順，也不需要額外的資料表。
+
+**我怎麼想通的**
+
+`MAX(TransDate)` 追蹤的是「DB 裡有資料的最後一天」，不是「Worker 最後成功執行到的那天」。這兩件事在正常情況下相同，但在一個特定場景下分叉：全市場休市的日期。
+
+農業部的 API 在休市日回傳的是 `CropCode == "-"` 的特殊記錄，Worker 設計上會過濾掉這些記錄不寫入 DB（因為 0 值會污染均價）。所以休市日這天：API 打了、過濾了、但 DB 沒有寫入任何這天的記錄。`MAX(TransDate)` 永遠停在前一個交易日，下次 Worker 跑起來發現「最新的是 N-2 天，那就從 N-1 天開始同步」，而 N-1 天是休市日，同樣過濾掉，同樣沒有寫入，`MAX` 繼續停著。這是一個永遠無法自癒的卡死。
+
+`SyncState` 的 `LastSyncedDate` 欄位追蹤的是「Worker 最後成功跑完的那天」，不管那天是否有資料寫入 DB，日期都往前推進。休市日也不例外：Worker 跑完這天的迴圈、更新 `LastSyncedDate = 今天`、下次從明天繼續，完全不受休市影響。
+
+**我學到的原則**
+
+「從 DB 的資料推算下次的起始點」這類設計，要先問「有沒有合法情況讓 DB 某天完全沒有資料，但我其實已經處理過那天了？」如果有，就不能用 DB 資料反推進度，必須獨立追蹤。進度追蹤應該記錄「我做了什麼」，而不是「我的結果長什麼樣」。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計增量同步時，先問「有沒有某天合法地不產生任何資料，但邏輯上應該被算為『已完成』？」如果有，就需要獨立的同步狀態表，不能依賴業務資料表的 MAX 值。
+
+---
+
+### 條目 063 — off-by-one 邊界設計的語意選擇：LastSyncedDate 代表「已完成的最後一天」
+
+**我做了什麼**
+
+`SyncState` 的初始值設計：農業部行情資料從 `2018/07/01` 開始，第一次執行的 Worker 應該從這天開始同步。`SyncState` 初始化時 `LastSyncedDate` 設成 `2018/06/30`。
+
+**我遇到的問題**
+
+初始值為什麼是 `06/30` 而不是 `07/01`？如果「從 07/01 開始」，不是應該把起始點設為 `07/01` 嗎？
+
+**我怎麼想通的**
+
+關鍵在於先確定欄位的語意，再推導初始值，而不是反過來。
+
+`LastSyncedDate` 的語意是「已完成同步的最後一天」。`startDate` 的計算方式是 `LastSyncedDate.AddDays(1)`。所以：
+
+- 如果 `LastSyncedDate = 2018/07/01`，那 `startDate = 2018/07/02`，漏掉第一天。
+- 如果 `LastSyncedDate = 2018/06/30`，那 `startDate = 2018/07/01`，正確。
+
+`2018/06/30` 代表「這天之前（含）都已完成，其實什麼都沒有做，但語意上視為已完成」，是一個在農業部資料庫裡完全不存在的日期，純粹用來錨定語意。
+
+這個問題的本質是：當欄位語意是「已完成的最後一個」時，初始值必須是「第一個要做的事情的前一個」，不是「第一個要做的事情本身」。就像一個書籤放在「已讀完的最後一頁」，初始狀態的書籤應該放在第 0 頁（封面之前），而不是第 1 頁，否則第 1 頁就被跳過了。
+
+**我學到的原則**
+
+設計「斷點恢復」機制時，先定義欄位的語意（「已完成的最後一個」vs「下次要從哪個開始」），再從語意推導初始值。不要用直覺猜初始值，猜完再用例子驗算：帶入初始值算出 startDate，確認第一次執行會從正確的位置開始。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計完斷點恢復的欄位後，做一個心算：「如果初始值是 X，第一次執行會從哪天開始？」把答案說出來，確認和預期一致，才算設計完成。
+
+---
+
+### 條目 064 — API 三參數策略：為什麼同時帶入 Start_time、End_time、MarketName 可以抑制分頁
+
+**我做了什麼**
+
+在實作 `AgriProductsTransSyncWorker` 的 API 呼叫策略時，測試了不同的參數組合，發現帶入三個參數（`Start_time` + `End_time` + `MarketName`）時，回傳的 `Next` 欄位始終為 `false`，不需要分頁迴圈。
+
+**我遇到的問題**
+
+最初設計是外層日期迴圈 × 內層分頁迴圈，參考了 `WeatherSyncWorker` 的架構。但分頁迴圈在這裡反而讓程式碼複雜，還要處理農業部「非會員只限回傳第一頁」的商業限制。
+
+**我怎麼想通的**
+
+農業部的分頁觸發條件是「查詢結果量超過單頁上限」。如果不指定 MarketName，一次 API 呼叫會回傳當天全台所有市場的所有作物交易記錄，這個量很容易超過分頁閾值。但如果同時指定了 MarketName（某個特定市場）加上 Start_time 和 End_time（某一天），查詢範圍被縮減到「某個市場某一天的交易」，這個量就有自然上限，不需要分頁。
+
+這個「三參數策略」帶來了一個副作用：Worker 從「每天一次 API 呼叫（拿全台資料）+ 多頁」變成「每天 × 每個市場各一次 API 呼叫（拿單一市場資料）+ 不需要分頁」。API 呼叫次數增加（等於市場數量），但每次呼叫更小、更可預期、錯誤隔離更好（某個市場 API 失敗不影響其他市場）。
+
+**我學到的原則**
+
+遇到分頁 API 時，先問「有沒有辦法讓一次呼叫的結果量控制在不需要分頁的範圍內？」如果可以透過增加查詢參數的精確度來達到，分頁邏輯就可以省掉。用更多次精確的呼叫取代更少次帶分頁的呼叫，通常讓程式碼更簡單、更容易推理。
+
+**下次遇到類似情況，我會先想到什麼**
+
+在寫分頁迴圈之前，先問「這個分頁是因為查詢範圍太大導致的，還是資料量本身就大？」如果是範圍問題，先試試能否透過增加參數縮小範圍來避免分頁，再決定是否真的需要寫迴圈。
+
+---
+
+### 條目 065 — upperBound 選昨天的理由，以及 TimeZoneInfo 跨平台問題
+
+**我做了什麼**
+
+在計算同步上界（`upperBound`）時，選擇了「台灣時間的昨天」，而不是「今天」或「明天」。實作時用 `TimeZoneInfo.FindSystemTimeZoneById()` 取得台灣時區，發現 Windows 和 Linux 的時區 ID 不同。
+
+**我遇到的問題**
+
+為什麼要選昨天？選今天不是更直觀嗎？另外，部署到 Linux 環境時，`"Taipei Standard Time"` 這個 ID 會拋例外。
+
+**我怎麼想通的**
+
+選昨天的原因是資料完整性。農業部的交易行情資料通常在台灣時間深夜才更新完整，Worker 的執行時間不固定（可能早上也可能下午），選今天代表可能拉到一個尚未更新完整的半成品資料集。昨天的資料已經過了整整一個台灣時間日曆日，更新必然已經完成。「永遠只同步已確定完整的歷史資料」比「嘗試同步今天的資料但可能不完整」要可靠得多。
+
+TimeZoneInfo 的跨平台問題：Windows 使用 Windows 時區 ID（`"Taipei Standard Time"`），Linux / macOS 使用 IANA 時區資料庫 ID（`"Asia/Taipei"`）。這兩套命名系統完全獨立，無法互換。解法是用 `OperatingSystem.IsWindows()` 做運行環境判斷，選擇對應的 ID。這是一個在本機 Windows 開發時很難注意到的問題，因為本機永遠不會踩到 Linux 的路徑，必須在設計時就預想未來部署的可能環境。
+
+**我學到的原則**
+
+時間邊界的選擇不只是「幾點幾分」的問題，還包含「資料在這個時間點是否已經確定完整」。優先選擇資料確定完整的時間點，而非最新的時間點。時區處理要在設計時就考慮跨平台差異，不要等到部署出問題才補。
+
+**下次遇到類似情況，我會先想到什麼**
+
+使用 `TimeZoneInfo` 時，先問「這段程式碼未來可能在 Windows 以外的環境執行嗎？」如果可能，就加上環境判斷邏輯，選擇對應的時區 ID，不要只寫 Windows 版本的 ID。
+
+---
+
+### 條目 066 — surrogate PK 決策：MarketCode 514 問題
+
+**我做了什麼**
+
+`MarketInfos` 的 PK 最初設計為 `MarketCode`（業務代碼字串）。打開 Veg API 和 Flower API 的真實資料後，發現 MarketCode `514` 在兩個來源下有不同的名稱：Veg API 叫「溪湖鎮」，Flower API 叫「彰化市場」。
+
+**我遇到的問題**
+
+如果用 MarketCode 當 PK，同一個代碼只能存一筆，514 就只能選其中一個名稱存進去。但這兩個名稱在後續 AgriProductsTrans API 查詢時各自對應不同的資料集，少了任何一個，對應市場的行情資料就永遠無法同步。
+
+**我怎麼想通的**
+
+PK 的選擇取決於「什麼組合能唯一識別一筆記錄」。如果業務代碼本身不能唯一識別（514 同時存在兩個不同實體），就不能把業務代碼當 PK。
+
+解法是引入 surrogate PK（`int IDENTITY`，系統自動遞增，無業務意義）作為資料庫層的識別鍵，同時把業務層的唯一性約束改成 `(MarketCode, MarketName)` 組合 Unique Index。這樣 514 溪湖鎮和 514 彰化市場是兩筆不同的記錄，各自有不同的 surrogate Id，但對資料庫而言都是合法存在的，不衝突。
+
+這個決策也連帶影響了 `AgriProductsTrans` 和 `MarketInfos` 之間的關聯方式（見條目 067）。
+
+**我學到的原則**
+
+在選擇 PK 之前，先驗證「這個欄位在真實業務資料中真的是唯一的嗎？」光看 API 文件說是識別碼還不夠，要看真實資料。發現同一個業務代碼在不同上下文有不同語意時，放棄以業務代碼作為 PK，改用 surrogate PK + 業務欄位 Unique constraint 的組合。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計主檔型資料表的 PK 時，先把要選的候選鍵（candidate key）列出來，每個都用一個問題驗證：「有沒有合法的業務情況讓這個值重複出現？」通過驗證才能作為 PK，否則就改用 surrogate Id。
+
+---
+
+### 條目 067 — 值層面關聯：為什麼 surrogate PK 讓原本的 FK 失效，以及如何替代
+
+**我做了什麼**
+
+`MarketInfos` 的 PK 從 `MarketCode` 改成 surrogate `Id` 之後，原本 `AgriProductsTrans.MarketCode → MarketInfos.MarketCode` 的 FK 關係就無法維持，因為 SQL Server 的 FK 只能指向 PK 或有 Unique constraint 的欄位，而 `MarketCode` 現在只是一個普通欄位，沒有 Unique constraint（因為 514 有兩筆）。
+
+**我遇到的問題**
+
+如果把 FK 改成指向 surrogate Id，`AgriProductsTransSyncWorker` 在寫入每筆交易時就必須先查 `MarketInfos` 找到對應的 `Id` 數字，才能填進 `AgriProductsTrans` 的 FK 欄位。但 API 回傳的是 `MarketName` 字串，本來就不帶 surrogate Id。
+
+**我怎麼想通的**
+
+FK 的存在是為了讓資料庫在插入/刪除時自動保護參照完整性。但這個保護是有代價的：必須在寫入前確定被指向的記錄存在（否則 FK 違規），而且被指向記錄的刪除會受到限制（有 FK 指向它時不能隨便刪）。
+
+在這個場景下，FK 帶來的代價（每次寫入前多一次查詢）比收益（資料庫自動保護）更高，因為完整性可以由應用程式層保證：`AgriProductsTransSyncWorker` 的市場清單本來就是從 `MarketInfos` 讀出來的，寫進去的 `MarketCode` 一定存在主檔裡，不需要資料庫再保護一次。
+
+選擇移除導覽屬性和 `HasForeignKey`，讓 `AgriProductsTrans.MarketCode` 成為純字串值欄位，靠應用程式層的邏輯保證正確性。這是「值層面關聯」：兩張表透過值比對關聯（WHERE AgriProductsTrans.MarketCode = MarketInfos.MarketCode），沒有資料庫層的 FK constraint。
+
+**我學到的原則**
+
+FK 帶來的好處是資料庫自動保護參照完整性；代價是寫入時的額外查詢和刪除時的限制。當應用程式層已經能保證完整性（例如寫入資料的來源就是被指向的表），FK 的好處就幾乎消失，只剩代價。此時移除 FK，改用應用程式層的邏輯保證，是合理的取捨。
+
+**下次遇到類似情況，我會先想到什麼**
+
+考慮移除 FK 之前，先問「如果移除 FK，誰負責保證這個欄位的值在被指向的表裡一定存在？」如果有明確的應用程式邏輯擔起這個責任，才能移除 FK；不能移除之後就沒有人管完整性了。
+
+---
+
+### 條目 068 — 物理 FK 移除（同模組內也可選擇值層面關聯）：CropInfo 的雞生蛋問題
+
+**我做了什麼**
+
+`AgriProductsTrans` 和 `CropInfos` 是同一個模組（MarketDbContext）的兩張表，理論上可以建立物理 FK。最初我確實加了 `[ForeignKey("CropCode")] public CropInfo CropInfo` 導覽屬性。但 Worker 第一次執行就失敗了。
+
+**我遇到的問題**
+
+`CropInfos` 表的資料來源是 `AgriProductsTrans` 同一支 API，Worker 第一次執行時 `CropInfos` 是空的。帶著物理 FK 的 INSERT 嘗試把 `AgriProductsTrans` 記錄寫進去，但 `CropCode` 在 `CropInfos` 找不到對應記錄，FK 違規，INSERT 失敗。這是一個典型的雞生蛋問題：兩張表的資料來自同一個來源，誰先存誰都不對。
+
+**我怎麼想通的**
+
+物理 FK 的保護語意是「這張表的這個欄位的值，一定存在於被指向的那張表」。但在這裡，被指向的表（CropInfos）的填充本身就依賴當前這張表的資料來源（同一支 API），導致無法在插入 AgriProductsTrans 之前確保 CropInfos 已有對應記錄。
+
+解法是移除物理 FK（執行 `RemoveCropInfoNavigation` Migration），讓 `CropCode` 成為純字串值欄位。然後在 Worker 裡建立明確的執行順序：先從這批 API 資料中抽出 CropCode，確認 CropInfos 裡還沒有的就先 Add 並 `SaveChangesAsync`，再寫入 AgriProductsTrans。這個「先存 CropInfos 再存 AgriProductsTrans」的手動順序，模擬了物理 FK 的插入保護效果，但不需要 DB 層的 FK constraint 來執行它。
+
+這個決策和條目 067 的 MarketInfo 不同：那是因為 surrogate PK 讓 FK 的指向目標消失；這次是同模組內兩張表，理論上 FK 可行，但語意上行不通（雞生蛋）。結果都選擇了值層面關聯，但原因不同，思考路徑也不同。
+
+**我學到的原則**
+
+物理 FK 並不是在同模組內就一定要用的標準做法，它的適用前提是「被指向的表的資料生命週期獨立於當前表」。如果兩張表的資料來自同一個來源，就存在雞生蛋的可能，此時移除物理 FK 並用應用程式層的執行順序替代，是解決問題而不是逃避問題。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計 FK 時，問「被指向的表，它的資料是從哪裡來的？如果是從和當前表相同的來源，誰先存誰？」如果這個問題答不清楚，就有雞生蛋的風險，要考慮用應用程式層的執行順序替代 FK constraint。
+
+---
+
+### 條目 069 — 硬編碼的時機（補充視角）：獨立 SaveChanges 讓前置條件不受後續失敗影響
+
+**我做了什麼**
+
+在條目 059 裡記錄了「硬編碼要放在 API sync 之前」的原則。這次在實作 CropMarketSyncWorker 時，105 台北市場的硬編碼不只放在前面，還有自己獨立的 `SaveChangesAsync`，不和三支 API sync 合用同一個 Save。
+
+**我遇到的問題**
+
+硬編碼放在前面已經保證了順序，為什麼還需要獨立的 SaveChanges？三支 API sync 結束後統一 Save 不是更有效率嗎？
+
+**我怎麼想通的**
+
+如果硬編碼和三支 API sync 合用同一個 `SaveChangesAsync`，那它們就在同一個 transaction 裡。若 API sync 中途出現例外，整個 transaction 回滾，硬編碼那筆也跟著消失，就像從沒存過一樣。下次 Worker 跑起來，硬編碼還沒有寫進 DB，`AgriProductsTransSyncWorker` 找不到 105 台北市場，那個市場的行情就永遠缺失。
+
+獨立的 `SaveChangesAsync` 確保「硬編碼這件事是一個已完成的動作，不會因為後續步驟失敗而被撤銷」。這是一個刻意的 transaction 邊界選擇：把「確保前置條件存在」和「執行主要工作」分成兩個獨立的 transaction，讓前置條件的寫入具備永久性，不依賴後續的成功。
+
+**我學到的原則**
+
+「放在前面」解決了順序問題，「獨立 Save」解決了持久性問題。兩個問題是不同的，需要不同的機制。真正想要的結果是「不管後續步驟成功或失敗，這筆前置資料都已經寫入 DB」，達到這個目標需要獨立的 transaction，不只是放在前面。
+
+**下次遇到類似情況，我會先想到什麼**
+
+當我把某個寫入操作放在其他操作之前時，額外問一個問題：「如果後續操作失敗，這個寫入還會存在嗎？」如果答案是不確定，就加上獨立的 `SaveChangesAsync`，讓它的持久性不依賴後續的成功。
+
+---
+
+### 條目 070 — TransQuantity int → decimal：API 文件與實際回傳的落差
+
+**我做了什麼**
+
+根據農業部 API 文件，`Trans_Quantity`（交易量）欄位的型別標記為整數（number without decimal）。我照著文件把 `AgriProductsTrans.TransQuantity` 設計為 `int`。Worker 跑起來之後，遇到 JSON 反序列化失敗，錯誤訊息顯示某些市場的交易量包含小數（例如 `123.5` 公斤）。
+
+**我遇到的問題**
+
+API 文件明確說是整數，為什麼實際回傳了小數？我是不是哪裡用錯了？
+
+**我怎麼想通的**
+
+農業部的 API 文件不一定反映所有市場的實際資料狀況。交易量通常是整數（公斤），但某些特殊市場或特殊作物的計量單位可能是公克或其他，換算後就可能出現小數。API 的實際回傳行為才是真實的規格，文件只是參考。
+
+修正方式：執行 `FixTransQuantityType` Migration 把欄位改成 `decimal(8,2)`，DTO 的對應屬性也改成 `decimal`，並在 `OnModelCreating` 加上 `HasPrecision(8,2)`。把這個修正做成一個獨立的 Migration（而不是退回去改前一個 Migration），是為了讓 Migration 歷史清楚記錄「發現問題 → 修正」的時間軸，有助於日後的 code review 和問題追蹤。
+
+**我學到的原則**
+
+API 文件說的型別是設計起點，不是最終依據。對接任何外部 API 時，第一次實際打一次 API 拿到真實資料，確認欄位的真實型別，再設計 DTO 和 Entity。發現型別和文件不符時，修正 Entity 並建立獨立的 Migration，讓修正過程有記錄。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 API 文件說某個欄位是整數或特定型別時，在實際打一次 API 確認之前，選擇更寬容的型別（`decimal` 而非 `int`，`string` 而非 `int`），避免反序列化失敗讓整個 Worker 崩潰。
+
+---
+
+### 條目 071 — EF Core Change Tracker 自動偵測修改：不需要顯式呼叫 .Update()
+
+**我做了什麼**
+
+每天迴圈結束後，更新 `SyncState.LastSyncedDate = currentDate`，然後呼叫 `dbCore.SaveChangesAsync()`。最初我以為還需要 `dbCore.SyncStates.Update(lastSyncState)` 才能讓 EF Core 知道這個 Entity 被修改了。
+
+**我遇到的問題**
+
+`.Update()` 到底做了什麼？如果不呼叫它，EF Core 會知道這個 Entity 被修改了嗎？
+
+**我怎麼想通的**
+
+EF Core 的 Change Tracker 會追蹤所有「被 DbContext 追蹤中的 Entity」的狀態。只要 `lastSyncState` 是透過 EF Core 查詢取得的（`await dbCore.SyncStates.SingleOrDefaultAsync(...)`），它就處於 Change Tracker 的追蹤下，屬於 `Unchanged` 狀態。當我修改了它的任何屬性（`lastSyncState.LastSyncedDate = currentDate`），Change Tracker 會自動偵測到這個變更，把該 Entity 的狀態改為 `Modified`。`SaveChangesAsync` 執行時，EF Core 掃描所有 `Modified` 狀態的 Entity，產生對應的 `UPDATE` SQL 並執行。
+
+`.Update()` 的用途是「明確告訴 EF Core 這個 Entity 被修改了」，通常用在 Disconnected 場景（Entity 不是從當前 DbContext 查詢取得，而是從外部傳入，Change Tracker 不知道它的原始狀態）。在我們的 Scoped DbContext 裡，`lastSyncState` 是當場查出來的，Change Tracker 全程追蹤，顯式 `.Update()` 是多餘的——有也不錯，但沒有也完全可以。
+
+**我學到的原則**
+
+EF Core 的 Change Tracker 讓「查出來 → 修改屬性 → SaveChanges」這個流程可以自動運作，不需要手動通知 EF Core「我改了東西」。`.Update()` 是給 Disconnected 場景用的，在 Scoped DbContext 的正常流程裡幾乎用不到。理解這個機制可以讓程式碼更簡潔，也避免誤用 `.Update()` 在 Attached Entity 上造成意外的行為。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到程式碼裡有 `.Update()` 時，先問「這個 Entity 是從當前 DbContext 查出來的，還是從外部傳進來的？」如果是前者，`.Update()` 大概是多餘的；如果是後者，`.Update()` 是必要的，它讓 EF Core 知道要處理這個外部 Entity。
+
+---
+
+### 條目 072 — DistinctBy vs HashSet 兩層去重的職責分離
+
+**我做了什麼**
+
+`AgriProductsTransSyncWorker` 的去重分兩層：`DistinctBy` 處理批次內部重複，`HashSet<(DateOnly, string, string, string)>` 處理與 DB 已有記錄的重複。
+
+**我遇到的問題**
+
+為什麼需要兩層？能不能只用一層 HashSet 就解決所有重複？
+
+**我怎麼想通的**
+
+這兩種重複的性質不同，解決它們的工具也不同。
+
+「批次內部重複」是指 API 同一次回傳的資料自身就有重複筆——不同市場、不同時間打的 API，回傳裡可能有相同的（TransDate, TcType, CropCode, MarketCode）組合。`DistinctBy` 在 incoming 資料進入去重流程之前先整理好，確保送進 DB 的每一筆在批次內是唯一的。
+
+「歷史重複」是指 API 回傳的資料與 DB 裡已有的記錄重疊——Worker 可能因為中斷重啟而重跑某天，或者 API 重複回傳了之前已存的資料。HashSet 從 DB 查出當天的自然鍵組合，過濾掉 incoming 裡已在 DB 存在的記錄。
+
+如果只用一層 HashSet 但不做 `DistinctBy`，批次內部的重複筆都會通過 HashSet 篩選（因為 DB 裡都沒有），最終在 INSERT 時因為 Unique Index 違規而拋例外。如果只做 `DistinctBy` 但不查 DB 建 HashSet，Worker 重啟後重跑已存在的資料，同樣在 INSERT 時 Unique Index 違規。
+
+兩層各自有責任，混在一起反而讓職責模糊，邊界情況的 debug 也會更困難。
+
+**我學到的原則**
+
+去重策略要先分析「重複可能從哪裡來」，每個來源對應一種解決機制，不要把不同來源的重複混在同一個邏輯裡處理。批次內部去重用程式邏輯（DistinctBy）；歷史去重用 DB 查詢 + HashSet。兩層的順序也重要：先 DistinctBy 縮小批次，再 HashSet 過濾歷史，減少不必要的 DB 查詢量。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計去重時，先列出「重複可能的來源」，每個來源對應一個解決機制，按順序排列。不要試圖用一個機制同時解決不同性質的重複，那會讓邊界情況變得難以推理。
+
+---
+
+### 條目 073 — ValueTuple vs 匿名型別的跨方法邊界使用
+
+**我做了什麼**
+
+建立去重 HashSet 時，最初用匿名型別 `new { m.MarketCode, m.MarketName }`，後來改成 `ValueTuple<string, string>（m.MarketCode, m.MarketName)`。
+
+**我遇到的問題**
+
+條目 060 記錄了類似的問題，但這次的場景有一個不同點：匿名型別的 `HashSet` 是在同一個方法裡使用的，理論上 C# 對相同欄位組合的匿名型別有值相等性，不一定需要改成 ValueTuple。那為什麼還是應該用 ValueTuple？
+
+**我怎麼想通的**
+
+C# 匿名型別的值相等性是在同一個編譯單元（同一個方法或 lambda 的 scope）裡有效的——相同欄位、相同型別、相同順序的匿名型別，在同一個 scope 裡確實是同一個型別，`HashSet.Contains()` 可以正常比對。
+
+問題出在「跨方法邊界」時。如果把 `HashSet<匿名型別>` 作為參數傳給另一個方法，目標方法無法宣告這個參數的型別（匿名型別沒有名字），只能宣告成 `object` 或 `dynamic`，失去型別安全。如果用 LINQ 的 `Where` 搭配外部 HashSet，型別推斷在某些情況下也可能失效。
+
+更重要的是可讀性和維護性：`HashSet<(string MarketCode, string MarketName)>` 比 `HashSet<匿名型別>` 更清楚地表達了「我在追蹤什麼」。ValueTuple 支援具名元素（`(string MarketCode, string MarketName)`），讀起來像文件一樣直白，匿名型別沒有辦法在外部被引用和命名。
+
+條目 060 的核心是「匿名型別在 HashSet 裡的值相等性失效」，這個條目補充的是「即使值相等性沒問題，匿名型別也不適合用在需要跨方法邊界傳遞或需要明確型別宣告的場景」。兩個條目合在一起才是完整的判斷框架。
+
+**我學到的原則**
+
+匿名型別適合在 LINQ 查詢的同一個 scope 內使用（臨時的 projection，不需要跨邊界）。需要讓型別可引用、可命名、可跨方法傳遞的場景，選 ValueTuple（輕量、值相等性、可具名）或具名 record（更語意豐富、適合複雜的情況）。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到匿名型別的 `new { ... }` 時，問兩個問題：「我需要在 HashSet.Contains 裡用它做值比對嗎？」以及「我需要把這個型別傳遞到這個 scope 之外嗎？」任何一個答案是「是」，就改成 ValueTuple 或具名 record。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -1680,3 +2043,25 @@ SaveChangesAsync 影響整個 Scope 裡所有的 Change Tracker 變更，不只�
 
 **關於跨模組關聯**
 跨 DbContext 的關聯只能存在於值層面（字串欄位），不能存在於物件層面（導覽屬性）。導覽屬性是 EF Core 向所屬 DbContext 宣告「我要管這張表」的入口，加了就會在 Migration 裡多建表。跨模組的 FK 靠應用程式層保證正確性，放棄 FK constraint 和導覽屬性帶來的自動保護。已知的代價是使用者刪除後可能產生孤兒記錄，這個清理責任由應用程式層在對應的功能實作時補上。
+
+---
+
+## 跨條目的通用原則整理（v11.0 更新）
+
+以下為 v11.0 新增或強化的原則，和既有原則並列管理：
+
+**關於增量同步設計**
+進度追蹤應該記錄「我執行了什麼」，而不是「我的執行結果長什麼樣」。用 DB 的 `MAX(某欄位)` 反推進度，在「有執行但沒有產生資料」的合法情況下會卡死。獨立的同步狀態表（SyncState 模式）是更可靠的替代方案。
+
+**關於 off-by-one 的設計語意**
+設計斷點恢復機制時，先定義欄位語意（「已完成的最後一個」vs「下次從哪個開始」），再從語意推導初始值。做完後用一個具體例子驗算：帶入初始值算出第一次執行的起點，確認和預期一致。
+
+**關於 API 參數精確度與分頁**
+遇到分頁 API 時，先評估能否透過增加查詢參數精確度（縮小每次查詢的範圍）來讓每次回傳結果自然不需要分頁。精確參數 + 多次呼叫，通常比寬泛參數 + 分頁迴圈更易維護、錯誤隔離更好。
+
+**關於 EF Core Change Tracker 的自動追蹤**
+透過 EF Core 查詢取得的 Entity 處於 Change Tracker 追蹤下，修改屬性後 `SaveChangesAsync` 會自動產生 UPDATE SQL，不需要顯式呼叫 `.Update()`。`.Update()` 是給 Disconnected 場景（Entity 從外部傳入，不在追蹤中）使用的，在 Scoped DbContext 的正常查詢流程裡幾乎不需要。
+
+**關於獨立 SaveChanges 的語意**
+把某個寫入操作放在其他操作之前（順序）是不夠的，還需要確保它有獨立的 SaveChanges（持久性）。只有具備獨立 SaveChanges 的前置寫入，才能保證「不管後續操作成功或失敗，這筆資料都已永久存在」。
+

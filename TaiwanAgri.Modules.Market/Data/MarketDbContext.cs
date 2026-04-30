@@ -40,11 +40,7 @@ namespace TaiwanAgri.Modules.Market.Data
 				entity.Property(e => e.MiddlePrice).HasPrecision(8, 2);
 				entity.Property(e => e.LowerPrice).HasPrecision(8, 2);
 				entity.Property(e => e.AvgPrice).HasPrecision(8, 2);
-
-				entity.HasOne(e => e.CropInfo)
-					  .WithMany()
-					  .HasForeignKey(e => e.CropCode)
-					  .OnDelete(DeleteBehavior.Restrict);
+				entity.Property(e => e.TransQuantity).HasPrecision(8, 2);
 			});
 
 			modelBuilder.Entity<MarketInfo>(entity =>

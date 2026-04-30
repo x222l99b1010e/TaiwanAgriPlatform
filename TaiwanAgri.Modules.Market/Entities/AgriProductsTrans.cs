@@ -18,10 +18,7 @@ namespace TaiwanAgri.Modules.Market.Entities
 		public decimal MiddlePrice { get; set; }
 		public decimal LowerPrice { get; set; }
 		public decimal AvgPrice { get; set ; }
-		public int TransQuantity { get; set; }
+		public decimal TransQuantity { get; set; }
 		public DateTime CreatedAt { get; set; }	= DateTime.UtcNow;
-		// Navigation properties
-		[ForeignKey("CropCode")]
-		public CropInfo CropInfo { get; set; }
 	}
 }

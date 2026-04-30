@@ -775,6 +775,122 @@ foreach (var m in toAdd)
 
 ---
 
+## PR #015 — CoreDbContext、SyncState、DateHelper 與 AgriProductsTransSyncWorker 完整實作
+
+**標題**：`feat(market): 建立跨模組 CoreDbContext/SyncState、DateHelper ROC 日期轉換與 AgriProductsTransSyncWorker 增量同步`
+
+**背景與動機**
+
+這個 PR 是 Market 模組後端開發的第三階段，也是迄今複雜度最高的一批。前兩個 PR 完成了休市日（#013）和市場清單（#014），這個 PR 的核心任務是把「農產品交易行情」真正同步進資料庫。
+
+AgriProductsTrans API 有幾個特徵讓它比前兩支 API 都複雜：一、日期格式是民國年字串（`"107.07.10"`），無法直接存進 `DateOnly` 欄位；二、資料量大，從 2018 年累積至今，初次同步需要以「天」為單位逐日推進，中途可以中斷恢復；三、農業部的 API 在休市日不是回傳空陣列，而是回傳帶有特殊標記的記錄，需要識別並跳過；四、同批次的 API 資料本身可能就有重複筆，也需要判斷是否與 DB 已有記錄重疊。
+
+要解決這些問題，這個 PR 除了 Worker 本身之外，還建立了兩個可供跨模組複用的基礎設施：`CoreDbContext` 管理 `SyncStates` 資料表（追蹤增量同步進度），以及 `DateHelper` 提供民國年的雙向轉換工具方法。
+
+**關鍵設計決策一：CoreDbContext 放在 Core 層，而非 Market 模組**
+
+增量同步的進度追蹤（「上次跑到哪一天」）是一個橫切關注點（cross-cutting concern）。`PorkTrans` SyncWorker 以後也需要同樣的機制，`DebrisAlert` SyncWorker 也可能需要。如果 `SyncState` 放在 `TaiwanAgri.Modules.Market`，Market 模組就變成了基礎設施提供者，其他模組要依賴 Market 才能用到這個機制，違反了模組邊界。
+
+最終選擇把 `CoreDbContext` 和 `SyncState` 放在 `TaiwanAgri.Core/Infrastructure/`，schema 設為 `"core"`，在 `TaiwanAgri.Worker` 的 `Program.cs` 裡與 `MarketDbContext`、`WeatherDbContext` 並排以 `AddDbContext` 註冊。遵循的原則是：Core 層存放「任何模組都可能需要的共用工具或基礎設施」，而非把共用機制塞進其中一個業務模組。
+
+**關鍵設計決策二：SyncState 模式取代 MAX(TransDate)——從根本消除休市日卡死**
+
+初版設計是每次 Worker 執行時查 `MAX(TransDate)` 當作上次同步的終點，下次從 `MAX + 1 天` 開始。這個設計看起來直觀，但存在一個無法自癒的缺陷：如果某天全市場都休市，`AgriProductsTrans` 表不會有任何該天的記錄，`MAX(TransDate)` 永遠停在前一天，Worker 會無限重跑同一天——更精確地說，每次都對一個已經有完整記錄的日期重跑，只是全部被去重過濾掉，日期永遠無法前進。
+
+`SyncState` 解決這個問題的方式：`LastSyncedDate` 欄位在每天迴圈結束後更新，不管那天是否有任何交易資料寫入 DB，日期一定往前推進一格。「已完成同步的最後一天」和「有資料寫入的最後一天」是兩個不同的概念，SyncState 追蹤的是前者，MAX(TransDate) 只能得到後者。
+
+`SyncState` 刻意不設 `CreatedAt`——這個 Entity 是被 upsert 維護的持續狀態，不是 append-only 的事件記錄，`CreatedAt` 在這個語意下沒有意義。
+
+**關鍵設計決策三：LastSyncedDate 初始值 = 2018/06/30，而不是 2018/07/01**
+
+農業部農產品交易行情資料從 2018 年 7 月 1 日開始有記錄，因此第一次執行時要從 `2018/07/01` 開始同步。
+
+`SyncState` 的語意是「已完成同步的最後一天」，`startDate` 計算方式是 `LastSyncedDate.AddDays(1)`。如果把初始值設為 `2018/07/01`，`startDate` 就會從 `2018/07/02` 開始，漏掉第一天。因此初始值設為 `2018/06/30`（一個在資料庫裡根本不存在資料的日期），代表「這天之前（含）都已完成，但其實什麼都沒有」，讓 `startDate` 正確地從 `07/01` 開始。
+
+這是一個刻意設計的 off-by-one：欄位的語意決定了初始值的選擇，不是倒推出來的技術修正。在設計任何「上次到哪」的斷點恢復機制時，先想清楚欄位的語意（「已完成的最後一天」vs「下次要從哪天開始」），再推導初始值，避免日後閱讀程式碼時產生語意混淆。
+
+**關鍵設計決策四：三參數同時帶入，抑制 AgriProductsTrans API 的分頁行為**
+
+農業部的 `AgriProductsTrans` API 有一個分頁機制——當查詢結果量大時，會回傳 `Next: true`，要求打下一頁。但實驗後發現，當 URL 同時帶入 `Start_time`、`End_time`、`MarketName` 三個參數時，API 回傳的 `Next` 始終為 `false`，不會觸發分頁。也就是說，三個參數的組合讓 API 回傳的是「這個市場這一天的全部資料」，資料量有限，不需要分頁。
+
+相較之下，只帶 `Start_time` 不帶 `MarketName` 時，API 會回傳全台所有市場的資料，量大到需要分頁，且因為農業部的商業限制（非會員只能取第一頁），後續頁數無法取得。
+
+這個發現讓 Worker 的結構從「外層日期 × 內層分頁」變成「外層日期 × 內層市場（每次打一個市場，不需要分頁）」，簡化了錯誤處理邏輯，也讓每個 API 呼叫的語意更清晰——一次呼叫對應「某個市場某一天的交易資料」。
+
+**關鍵設計決策五：upperBound 用台灣時間計算「昨天」**
+
+同步的上界選「昨天」而不是「今天」，原因是農業部的當天交易資料在台灣時間深夜才會更新完整，Worker 執行時間點不固定，選今天可能取到不完整的資料。選昨天代表「永遠只同步已確定完整的歷史資料」。
+
+計算「台灣時間昨天」需要注意跨平台問題。Windows 系統的時區 ID 是 `"Taipei Standard Time"`，Linux / macOS 是 `"Asia/Taipei"`，兩者不能互換。透過 `OperatingSystem.IsWindows()` 判斷後選擇對應的 ID，確保 Worker 在 Windows 開發環境和未來可能的 Linux 容器部署上都能正確計算時區邊界。
+
+```csharp
+var tzId = OperatingSystem.IsWindows() ? "Taipei Standard Time" : "Asia/Taipei";
+var tzInfo = TimeZoneInfo.FindSystemTimeZoneById(tzId);
+var todayTaipei = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tzInfo).Date;
+var upperBound = DateOnly.FromDateTime(todayTaipei.AddDays(-1));
+```
+
+**關鍵設計決策六：CropInfo 物理 FK 移除，改用應用程式層保證完整性**
+
+`AgriProductsTrans` Entity 最初設計帶有 `[ForeignKey("CropCode")] public CropInfo CropInfo` 導覽屬性，在資料庫層建立了物理 FK constraint。這在一般情況下是好設計，但這裡有一個特殊的雞生蛋問題：`CropInfos` 表的資料來源正是 `AgriProductsTrans` 同一支 API——Worker 第一次執行時 `CropInfos` 是空的，帶著物理 FK 的 INSERT 必然失敗。
+
+與 PR #014 的 `MarketInfo` 不同，那次是因為 surrogate PK 讓 FK 的指向欄位消失，這次是同模組內也選擇放棄物理 FK。原因是完整性保護的成本與收益不對稱：FK constraint 保護的場景是「有人直接刪除 CropInfos 記錄後，AgriProductsTrans 孤兒記錄還在」，但 CropInfos 本身就不會被外部刪除（快照型填充），收益極低。相反，移除 FK 之後，Worker 自己在寫入 AgriProductsTrans 之前先確保對應的 CropInfo 已存在（有自己的 `SaveChangesAsync`），這個「應用程式層的執行順序保護」完全等效於 FK constraint 的插入保護，且沒有雞生蛋問題。
+
+**關鍵設計決策七：CropInfo 順帶同步的執行順序與獨立 SaveChanges**
+
+CropInfo 的填充邏輯嵌在 AgriProductsTransSyncWorker 的每日迴圈裡：在 MapToEntity 之前，先從這批 API 資料中抽出不重複的 CropCode 集合，與 DB 現有記錄比對，只 Add 尚未存在的 CropInfo 記錄，然後立即 `SaveChangesAsync`，再繼續寫入 AgriProductsTrans。
+
+這個「先存 CropInfo 再存 AgriProductsTrans」的順序模擬了物理 FK 的插入保護語意。如果把 CropInfo 和 AgriProductsTrans 的寫入合在同一個 `SaveChangesAsync`，就等於同一個 transaction 裡既新增了 FK 的被指向記錄又新增了指向它的記錄，在移除物理 FK 後這其實是可以的，但兩個 `SaveChanges` 分開讓程式碼的意圖更清楚：「先確保 CropInfo 存在，再寫 AgriProductsTrans」。
+
+**關鍵設計決策八：TransQuantity 在執行期發現需要改成 decimal**
+
+最初根據 API 文件設計 `TransQuantity` 欄位為 `int`（交易量，直覺上應該是整數）。Worker 實際跑起來之後，遇到 JSON 反序列化失敗，錯誤訊息顯示某些市場的交易量回傳了帶小數的數值（如 `123.5`）。
+
+這個案例再次確認了「API 文件是參考，真實回傳才是設計依據」的原則。修正方式是執行 `FixTransQuantityType` Migration 把欄位改成 `decimal(8,2)`，同時補上 `HasPrecision(8,2)`，避免 EF Core 發出截斷警告。這個修正被獨立成一個 Migration 而不是直接改前一個，確保 Migration 歷史清楚記錄了「發現問題 → 修正」的時間軸，不會在之後 review 時讓人困惑「為什麼欄位一開始就是 decimal」。
+
+**關鍵設計決策九：雙層去重——DistinctBy 處理批次內部，HashSet<ValueTuple> 處理歷史**
+
+去重有兩個維度，職責必須分開：
+
+第一層 `DistinctBy` 處理「這批 API 回傳的資料本身就有重複筆」——農業部的 API 在部分情況下同一批回傳有完全相同的記錄，如果不先去重就直接比對 DB，雖然最終 DB 層的 Unique Index 會攔截重複，但資料庫層的違規錯誤比程式層的靜默過濾付出的代價高得多（前者拋例外、後者只是少寫幾筆）。
+
+第二層 `HashSet<(DateOnly, string, string, string)>` 處理「這批資料與 DB 已有記錄的重複」——從 DB 查出當天已存在的自然鍵組合，建立 HashSet，過濾掉 incoming 裡已在 DB 存在的記錄。使用 `ValueTuple` 而非匿名型別，因為 ValueTuple 的值相等性可以跨方法邊界使用，而匿名型別在 HashSet 的 `Contains` 比對中依賴物件參考相等性，不同 `new { ... }` 即使值相同也判為不同。
+
+兩層去重各自解決一個問題，不要把「批次內去重」和「歷史去重」混在同一個邏輯裡，否則邊界情況會讓程式碼越來越難維護。
+
+**AgriProductsTransSyncWorker 完整流程**
+
+```
+第一階段：準備起始日期
+1. 讀取 CoreDbContext.SyncStates（SyncKey = "Market_AgriProductsTrans"）
+2. 若不存在，建立初始記錄（LastSyncedDate = 2018/06/30），立即 SaveChangesAsync
+3. startDate = LastSyncedDate.AddDays(1)
+
+第二階段：準備上界與市場清單
+4. 計算 upperBound = 台灣時間昨天（TimeZoneInfo 跨平台）
+5. 從 MarketDbContext 一次預載全部 MarketInfos
+
+第三階段：雙層迴圈 × 資料處理 × SyncState 更新
+6. for currentDate = startDate to upperBound（每次 AddDays(1)）
+   for each market in MarketInfos
+     → 打 API：?Start_time={ROC}&End_time={ROC}&MarketName={market.MarketName}
+     → CropCode == "-" 過濾（休市筆跳過）
+     → DistinctBy(x => (x.TransDate, x.TcType, x.CropCode, x.MarketCode))（批次去重）
+   
+7. 抽出本日新 CropCode → Add CropInfos → SaveChangesAsync（先存主檔）
+8. HashSet<(DateOnly,string,string,string)> 查 DB 建立歷史去重集合
+9. 過濾掉 HashSet 已包含的筆 → MapToEntity → AddRange
+10. SaveChangesAsync（AgriProductsTrans）
+11. lastSyncState.LastSyncedDate = currentDate（EF Core Change Tracker 自動偵測修改）
+12. dbCore.SaveChangesAsync()（更新 SyncState，不需要顯式 .Update()）
+```
+
+**驗收標準**
+
+編譯 0 錯誤。`core.SyncStates` 資料表存在，SyncKey 欄位有 Unique Index。Worker 首次啟動後 Log 顯示從 `2018/07/01` 開始逐日推進，AgriProductsTrans 表持續寫入資料（歷史資料量大，初次同步需要時間）。中途停止再重啟後，Worker 從 SyncState 記錄的 LastSyncedDate + 1 天繼續，不從頭重跑，確認斷點恢復正確。遇到全市場休市的日期，Log 顯示「跳過休市筆」但 SyncState 仍推進，`MAX(TransDate)` 不卡死。FixTransQuantityType Migration 執行後，`AgriProductsTrans.TransQuantity` 欄位型別為 `decimal(8,2)`，不再有截斷 Warning。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

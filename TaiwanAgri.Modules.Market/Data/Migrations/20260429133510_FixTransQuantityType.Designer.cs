@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaiwanAgri.Modules.Market.Data;
 
@@ -11,9 +12,11 @@ using TaiwanAgri.Modules.Market.Data;
 namespace TaiwanAgri.Modules.Market.Data.Migrations
 {
     [DbContext(typeof(MarketDbContext))]
-    partial class MarketDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260429133510_FixTransQuantityType")]
+    partial class FixTransQuantityType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -188,6 +191,17 @@ namespace TaiwanAgri.Modules.Market.Data.Migrations
                         .HasDatabaseName("IX_MarketRestDays_MarketCode_MarketType_Year_Month_RestDay");
 
                     b.ToTable("MarketRestDays", "market");
+                });
+
+            modelBuilder.Entity("TaiwanAgri.Modules.Market.Entities.AgriProductsTrans", b =>
+                {
+                    b.HasOne("TaiwanAgri.Modules.Market.Entities.CropInfo", "CropInfo")
+                        .WithMany()
+                        .HasForeignKey("CropCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CropInfo");
                 });
 #pragma warning restore 612, 618
         }

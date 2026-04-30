@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Polly;
+using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
@@ -12,6 +13,9 @@ namespace TaiwanAgri.Worker
 		{
 			var builder = Host.CreateApplicationBuilder(args);
 			//DbContext 註冊
+			builder.Services.AddDbContext<CoreDbContext>(options =>
+				options.UseSqlServer(
+					builder.Configuration.GetConnectionString("DefaultConnection")));
 			builder.Services.AddDbContext<WeatherDbContext>(options =>
 				options.UseSqlServer(
 					builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -43,6 +47,7 @@ namespace TaiwanAgri.Worker
 			//Market 註冊
 			builder.Services.AddHostedService<MarketRestDaySyncWorker>();
 			builder.Services.AddHostedService<CropMarketSyncWorker>();
+			builder.Services.AddHostedService<AgriProductsTransSyncWorker>();
 
 
 			var host = builder.Build();

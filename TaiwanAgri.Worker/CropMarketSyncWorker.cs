@@ -83,7 +83,8 @@ namespace TaiwanAgri.Worker
 					.ToHashSet();
 
 				var toAdd = incoming
-					.Where(m => !existingMarketCodes.Contains((m.MarketCode, m.MarketName)))
+					.Where(m => !existingMarketCodes.Contains((m.MarketCode, m.MarketName)) 
+					&& !(m.MarketCode?.Trim() == "105"&& m.MarketName?.Trim() == "台北花市"))
 					.ToList();
 				if (toAdd.Count == 0)
 				{

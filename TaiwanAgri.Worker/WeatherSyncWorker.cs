@@ -109,6 +109,7 @@ namespace TaiwanAgri.Worker
 			_logger.LogInformation("[WeatherSync] 合計取得 {Count} 筆原始資料", allDtos.Count);
 
 			// ── 步驟 3：轉換 Entity ────────────────────────────────────────────
+			//這一段負責將「外部格式（DTO）」轉為「資料庫格式（Entity）」。
 			var incoming = allDtos
 				.Select(MapToEntity)
 				.Where(o => o != null)
@@ -122,16 +123,17 @@ namespace TaiwanAgri.Worker
 			}
 
 			// ── 步驟 4：查詢已存在的組合，只寫入新的 ────────────────────────
+			//先找出這批新資料中涵蓋了哪些「時間點」（ObservedAt）。
 			var targetTimes = incoming
 				.Select(o => o.ObservedAt)
 				.Distinct()
 				.ToList();
-
+			//去資料庫查詢：在這些時間點內，有哪些「測站 ID +觀測時間」的組合已經存在。
 			var existingKeys = await db.WeatherObservations
 				.Where(o => targetTimes.Contains(o.ObservedAt))
 				.Select(o => new { o.StationId, o.ObservedAt })
 				.ToListAsync(stoppingToken);
-
+			//將從資料庫查回來的現有資料，轉換成一個 HashSet（雜湊集）。
 			var existingSet = existingKeys
 				.Select(k => (k.StationId, k.ObservedAt))
 				.ToHashSet();
