@@ -891,6 +891,136 @@ CropInfo 的填充邏輯嵌在 AgriProductsTransSyncWorker 的每日迴圈裡：
 
 ---
 
+## PR #016 — AgriProductsTransSyncWorker 效能優化：併發 API 請求、記憶體快取與批次寫入
+ 
+**標題**：`perf(market): AgriProductsTransSyncWorker 效能優化——Task.WhenAll 併發、HashSet 快取去重與批次 SaveChanges`
+ 
+**背景與動機**
+ 
+PR #015 完成了 `AgriProductsTransSyncWorker` 的完整功能實作，Worker 可以正確地增量同步農產品交易行情資料。但功能正確和效能可用是兩件事。實際跑了一個晚上（約 8 小時）之後，發現只同步了約 1 年 2 個月的資料——這意味著要把 2018 年至今的歷史資料全部補齊，可能需要數十小時甚至更長。
+ 
+效能瓶頸不在資料量，而在**迴圈結構**。原始實作是巢狀迴圈（天 × 市場），在最內層的每一圈裡都進行了一次 HTTP 請求、至少兩次 DB 查詢、一次 SaveChanges。90 天 × 50 個市場 = 4,500 次循環，每次循環都在等待網路 I/O 和資料庫 Round-trip，CPU 大部分時間是閒置的。
+ 
+這個 PR 針對上述瓶頸進行了四個維度的優化，不改變任何業務邏輯，只改變「什麼時候查 DB、什麼時候存、什麼時候等 API」的結構安排。
+ 
+**關鍵設計決策一：Task.WhenAll 併發 API 請求，而非改用執行緒安全集合**
+ 
+同一天內的 50 個市場彼此獨立，不需要等前一個市場完成才能打下一個市場的 API。原始的 `foreach` 是串行的，總等待時間 = 每個市場等待時間的加總。改用 `Task.WhenAll` 之後，50 個 API 同時發出，總等待時間 ≈ 最慢那一個市場的時間。
+ 
+實作上有一個重要的設計選擇：Task 的責任只限於打 API 並回傳原始 json，不在 Task 內部做任何資料處理。
+ 
+```csharp
+var rawResults = await Task.WhenAll(marketInfos.Select(async market =>
+{
+    var url = $"...&MarketName={market.MarketName}";
+    try
+    {
+        var json = await _httpClient.GetStringAsync(url, stoppingToken);
+        return (Market: market, Json: json, Success: true);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "市場 {Market} 抓取失敗", market.MarketName);
+        return (Market: market, Json: string.Empty, Success: false);
+    }
+}));
+ 
+// 回到主執行緒，依序處理所有結果
+foreach (var (market, json, success) in rawResults) { ... }
+```
+ 
+另一個考慮過的方案是把所有共享集合換成執行緒安全版本（`ConcurrentDictionary`、`ConcurrentBag`），讓資料處理也在 Task 內部併發進行。這個方案被否定，原因有兩個：一、`ConcurrentDictionary` 解決了寫入衝突，但無法解決 **TOCTOU（Time of Check to Time of Use）** 問題——Task A 和 Task B 可能同時通過「CropCode 不存在」的檢查，然後各自 Add，導致重複寫入，這需要用 `GetOrAdd` 等原子操作解決，程式碼複雜度大幅提升；二、資料處理本身是 CPU 密集的記憶體操作，速度很快，讓它在主執行緒依序跑完全不影響整體效能——真正的瓶頸是 API 等待，那才是需要並發的部分。
+ 
+同時，這個實作加入了個別市場的錯誤隔離：原本若某個市場 API 失敗，`Task.WhenAll` 會讓整個當天的處理中斷。改成在每個 Task 內部 `try/catch` 後，一個市場失敗不影響其他市場，`Success: false` 的結果在主執行緒裡被跳過。
+ 
+**關鍵設計決策二：CropInfo 全量快取——4,500 次 DB 查詢降為 1 次**
+ 
+原始實作在每圈迴圈（每個市場、每一天）都對 `CropInfos` 表發起一次查詢，確認這些 CropCode 是否已存在。90 天 × 50 個市場 = 4,500 次相同性質的查詢。
+ 
+優化方式是在雙層迴圈開始之前，一次性把所有 CropCode 撈進記憶體的 `HashSet<string>`，之後的比對直接查記憶體（HashSet 的查找是 O(1)）。發現新 CropCode 時，同步更新 HashSet，確保後續的比對能反映最新狀態，不依賴 DB 查詢。
+ 
+```csharp
+// 雙層迴圈外，只查一次
+var existingCropCodeSet = await dbMarket.CropInfos
+    .Select(x => x.CropCode)
+    .ToHashSetAsync(stoppingToken);
+ 
+// 迴圈內發現新 CropCode 後，同步更新快取
+foreach (var c in newCrops) existingCropCodeSet.Add(c.CropCode);
+```
+ 
+這個快取能夠正確運作的前提是：`AgriProductsTrans` 和 `CropInfos` 之間沒有實體外鍵（Physical FK）。如果有 FK，在同一個 Transaction 裡同時 Add CropInfo 和 AgriProductsTrans 會因為 FK 插入順序而失敗。由於 PR #015 已確認移除導覽屬性、不建立物理 FK，這裡可以安全地把 CropInfo 和 AgriProductsTrans 的寫入合併到同一個 `SaveChangesAsync`。
+ 
+**關鍵設計決策三：existingKeys 移至市場迴圈外——消除 SaveChanges 移出後衍生的問題**
+ 
+當 `SaveChangesAsync` 還在市場迴圈內時，原始的 `existingKeys` 查詢（當天已存在的交易記錄）每圈得到的結果都不同，因為前一圈的資料已經存進 DB。把 `SaveChangesAsync` 移出市場迴圈之後，這個查詢的結果在 50 圈內完全相同——今天的資料根本還沒存進 DB，每次都查到 0 筆（或只有歷史重跑的資料）。
+ 
+解法和 CropInfo 快取完全同構：在市場迴圈開始之前，一次撈出當天所有已存在的自然鍵，建立 `HashSet<(DateOnly, string, string, string)>`，迴圈內比對只查記憶體。
+ 
+```csharp
+// 市場 foreach 之前，每天只查一次
+var existingKeySet = (await dbMarket.AgriProductsTrans
+    .AsNoTracking()
+    .Where(x => x.TransDate == currentDate)
+    .Select(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
+    .ToListAsync(stoppingToken))
+    .Select(x => (x.TransDate, x.CropCode, x.MarketCode, x.TcType))
+    .ToHashSet();
+```
+ 
+這裡需要兩步驟而非一步驟的原因：EF Core 的 `Select` 必須能翻譯成合法 SQL，而 ValueTuple 不是 SQL 認識的型別；先用匿名型別執行查詢（`.ToListAsync()`），資料進入記憶體後，再用純 C# LINQ 轉成 ValueTuple 的 HashSet（`.ToHashSet()`，不需要 `Async`）。
+ 
+**關鍵設計決策四：SaveChanges 批次化與原子性保護**
+ 
+原始實作在每個市場迴圈結束後呼叫一次 `SaveChangesAsync`，90 天 × 50 市場 = 4,500 次。優化後改為每天結束後呼叫一次，降為 90 次。
+ 
+更重要的是**呼叫順序的語意**：
+ 
+```csharp
+// 正確順序：先存資料，再更新狀態
+await dbMarket.SaveChangesAsync(stoppingToken); // AgriProductsTrans + CropInfos
+lastSyncState.LastSyncedDate = currentDate;
+lastSyncState.UpdatedAt = DateTime.UtcNow;
+await dbCore.SaveChangesAsync(stoppingToken);   // SyncState
+```
+ 
+這個順序有原子性保護的語意：若 `dbMarket.SaveChangesAsync` 失敗，`dbCore` 不會執行，SyncState 不更新，下次重啟 Worker 會從同一天重試；若順序反過來，SyncState 已更新但資料沒存，這天資料永遠丟失且 Worker 不會知道需要補跑。
+ 
+**關鍵設計決策五：Log 等級語意化**
+ 
+原始實作在 API 回應異常和 API 回傳無資料兩種情況下使用同一條 `LogInformation`，除錯時無法快速辨別問題性質。優化後拆分：
+ 
+```csharp
+if (response?.RS != "OK")
+{
+    _logger.LogWarning("市場 {Market} API回應異常: {RS}", market.MarketName, response?.RS);
+    continue;
+}
+if (response.Data == null || response.Data.Count == 0)
+{
+    _logger.LogInformation("市場 {Market} 無資料，跳過", market.MarketName);
+    continue;
+}
+```
+ 
+`RS != "OK"` 是非預期的異常狀態，應該用 `Warning` 讓監控系統可以設定告警；`Data` 為空是正常的商業情況（市場當天沒有交易），應該用 `Information` 安靜記錄。Log 等級應該反映「我需要多快注意這件事」，而不是「這是不是程式的錯」。
+ 
+**優化效果對比**
+ 
+| 指標 | 優化前 | 優化後 |
+|------|--------|--------|
+| API 請求方式 | 串行，一次一個市場 | 併發，同天 50 個同時打 |
+| CropInfo DB 查詢 | 4,500 次（每圈一次） | 1 次（全量快取） |
+| existingKeys DB 查詢 | 4,500 次（每圈一次） | 90 次（每天一次） |
+| SaveChangesAsync 次數 | 4,500 次（每圈一次） | 90 次（每天一次） |
+| 單一市場失敗影響 | 整天中斷 | 只跳過該市場 |
+ 
+**驗收標準**
+ 
+編譯 0 錯誤。Worker 啟動後 Log 可見「--- 開始同步日期: XXXX-XX-XX ---」逐日推進，且每天的處理時間明顯縮短（原本每天約 80 秒，優化後應在數秒以內）。Log 中可見市場併發打 API 的效果（同一天多個市場的結果幾乎同時出現）。若某個市場 API 呼叫失敗，Log 顯示 Warning 但其他市場繼續處理、當天 SyncState 正常推進。重跑已存在資料時，Log 顯示「0 筆新增」而非報錯，確認去重邏輯在 SaveChanges 移出迴圈後依然正確。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

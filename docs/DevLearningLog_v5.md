@@ -1983,6 +1983,196 @@ C# 匿名型別的值相等性是在同一個編譯單元（同一個方法或 l
 
 ---
 
+### 條目 074 — Round-trip 的本質：每次 DB 操作都是一趟「去超市」
+
+**我做了什麼**
+
+發現 `AgriProductsTransSyncWorker` 在實際執行 8 小時後只同步了約 1 年 2 個月的資料，開始分析效能瓶頸。
+
+**我遇到的問題**
+
+「Round-trip」這個詞是什麼意思？為什麼說 4,500 次迴圈裡有「數千次 Round-trip」是問題？
+
+**我怎麼想通的**
+
+每一次 `ToListAsync()` 或 `SaveChangesAsync()` 都是一趟完整的網路往返：開啟連線 → 產生 SQL → 透過網路送到 DB Server → DB 執行 → 結果透過網路回來 → 關閉連線。每一趟都有固定的等待成本，跟查多少筆資料無關。
+
+用超市比喻：買 10 樣東西，如果「去超市 → 買一樣 → 回家 → 去超市 → 買一樣 → 回家」重複 10 次，大部分時間都在路上，不在「買東西」本身。DB 的 Round-trip 和這個完全相同——4,500 次迴圈裡，程式大部分時間都在等待網路 I/O，CPU 幾乎沒在做有意義的運算。
+
+原始實作的問題不是邏輯錯誤，而是**把不需要放在迴圈裡的 DB 操作，每圈都重複執行一次**。
+
+**我學到的原則**
+
+評估程式效能時，先數「這段程式碼裡有幾次 DB 操作」，再問「哪些操作的結果在迴圈裡是不變的」。不變的操作移到迴圈外，只執行一次，在迴圈裡查記憶體。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到巢狀迴圈裡有 `await` 的 DB 操作，先問：「這個查詢的結果，在這一層迴圈裡會改變嗎？」不會改變的就移出去。
+
+---
+
+### 條目 075 — Task.WhenAll：從串行等待到並發等待
+
+**我做了什麼**
+
+把市場迴圈的 API 請求從串行的 `foreach` 改成 `Task.WhenAll`，讓同一天的所有市場 API 同時發出。
+
+**我遇到的問題**
+
+`Task.WhenAll` 是什麼？它跟普通的 `foreach + await` 有什麼不同？它回傳的型別是什麼？
+
+**我怎麼想通的**
+
+串行的 `foreach + await`：打電話給市場 A → 等 A 接聽回答 → 掛電話 → 打給市場 B → 等 B 接聽回答 → 掛電話 → …50 個市場全部加總。大部分時間都在等對方接聽，你自己沒在做任何事。
+
+`Task.WhenAll`：同時把 50 支電話全部撥出去，等所有人都回答完。總等待時間 ≈ 最慢那一個市場的時間，而不是全部加總。
+
+`Task.WhenAll` 接收一組 Task，等全部完成後回傳一個陣列。如果每個 Task 回傳 `T`，`WhenAll` 就給你 `T[]`：
+
+```csharp
+// 每個 Task 回傳 (Market, Json, Success) 三元組
+var rawResults = await Task.WhenAll(marketInfos.Select(async market =>
+{
+    var json = await _httpClient.GetStringAsync(url, stoppingToken);
+    return (Market: market, Json: json, Success: true);
+}));
+// rawResults 的型別是 (MarketInfo, string, bool)[]
+```
+
+foreach 時，用 Tuple 解構（Tuple Deconstruction）把每個元素拆開成具名變數：
+
+```csharp
+foreach (var (market, json, success) in rawResults) { ... }
+```
+
+**我學到的原則**
+
+非同步的優勢不在於「不需要等待」，而在於「可以同時等待多件事」。`Task.WhenAll` 是讓多個獨立的等待操作並發進行的最直接工具。適用條件：各個 Task 彼此獨立，不需要等前一個完成才能開始下一個。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 `foreach` 裡面有 `await HttpClient` 或其他網路 I/O，先問「這些請求彼此獨立嗎？」獨立的話，就考慮 `Task.WhenAll`。
+
+---
+
+### 條目 076 — Thread Safety 與 TOCTOU：為什麼換成 ConcurrentDictionary 還不夠
+
+**我做了什麼**
+
+在評估 `Task.WhenAll` 的實作方案時，考慮過把 `HashSet<string>` 換成 `ConcurrentDictionary<string, byte>` 讓資料處理也在 Task 內部併發進行，最後否定了這個方案。
+
+**我遇到的問題**
+
+什麼是執行緒安全（Thread Safety）？`ConcurrentDictionary` 怎麼解決寫入衝突？它為什麼還是不夠？
+
+**我怎麼想通的**
+
+`List<T>` 和 `HashSet<T>` 不是執行緒安全的——如果 Task A 和 Task B 同時對同一個 `List` 呼叫 `Add()`，它們可能同時讀取「目前有幾筆」的計數器，各自計算出相同的插入位置，然後互蓋，導致資料損毀或遺失，而不是引發例外。這個問題的根本在於「讀取 + 計算 + 寫入」這三個步驟不是原子的（atomic），可以被其他執行緒插入。
+
+`ConcurrentDictionary` 內部用鎖（Lock）機制讓寫入變成原子操作——當 Task A 在 `TryAdd` 時，Task B 的 `TryAdd` 必須排隊等待，確保一次只有一個 Task 在修改資料結構。語法對比：
+
+```csharp
+// 原本的 HashSet<string>（非執行緒安全）
+existingCropCodeSet.Add("A001");
+existingCropCodeSet.Contains("A001");
+
+// ConcurrentDictionary<string, byte>（執行緒安全，用 Dictionary 模擬 HashSet）
+existingCropCodeSet.TryAdd("A001", 0); // byte 值 0 只是佔位，無意義
+existingCropCodeSet.ContainsKey("A001");
+```
+
+但 `ConcurrentDictionary` 只解決了「Add 本身」的衝突，沒有解決 **TOCTOU（Time of Check to Time of Use）** 問題：
+
+```csharp
+if (!existingCropCodeSet.ContainsKey(x.CropCode)) // Task A 檢查「不存在」
+{
+    // ← Task B 也同時通過了這個檢查，因為 A 還沒 Add
+    existingCropCodeSet.TryAdd(x.CropCode, 0); // 兩個都 Add，CropInfo 重複寫入
+}
+```
+
+「檢查是否存在」和「Add」是兩個分開的操作，即使每個操作本身是原子的，兩個操作合起來仍然不是原子的，中間可以插入其他執行緒。真正的解法是用 `GetOrAdd` 這類原子的「不存在就新增」操作，但這樣程式碼的複雜度會大幅提升，而且還要處理 `List<CropInfo>` → `ConcurrentBag<CropInfo>` 等多個集合的替換。
+
+最終選擇的方案：**Task 只負責打 API，所有有狀態的操作回到主執行緒依序處理**。這個方案的優雅之處在於：真正需要並發的部分（API 等待 I/O）才並發，快速的記憶體操作（資料處理）依序執行，完全規避了執行緒安全的複雜性，也沒有任何效能損失。
+
+**我學到的原則**
+
+TOCTOU 是一個常見的並發錯誤模式：「先檢查（Check），再使用（Use）」之間如果有其他執行緒插入，檢查的結果就失效了。換成執行緒安全的集合型別，只解決了「Use」部分的衝突，沒有解決「Check 到 Use 之間的間隙」。需要把整個「Check + Use」變成原子操作才能真正解決。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「先查存不存在，再根據結果決定要不要寫入」的模式，就要想「這段邏輯在多執行緒環境下是 TOCTOU 嗎？」如果是，要麼找原子操作（如 `GetOrAdd`），要麼讓這段邏輯在單一執行緒裡跑。
+
+---
+
+### 條目 077 — EF Core 不能在 Select 裡用 ValueTuple：SQL 翻譯的邊界
+
+**我做了什麼**
+
+在建立 `existingKeySet` 時，嘗試直接在 EF Core 的 `Select` 裡投影成 ValueTuple，發現不可行，改成兩步驟：先用匿名型別查 DB，資料進記憶體後再轉成 ValueTuple。
+
+**我遇到的問題**
+
+為什麼不能直接 `.Select(x => (x.TransDate, x.CropCode, x.MarketCode, x.TcType)).ToHashSetAsync()`？
+
+**我怎麼想通的**
+
+EF Core 的 LINQ 查詢在 `ToListAsync()` / `ToHashSetAsync()` 執行之前，都還沒有真正打到資料庫——EF Core 在這段時間持有一個「查詢表達式」，等到執行時才把它翻譯成 SQL 送給 DB。翻譯的過程中，EF Core 必須認識每一個 C# 表達式並找到對應的 SQL 語法。
+
+`new { ... }` 匿名型別是 EF Core 認識的投影方式，它會翻譯成 `SELECT column1, column2, ...`。但 `(x.A, x.B)` ValueTuple 不是 SQL 認識的概念，EF Core 無法翻譯，在執行期報錯。
+
+解法是利用兩個不同的執行環境：
+
+```csharp
+var existingKeySet = (await dbMarket.AgriProductsTrans
+    .AsNoTracking()
+    .Where(x => x.TransDate == currentDate)
+    .Select(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType }) // EF Core 翻譯成 SQL
+    .ToListAsync(stoppingToken))                // ← 這一行之後，資料進入記憶體，離開 EF Core 的管轄
+    .Select(x => (x.TransDate, x.CropCode, x.MarketCode, x.TcType))       // 純 C# LINQ，不需要翻譯成 SQL
+    .ToHashSet();                               // 不是 ToHashSetAsync，因為不碰 DB
+```
+
+`ToListAsync()` 是關鍵的邊界——它之前是「DB 查詢模式」，EF Core 負責翻譯；它之後是「記憶體操作模式」，任何合法的 C# 語法都可以用。
+
+**我學到的原則**
+
+EF Core LINQ 和普通 LINQ 看起來一樣，但背後的執行環境完全不同。EF Core LINQ 的每個操作都必須能翻譯成 SQL；普通 C# LINQ 在記憶體裡跑，任何 C# 語法都合法。分界點是 `ToListAsync()` / `FirstOrDefaultAsync()` 等「執行 DB 查詢」的方法。
+
+**下次遇到類似情況，我會先想到什麼**
+
+EF Core 查詢報「could not be translated」錯誤時，先看是不是在 `ToListAsync()` 之前用了 DB 不認識的 C# 表達式（ValueTuple、自訂方法、複雜的 C# 運算）。解法是先執行查詢把資料帶進記憶體，再用普通 LINQ 處理。
+
+---
+
+### 條目 078 — 效能優化的診斷方法：先量再改，從最大的浪費開始
+
+**我做了什麼**
+
+對 `AgriProductsTransSyncWorker` 進行系統性效能診斷，找出瓶頸並按照依賴關係排定優化順序（D → B → C → A）。
+
+**我遇到的問題**
+
+發現跑很慢了，但怎麼知道要先改哪個？優化的順序重要嗎？
+
+**我怎麼想通的**
+
+先算出問題的規模：90 天 × 50 個市場 = 4,500 次迴圈，每圈有 1 次 HTTP + 2 次 DB 查詢 + 1 次 SaveChanges。4,500 次 HTTP 是串行等待，這是最大的浪費；4,500 次 DB 查詢裡，大部分都是查同樣的東西（CropInfo 全量、existingKeys 當天同一份資料）。
+
+排定優化順序時，考慮了三個維度：是否獨立（不影響其他邏輯）、是否結構性（影響整體架構）、是否高風險（容易出 Bug）。獨立的優先做（`AsNoTracking`），高風險的最後做（`Task.WhenAll`），中間的按照「後者依賴前者穩定」的順序排列。
+
+這次的順序：D（加一行，獨立）→ B（移動查詢位置，低風險）→ C（改變迴圈結構，中風險）→ A（引入並發，高風險）。C 要先於 A，因為 A 的設計（Task 只打 API）是建立在 C（SaveChanges 移出迴圈）穩定之後才有意義的。
+
+**我學到的原則**
+
+效能優化的正確順序是：量化問題規模 → 找出最大的浪費 → 從獨立的改動開始，逐步推進到結構性的改動。每次改一個維度，確認後再改下一個，這樣出問題時能精確定位是哪個改動引入的。不要一次改太多。
+
+**下次遇到類似情況，我會先想到什麼**
+
+發現效能問題，第一步不是動程式碼，而是先算「這個操作一共執行了幾次？每次的成本是多少？」有了數字才知道優化哪裡的收益最大。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -2064,4 +2254,22 @@ SaveChangesAsync 影響整個 Scope 裡所有的 Change Tracker 變更，不只�
 
 **關於獨立 SaveChanges 的語意**
 把某個寫入操作放在其他操作之前（順序）是不夠的，還需要確保它有獨立的 SaveChanges（持久性）。只有具備獨立 SaveChanges 的前置寫入，才能保證「不管後續操作成功或失敗，這筆資料都已永久存在」。
+
+---
+
+## 跨條目的通用原則整理（v12.0 更新）
+
+以下為 v12.0 新增或強化的原則，和既有原則並列管理：
+
+**關於並發與執行緒安全**
+需要並發的部分和需要保持狀態一致性的部分應該分開。讓 Task 只負責 I/O 等待（打 API、讀檔案），把所有有狀態的操作（比對、更新快取、寫入集合）集中在主執行緒依序執行。這樣能獲得 I/O 並發的效能收益，同時完全規避執行緒安全的複雜性。
+
+**關於 TOCTOU**
+「先檢查存不存在，再根據結果寫入」這個模式在多執行緒環境下是危險的。換成執行緒安全的集合型別只解決了寫入操作本身的衝突，沒有解決「Check 到 Use 之間可能被插入」的問題。需要把整個「Check + Use」變成原子操作，或讓這段邏輯在單一執行緒執行。
+
+**關於 EF Core 的查詢邊界**
+EF Core LINQ 和普通 LINQ 看起來相同，但執行環境不同。`ToListAsync()` 之前是 SQL 翻譯模式，每個操作都必須能對應到合法 SQL；之後是記憶體模式，任何 C# 語法都可以用。ValueTuple 投影、自訂方法、複雜運算都必須放在 `ToListAsync()` 之後。
+
+**關於效能診斷**
+先量化問題規模（操作執行了幾次、每次成本多少），再找最大浪費，最後按照「獨立 → 結構性 → 高風險」的順序逐步優化。每次只改一個維度，確認後再進行下一個。
 
