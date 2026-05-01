@@ -2173,6 +2173,63 @@ EF Core 查詢報「could not be translated」錯誤時，先看是不是在 `To
 
 ---
 
+### 條目 079 — 設計決策的影響範圍追蹤：從主檔層面的一對多到交易資料層面的重複
+
+**我做了什麼**
+
+`AgriProductsTransSyncWorker` 跑歷史資料時，在 `2019-11-04` 拋出 `DbUpdateException`，錯誤訊息指向 `market.AgriProductsTrans` 的 Unique Index 被重複寫入違反。程式碼裡已有兩層去重邏輯，卻仍然出現重複，診斷後發現是跨市場查詢的資料在合併前沒有去重。
+
+**我遇到的問題**
+
+PR #014 已經知道 MarketCode 514 在 MarketInfos 有兩筆（溪湖鎮和彰化市場），這個事實早就記錄在設計文件裡了。為什麼到了交易資料同步時才踩到問題？
+
+**我怎麼想通的**
+
+PR #014 的思考停在「主檔允許一個 MarketCode 有兩個 MarketName 並存」，沒有繼續往下推演：
+
+1. 兩個 MarketName 都會被帶進 `AgriProductsTransSyncWorker` 的市場清單
+2. `Task.WhenAll` 會用兩個不同的 MarketName 各打一次 API
+3. 農業部回傳的交易資料欄位是 `MarketCode`（514），不是查詢時用的 MarketName
+4. 兩次 API 可能回傳完全相同的自然鍵組合 `(TransDate, TcType, CropCode, MarketCode=514)`
+5. 原本的 `DistinctBy` 只在單一市場的 `incoming` 裡去重，跨市場的重複完全沒有被攔截
+6. `existingKeySet` 查的是 DB 狀態，Change Tracker 裡已 Add 但未存的資料對它不可見
+
+失敗鏈拉完之後，修正方向就很清楚：把 `DistinctBy` 的作用範圍從「單一市場的 incoming」擴大到「所有市場合併後的 allIncoming」。
+
+```csharp
+// 修正前：每個市場各自去重，跨市場重複無法被攔截
+foreach (var (market, json, success) in rawResults)
+{
+    var incoming = response.Data
+        .Where(x => x.CropCode != "-")
+        .DistinctBy(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
+        .ToList();
+    dbMarket.AgriProductsTrans.AddRange(saveData); // 跨市場重複直接衝突
+}
+
+// 修正後：先收集全部，合併後再統一去重
+var allIncoming = new List<AgriProductsTransTypeDto>();
+foreach (var (market, json, success) in rawResults)
+{
+    allIncoming.AddRange(incoming); // 只收集
+}
+var targetData = allIncoming
+    .DistinctBy(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
+    .ToList(); // 合併後統一去重
+```
+
+**我學到的原則**
+
+設計決策的影響範圍追蹤需要跨越系統層次。「主檔允許一對多」這個決策不只影響主檔表的結構，也影響任何用這份主檔驅動查詢的下游 Worker。做出影響資料來源結構的設計決策時，應該同時問：「所有以這份資料為輸入的 Worker，它們的去重邏輯還成立嗎？」
+
+另一個教訓：這類問題在小規模測試時很難被發現。MarketCode 514 同時有兩個名稱，只有在大規模補跑歷史資料、恰好跑到有 514 交易資料的日期時才會觸發。這是一種「設計階段不容易察覺，只有在真實資料規模下才會暴露」的邊界情況，無法靠早期測試完全防止，但可以在設計決策時就把影響鏈往下拉一層，盡量縮小後來的盲區。
+
+**下次遇到類似情況，我會先想到什麼**
+
+做出「允許同一業務代碼有多筆記錄」的設計決策之後，立刻問：「哪些下游 Worker 會以這份主檔為清單逐筆打 API？它們回傳的資料欄位是業務代碼還是查詢用的名稱？如果是業務代碼，跨筆查詢的結果需要合併去重嗎？」把這條推演鏈走完，才算把這個設計決策的影響範圍真正追蹤完整。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。

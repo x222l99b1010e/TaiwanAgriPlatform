@@ -103,6 +103,8 @@ namespace TaiwanAgri.Worker
 					.ToListAsync(stoppingToken))
 					.Select(x => (x.TransDate, x.CropCode, x.MarketCode, x.TcType))
 					.ToHashSet();
+				// foreach 之前
+				var allIncoming = new List<AgriProductsTransTypeDto>();
 				//在這裡（每天重置）
 				foreach (var (market, json, success) in rawResults)
 				{
@@ -120,48 +122,54 @@ namespace TaiwanAgri.Worker
 						_logger.LogInformation("[SyncAgriProductsTransAsync] 市場 {Market} 無資料，跳過", market.MarketName);
 						continue;
 					}
-					// 1. 過濾休市與重複項，抽出唯一的資料（根據日期、作物代碼、市場代碼、交易類型去重複），避免同一天同一個市場同一個作物有多筆資料的情況（雖然理論上不應該有，但以防萬一）
+					// 只收集，不直接 AddRange
 					var incoming = response.Data
 						.Where(x => x.CropCode != "-")
-						.DistinctBy(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
 						.ToList();
-
-					// 2. 處理新發現的作物代碼 (CropInfo)
-					var newCrops = incoming
-						.Where(x => !existingCropCodeSet.Contains(x.CropCode))
-						.DistinctBy(x => x.CropCode)
-						.Select(x => new CropInfo
-						{
-							CropCode = x.CropCode,
-							CropName = x.CropName,
-							CreatedAt = DateTime.UtcNow
-						}).ToList();
-
-					//如果有新的 CropCode，先新增到 CropInfo 資料表（避免外鍵問題）
-					if (newCrops.Any())
-					{
-						//把新的 CropCode 加到 existingCropCodeSet 裡，這樣同一天如果有多筆資料是同一個新的 CropCode，就不會重複新增 CropInfo
-						foreach (var c in newCrops) existingCropCodeSet.Add(c.CropCode);					
-						//新增 CropInfo 資料
-						dbMarket.CropInfos.AddRange(newCrops);
-						//記錄日誌，顯示發現了多少筆新的 CropCode
-						_logger.LogInformation("[SyncAgriProductsTransAsync] 發現 {Count} 筆新作物代碼，正在新增 CropInfo 資料", newCrops.Count);
-						//注意：這裡不需要立刻呼叫 SaveChangesAsync，因為後面還有 AgriProductsTrans 的新增，等全部資料都準備好後再一起寫入資料庫，這樣效率更好，也能確保資料一致性。
-					}
-					//將從資料庫查回來的現有資料，轉換成一個 HashSet（雜湊集）。
-					//最後過濾掉已存在的資料
-					var saveData = incoming
-						.Where(x => !existingKeys.Contains((DateHelper.ParseRocDate(x.TransDate), x.CropCode, x.MarketCode, x.TcType)))
-						.Select(MapToEntity)
-						.ToList();
-
-					if (saveData.Any())
-					{
-						dbMarket.AgriProductsTrans.AddRange(saveData);
-					}
-					_logger.LogInformation("[SyncAgriProductsTransAsync] 成功抓取 共 {Count} 筆資料", saveData.Count);
-					//注意：這裡不需要立刻呼叫 SaveChangesAsync，因為同一天的資料還有其他市場的，等全部市場的資料都準備好後再一起寫入資料庫，這樣效率更好，也能確保資料一致性。
+					allIncoming.AddRange(incoming);
 				}
+
+				// 2. 處理新發現的作物代碼 (CropInfo)
+				var newCrops = allIncoming
+					.Where(x => !existingCropCodeSet.Contains(x.CropCode))
+					.DistinctBy(x => x.CropCode)
+					.Select(x => new CropInfo
+					{
+						CropCode = x.CropCode,
+						CropName = x.CropName,
+						CreatedAt = DateTime.UtcNow
+					}).ToList();
+
+				//如果有新的 CropCode，先新增到 CropInfo 資料表（避免外鍵問題）
+				if (newCrops.Any())
+				{
+					//把新的 CropCode 加到 existingCropCodeSet 裡，這樣同一天如果有多筆資料是同一個新的 CropCode，就不會重複新增 CropInfo
+					foreach (var c in newCrops) existingCropCodeSet.Add(c.CropCode);					
+					//新增 CropInfo 資料
+					dbMarket.CropInfos.AddRange(newCrops);
+					//記錄日誌，顯示發現了多少筆新的 CropCode
+					_logger.LogInformation("[SyncAgriProductsTransAsync] 發現 {Count} 筆新作物代碼，正在新增 CropInfo 資料", newCrops.Count);
+					//注意：這裡不需要立刻呼叫 SaveChangesAsync，因為後面還有 AgriProductsTrans 的新增，等全部資料都準備好後再一起寫入資料庫，這樣效率更好，也能確保資料一致性。
+				}
+
+				// foreach 結束後，對所有市場的資料合併去重
+				var targetData = allIncoming
+					.DistinctBy(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
+					.ToList();
+				//將從資料庫查回來的現有資料，轉換成一個 HashSet（雜湊集）。
+				//最後過濾掉已存在的資料
+				var saveData = targetData
+					.Where(x => !existingKeys.Contains((DateHelper.ParseRocDate(x.TransDate), x.CropCode, x.MarketCode, x.TcType)))
+					.Select(MapToEntity)
+					.ToList();
+
+				if (saveData.Any())
+				{
+					dbMarket.AgriProductsTrans.AddRange(saveData);
+				}
+				_logger.LogInformation("[SyncAgriProductsTransAsync] 成功抓取 共 {Count} 筆資料", saveData.Count);
+				//注意：這裡不需要立刻呼叫 SaveChangesAsync，因為同一天的資料還有其他市場的，等全部市場的資料都準備好後再一起寫入資料庫，這樣效率更好，也能確保資料一致性。
+
 				// 當日所有市場處理完畢，一次性提交資料庫更改 (原子性操作)
 				lastSyncState.LastSyncedDate = currentDate;
 				lastSyncState.UpdatedAt = DateTime.UtcNow;

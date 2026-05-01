@@ -1021,6 +1021,103 @@ if (response.Data == null || response.Data.Count == 0)
 
 ---
 
+## PR #017 — AgriProductsTransSyncWorker 跨市場重複寫入 Bug Fix
+
+**標題**：`fix(market): 修正跨市場查詢導致相同自然鍵重複寫入、撞 Unique Index 的問題`
+
+**背景與動機**
+
+PR #016 的效能優化上線後，Worker 實際跑資料時在 `2019-11-04` 這天拋出 `DbUpdateException`：
+
+```
+Cannot insert duplicate key row in object 'market.AgriProductsTrans'
+with unique index 'IX_AgriProductsTrans_TransDate_TcType_CropCode_MarketCode'.
+The duplicate key value is (2019-11-04, N06, FB000, 800).
+```
+
+程式碼裡已有兩層去重邏輯（`DistinctBy` + `existingKeySet`），理論上不應該出現重複插入。這個錯誤揭示了一個在設計階段沒有完整追蹤影響範圍的問題：PR #014 已知 `MarketCode 514` 在 `MarketInfos` 有兩筆（溪湖鎮 Veg、彰化市場 Flower），但當時的推論只停在「主檔層面的一對多」，沒有繼續推演到「交易同步時，兩個 MarketName 分別打 API，回傳資料的 MarketCode 欄位可能相同，導致跨市場查詢產生重複的自然鍵」。
+
+**問題根因分析**
+
+PR #016 引入 `Task.WhenAll` 後，同一天的所有市場 API 同時發出，`rawResults` 包含所有市場的原始 json。後續的 `foreach` 依序處理每個市場，每個市場各自做 `DistinctBy` 去重：
+
+```csharp
+// 修正前：每個市場各自去重，市場間沒有互相比對
+foreach (var (market, json, success) in rawResults)
+{
+    var incoming = response.Data
+        .Where(x => x.CropCode != "-")
+        .DistinctBy(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
+        .ToList();
+    // 直接 AddRange，沒有跨市場去重
+    dbMarket.AgriProductsTrans.AddRange(saveData);
+}
+```
+
+`existingKeySet` 在 `foreach` 開始前查 DB 建立，記錄的是「今天已存進 DB 的資料」。但由於 `SaveChangesAsync` 移到 `foreach` 外面（PR #016 的優化），Change Tracker 裡尚未存進 DB 的資料對 `existingKeySet` 完全不可見。
+
+所以完整的失敗鏈是：
+
+1. MarketInfos 有兩筆：514 溪湖鎮（Veg）、514 彰化市場（Flower）
+2. `Task.WhenAll` 以兩個不同 MarketName 各打一次 API
+3. 農業部 API 回傳的資料欄位是 `MarketCode`（514），不是查詢用的 `MarketName`
+4. 兩次 API 可能回傳相同的 `(TransDate, TcType, CropCode, MarketCode=514)` 記錄
+5. 市場 A 的 `DistinctBy` 通過，AddRange 進 Change Tracker
+6. 市場 B 的 `DistinctBy` 也通過（只看自己的 incoming，沒看市場 A 已 Add 的）
+7. `existingKeySet` 也攔不到（查的是 DB，不是 Change Tracker）
+8. `SaveChangesAsync` 時，兩筆相同自然鍵同時送進 DB，Unique Index 拋例外
+
+**關鍵設計決策：將 DistinctBy 的作用範圍從「單一市場」擴大為「當天所有市場合併後」**
+
+修正方式是在 `foreach` 結束後，對所有市場的資料合併再做統一去重：
+
+```csharp
+// 修正後：先收集所有市場的資料
+var allIncoming = new List<AgriProductsTransTypeDto>();
+
+foreach (var (market, json, success) in rawResults)
+{
+    if (!success || string.IsNullOrEmpty(json)) continue;
+    var response = JsonSerializer.Deserialize<AgriProductsTransTypeApiResponse>(json);
+    if (response?.RS != "OK") { ... continue; }
+    if (response.Data == null || response.Data.Count == 0) { ... continue; }
+
+    // 只收集，不去重、不 AddRange
+    var incoming = response.Data
+        .Where(x => x.CropCode != "-")
+        .ToList();
+    allIncoming.AddRange(incoming);
+}
+
+// foreach 結束後，對合併後的資料統一去重
+var targetData = allIncoming
+    .DistinctBy(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
+    .ToList();
+```
+
+這個修正讓 514 溪湖鎮和 514 彰化市場各自回傳的 `(2019-11-04, N06, FB000, 514)` 在合併後只保留一筆，徹底解決跨市場重複的問題。
+
+值得注意的是：`DistinctBy` 只去掉**完全相同自然鍵**的記錄。如果兩個市場查詢回傳的 MarketCode 相同、但 CropCode 或 TcType 不同，這些是不同的交易紀錄，`DistinctBy` 不會去掉，兩筆都正確保留。
+
+**這次修正暴露的設計推演缺口**
+
+PR #014 做了一個正確的決策（surrogate PK + 允許同一 MarketCode 有多筆 MarketName 並存），但當時的影響追蹤停在主檔層面，沒有繼續推演到交易同步層面：
+
+- 已知：同一 MarketCode 可以有多個 MarketName（主檔一對多）
+- 未推演：多個 MarketName 打 API → 回傳資料的 MarketCode 欄位相同 → 需要跨市場去重
+
+這個缺口在功能正確性測試時不容易被發現（少量測試資料不容易踩到 514 同時有兩個名稱），只有在大規模補跑歷史資料時才會觸發。
+
+**驗收標準**
+
+編譯 0 錯誤。Worker 重啟後繼續從 `2019-11-04` 跑，不再拋 `DbUpdateException`。確認 `2019-11-04` 的資料正確寫入，MarketCode=514 的交易記錄只有一份，不重複。後續的歷史資料補跑也不再出現 Unique Index 違規錯誤。
+
+---
+
+
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
