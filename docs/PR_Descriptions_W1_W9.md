@@ -1114,7 +1114,96 @@ PR #014 做了一個正確的決策（surrogate PK + 允許同一 MarketCode 有
 
 ---
 
+## PR #018 — DebrisAlertRecord Entity、Migration、DTO 與 DebrisAlertRecordSyncWorker 完整實作
 
+**標題**：`feat(market): 實作 DebrisAlertRecordSyncWorker——土石流及大規模崩塌警戒歷史記錄同步`
+
+**背景與動機**
+
+這個 PR 完成 Market 模組後端開發的第四支 SyncWorker：`DebrisAlertRecordSyncWorker`，負責同步農業部「土石流及大規模崩塌警戒發布紀錄」資料。
+
+這支 Worker 的開發過程有一個值得記錄的前置決策過程。原始設計把 DebrisAlert 定位在模組 4「天災與菜價關聯分析」的資料來源，但農業部 `GetCustomerDebrisAlertInfo` 的設計是「只回傳當下正在發布的警戒，警戒解除後記錄消失」，不保留歷史。這對時序分析完全沒有用——分析需要的是「某一天有警戒」這個歷史事實，而不是「現在有沒有警戒」。
+
+轉機出現在另一個端點：農業部開放資料平台的「土石流及大規模崩塌警戒發布紀錄」資料集（`UnitId=kRam3LShuWSv`），它本身就是歷史記錄的彙整——每個災害事件的每一份報別（`ReportID`）都被保留下來，並帶有明確的 `LastUpdateDate`。這個 API 不帶任何查詢參數，一次全量回傳所有歷史記錄（約 3 MB），是設計成「全量資料集」而非「即時查詢」的端點。
+
+這個發現讓整個 Worker 的設計思路從「定時快照」轉為「歷史記錄全量同步 + 定期更新」，大幅提升了對模組 4 分析功能的支撐能力。
+
+**關鍵設計決策一：AlertType D 與 L 合為一張表，以 AlertType 欄位區分**
+
+JSON 資料裡有兩種警戒類型：`AlertType = "D"` 是土石流（`DebrisNo` 有值，`LandslideID` 為 `"-"`），`AlertType = "L"` 是大規模崩塌（`LandslideID` 有值，`DebrisNo` 為 `"-"`）。兩者的欄位結構幾乎完全一樣，差別只有 `DebrisNo` 和 `LandslideID` 互斥出現。
+
+考慮過兩張表（`DebrisAlerts` + `LandslideAlerts`）的方案，但被否定。原因是前台的天災時間軸需要同時顯示 D 和 L 兩種警戒，拆表的代價是查詢時必須 UNION 或在 API 層做兩次查詢再合併，卻沒有帶來任何分析上的收益——`WHERE AlertType = 'D'` 就能在單一表內做到任何需要個別分析的查詢。最終選擇一張表 `DebrisAlertRecords`，設計簡單，查詢直接。
+
+**關鍵設計決策二：自然鍵 `(ReportID, DebrisNo, LandslideID)` 與 `"-"` 轉 `null`**
+
+資料中同一個 `DebrisNo`（例如 `新北DF166`）在不同 `ReportID` 下重複出現，且 `AlertLevel` 可能從 `"y"` 變為 `"r"` 再變回來。這說明每個 `ReportID` 是一次「報別快照」，記錄的是那個時間點的警戒等級。去重的正確單位是「這一份報別，這一個地點」，即 `(ReportID, DebrisNo, LandslideID)` 的組合。
+
+`DebrisNo` 和 `LandslideID` 在原始 JSON 中以 `"-"` 表示「不適用」，而非 JSON `null`。統一在 `MapToEntity` 中把 `"-"` 轉成 C# `null` 存入，讓資料庫的 `NULL` 語意清晰——`NULL` 代表「這個欄位對此筆記錄不適用」，不會和真實的空值混淆。DTO 維持 `string` 接收原始值，轉換邏輯集中在 `MapToEntity`，符合各層職責分離的原則。
+
+**關鍵設計決策三：`HasFilter(null)` 強制覆蓋 EF Core 對 nullable UNIQUE index 的預設行為**
+
+這是這次 Migration 過程中遇到的一個非顯而易見的 EF Core 行為問題。當 UNIQUE index 包含 nullable 欄位時，EF Core 預設會自動加上 `WHERE` filter：
+
+```
+filter: "[DebrisNo] IS NOT NULL AND [LandslideID] IS NOT NULL"
+```
+
+這個 filter 的語意是「只有當兩個欄位都不是 null 時，UNIQUE index 才生效」。但自然鍵的結構決定了每一筆資料必定有一個欄位是 `null`（D 型態的 `LandslideID` 是 null，L 型態的 `DebrisNo` 是 null），導致這個 filter 條件**永遠不成立**，UNIQUE index 對任何一筆資料都不生效，去重保護形同虛設。
+
+嘗試把 filter 改成 `OR` 語法被 SQL Server 拒絕（SQL Server 的 filtered index 不支援 `OR` 關鍵字）。最終解法是在 `OnModelCreating` 加上 `.HasFilter(null)`，明確告訴 EF Core「不要加任何 filter」，讓 UNIQUE index 對所有資料生效：
+
+```csharp
+entity.HasIndex(e => new { e.ReportID, e.DebrisNo, e.LandslideID })
+      .HasDatabaseName("IX_DebrisAlertRecords_ReportID_DebrisNo_LandslideID")
+      .HasFilter(null)   // 覆蓋 EF Core 預設的 nullable filter，確保 UNIQUE index 對所有資料生效
+      .IsUnique();
+```
+
+這個設定的正確性建立在一個業務前提上：`DebrisNo` 和 `LandslideID` 不可能同時為 `null`——AlertType D 必有 `DebrisNo`，AlertType L 必有 `LandslideID`，業務上不存在兩者同時為 null 的情況，因此 SQL Server 對 UNIQUE index 中 `null = null` 視為相等的行為不會在此場景觸發。
+
+**關鍵設計決策四：全量拉取 + 只 INSERT 新資料，不用 TRUNCATE**
+
+這支 API 沒有任何日期篩選參數，每次呼叫都回傳完整的歷史記錄。同步策略有兩個選項：TRUNCATE + 全部重寫，或全量拉取 + 只 INSERT 新的。選擇後者，理由有兩個：
+
+第一，效能隨時間退化。TRUNCATE + 重寫的成本與資料量線性相關，資料只會越來越多，未來若警戒記錄累積到數十萬筆，每次 Worker 執行都做一次全量刪除再全量插入，I/O 成本將成為明顯的負擔。
+
+第二，不能依賴上游資料的永久性。農業部有可能在未來清理舊的警戒記錄。一旦做了 TRUNCATE，即使上游刪了資料，本地資料庫也跟著清空，歷史記錄永久遺失且無法復原。選擇只 INSERT 新的，已有資料不動，即使上游刪除，本地記錄依然保存——這個「不依賴上游永久性」的原則在面試中也是一個值得說清楚的設計理由。
+
+**關鍵設計決策五：不需要 SyncState——與 AgriProductsTrans 的本質差異**
+
+`AgriProductsTrans` 需要 `SyncState` 的原因是它的 API 支援日期篩選參數，每次只拉特定日期的資料，必須記錄「上次跑到哪一天」才能接著繼續。
+
+`DebrisAlertRecord` 的 API 無法帶入日期參數，每次都是全量回傳。應用層的去重邏輯（從 DB 載入現有自然鍵 → HashSet 比對 → 只 INSERT 不在 HashSet 裡的）本身就保證了冪等性——不管執行幾次，結果都一樣，重複執行只是多做了一次比對，不會產生重複資料。這種全量冪等的設計不需要進度追蹤，`SyncState` 在此是不必要的複雜度。
+
+**關鍵設計決策六：`LastUpdateDate` 在 DTO 用 `string`，MapToEntity 用 `DateTime.Parse + InvariantCulture`**
+
+原始 JSON 的 `LastUpdateDate` 格式是 `"2026-04-04 15:26"`，沒有秒數部分。`System.Text.Json` 預設的 `DateTime` 反序列化不一定支援這個非標準格式，若在 DTO 就用 `DateTime` 型別接收，反序列化失敗會在最外層直接拋例外，難以定位。
+
+DTO 用 `string` 接收原始字串，把解析的控制權交給 `MapToEntity`，並明確指定 `CultureInfo.InvariantCulture`：
+
+```csharp
+LastUpdateDate = DateTime.Parse(dto.LastUpdateDate, System.Globalization.CultureInfo.InvariantCulture)
+```
+
+不指定 Culture 的 `DateTime.Parse` 在不同作業系統和地區設定下，對同一個字串的解析行為可能不同。`InvariantCulture` 確保無論 Worker 部署在 Windows 開發機還是 Linux 容器，解析行為一致。這和 PR #015 中跨平台時區 ID 的處理思路相同：主動消除環境依賴，不留下隱性的跨平台風險。
+
+**`DebrisAlertRecordSyncWorker` 完整流程**
+
+```
+第一步：建立 Scope，取得 MarketDbContext
+第二步：從 DB 查詢所有現有記錄的自然鍵 (ReportID, DebrisNo, LandslideID) → ToHashSet（匿名型別）
+第三步：GET 全量 API 資料（一次呼叫，約 3 MB）
+第四步：反序列化為 List<DebrisAlertRecordDto>，null check
+第五步：Select MapToEntity（含 "-" 轉 null、LastUpdateDate 解析）→ DistinctBy 自然鍵（批次內去重）→ ToList
+第六步：Where 不在 existingRecords HashSet 裡的（與 DB 歷史去重）→ ToList
+第七步：Count == 0 則 Log 並 return；否則 AddRange + SaveChangesAsync
+第八步：Log 新增筆數與略過筆數
+第九步：await Task.Delay(TimeSpan.FromHours(6))，每 6 小時執行一次
+```
+
+**驗收標準**
+
+編譯 0 錯誤。`market.DebrisAlertRecords` 資料表存在，UNIQUE index `IX_DebrisAlertRecords_ReportID_DebrisNo_LandslideID` 無 filter 條件。Worker 首次啟動後，Log 顯示新增筆數，DB 可查到歷史警戒記錄（涵蓋 2025 年至今的各災害事件）。再次執行時，Log 顯示「無新資料需寫入（全部已存在）」，確認去重邏輯正確。AlertType D 的記錄 `LandslideID` 欄位為 NULL，AlertType L 的記錄 `DebrisNo` 欄位為 NULL，確認 `"-"` 轉 null 邏輯正確。
 
 ---
 

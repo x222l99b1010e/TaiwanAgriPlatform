@@ -16,7 +16,7 @@ namespace TaiwanAgri.Core.Constants
 		// 模組 4：行情
 		public const string AgriProductsTrans = "api/v1/AgriProductsTransType/";
 		public const string PorkTrans = "api/v1/PorkTransType/";
-		public const string DebrisAlert = "api/v1/DebrisAlertServices/GetDebrisVillInfo/";
+		public const string DebrisAlert = "Service/OpenData/TransService.aspx?UnitId=kRam3LShuWSv";
 		public const string MarketRestDay = "api/v1/MarketRestDayFarmWCF/";
 		public const string CropMarketType = "api/v1/CropMarketType/?CropMarketType=";
 

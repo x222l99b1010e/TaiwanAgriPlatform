@@ -13,6 +13,7 @@ namespace TaiwanAgri.Modules.Market.Data
 		public DbSet<AgriProductsTrans> AgriProductsTrans => Set<AgriProductsTrans>();
 		public DbSet<MarketInfo> MarketInfos => Set<MarketInfo>();	
 		public DbSet<CropInfo> CropInfos => Set<CropInfo>();
+		public DbSet<DebrisAlertRecord> DebrisAlertRecords => Set<DebrisAlertRecord>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -54,6 +55,14 @@ namespace TaiwanAgri.Modules.Market.Data
 			modelBuilder.Entity<CropInfo>(entity =>
 			{
 				entity.ToTable("CropInfos", schema: "market");
+			});
+			modelBuilder.Entity<DebrisAlertRecord>(entity =>
+			{
+				entity.ToTable("DebrisAlertRecords", schema: "market");
+				entity.HasIndex(e => new { e.ReportID, e.DebrisNo, e.LandslideID })
+					  .HasDatabaseName("IX_DebrisAlertRecords_ReportID_DebrisNo_LandslideID")
+					  .HasFilter(null)  // 強制覆蓋 EF Core 的預設行為，不使用任何篩選器
+					  .IsUnique();
 			});
 		}
 	}

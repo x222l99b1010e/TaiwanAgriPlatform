@@ -48,6 +48,7 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<MarketRestDaySyncWorker>();
 			builder.Services.AddHostedService<CropMarketSyncWorker>();
 			builder.Services.AddHostedService<AgriProductsTransSyncWorker>();
+			builder.Services.AddHostedService<DebrisAlertRecordSyncWorker>();
 
 
 			var host = builder.Build();

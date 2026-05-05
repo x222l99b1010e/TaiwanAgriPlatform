@@ -2173,29 +2173,52 @@ EF Core 查詢報「could not be translated」錯誤時，先看是不是在 `To
 
 ---
 
-### 條目 079 — 設計決策的影響範圍追蹤：從主檔層面的一對多到交易資料層面的重複
-
+### 條目 079 — 設計決策的影響範圍追蹤：從主檔層面的一對多到交易資料層面的重複（補完版）
+ 
 **我做了什麼**
-
-`AgriProductsTransSyncWorker` 跑歷史資料時，在 `2019-11-04` 拋出 `DbUpdateException`，錯誤訊息指向 `market.AgriProductsTrans` 的 Unique Index 被重複寫入違反。程式碼裡已有兩層去重邏輯，卻仍然出現重複，診斷後發現是跨市場查詢的資料在合併前沒有去重。
-
+ 
+`AgriProductsTransSyncWorker` 跑歷史資料時，在 `2019-11-04` 拋出 `DbUpdateException`，錯誤訊息指向 `market.AgriProductsTrans` 的 Unique Index 被重複寫入違反。程式碼裡已有兩層去重邏輯（`DistinctBy` + `existingKeySet`），卻仍然出現重複，診斷後發現是跨市場查詢的資料在合併前沒有去重。
+ 
 **我遇到的問題**
-
-PR #014 已經知道 MarketCode 514 在 MarketInfos 有兩筆（溪湖鎮和彰化市場），這個事實早就記錄在設計文件裡了。為什麼到了交易資料同步時才踩到問題？
-
+ 
+PR #014 已經知道 MarketCode 514 在 MarketInfos 有兩筆（溪湖鎮和彰化市場），這個事實早就記錄在設計文件裡了。為什麼到了交易資料同步時才踩到問題？而且程式碼明明有兩層去重，為什麼都攔不住？
+ 
 **我怎麼想通的**
-
+ 
+**第一步：拉出完整的失敗鏈**
+ 
 PR #014 的思考停在「主檔允許一個 MarketCode 有兩個 MarketName 並存」，沒有繼續往下推演：
-
-1. 兩個 MarketName 都會被帶進 `AgriProductsTransSyncWorker` 的市場清單
-2. `Task.WhenAll` 會用兩個不同的 MarketName 各打一次 API
+ 
+1. MarketInfos 有兩筆：514 溪湖鎮（Veg）、514 彰化市場（Flower）
+2. `Task.WhenAll` 以兩個不同 MarketName 各打一次 API
 3. 農業部回傳的交易資料欄位是 `MarketCode`（514），不是查詢時用的 MarketName
 4. 兩次 API 可能回傳完全相同的自然鍵組合 `(TransDate, TcType, CropCode, MarketCode=514)`
-5. 原本的 `DistinctBy` 只在單一市場的 `incoming` 裡去重，跨市場的重複完全沒有被攔截
-6. `existingKeySet` 查的是 DB 狀態，Change Tracker 裡已 Add 但未存的資料對它不可見
-
-失敗鏈拉完之後，修正方向就很清楚：把 `DistinctBy` 的作用範圍從「單一市場的 incoming」擴大到「所有市場合併後的 allIncoming」。
-
+5. 每個市場的 `DistinctBy` 只看自己的 `incoming`，跨市場的重複沒有被攔截
+6. `existingKeySet` 查的是 DB 的狀態，Change Tracker 裡已 Add 但還未 SaveChanges 的資料完全不可見
+7. `SaveChangesAsync` 時，兩筆相同自然鍵同時送進 DB，Unique Index 拋例外
+ 
+**第二步：理解為什麼兩層去重都失效**
+ 
+這是這次最關鍵的診斷：
+ 
+```
+第一層 DistinctBy：
+  市場A的 incoming → DistinctBy（只在自己範圍內去重）→ AddRange
+  市場B的 incoming → DistinctBy（只在自己範圍內去重）→ AddRange
+  ↑ 兩者之間完全沒有比對過
+ 
+第二層 existingKeySet：
+  在 foreach 開始前查 DB → 建立 HashSet（記錄 DB 裡已有的）
+  市場A AddRange 進 Change Tracker → DB 還沒變，existingKeySet 不知道
+  市場B 比對 existingKeySet → 查到「不存在」（因為A的資料還在 Change Tracker，不在 DB）
+  → 兩筆都進了 Change Tracker
+  → SaveChanges → Unique Index 違規
+```
+ 
+核心問題是：`existingKeySet` 是快照，記錄的是「SaveChanges 之前 DB 的狀態」。PR #016 把 `SaveChangesAsync` 移出市場迴圈之後，Change Tracker 裡累積了整天所有市場的資料，但 `existingKeySet` 對這些「尚未存進 DB 的資料」完全不可見，跨市場的重複就從這個盲區漏過去了。
+ 
+**第三步：修正——讓 DistinctBy 的作用範圍覆蓋所有市場**
+ 
 ```csharp
 // 修正前：每個市場各自去重，跨市場重複無法被攔截
 foreach (var (market, json, success) in rawResults)
@@ -2206,27 +2229,231 @@ foreach (var (market, json, success) in rawResults)
         .ToList();
     dbMarket.AgriProductsTrans.AddRange(saveData); // 跨市場重複直接衝突
 }
-
+ 
 // 修正後：先收集全部，合併後再統一去重
 var allIncoming = new List<AgriProductsTransTypeDto>();
 foreach (var (market, json, success) in rawResults)
 {
-    allIncoming.AddRange(incoming); // 只收集
+    // 只收集，不去重
+    var incoming = response.Data
+        .Where(x => x.CropCode != "-")
+        .ToList();
+    allIncoming.AddRange(incoming);
 }
+ 
+// foreach 結束後，合併所有市場的資料再統一去重
 var targetData = allIncoming
     .DistinctBy(x => new { x.TransDate, x.CropCode, x.MarketCode, x.TcType })
-    .ToList(); // 合併後統一去重
+    .ToList();
+```
+ 
+`DistinctBy` 只去掉**完全相同自然鍵**的記錄。如果兩個市場查詢回傳的 MarketCode 相同、但 CropCode 或 TcType 不同，這些是不同的交易紀錄，`DistinctBy` 不會去掉，兩筆都正確保留。
+ 
+**第四步：這個問題為什麼只在大規模資料時才出現**
+ 
+MarketCode 514 同時有兩個名稱，需要同時滿足三個條件才能觸發：
+- 當天 514 市場有實際交易資料（不是休市日）
+- 兩個 MarketName 查詢都回傳了相同的 MarketCode=514 的記錄
+- 那筆記錄的完整自然鍵（TransDate, TcType, CropCode, MarketCode）完全相同
+ 
+小規模手動測試很難同時滿足這三個條件，只有在補跑多年歷史資料時才有足夠的樣本量讓這個邊界情況被觸發。
+ 
+**我學到的原則**
+ 
+**原則一：設計決策的影響範圍追蹤需要跨越系統層次。**
+「主檔允許一對多」這個決策不只影響主檔表的結構，也影響任何用這份主檔驅動查詢的下游 Worker。做出影響資料來源結構的設計決策時，應該同時問：「所有以這份資料為輸入的 Worker，它們的去重邏輯還成立嗎？」
+ 
+**原則二：Change Tracker 的可見範圍是診斷並發寫入問題的關鍵。**
+`existingKeySet` 是 DB 的快照，對 Change Tracker 裡尚未 SaveChanges 的資料不可見。一旦 SaveChanges 被移出迴圈（批次化），Change Tracker 就會累積多個市場的資料，任何依賴「查 DB 做去重」的邏輯都可能產生盲區。解法是讓去重在 Change Tracker 寫入之前完成，而不是依賴 DB 查詢來攔截。
+ 
+**原則三：邊界情況的觸發需要特定的資料組合。**
+這類問題無法靠早期的小樣本測試完全防止，但可以在設計決策時就把影響鏈往下拉一層，盡量縮小後來的盲區。
+ 
+**下次遇到類似情況，我會先想到什麼**
+ 
+做出「允許同一業務代碼有多筆記錄」的設計決策之後，立刻問：「哪些下游 Worker 會以這份主檔為清單逐筆打 API？它們回傳的資料欄位是業務代碼還是查詢用的名稱？如果是業務代碼，跨筆查詢的結果需要合併去重嗎？」
+ 
+遇到「兩層去重都失效」的 Unique Index 違規時，先問：「我的去重是在 Change Tracker 寫入之前還是之後做的？有沒有資料已經在 Change Tracker 但還沒進 DB，被我的去重邏輯的盲區漏掉了？」
+
+---
+
+### 條目 080 — EF Core nullable 欄位 UNIQUE index 的隱性 filter 與 `HasFilter(null)`
+
+**我做了什麼**
+
+為 `DebrisAlertRecord` 的自然鍵 `(ReportID, DebrisNo, LandslideID)` 建立 UNIQUE index，其中 `DebrisNo` 和 `LandslideID` 是 nullable 欄位。Migration 產生後發現 EF Core 自動加上了 filter，導致去重完全失效，最終用 `.HasFilter(null)` 解決。
+
+**我遇到的問題**
+
+Migration 產生的 index 長這樣：
+
+```sql
+CREATE UNIQUE INDEX [IX_DebrisAlertRecords_ReportID_DebrisNo_LandslideID]
+ON [market].[DebrisAlertRecords] ([ReportID], [DebrisNo], [LandslideID])
+WHERE [DebrisNo] IS NOT NULL AND [LandslideID] IS NOT NULL;
+```
+
+`AND` 的語意是「只有當兩個欄位都不是 null 時，這個 UNIQUE index 才生效」。但資料的結構是 AlertType D 的 `LandslideID` 必為 null，AlertType L 的 `DebrisNo` 必為 null——也就是說，每一筆資料都有一個欄位是 null，filter 的條件**永遠不成立**，UNIQUE index 對任何資料都不生效，去重保護等同沒有。
+
+嘗試改成 `OR`，SQL Server 直接報 `Incorrect syntax near the keyword 'OR'`——SQL Server 的 filtered index 不支援 `OR` 語法。
+
+**我怎麼想通的**
+
+EF Core 這個預設行為的出發點是「保護 null 相等問題」：SQL Server 在 UNIQUE index 中把兩個 `null` 視為相等，如果允許多筆記錄的 nullable 欄位都是 null，理論上可能造成意外的唯一性衝突。EF Core 的解法是加上 filter，只讓有值的記錄參與唯一性判斷。
+
+但這個「保護」在這個場景下反而壞事，因為業務上 `DebrisNo` 和 `LandslideID` 不可能同時為 null（D 型和 L 型必定各有一個有值），根本不會有「兩個 null 衝突」的情況發生。所以正確的做法是明確告訴 EF Core「不要加任何 filter」：
+
+```csharp
+entity.HasIndex(e => new { e.ReportID, e.DebrisNo, e.LandslideID })
+      .HasDatabaseName("IX_DebrisAlertRecords_ReportID_DebrisNo_LandslideID")
+      .HasFilter(null)   // 強制覆蓋 EF Core 預設的 nullable filter
+      .IsUnique();
+```
+
+`.HasFilter(null)` 代表「不加任何 WHERE 條件」，讓 UNIQUE index 對每一筆資料都生效。這個設定寫在 `OnModelCreating` 裡，之後無論重新跑幾次 Migration，都不需要手動編輯產生的 SQL。
+
+**我學到的原則**
+
+EF Core 對含 nullable 欄位的 UNIQUE index 有一個非顯而易見的預設行為——自動加上 `WHERE field IS NOT NULL` 的 filter。這個行為在「允許多個 null 並存」的場景下有存在意義，但在「null 是互斥佔位符（只有其中一個會是 null）」的場景下會讓 UNIQUE index 完全失效。遇到這個問題，先確認業務邏輯上 null 的語意，再決定要讓 EF Core 加 filter 還是用 `HasFilter(null)` 關掉。
+
+**下次遇到類似情況，我會先想到什麼**
+
+含 nullable 欄位的 UNIQUE index Migration 跑完後，立刻打開產生的檔案確認有沒有 `filter` 參數。如果有，想一下「這個 filter 的條件，對每一筆正常資料，會成立嗎？」如果不成立，就用 `HasFilter(null)` 關掉。
+
+---
+
+### 條目 081 — 全量 API 的同步策略：什麼情況不需要 SyncState
+
+**我做了什麼**
+
+設計 `DebrisAlertRecordSyncWorker` 的同步策略，確認這支 Worker 不需要 `SyncState`，和 `AgriProductsTransSyncWorker` 的設計做了明確的比較。
+
+**我遇到的問題**
+
+`AgriProductsTrans` 需要 `SyncState`，`DebrisAlertRecord` 不需要，但兩者都是「同步外部 API 資料」的 Worker，差別到底在哪裡？
+
+**我怎麼想通的**
+
+關鍵差異在於**API 的查詢能力**和**同步邏輯的冪等性**：
+
+`AgriProductsTrans` 的 API 支援 `Start_time` 和 `End_time` 參數，可以只拉「特定日期」的資料。正因為如此，每次只拉一小段，就必須記錄「上次拉到哪裡」，否則不知道下次從哪裡繼續。這是 SyncState 存在的根本原因：**有能力增量，才需要追蹤進度**。
+
+`DebrisAlertRecord` 的 API 沒有任何日期篩選參數，每次都回傳全部歷史記錄。因此，同步邏輯設計成：全量拉取 → 與 DB 現有資料比對（HashSet）→ 只 INSERT 新的。這個設計本身就是冪等的：不管執行幾次，結果都一樣，重複執行只是多做了一次比對，不會產生重複或遺漏。冪等性保證了不需要「記住上次的狀態」——**因為每次都是從全量出發，從不假設上次停在哪裡**。
+
+一句話總結：SyncState 解決的是「我只知道一部分資料，需要追蹤從哪裡繼續」的問題。如果每次都能拿到全量資料，就不存在這個問題，SyncState 是不必要的複雜度。
+
+**我學到的原則**
+
+設計 SyncWorker 之前，先問一個問題：「API 的查詢能力，決定了我能不能做增量同步？」能增量就設計增量 + SyncState；只能全量就設計全量 + 冪等比對，不需要 SyncState。把 SyncState 當成必要配件是錯誤的前提——它只在有增量查詢能力時才有意義。
+
+**下次遇到類似情況，我會先想到什麼**
+
+遇到新的 API，先確認：「這支 API 有沒有日期或游標參數讓我做增量查詢？」有的話，設計增量 + SyncState；沒有的話，設計全量 + HashSet 比對，不引入 SyncState。
+
+---
+
+### 條目 082 — 不依賴上游資料永久性：INSERT-only 優於 TRUNCATE 的深層理由
+
+**我做了什麼**
+
+選擇「全量拉取 + 只 INSERT 新資料」而非「TRUNCATE + 全部重寫」作為 `DebrisAlertRecordSyncWorker` 的同步策略，分析了兩個獨立的理由。
+
+**我遇到的問題**
+
+TRUNCATE + 全部重寫看起來更簡單——不需要比對，直接清空再寫，程式碼更少。為什麼不用？
+
+**我怎麼想通的**
+
+TRUNCATE + 重寫有兩個問題，而且是性質完全不同的兩個問題：
+
+**第一個問題是效能**。TRUNCATE + 重寫的成本和資料量線性相關。現在這支 API 回傳約 3 MB，可能對應幾千筆記錄。三年後，記錄可能是幾萬筆。TRUNCATE + 重寫每次都要刪掉全部再全部插入，I/O 成本隨時間增長。INSERT-only 每次只做一次全量拉取和一次 HashSet 比對，真正寫入的只有新記錄（增量），不受歷史資料量影響。
+
+**第二個問題是資料可靠性**，而且這個更根本。農業部有可能在未來清理舊的警戒記錄——無論是技術原因還是政策原因，都不在我們的控制範圍內。一旦 TRUNCATE 之後，上游的舊資料消失了，本地資料庫也跟著清空，那份歷史記錄永久遺失，而且沒有任何補救方式。INSERT-only 讓本地資料庫成為上游資料的**持久化備份**：即使上游刪了，本地記錄依然在，因為我們從不主動刪除已有的資料。
+
+這個原則換一種說法：**只有在可以完全信任上游資料源的永久性時，TRUNCATE + 重寫才是安全的**。現實世界的外部 API 幾乎都不能被完全信任，所以 INSERT-only 應該是預設選擇，TRUNCATE 是例外。
+
+**我學到的原則**
+
+對外部資料源的同步，預設用 INSERT-only（只增不刪），除非有非常明確的理由需要清除本地資料。理由是：本地資料庫不只是快取，它是上游資料的持久化記錄；一旦 TRUNCATE，歷史就永遠消失了。TRUNCATE + 重寫適合的場景是「資料本身就沒有歷史意義，每次都是全新的狀態」（例如即時氣象快照），不適合有歷史價值的記錄型資料。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計同步策略時問：「這份資料有歷史價值嗎？上游有沒有可能在未來刪除舊資料？」兩個問題只要有一個答案是「是」，就選 INSERT-only。
+
+---
+
+### 條目 083 — C# 匿名型別的值相等性：HashSet.Contains 的比對機制
+
+**我做了什麼**
+
+在 `DebrisAlertRecordSyncWorker` 的去重邏輯裡，用匿名型別的 HashSet 做歷史比對，確認 `existingRecords.Contains(new { e.ReportID, e.DebrisNo, e.LandslideID })` 的語意是值比較，而不是參考比較。
+
+**我遇到的問題**
+
+`HashSet` 預設用參考相等判斷重複——兩個物件是不是同一個記憶體位置。但去重邏輯需要的是「只要欄位值相同，就視為相同」的值相等。用 `DebrisAlertRecord` Entity 做 HashSet 會有問題，因為兩個不同的 `new DebrisAlertRecord { ReportID = "115A-3-0" }` 內容一樣，但參考不同，HashSet 會認為是兩筆不同的記錄。為什麼換成匿名型別就沒有這個問題？
+
+**我怎麼想通的**
+
+C# 的匿名型別（`new { A = x, B = y }`）有一個特殊設計：編譯器會自動為它生成 `Equals` 和 `GetHashCode` 的實作，比的是**所有屬性的值**，而不是記憶體位置。這是「值相等（value equality）」，和普通 class 的預設「參考相等（reference equality）」完全不同。
+
+所以：
+
+```csharp
+// 兩個不同的 new DebrisAlertRecord，即使內容相同，HashSet 認為不同（參考相等）
+var set = new HashSet<DebrisAlertRecord>();
+set.Add(new DebrisAlertRecord { ReportID = "A" }); 
+set.Contains(new DebrisAlertRecord { ReportID = "A" }); // false
+
+// 兩個不同的匿名型別 new { }，只要屬性值相同，HashSet 認為相同（值相等）
+var set2 = records.Select(r => new { r.ReportID, r.DebrisNo, r.LandslideID }).ToHashSet();
+set2.Contains(new { ReportID = "A", DebrisNo = "B", LandslideID = (string?)null }); // true（只要值相同）
+```
+
+這也是為什麼 `existingRecords` 要用 `.Select(r => new { r.ReportID, r.DebrisNo, r.LandslideID }).ToHashSet()` 而不是 `.ToHashSet()`——後者是 `HashSet<DebrisAlertRecord>`，參考相等，`Contains` 永遠是 false（因為查詢出來的物件和你 `new` 出來的是不同記憶體位置）；前者是 `HashSet<匿名型別>`，值相等，`Contains` 比的是欄位值。
+
+**我學到的原則**
+
+在 EF Core 查詢的 `Select` 後面用匿名型別建立 HashSet，是一個利用「匿名型別值相等性」做應用層去重的標準模式。需要「多個欄位組合的唯一性比對」時，匿名型別比自己實作 `IEqualityComparer` 更簡潔，也比 ValueTuple 更適合在 EF Core 的 LINQ 查詢內使用（ValueTuple 無法被 EF Core 翻譯成 SQL，必須在 `ToListAsync()` 之後才能用）。
+
+**下次遇到類似情況，我會先想到什麼**
+
+需要「用多個欄位組合做去重比對」時，先選匿名型別的 HashSet，不用自己實作 `IEqualityComparer`。記得：匿名型別在 `ToListAsync()` 之前（EF Core LINQ 範圍內）可以用於 `Select` 投影；`ToListAsync()` 之後（記憶體範圍）才能轉成 ValueTuple。
+
+---
+
+### 條目 084 — `DateTime.Parse` 的 `InvariantCulture`：主動消除跨平台解析風險
+
+**我做了什麼**
+
+在 `MapToEntity` 中解析 `LastUpdateDate`（格式為 `"2026-04-04 15:26"`），從最初的 `DateTime.Parse(dto.LastUpdateDate)` 改成明確指定 `CultureInfo.InvariantCulture`。
+
+**我遇到的問題**
+
+`DateTime.Parse` 不指定 Culture 的時候，為什麼有風險？`"2026-04-04 15:26"` 這個格式看起來很標準，難道不同環境會解析出不同結果？
+
+**我怎麼想通的**
+
+`DateTime.Parse` 在不指定 Culture 時，使用的是系統目前的 `CurrentCulture`。不同地區設定的系統，對「日期分隔符」、「年月日順序」、「時間格式」的預設解讀可能不同。
+
+以 `"2026-04-04 15:26"` 為例，在大部分環境下這個格式確實能正確解析（年-月-日是 ISO 8601 標準，廣泛支援）。但這是「運氣好」而不是「設計保證」。一旦 Worker 部署到地區設定不同的 Linux 容器，或者未來遇到格式稍微不同的 API 回傳（例如 `"04/04/2026 15:26"`），沒有指定 Culture 的 `DateTime.Parse` 就可能悄悄解析成錯誤的日期，而且不拋例外，是一種 silent failure。
+
+`CultureInfo.InvariantCulture` 是「與地區無關的固定格式」，解析行為不受作業系統設定影響。這和 PR #015 中用 `OperatingSystem.IsWindows()` 判斷時區 ID 的出發點一樣——**主動消除隱性的環境依賴，不讓程式的正確性依賴部署環境的特定設定**。
+
+```csharp
+// 不穩定：依賴系統 CurrentCulture，跨環境行為不一致
+LastUpdateDate = DateTime.Parse(dto.LastUpdateDate)
+
+// 穩定：InvariantCulture 確保任何環境都用同一套解析規則
+LastUpdateDate = DateTime.Parse(dto.LastUpdateDate, System.Globalization.CultureInfo.InvariantCulture)
 ```
 
 **我學到的原則**
 
-設計決策的影響範圍追蹤需要跨越系統層次。「主檔允許一對多」這個決策不只影響主檔表的結構，也影響任何用這份主檔驅動查詢的下游 Worker。做出影響資料來源結構的設計決策時，應該同時問：「所有以這份資料為輸入的 Worker，它們的去重邏輯還成立嗎？」
-
-另一個教訓：這類問題在小規模測試時很難被發現。MarketCode 514 同時有兩個名稱，只有在大規模補跑歷史資料、恰好跑到有 514 交易資料的日期時才會觸發。這是一種「設計階段不容易察覺，只有在真實資料規模下才會暴露」的邊界情況，無法靠早期測試完全防止，但可以在設計決策時就把影響鏈往下拉一層，盡量縮小後來的盲區。
+解析外部資料的日期字串，永遠明確指定 `CultureInfo.InvariantCulture`（或用 `DateTime.ParseExact` 指定格式字串），不依賴系統 `CurrentCulture`。這行程式碼的差異很小，但它讓程式的行為從「在我的機器上測試是對的」升級到「在任何環境部署都保證正確」。這是一個一次養成、終身受益的習慣。
 
 **下次遇到類似情況，我會先想到什麼**
 
-做出「允許同一業務代碼有多筆記錄」的設計決策之後，立刻問：「哪些下游 Worker 會以這份主檔為清單逐筆打 API？它們回傳的資料欄位是業務代碼還是查詢用的名稱？如果是業務代碼，跨筆查詢的結果需要合併去重嗎？」把這條推演鏈走完，才算把這個設計決策的影響範圍真正追蹤完整。
+看到 `DateTime.Parse(someString)` 沒有第二個參數，就問：「這個解析行為是否依賴 CurrentCulture？」如果字串來自外部（API、檔案、資料庫字串欄位），一律加上 `CultureInfo.InvariantCulture` 或用 `DateTime.ParseExact` 指定格式。
 
 ---
 
@@ -2329,4 +2556,13 @@ EF Core LINQ 和普通 LINQ 看起來相同，但執行環境不同。`ToListAsy
 
 **關於效能診斷**
 先量化問題規模（操作執行了幾次、每次成本多少），再找最大浪費，最後按照「獨立 → 結構性 → 高風險」的順序逐步優化。每次只改一個維度，確認後再進行下一個。
+
+---
+ 
+## 跨條目的通用原則整理（v12.1 更新）
+ 
+以下為 v12.1 補充的原則：
+ 
+**關於 Change Tracker 可見範圍與去重邏輯的時序**
+把 SaveChangesAsync 移出迴圈（批次化）之後，Change Tracker 會在迴圈執行期間累積多個來源的資料。任何依賴「查 DB 做去重」的 existingKeySet 對這些尚未存入 DB 的資料完全不可見。批次化之後的去重邏輯必須在 AddRange 之前完成，作用範圍必須覆蓋本次批次的所有來源，不能依賴 DB 查詢的快照來攔截批次內的重複。
 
