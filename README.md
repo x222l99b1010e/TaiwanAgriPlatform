@@ -258,7 +258,7 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 `WeatherObservations` | `RainfallStations` | `RainfallObservations` | `PestAlerts` | `PestAlertCities` | `PestAlertCrops` | `PestDecadeSummaries` | `PestRuleConfig` | `UserNotifications`
  
 **MarketDbContext**（`TaiwanAgri.Modules.Market`）管理行情相關資料表：
-`MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans`（開發中）| `DisasterEvents`（開發中）
+`MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans` | `DebrisAlertRecords` | `DisasterEvents`（開發中）
  
 **CoreDbContext**（`TaiwanAgri.Core`）管理跨模組基礎設施：
 `SyncStates`（增量同步進度追蹤，所有 SyncWorker 共用）
@@ -312,7 +312,7 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 | W5–6 下半 | 模組 2 規則引擎 | PestRuleConfig + UserNotifications + PestRuleEngine.EvaluateAsync() 完整實作 | ✅ 完成 |
 | W7–8 上半 | 模組 4 後端（Market）— 基礎建設 | MarketDbContext Schema 分離（market.* 命名空間）；MarketInfo surrogate PK 重構（514 一對多問題）；MarketRestDaySyncWorker（32,149 筆）；CropMarketSyncWorker（MarketInfos 主檔同步、105 台北市場硬編碼補丁） | ✅ 完成 |
 | W7–8 中半 | 模組 4 後端（Market）— 核心同步 | CoreDbContext + SyncState（增量同步進度追蹤，解決休市日卡死問題）；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker 完整實作（雙層去重、三參數抑制分頁、台灣時區 upperBound） | ✅ 完成 |
-| W7–8 下半 | 模組 4 後端（Market）— 效能優化與 Bug Fix | Task.WhenAll 併發 API 請求（串行 4,500 次 → 並發）；CropInfo 全量 HashSet 快取（4,500 次 DB 查詢 → 1 次）；SaveChanges 批次化（4,500 次 → 90 次）；修正跨市場重複寫入 Bug（allIncoming 合併後統一 DistinctBy）；PorkTrans / DebrisAlert SyncWorker 待開發 | 🔄 進行中 |
+| W7–8 下半 | 模組 4 後端（Market）— 效能優化與 Bug Fix | Task.WhenAll 併發 API 請求；CropInfo 全量 HashSet 快取；SaveChanges 批次化；修正跨市場重複寫入 Bug；DebrisAlertRecordSyncWorker（土石流歷史全量同步，HasFilter(null) nullable UNIQUE index）；PorkTransSyncWorker（毛豬行情增量同步，YYYMMDD 民國年格式，lastSuccessfulDate 部分失敗恢復） | ✅ 完成 |
 | W9–10 | 模組 4 前台 | 作物歷史價格圖、天災時間軸疊加、漲跌幅分析、CSV 匯出 | ⬜ 待開始 |
 | W11–12 | 模組 1 後端 + 前台 | RabbitMQ + Redis + 物價首頁 + 食安功能 | ⬜ 待開始 |
 | W13–14 | 模組 2 前台 | Vue 3 氣象面板、雨量折線圖、病蟲害警報牆、通知紅點 | ⬜ 待開始 |
