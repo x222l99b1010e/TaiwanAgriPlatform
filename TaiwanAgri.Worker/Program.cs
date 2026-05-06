@@ -49,7 +49,7 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<CropMarketSyncWorker>();
 			builder.Services.AddHostedService<AgriProductsTransSyncWorker>();
 			builder.Services.AddHostedService<DebrisAlertRecordSyncWorker>();
-
+			builder.Services.AddHostedService<PorkTransSyncWorker>();
 
 			var host = builder.Build();
 			host.Run();

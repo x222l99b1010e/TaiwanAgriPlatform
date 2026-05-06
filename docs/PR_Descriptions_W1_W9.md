@@ -1207,6 +1207,106 @@ LastUpdateDate = DateTime.Parse(dto.LastUpdateDate, System.Globalization.Culture
 
 ---
 
+## PR #019 — DateHelper 擴充、PorkTrans Entity/Migration/DTO 與 PorkTransSyncWorker 完整實作
+
+**標題**：`feat(market): 實作 PorkTransSyncWorker——毛豬交易行情歷史資料增量同步`
+
+**背景與動機**
+
+這個 PR 完成 Market 模組後端開發的第五支 SyncWorker：`PorkTransSyncWorker`，負責同步農業部「毛豬交易行情」（`PorkTransType`）資料。資料涵蓋民國 98 年 11 月 27 日至今的每日各市場成交記錄，包含規格豬、各重量區間、冷凍廠、淘汰種豬等完整統計欄位，共 36 個數值欄位，是農業市場模組中欄位最豐富的資料集之一。
+
+這支 Worker 在設計上有幾個值得記錄的決策點，其中最核心的是 API 的日期參數設計決定了整個同步架構：`PorkTransType` 每次只能傳入單一 `TransDate`，每次查詢只回傳當天所有市場的資料，不支援日期區間。這個設計導向單層日期迴圈 + `SyncState` 的增量追蹤模式，和 `AgriProductsTrans` 的雙層迴圈（日期 × 市場）形成了鮮明對比，也是本次開發過程中推導出最清晰的一個架構決策。
+
+**關鍵設計決策一：新增 `ParseRocNumericDate`——以 `.All(char.IsDigit)` 替代 `int.TryParse` 全串**
+
+`PorkTransType` 的 `TransDate` 欄位格式是 `"1040706"`（YYYMMDD，純數字，無分隔符），和 `AgriProductsTrans` 的 `"107.07.10"`（點分隔格式）完全不同，現有的 `ParseRocDate` 無法處理。因此在 `DateHelper` 新增 `ParseRocNumericDate`。
+
+方法的設計過程有一個值得記錄的轉折：最初的直覺是「先對整條字串 `int.TryParse`，再切分三段」，但這行不通——`int.Parse("1040706")` 拿到的是一個整數，整數沒有 `[0..3]` 這種切片操作。正確的順序是先在字串層面切片，再對每一段分別驗證。
+
+最終選擇 `.All(char.IsDigit)` 在入口一次驗完所有字元，後面的 `int.Parse` 就永遠不會拋例外，不需要 `TryParse`。最後一步用 `DateOnly.TryParseExact` 做業務合法性驗證（閏年、月份上限等），用回傳值而非例外做流程控制。整個方法從頭到尾只有一種失敗路徑：`throw ArgumentException`，呼叫端處理起來一致：
+
+```csharp
+public static DateOnly ParseRocNumericDate(string inputDate)
+{
+    if (string.IsNullOrWhiteSpace(inputDate) || inputDate.Length != 7 || !inputDate.All(char.IsDigit))
+        throw new ArgumentException($"日期格式錯誤: '{inputDate}'，須為 7 位數字。");
+
+    int adYear = int.Parse(inputDate[0..3]) + 1911;
+    int month  = int.Parse(inputDate[3..5]);
+    int day    = int.Parse(inputDate[5..7]);
+
+    string isoDate = $"{adYear:D4}-{month:D2}-{day:D2}";
+    if (DateOnly.TryParseExact(isoDate, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                               DateTimeStyles.None, out DateOnly result))
+        return result;
+
+    throw new ArgumentException($"無效的日期內容: '{inputDate}' (轉換後為 {isoDate})。");
+}
+```
+
+**關鍵設計決策二：新增 `ToRocNumericDate` Extension Method——`DateOnly` 反向轉民國年 YYYMMDD**
+
+SyncWorker 的迴圈以西元 `DateOnly` 推進，但 API 端點需要的是民國年 `"YYYMMDD"` 字串。這個轉換應該放在 `DateHelper` 而不是 SyncWorker，理由和 `ParseRocNumericDate` 放在 `DateHelper` 是一樣的：可重用性和單一職責——呼叫端不需要知道民國年的計算邏輯，只要呼叫 `currentDate.ToRocNumericDate()` 就能拿到正確格式的字串。
+
+設計成 extension method（`this DateOnly inputDate`）讓呼叫端語法更自然，民國年補零用 `:D3` 確保年份不足三位時正確補零（民國 98 年 → `"098"`）：
+
+```csharp
+public static string ToRocNumericDate(this DateOnly inputDate)
+{
+    int rocYear = inputDate.Year - 1911;
+    return $"{rocYear:D3}{inputDate.Month:D2}{inputDate.Day:D2}";
+}
+```
+
+**關鍵設計決策三：全部欄位存入，包含 `KgPig5`/`KgPig6`，以歷史資料不可補跑為由**
+
+API 回傳 36 個數值欄位，其中 `KgPig5`（135–155 公斤區間）和 `KgPig6`（155 公斤以上區間）在民國 104 年前後的資料全部是 `0`，民國 115 年的資料才有實際數值。這說明農業部在某個時間點新增了這兩個重量區間的統計，而不是「這兩個欄位沒有資料」。
+
+考量到這是歷史交易記錄，不是可以重跑的快照——`SyncState` 是從最後一筆往後走的，一旦選擇性地略過某些欄位，三個月後發現前台需要 `KgPig5_Q`，那些過去的日期資料要重新 sync 的代價很高。最終決策是全部存入，排除 `Page`（分頁控制參數，屬於請求參數而非資料欄位）。欄位名稱從 API 的縮寫（`KgPig5_Q`、`Num_115up`）全部改成語意清楚的 C# 命名（`Count135To155kg`、`Count115To135kg`），並在 DTO 加上 `[JsonPropertyName]` 對應。
+
+**關鍵設計決策四：保留來源負數值，不做清洗**
+
+民國 98 年的早期資料裡，`OtherPigs_AvgWgt` 出現了 `-11`、`-15`、`-49` 等負數值。一頭豬的平均重量為負數在現實中無意義，屬於來源系統的髒資料。
+
+處理選項有三：原樣存入、負數改 `0`、負數改 `null`。選擇原樣存入，理由是 SyncWorker 的職責是忠實同步來源資料，不是資料清洗層。來源怎麼說，資料庫就怎麼存。如果未來需要清洗，顯示層或分析層可以自行決定過濾策略。順帶確認了一個命名原則：如果要清洗，`null` 比 `0` 更誠實——`null` 表達「這個值有問題，語意不明」，`0` 表達「這個欄位的值真的是零」，把 `-11` 改成 `0` 是在捏造資料。
+
+**關鍵設計決策五：SyncState 設計——因為 API 只支援單日查詢且休市日無記錄**
+
+`PorkTransType` 的 API 一次只能傳入單一 `TransDate`，不支援區間。如果用 `MAX(TransDate)` 從資料表推斷上次進度，會被休市日卡死——休市當天沒有任何記錄寫入，`MAX` 永遠回傳前一天，下次 sync 重複從同一天開始，永遠無法推進。
+
+這和 `AgriProductsTrans` 遇到的問題完全一樣，解法也一樣：獨立的 `SyncState` 記錄「我已經處理到哪一天」，而不是看資料表裡有什麼。`SyncKey = "Market_PorkTrans"`，初始 `LastSyncedDate = new DateOnly(2009, 11, 26)`（西元），讓第一次迴圈從 `0981127` 開始跑。
+
+**關鍵設計決策六：`lastSuccessfulDate` 模式——部分失敗時只推進已確認的進度**
+
+SyncWorker 的日期迴圈可能在中途因 API 異常（`RS != "OK"`）或網路錯誤而中斷。如果直接用 `yesterdayDate` 更新 `LastSyncedDate`，中斷後跳過的日期下次就永遠不會補跑。
+
+解法是引入 `lastSuccessfulDate` 變數，初始值等於 `lastSyncState.LastSyncedDate`。每次迭代只有在 API 回傳 `RS == "OK"` 時才推進（包含休市日——休市代表已確認該天沒有資料，不是失敗）；遇到異常就 `break`，迴圈結束後用 `lastSuccessfulDate` 而非 `yesterdayDate` 更新 `SyncState`。這樣確保進度只推進到真正確認過的最後一天，不遺漏任何一天的資料。
+
+**`PorkTransSyncWorker` 完整流程**
+
+```
+第一步：建立 Scope，取得 MarketDbContext 和 CoreDbContext
+第二步：從 CoreDbContext 查詢 SyncState（SyncKey = "Market_PorkTrans"），不存在則初始化並 SaveChanges
+第三步：計算 startDate = LastSyncedDate.AddDays(1)，yesterdayDate 以台灣時區取得
+第四步：查詢 PorkTrans 中 TransDate >= startDate 的所有自然鍵 → ToHashSet（匿名型別，值相等）
+第五步：日期迴圈 startDate → yesterdayDate，每次呼叫 API 傳入 ToRocNumericDate() 轉換後的日期
+        - RS != "OK" → LogError + break
+        - 有資料 → AddRange 到 allDtos；無資料（休市）→ 繼續
+        - 任何例外 → LogError + break
+        - 成功（含休市）→ lastSuccessfulDate = currentDate
+第六步：allDtos.Select(MapToEntity).DistinctBy 自然鍵 → 批次內去重
+第七步：Where 不在 existingHashSet → 與 DB 歷史去重
+第八步：有新資料 → AddRange + SaveChangesAsync（MarketDbContext）
+第九步：lastSuccessfulDate > 初始值 → 更新 LastSyncedDate + SaveChangesAsync（CoreDbContext）
+第十步：Log 新增筆數與略過筆數；每 12 小時執行一次
+```
+
+**驗收標準**
+
+編譯 0 錯誤。`market.PorkTrans` 資料表存在，`IX_PorkTrans_TransDate_MarketName` UNIQUE index 正確建立，所有 `decimal` 欄位精度為 `(8,2)`。Worker 首次啟動後，Log 顯示從民國 98 年 11 月 27 日開始同步，`core.SyncStates` 中 `SyncKey = "Market_PorkTrans"` 的 `LastSyncedDate` 隨每次執行推進至昨天。第二次執行時，Log 顯示「無新資料需寫入」，確認去重邏輯正確。早期資料（民國 98–104 年）的 `KgPig5`/`KgPig6` 欄位值為 `0`，民國 115 年後有實際數值，確認全欄位原樣存入。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

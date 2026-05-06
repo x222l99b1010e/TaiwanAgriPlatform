@@ -9,11 +9,17 @@ namespace TaiwanAgri.Modules.Market.Data
 		{
 
 		}
+		protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+		{
+			// 預設將專案中所有的 decimal 映射為 (8, 2)
+			configurationBuilder.Properties<decimal>().HavePrecision(8, 2);
+		}
 		public DbSet<MarketRestDay> MarketRestDays => Set<MarketRestDay>();
 		public DbSet<AgriProductsTrans> AgriProductsTrans => Set<AgriProductsTrans>();
 		public DbSet<MarketInfo> MarketInfos => Set<MarketInfo>();	
 		public DbSet<CropInfo> CropInfos => Set<CropInfo>();
 		public DbSet<DebrisAlertRecord> DebrisAlertRecords => Set<DebrisAlertRecord>();
+		public DbSet<PorkTrans> PorkTrans => Set<PorkTrans>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -62,6 +68,17 @@ namespace TaiwanAgri.Modules.Market.Data
 				entity.HasIndex(e => new { e.ReportID, e.DebrisNo, e.LandslideID })
 					  .HasDatabaseName("IX_DebrisAlertRecords_ReportID_DebrisNo_LandslideID")
 					  .HasFilter(null)  // 強制覆蓋 EF Core 的預設行為，不使用任何篩選器
+					  .IsUnique();
+			});
+
+			modelBuilder.Entity<PorkTrans>(entity =>
+			{
+				// 設定資料表名稱與 Schema
+				entity.ToTable("PorkTrans", schema: "market");
+
+				// 1. 設定 (TransDate, MarketName) 的 UNIQUE constraint
+				entity.HasIndex(e => new { e.TransDate, e.MarketName })
+					  .HasDatabaseName("IX_PorkTrans_TransDate_MarketName")
 					  .IsUnique();
 			});
 		}
