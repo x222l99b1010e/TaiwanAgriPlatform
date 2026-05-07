@@ -32,7 +32,7 @@
 - **★ 智慧病蟲害提示**：規則引擎偵測「連續 72 小時濕度 > 85%」等條件，主動推送通知
 - 農藥查詢（中文俗名 → 學名 → 許可證字號，跨三支 API 橋接）
 
-### 📊 模組 4：大數據探險 — 天災與菜價關聯分析（後端進行中）
+### 📊 模組 4：大數據探險 — 天災與菜價關聯分析（**後端全部完成，前台待開發**）
 面向研究者，用歷史資料找出天氣事件與農產品批發價格之間的連動規律。
 
 - 作物歷史價格圖 + 7 日移動平均線（SQL Window Functions）
@@ -72,29 +72,30 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                  TaiwanAgri.Worker                          │
 │    .NET Worker Service + Hangfire                           │
-│    WeatherSyncWorker   | PestAlertSyncWorker                │
-│    RainfallSyncWorker  | PestDecadeSyncWorker               │
-│    PestRuleEngineWorker| MarketRestDaySyncWorker            │
-│    (AgriProductsWorker | DisasterEventWorker  → 開發中)     │
+│    WeatherSyncWorker        | PestAlertSyncWorker           │
+│    RainfallSyncWorker       | PestDecadeSyncWorker          │
+│    PestRuleEngineWorker     | MarketRestDaySyncWorker       │
+│    CropMarketSyncWorker     | AgriProductsTransSyncWorker   │
+│    DebrisAlertRecordSyncWorker | PorkTransSyncWorker        │
 └──────────┬────────────────────────┬────────────────────────┘
            │ EF Core                │ RabbitMQ
            │ (多 DbContext)         │
-     ┌─────┴───────┐               │
-     │ WeatherDbCtx│               │
-     │ MarketDbCtx │               ▼
-     └─────┬───────┘   ┌────────────────────────────────────┐
-           │            │         RabbitMQ                   │
-           ▼            │   Exchange: agri.topic             │
-┌──────────────────┐    │   RoutingKey: agri.price.updated   │
-│   SQL Server     │    └────────────────┬───────────────────┘
-│   2022           │                     │ Subscribe
-└──────────────────┘                     ▼
-                        ┌─────────────────────────────────────┐
-                        │          TaiwanAgri.Web             │
-                        │   ASP.NET Core Web API + MVC        │
-                        │   ApplicationDbContext              │
-                        │   (繼承 IdentityDbContext)          │
-                        └──────────┬──────────────────────────┘
+     ┌─────┴────────────┐           │
+     │ WeatherDbContext │           │
+     │ MarketDbContext  │           ▼
+     │ CoreDbContext    │   ┌────────────────────────────────┐
+     └─────┬────────────┘   │         RabbitMQ              │
+           │                │   Exchange: agri.topic        │
+           ▼                │   RoutingKey: agri.price.*    │
+┌──────────────────┐        └──────────────┬────────────────┘
+│   SQL Server     │                       │ Subscribe
+│   2022           │                       ▼
+└──────────────────┘    ┌──────────────────────────────────────┐
+                        │          TaiwanAgri.Web              │
+                        │   ASP.NET Core Web API + MVC         │
+                        │   ApplicationDbContext               │
+                        │   (繼承 IdentityDbContext)           │
+                        └──────────┬───────────────────────────┘
                                    │ Cache-Aside
                                    ▼
                   ┌────────────────────────────────────┐
@@ -115,13 +116,17 @@ TaiwanAgriPlatform/
 ├── TaiwanAgri.Core/                  # 共用 Interface / DTO / Enum / Entity
 │   ├── Constants/
 │   │   └── MoaApiEndpoints.cs        # 60 個 API 端點路徑集中定義
-│   └── Entities/
-│       └── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
+│   ├── Entities/
+│   │   └── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
+│   ├── Helpers/
+│   │   └── DateHelper.cs             # ParseRocDate / FormatRocDate / ParseRocNumericDate / ToRocNumericDate
+│   └── Data/
+│       └── CoreDbContext.cs          # SyncStates 跨模組進度追蹤
 │
 ├── TaiwanAgri.Modules.Weather/       # 模組 2：氣象 + 病蟲害後端
 │   └── (WeatherDbContext — 普通 DbContext)
 ├── TaiwanAgri.Modules.Market/        # 模組 4 + 1：行情分析後端
-│   └── (MarketDbContext — 普通 DbContext)
+│   └── (MarketDbContext — 普通 DbContext，ConfigureConventions decimal(8,2))
 ├── TaiwanAgri.Modules.FoodSafety/    # 模組 1：食安追溯後端
 ├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組後端
 │
@@ -194,8 +199,9 @@ MOA_API_KEY=你的api_key
 ```json
 {
   "ConnectionStrings": {
-    "WeatherDb": "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=你的帳號;Password=你的密碼;TrustServerCertificate=True",
-    "MarketDb": "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=你的帳號;Password=你的密碼;TrustServerCertificate=True"
+    "WeatherDb":  "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True",
+    "MarketDb":   "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True",
+    "CoreDb":     "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True"
   },
   "MoaApiConfig": {
     "BaseUrl": "https://data.moa.gov.tw/api/v1",
@@ -227,20 +233,24 @@ taiwanagriplatform-rabbitmq-1       running (healthy)
 
 ### Step 4：執行 EF Core Migration
 
-專案採用多 DbContext 架構，每個模組有獨立的 Migration 目錄，需分別執行：
+本專案採用多 DbContext 架構，**三個 DbContext 各自有獨立的 Migration 目錄，必須分別執行**。若漏掉任何一個，對應的資料表不會建立，相關 Worker 啟動時即報錯。
 
 ```powershell
-# 氣象 + 病蟲害模組（含 Identity 表）
+# 1. 氣象 + 病蟲害模組（含 ASP.NET Core Identity 表）
 Update-Database -Context WeatherDbContext -StartupProject TaiwanAgri.Worker
 
-# 行情模組
+# 2. 行情模組（MarketRestDays / MarketInfos / CropInfos / AgriProductsTrans / PorkTrans / DebrisAlertRecords）
 Update-Database -Context MarketDbContext -StartupProject TaiwanAgri.Worker
+
+# 3. 跨模組基礎設施（SyncStates — 所有增量 SyncWorker 的進度追蹤表）
+#    ⚠️ 若此步驟漏掉，AgriProductsTransSyncWorker 和 PorkTransSyncWorker 啟動即拋出例外
+Update-Database -Context CoreDbContext -StartupProject TaiwanAgri.Worker
 ```
 
 > **注意**：多 DbContext 時，`Add-Migration` 也必須明確指定 `-Context` 和 `-Project` 參數，
-> 否則 EF Core 無法確定要操作哪個 DbContext。
+> 例如：`Add-Migration InitCore -Context CoreDbContext -Project TaiwanAgri.Core`
 
-Migration 執行完成後，用 SQL Server 物件總管確認 `TaiwanAgriPlatform` 資料庫和各資料表已建立。
+Migration 執行完成後，用 SQL Server 物件總管確認 `TaiwanAgriPlatform` 資料庫以及 `weather.*`、`market.*`、`core.*` 三個 Schema 下的資料表均已建立。
 
 ### Step 5：啟動應用程式
 
@@ -252,21 +262,24 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 
 ## 🗄️ 資料庫設計概覽
 
-本專案資料表分三類型，由三個 DbContext 分工管理：
- 
+本專案資料表分三類型，由四個 DbContext 分工管理：
+
 **WeatherDbContext**（`TaiwanAgri.Modules.Weather`）管理氣象與病蟲害相關資料表：
 `WeatherObservations` | `RainfallStations` | `RainfallObservations` | `PestAlerts` | `PestAlertCities` | `PestAlertCrops` | `PestDecadeSummaries` | `PestRuleConfig` | `UserNotifications`
- 
+
 **MarketDbContext**（`TaiwanAgri.Modules.Market`）管理行情相關資料表：
-`MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans`（開發中）| `DisasterEvents`（開發中）
- 
+`MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans` | `DebrisAlertRecords`
+
+> `DisasterEvents` 為規劃中資料表（模組 4 前台 SQL 練習用），尚未實作對應 SyncWorker。
+> `DebrisAlertRecords`（土石流歷史記錄）是已完成的獨立資料表，兩者概念不同，請勿混淆。
+
 **CoreDbContext**（`TaiwanAgri.Core`）管理跨模組基礎設施：
-`SyncStates`（增量同步進度追蹤，所有 SyncWorker 共用）
- 
+`SyncStates`（增量同步進度追蹤，`AgriProductsTransSyncWorker` 和 `PorkTransSyncWorker` 共用）
+
 **ApplicationDbContext**（`TaiwanAgri.Web`）管理身分驗證：
 `AspNetUsers`（含擴充欄位）| `AspNetRoles` | 其他 Identity 標準表
- 
-完整資料表設計、欄位型別、索引說明請參考 [SA/SD 文件第 5.4 節](docs/TaiwanAgriPlatform_SA_SD_v11.docx)。
+
+完整資料表設計、欄位型別、索引說明請參考 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v14.docx)。
 
 ---
 
@@ -298,6 +311,9 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 > **重要限制**：免費帳號分頁 API 只回傳第一頁資料（每頁最多 1,000 筆）。
 > 程式碼中保留分頁迴圈，當 API 回傳 `RS: "ERROR"` 時會優雅地 `break`，不影響正常運作。
 
+> **AgriProductsTransSyncWorker 的分頁抑制策略**：同時帶入 `Start_time + End_time + MarketName`
+> 三個參數，讓 API 回傳特定市場特定天的資料，結果量有自然上限，`Next` 始終為 `false`，無需分頁迴圈。
+
 所有 60 個 API 端點路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
 
 ---
@@ -310,9 +326,9 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 | W3–4 | 模組 2 資料收集（一） | WeatherSyncWorker（分頁、HashSet 防重複、30 天自動清除） | ✅ 完成 |
 | W5–6 上半 | 模組 2 資料收集（二） | Identity Migration 提前執行；RainfallStation + Rainfall + PestDecade SyncWorker | ✅ 完成 |
 | W5–6 下半 | 模組 2 規則引擎 | PestRuleConfig + UserNotifications + PestRuleEngine.EvaluateAsync() 完整實作 | ✅ 完成 |
-| W7–8 上半 | 模組 4 後端（Market）— 基礎建設 | MarketDbContext Schema 分離（market.* 命名空間）；MarketInfo surrogate PK 重構（514 一對多問題）；MarketRestDaySyncWorker（32,149 筆）；CropMarketSyncWorker（MarketInfos 主檔同步、105 台北市場硬編碼補丁） | ✅ 完成 |
-| W7–8 中半 | 模組 4 後端（Market）— 核心同步 | CoreDbContext + SyncState（增量同步進度追蹤，解決休市日卡死問題）；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker 完整實作（雙層去重、三參數抑制分頁、台灣時區 upperBound） | ✅ 完成 |
-| W7–8 下半 | 模組 4 後端（Market）— 效能優化與 Bug Fix | Task.WhenAll 併發 API 請求（串行 4,500 次 → 並發）；CropInfo 全量 HashSet 快取（4,500 次 DB 查詢 → 1 次）；SaveChanges 批次化（4,500 次 → 90 次）；修正跨市場重複寫入 Bug（allIncoming 合併後統一 DistinctBy）；PorkTrans / DebrisAlert SyncWorker 待開發 | 🔄 進行中 |
+| W7–8 上半 | 模組 4 後端 — 基礎建設 | MarketDbContext Schema 分離；MarketInfo surrogate PK 重構（514 一對多問題）；MarketRestDaySyncWorker（32,149 筆）；CropMarketSyncWorker（MarketInfos 主檔同步、105 台北市場硬編碼補丁） | ✅ 完成 |
+| W7–8 中半 | 模組 4 後端 — 核心同步 | CoreDbContext + SyncState（增量同步進度追蹤）；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker 完整實作（雙層去重、三參數抑制分頁） | ✅ 完成 |
+| W7–8 下半 | 模組 4 後端 — 優化與收尾 | Task.WhenAll 併發優化；SaveChanges 批次化；跨市場重複寫入 Bug Fix（PR #017）；DebrisAlertRecordSyncWorker PR #018；PorkTransSyncWorker PR #019；ConfigureConventions 全域 decimal(8,2) | ✅ 完成 |
 | W9–10 | 模組 4 前台 | 作物歷史價格圖、天災時間軸疊加、漲跌幅分析、CSV 匯出 | ⬜ 待開始 |
 | W11–12 | 模組 1 後端 + 前台 | RabbitMQ + Redis + 物價首頁 + 食安功能 | ⬜ 待開始 |
 | W13–14 | 模組 2 前台 | Vue 3 氣象面板、雨量折線圖、病蟲害警報牆、通知紅點 | ⬜ 待開始 |
@@ -324,38 +340,46 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 
 ## 🧠 關鍵架構決策記錄
 
-這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件第 12 章](docs/TaiwanAgriPlatform_SA_SD_v11.docx)。
- 
+這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件第 12 章](docs/TaiwanAgriPlatform_SA_SD_v14.docx)。
+
 **BackgroundService 生命週期管理**
-`WeatherSyncWorker` 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbContext` 是 Scoped。
-不能直接在建構子注入 DbContext，必須注入 `IServiceScopeFactory`，在每次同步任務執行時建立新 Scope，用完即釋放，避免 Change Tracker 持續累積狀態。
- 
+`WeatherSyncWorker` 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbContext` 是 Scoped。不能直接在建構子注入 DbContext，必須注入 `IServiceScopeFactory`，在每次同步任務執行時建立新 Scope，用完即釋放，避免 Change Tracker 持續累積狀態。
+
 **防重複寫入策略**
 使用 HashSet 存放 DB 中已有的 `(StationId, ObservedAt)` 組合，而非只比較單一最新時間欄位。後者在多測站同時回傳相同時間時會出現漏判；HashSet 方式在任何情況下都能正確過濾。部分資料源（`PestAlerts`）使用 SHA256 SourceHash 取代 HashSet，因為去重維度是「內容語意相同」而非「相同時間點」——業務定義不同，策略也不同。
- 
+
 **多 DbContext 架構**
-採用 Modular Monolith 設計。每個業務模組有獨立的 DbContext（`WeatherDbContext`、`MarketDbContext`），部署在各自的 Module Project 中，只宣告 Entity 結構，不碰連線字串。連線字串設定與 Worker 啟動統一由入口層（`TaiwanAgri.Worker`、`TaiwanAgri.Web`）的 `Program.cs` 負責組裝，模組本身不感知執行環境。`ApplicationDbContext`（繼承 `IdentityDbContext`）僅在 `TaiwanAgri.Web` 管理 Identity 六張表，與業務 DbContext 完全分離。
- 
+採用 Modular Monolith 設計。每個業務模組有獨立的 DbContext（`WeatherDbContext`、`MarketDbContext`），部署在各自的 Module Project 中，只宣告 Entity 結構，不碰連線字串。連線字串設定與 Worker 啟動統一由入口層（`TaiwanAgri.Worker`、`TaiwanAgri.Web`）的 `Program.cs` 負責組裝，模組本身不感知執行環境。`ApplicationDbContext`（繼承 `IdentityDbContext`）僅在 `TaiwanAgri.Web` 管理 Identity 六張表，與業務 DbContext 完全分離。`CoreDbContext` 放在 `TaiwanAgri.Core`，專門管理跨模組共用的基礎設施實體（目前只有 `SyncStates`），讓任何模組的 Worker 都能引用，不需要跨模組依賴。
+
 **跨 DbContext FK 策略**
-`UserNotifications.UserId` 指向 `AspNetUsers.Id`，但兩者分屬不同 DbContext，EF Core 無法建立物理 FOREIGN KEY CONSTRAINT 跨 DbContext 邊界。解法是以 `nvarchar(450)` 純字串欄位作為邏輯 FK，由應用程式層保證值的正確性。同時不加 Navigation Property——一旦加了，EF Core Add-Migration 會把被導航到的 Entity 誤判為自己要管的表，在 Migration 中多建一張孤立的冗餘表。
- 
+`UserNotifications.UserId` 指向 `AspNetUsers.Id`，但兩者分屬不同 DbContext，EF Core 無法建立物理 FOREIGN KEY CONSTRAINT 跨 DbContext 邊界。解法是以 `nvarchar(450)` 純字串欄位作為邏輯 FK，由應用程式層保證值的正確性。同時不加 Navigation Property——一旦加了，EF Core `Add-Migration` 會把被導航到的 Entity 誤判為自己要管的表，在 Migration 中多建一張孤立的冗餘表。
+
 **Identity Migration 提前策略**
 `AspNetUsers` 表在 W5–6 就建立（只需三行設定），讓後續所有 B 類資料表的 `UserId FK` 從一開始就是 `NOT NULL`，不欠技術債。Login UI 和 JWT 在 W15–16 才實作，兩件事獨立進行互不干擾。
- 
+
 **API 端點路徑集中管理**
 60 個 MOA API 端點全部定義在 `MoaApiEndpoints.cs` 為 `const string`。散落各處等同於 60 個潛在的手動維護點；集中定義後，IDE 的「尋找所有參考」可以立即找到每個端點的所有使用位置。
- 
+
 **SyncState 模式取代 MAX(TransDate)**
-增量同步的進度不能從 DB 業務資料推算（`MAX(TransDate)`）——在全市場休市日，AgriProductsTrans 表沒有任何記錄寫入，MAX 值永遠停在前一天，Worker 無限重跑同一天無法自癒。改用 `CoreDbContext` 的 `SyncStates` 資料表獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。`SyncState` 放在 `TaiwanAgri.Core` 而非 Market 模組，確保未來 PorkTrans、DebrisAlert 等 Worker 都能共用同一套機制，不需要跨模組依賴。
- 
+增量同步的進度不能從 DB 業務資料推算（`MAX(TransDate)`）——在全市場休市日，`AgriProductsTrans` 表沒有任何記錄寫入，MAX 值永遠停在前一天，Worker 無限重跑同一天無法自癒。改用 `CoreDbContext` 的 `SyncStates` 資料表獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。`SyncState` 放在 `TaiwanAgri.Core` 而非 Market 模組，確保 `PorkTransSyncWorker` 等後續 Worker 都能共用同一套機制。
+
 **MarketInfo surrogate PK 設計**
-MarketCode 514 在 Veg API 叫「溪湖鎮」、在 Flower API 叫「彰化市場」，兩個名稱各自查詢到不同的 AgriProductsTrans 資料集，必須分別存為兩筆。「一個 MarketCode 對應一筆主檔」的假設失效，PK 改成 surrogate Id，Unique constraint 改為 `(MarketCode, MarketName)`。這個決策同時移除了 AgriProductsTrans 對 MarketInfos 的物理 FK，改用應用程式層保證：Worker 的市場清單本來就從 MarketInfos 讀出，寫入的 MarketCode 一定有效，不需要 DB 層重複保護。
- 
+MarketCode 514 在 Veg API 叫「溪湖鎮」、在 Flower API 叫「彰化市場」，兩個名稱各自查詢到不同的 AgriProductsTrans 資料集，必須分別存為兩筆。「一個 MarketCode 對應一筆主檔」的假設失效，PK 改成 surrogate Id，Unique constraint 改為 `(MarketCode, MarketName)`。這個決策同時移除了 `AgriProductsTrans` 對 `MarketInfos` 的物理 FK，改用應用程式層保證：Worker 的市場清單本來就從 `MarketInfos` 讀出，寫入的 `MarketCode` 一定有效，不需要 DB 層重複保護。
+
 **Task.WhenAll 併發 API 請求策略**
-AgriProductsTransSyncWorker 初版串行跑 90 天 × 50 市場 = 4,500 次 HTTP 請求，實際執行 8 小時只同步 1 年 2 個月。改用 `Task.WhenAll` 讓同一天的所有市場 API 同時發出，等待時間從串行加總降為最慢單一市場。Task 只負責打 API 回傳原始 json，所有有狀態的操作（去重、快取更新、AddRange）集中在主執行緒依序執行，完全規避執行緒安全與 TOCTOU 問題，不需要 `ConcurrentDictionary` 或 `ConcurrentBag`。
- 
-**跨市場合併去重**
-MarketInfos 允許同一 MarketCode 有多筆 MarketName，`Task.WhenAll` 會以多個 MarketName 各打一次 API。農業部回傳的交易資料欄位是 `MarketCode`，不是查詢用的 MarketName，導致不同 MarketName 查詢可能回傳相同自然鍵的交易記錄。原本各市場獨立 `DistinctBy` 的設計無法攔截跨市場重複，修正為先把所有市場的 incoming 資料收集進 `allIncoming`，foreach 結束後統一執行 `DistinctBy`，確保去重範圍覆蓋整天所有市場的合併資料。
+`AgriProductsTransSyncWorker` 初版串行跑 90 天 × 50 市場 = 4,500 次 HTTP 請求，實際執行 8 小時只同步 1 年 2 個月。改用 `Task.WhenAll` 讓同一天的所有市場 API 同時發出，等待時間從串行加總降為最慢單一市場。Task 只負責打 API 回傳原始 json，所有有狀態的操作（去重、快取更新、AddRange）集中在主執行緒依序執行，完全規避執行緒安全與 TOCTOU 問題，不需要 `ConcurrentDictionary` 或 `ConcurrentBag`。
+
+**跨市場合併去重（Change Tracker 可見範圍陷阱）**
+MarketInfos 允許同一 MarketCode 有多筆 MarketName，`Task.WhenAll` 會以多個 MarketName 各打一次 API。農業部回傳的交易資料欄位是 `MarketCode`，不是查詢用的 MarketName，導致不同 MarketName 查詢可能回傳相同自然鍵的交易記錄。原本各市場獨立 `DistinctBy` 的設計無法攔截跨市場重複——SaveChanges 批次化之後，Change Tracker 累積的新增資料對 `existingKeySet`（查 DB 快照建立）完全不可見，批次內的跨來源重複只有在 `AddRange` 前合併去重才能正確攔截。修正為先把所有市場 incoming 資料收集進 `allIncoming`，foreach 結束後統一執行 `DistinctBy`。
+
+**DebrisAlertRecord：HasFilter(null) 解決 nullable UNIQUE Index 失效問題**
+`DebrisAlertRecord` 的去重自然鍵由 `(ReportID, DebrisNo, LandslideID)` 組成，其中 `DebrisNo` 和 `LandslideID` 互斥為 null（D 型土石流 `DebrisNo` 有值、L 型大規模崩塌 `LandslideID` 有值）。EF Core 對含 nullable 欄位的 UNIQUE Index 預設自動加上 `WHERE [DebrisNo] IS NOT NULL AND [LandslideID] IS NOT NULL`，這個 AND 條件對所有記錄永遠不成立，UNIQUE Index 形同虛設。解法是在 `OnModelCreating` 加 `.HasFilter(null)`，覆蓋 EF Core 的預設行為，讓 SQL Server 建立不帶任何 filter 的完整 UNIQUE Index。
+
+**PorkTransSyncWorker：lastSuccessfulDate 精確斷點模式**
+PorkTrans API 一次只接受單一 `TransDate`，休市日無資料寫入，和 `AgriProductsTrans` 一樣面對 `MAX(TransDate)` 卡死問題，因此也需要 `SyncState`。進度推進策略使用 `lastSuccessfulDate`：只有 API 回傳 `RS==OK`（含休市日空回傳）才推進 `lastSuccessfulDate`；`RS != OK` 或例外則 `break`；迴圈結束後以 `lastSuccessfulDate` 更新 `SyncState`，而非迴圈計數器。這確保「已確認完成的最後一天」精確記錄，中途任何一天失敗都不會讓進度跳過那天。
+
+**ConfigureConventions 取代逐欄位 HasPrecision**
+`PorkTrans` Entity 有 36 個 decimal 欄位，若逐一設定 `HasPrecision(8,2)` 過於繁瑣且易漏。在 `MarketDbContext.ConfigureConventions` 設定全域規則，讓所有 decimal 欄位自動套用 `decimal(8,2)`，`OnModelCreating` 只在需要例外精度時才個別覆蓋。這是從「局部設定」演進為「全域標準」的系統性改善，同時作為 EF Core 10 Convention 機制的實際練習場景。
 
 ---
 
@@ -374,7 +398,7 @@ dotnet test
 
 | 文件 | 說明 |
 |------|------|
-| `docs/TaiwanAgriPlatform_SA_SD_v10.docx` | SA/SD 完整設計文件（痛點故事、API 清單、DB 設計、Sprint 計畫、W1–W7 實戰開發紀錄） |
+| `docs/TaiwanAgriPlatform_SA_SD_v14.docx` | SA/SD 完整設計文件（痛點故事、API 清單、DB 設計、Sprint 計畫、W1–W8 全部實戰開發紀錄，含效能優化與 DebrisAlert/PorkTrans 設計決策） |
 
 ---
 
@@ -396,4 +420,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v11.0*
+*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v14.0*
