@@ -32,7 +32,7 @@
 - **★ 智慧病蟲害提示**：規則引擎偵測「連續 72 小時濕度 > 85%」等條件，主動推送通知
 - 農藥查詢（中文俗名 → 學名 → 許可證字號，跨三支 API 橋接）
 
-### 📊 模組 4：大數據探險 — 天災與菜價關聯分析（**後端全部完成，前台待開發**）
+### 📊 模組 4：大數據探險 — 天災與菜價關聯分析（**後端全部完成，前台進行中**）
 面向研究者，用歷史資料找出天氣事件與農產品批發價格之間的連動規律。
 
 - 作物歷史價格圖 + 7 日移動平均線（SQL Window Functions）
@@ -92,9 +92,10 @@
 │   2022           │                       ▼
 └──────────────────┘    ┌──────────────────────────────────────┐
                         │          TaiwanAgri.Web              │
-                        │   ASP.NET Core Web API + MVC         │
+                        │   ASP.NET Core Web API               │
                         │   ApplicationDbContext               │
                         │   (繼承 IdentityDbContext)           │
+                        │   MarketController (5 支端點)        │
                         └──────────┬───────────────────────────┘
                                    │ Cache-Aside
                                    ▼
@@ -119,20 +120,54 @@ TaiwanAgriPlatform/
 │   ├── Entities/
 │   │   └── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
 │   ├── Helpers/
-│   │   └── DateHelper.cs             # ParseRocDate / FormatRocDate / ParseRocNumericDate / ToRocNumericDate
+│   │   └── DateHelper.cs             # ParseRocDate / FormatRocDate / ParseRocNumericDate
+│   │                                 # ToRocNumericDate / ParseIsoDate
 │   └── Data/
 │       └── CoreDbContext.cs          # SyncStates 跨模組進度追蹤
 │
 ├── TaiwanAgri.Modules.Weather/       # 模組 2：氣象 + 病蟲害後端
 │   └── (WeatherDbContext — 普通 DbContext)
+│
 ├── TaiwanAgri.Modules.Market/        # 模組 4 + 1：行情分析後端
-│   └── (MarketDbContext — 普通 DbContext，ConfigureConventions decimal(8,2))
+│   ├── Data/
+│   │   └── MarketDbContext.cs        # ConfigureConventions decimal(8,2)
+│   ├── Dtos/
+│   │   ├── WorkerResponses/          # Worker 從 MOA API 反序列化用 DTO
+│   │   │   ├── AgriProductsTransTypeDto.cs
+│   │   │   ├── AgriProductsTransTypeApiResponse.cs
+│   │   │   ├── CropMarketTypeDto.cs
+│   │   │   ├── DebrisAlertRecordDto.cs
+│   │   │   ├── MarketRestDayDto.cs
+│   │   │   ├── PorkTransTypeDto.cs
+│   │   │   └── ...
+│   │   └── ApiResponses/             # Service 輸出給前端的 DTO（依相依方向放在 Modules.Market）
+│   │       ├── CropResponseDto.cs
+│   │       ├── MarketResponseDto.cs
+│   │       ├── PriceResponseDto.cs
+│   │       ├── DisasterResponseDto.cs
+│   │       └── RestDayResponseDto.cs
+│   ├── Entities/
+│   │   └── (MarketRestDay / MarketInfo / CropInfo / AgriProductsTrans
+│   │         / DebrisAlertRecord / PorkTrans)
+│   └── Services/
+│       ├── IMarketService.cs         # 五支查詢方法的介面定義
+│       └── MarketService.cs          # 實作（三表 JOIN、GroupBy 聚合、AsQueryable 動態過濾）
+│
 ├── TaiwanAgri.Modules.FoodSafety/    # 模組 1：食安追溯後端
 ├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組後端
 │
 ├── TaiwanAgri.Worker/                # 入口層：所有排程 Worker + DI 組裝
+│
 ├── TaiwanAgri.Web/                   # 入口層：Web API + Vue 3 Shell
-│   └── (ApplicationDbContext — 繼承 IdentityDbContext)
+│   ├── Controllers/
+│   │   ├── HomeController.cs         # ControllerBase（空殼）
+│   │   └── MarketController.cs       # 5 支端點：crops/markets/prices/disasters/restdays
+│   └── Program.cs                    # AddControllers / CORS / AddProblemDetails
+│                                     # ApplicationDbContext（繼承 IdentityDbContext）
+│
+├── TaiwanAgri.Frontend/              # Vue 3 + Vite + TypeScript + Pinia + Vue Router
+│   └── (前台 SPA，待開發)
+│
 └── TaiwanAgri.Tests/                 # xUnit + Moq + TestContainers
 ```
 
@@ -142,7 +177,7 @@ TaiwanAgriPlatform/
 
 | 層次 | 技術 | 版本 | 用途 |
 |------|------|------|------|
-| 後端框架 | ASP.NET Core Web API + MVC | **10.0 LTS** | 主要後端框架 |
+| 後端框架 | ASP.NET Core Web API | **10.0 LTS** | 主要後端框架 |
 | ORM | Entity Framework Core | **10.0** | Code First + Migration |
 | 資料庫 | SQL Server | 2022 | Window Functions、時序查詢 |
 | 背景排程 | .NET Worker Service + Hangfire | 最新穩定版 | 資料同步排程 |
@@ -165,7 +200,7 @@ TaiwanAgriPlatform/
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Visual Studio 2022 / 2026](https://visualstudio.microsoft.com/)（含 ASP.NET 工作負載）
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [Node.js 20+](https://nodejs.org/)（前端建置用）
+- [Node.js 22 LTS](https://nodejs.org/)（前端建置用）
 
 > **架構決策說明**：Docker Compose 只負責啟動基礎設施服務（SQL Server、Redis、RabbitMQ）。
 > .NET 應用程式在 Windows 本機直接執行，保留 Visual Studio 完整的 F5 中斷點除錯能力。
@@ -199,9 +234,7 @@ MOA_API_KEY=你的api_key
 ```json
 {
   "ConnectionStrings": {
-    "WeatherDb":  "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True",
-    "MarketDb":   "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True",
-    "CoreDb":     "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True"
+    "DefaultConnection": "Server=你的伺服器;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True"
   },
   "MoaApiConfig": {
     "BaseUrl": "https://data.moa.gov.tw/api/v1",
@@ -256,7 +289,18 @@ Migration 執行完成後，用 SQL Server 物件總管確認 `TaiwanAgriPlatfor
 
 在 Visual Studio 將啟動專案設定為 `TaiwanAgri.Worker`，按 F5 啟動。
 
-Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
+### Step 6：啟動 Web API
+
+在 Visual Studio 將啟動專案設定為 `TaiwanAgri.Web`，按 F5 啟動。預設監聽 `https://localhost:7xxx`。
+
+### Step 7：啟動前台開發伺服器
+
+```bash
+cd TaiwanAgri.Frontend
+npm install
+npm run dev
+# 前台伺服器啟動於 http://localhost:5173
+```
 
 ---
 
@@ -270,8 +314,7 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 **MarketDbContext**（`TaiwanAgri.Modules.Market`）管理行情相關資料表：
 `MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans` | `DebrisAlertRecords`
 
-> `DisasterEvents` 為規劃中資料表（模組 4 前台 SQL 練習用），尚未實作對應 SyncWorker。
-> `DebrisAlertRecords`（土石流歷史記錄）是已完成的獨立資料表，兩者概念不同，請勿混淆。
+> `DebrisAlertRecords`（土石流歷史記錄）是已完成的獨立資料表，提供模組 4 天災時間軸的資料來源。
 
 **CoreDbContext**（`TaiwanAgri.Core`）管理跨模組基礎設施：
 `SyncStates`（增量同步進度追蹤，`AgriProductsTransSyncWorker` 和 `PorkTransSyncWorker` 共用）
@@ -285,11 +328,31 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 
 ## 🌐 API 端點摘要
 
+### 模組 4 — 天災與菜價關聯分析（已完成）
+
+| Method | URL | 說明 | 認證 |
+|--------|-----|------|------|
+| GET | `/api/market/crops?marketType=Veg` | 有交易記錄的作物清單（三表 JOIN + DISTINCT） | 不需要 |
+| GET | `/api/market/markets?marketType=Veg` | 市場清單（依市場類型篩選） | 不需要 |
+| GET | `/api/market/prices` | 作物歷史價格走勢（含全台均價 / 單一市場，GroupBy 聚合） | 不需要 |
+| GET | `/api/market/disasters` | 天災警戒事件清單（縣市選填，日期區間必填） | 不需要 |
+| GET | `/api/market/restdays` | 市場休市日清單（市場代碼 + 日期區間） | 不需要 |
+
+#### GET /api/market/prices 參數說明
+
+| 參數 | 型別 | 必填 | 說明 |
+|------|------|------|------|
+| marketType | string | ✅ | Veg / Fruit / Flower |
+| cropCodes | string[] | ✅ | 可傳多個（`&cropCodes=E1&cropCodes=E2`），最多 5 個 |
+| marketCode | string | — | 不傳則回傳全台均價（AVG price + SUM quantity） |
+| startDate | string | — | yyyy-MM-dd，不傳預設今天往前 365 天 |
+| endDate | string | — | yyyy-MM-dd，不傳預設今天 |
+
+### 其他模組端點（規劃中）
+
 | Method | URL | 說明 | 認證 |
 |--------|-----|------|------|
 | GET | `/api/v1/prices/today` | 首頁物價快照（Redis Cache-Aside） | 不需要 |
-| GET | `/api/v1/prices/{cropCode}/history` | 歷史行情 + 移動平均 | 不需要 |
-| GET | `/api/v1/prices/disasters/correlations` | 天災前後漲跌分析 | 不需要 |
 | GET | `/api/v1/pests/alerts` | 病蟲害警報列表 | 不需要 |
 | GET | `/api/v1/weather/stations` | 氣象站即時資料 | 不需要 |
 | GET | `/api/v1/traceability/{traceCode}` | 追溯碼查詢（直連 API + Redis TTL） | 不需要 |
@@ -326,10 +389,10 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 | W3–4 | 模組 2 資料收集（一） | WeatherSyncWorker（分頁、HashSet 防重複、30 天自動清除） | ✅ 完成 |
 | W5–6 上半 | 模組 2 資料收集（二） | Identity Migration 提前執行；RainfallStation + Rainfall + PestDecade SyncWorker | ✅ 完成 |
 | W5–6 下半 | 模組 2 規則引擎 | PestRuleConfig + UserNotifications + PestRuleEngine.EvaluateAsync() 完整實作 | ✅ 完成 |
-| W7–8 上半 | 模組 4 後端 — 基礎建設 | MarketDbContext Schema 分離；MarketInfo surrogate PK 重構（514 一對多問題）；MarketRestDaySyncWorker（32,149 筆）；CropMarketSyncWorker（MarketInfos 主檔同步、105 台北市場硬編碼補丁） | ✅ 完成 |
-| W7–8 中半 | 模組 4 後端 — 核心同步 | CoreDbContext + SyncState（增量同步進度追蹤）；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker 完整實作（雙層去重、三參數抑制分頁） | ✅ 完成 |
-| W7–8 下半 | 模組 4 後端 — 優化與收尾 | Task.WhenAll 併發優化；SaveChanges 批次化；跨市場重複寫入 Bug Fix（PR #017）；DebrisAlertRecordSyncWorker PR #018；PorkTransSyncWorker PR #019；ConfigureConventions 全域 decimal(8,2) | ✅ 完成 |
-| W9–10 | 模組 4 前台 | 作物歷史價格圖、天災時間軸疊加、漲跌幅分析、CSV 匯出 | ⬜ 待開始 |
+| W7–8 上半 | 模組 4 後端 — 基礎建設 | MarketDbContext Schema 分離；MarketInfo surrogate PK 重構；MarketRestDaySyncWorker（32,149 筆）；CropMarketSyncWorker | ✅ 完成 |
+| W7–8 中半 | 模組 4 後端 — 核心同步 | CoreDbContext + SyncState；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker 完整實作 | ✅ 完成 |
+| W7–8 下半 | 模組 4 後端 — 優化與收尾 | Task.WhenAll 併發優化；SaveChanges 批次化；跨市場重複寫入 Bug Fix；DebrisAlertRecordSyncWorker；PorkTransSyncWorker；ConfigureConventions 全域 decimal(8,2) | ✅ 完成 |
+| W9–10 | 模組 4 前台 | **查詢層已完成（PR #020）**：TaiwanAgri.Web 改造、MarketService + IMarketService、MarketController 五支端點、DTO 結構重組；Vue 3 前台開發進行中 | 🔄 進行中 |
 | W11–12 | 模組 1 後端 + 前台 | RabbitMQ + Redis + 物價首頁 + 食安功能 | ⬜ 待開始 |
 | W13–14 | 模組 2 前台 | Vue 3 氣象面板、雨量折線圖、病蟲害警報牆、通知紅點 | ⬜ 待開始 |
 | W15–16 | 身分驗證完整實作 | JWT 發行、Login / Register API、Vue 3 登入頁 | ⬜ 待開始 |
@@ -340,7 +403,7 @@ Hangfire Dashboard 可在 `http://localhost:5000/hangfire` 查看排程狀態。
 
 ## 🧠 關鍵架構決策記錄
 
-這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件第 12 章](docs/TaiwanAgriPlatform_SA_SD_v14.docx)。
+這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v14.docx)。
 
 **BackgroundService 生命週期管理**
 `WeatherSyncWorker` 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbContext` 是 Scoped。不能直接在建構子注入 DbContext，必須注入 `IServiceScopeFactory`，在每次同步任務執行時建立新 Scope，用完即釋放，避免 Change Tracker 持續累積狀態。
@@ -379,7 +442,16 @@ MarketInfos 允許同一 MarketCode 有多筆 MarketName，`Task.WhenAll` 會以
 PorkTrans API 一次只接受單一 `TransDate`，休市日無資料寫入，和 `AgriProductsTrans` 一樣面對 `MAX(TransDate)` 卡死問題，因此也需要 `SyncState`。進度推進策略使用 `lastSuccessfulDate`：只有 API 回傳 `RS==OK`（含休市日空回傳）才推進 `lastSuccessfulDate`；`RS != OK` 或例外則 `break`；迴圈結束後以 `lastSuccessfulDate` 更新 `SyncState`，而非迴圈計數器。這確保「已確認完成的最後一天」精確記錄，中途任何一天失敗都不會讓進度跳過那天。
 
 **ConfigureConventions 取代逐欄位 HasPrecision**
-`PorkTrans` Entity 有 36 個 decimal 欄位，若逐一設定 `HasPrecision(8,2)` 過於繁瑣且易漏。在 `MarketDbContext.ConfigureConventions` 設定全域規則，讓所有 decimal 欄位自動套用 `decimal(8,2)`，`OnModelCreating` 只在需要例外精度時才個別覆蓋。這是從「局部設定」演進為「全域標準」的系統性改善，同時作為 EF Core 10 Convention 機制的實際練習場景。
+`PorkTrans` Entity 有 36 個 decimal 欄位，若逐一設定 `HasPrecision(8,2)` 過於繁瑣且易漏。在 `MarketDbContext.ConfigureConventions` 設定全域規則，讓所有 decimal 欄位自動套用 `decimal(8,2)`，`OnModelCreating` 只在需要例外精度時才個別覆蓋。這是從「局部設定」演進為「全域標準」的系統性改善。
+
+**查詢層的相依方向：Service 歸屬 Modules.Market**
+`MarketService` 放在 `TaiwanAgri.Modules.Market/Services/` 而非 `TaiwanAgri.Web`，確保相依方向正確：Web（上層）→ Modules.Market（下層）。任何需要市場查詢邏輯的入口（Web API、後台管理、測試）都可以直接依賴 Modules.Market，不需要跨層依賴。`IMarketService` 定義在同一模組，讓 Controller 依賴抽象而非具體實作，支援後續的單元測試 mock。
+
+**DTO 結構分層：WorkerResponses vs ApiResponses**
+`Dtos/` 資料夾依資料流方向分兩個子目錄，而非混放：`WorkerResponses/` 存放 MOA API 回傳資料的反序列化 DTO（欄位形狀由外部 API 決定），`ApiResponses/` 存放 Service 輸出給前端的 DTO（欄位形狀由前台畫面需求決定）。角色命名比來源命名更有自解釋性，讓維護者不需要任何背景知識就能判斷檔案的用途。
+
+**Controller 輸入驗證策略：string + ParseIsoDate 取代 [FromQuery] DateOnly**
+日期參數用 `string` 接收，手動呼叫 `DateHelper.ParseIsoDate` 解析，格式不合法時回傳明確的 `BadRequest("...請使用 yyyy-MM-dd")`。這讓錯誤訊息對前端友好，驗證邏輯明確可見，且不依賴 ASP.NET Core Model Binding 對 `DateOnly` 的版本特定行為。選填日期的預設值邏輯（今天往前 365 天）放在 Service 而非 Controller，因為它是業務決策而非技術約束。
 
 ---
 
@@ -420,4 +492,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v14.0*
+*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v14.0 ｜ PR #020 查詢層完成*
