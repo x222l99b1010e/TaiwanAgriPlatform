@@ -2,11 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Constants;
 using System.Text.Json;
-using TaiwanAgri.Modules.Market.Dtos;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Core.Infrastructure.Entities;
 using TaiwanAgri.Modules.Market.Entities;
+using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 
 namespace TaiwanAgri.Worker
 {

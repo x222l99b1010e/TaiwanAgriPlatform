@@ -1307,6 +1307,128 @@ SyncWorker 的日期迴圈可能在中途因 API 異常（`RS != "OK"`）或網�
 
 ---
 
+## PR #020 — MarketController + MarketService 查詢層，TaiwanAgri.Web 改造為純 Web API
+
+**標題**：`feat(web+market): 實作模組 4 查詢層——MarketService / MarketController / DTO 結構重組 / TaiwanAgri.Web Web API 改造`
+
+---
+
+### 背景與動機
+
+W7–8 完成了 Market 模組全部五支 SyncWorker（PR #013–#019），資料已在 SQL Server 中穩定累積。但一個後端服務光有資料同步是不夠的——資料存在 DB 裡，前台取不到，等於把圖書館建好了但沒有任何借書窗口。W9–10 的 Vue 3 前台開發正式啟動前，本 PR 完成三件事：
+
+1. 把 `TaiwanAgri.Web` 從 Visual Studio 預設的 MVC 樣板改造成純 Web API 專案。
+2. 建立查詢服務層（`IMarketService` + `MarketService`），實作五支資料查詢方法。
+3. 建立 `MarketController`，把五支 API 端點暴露給 Vue 3 呼叫。
+
+同時，隨著 ApiResponse DTO 的加入，`Dtos/` 資料夾的職責問題浮上檯面——原本 Worker 用的反序列化 DTO 和即將新增的 API 輸出 DTO 混在同一個層級，趁此機會一起重組，從根本上分清楚「進來的資料」和「出去的資料」。
+
+---
+
+### 關鍵設計決策一：Dtos 資料夾重組——WorkerResponses / ApiResponses 各司其職
+
+原始的 `Dtos/` 根目錄同時放了 `AgriProductsTransTypeDto`、`DebrisAlertRecordDto` 這類 Worker 用的反序列化 DTO，以及即將新增的 `PriceResponseDto`、`CropResponseDto` 這類 API 輸出 DTO。問題在於這兩種 DTO 服務的是完全相反的資料流方向：
+
+**WorkerResponses**（Worker 用）：從農業部 MOA API 收到 JSON 後反序列化使用，生命週期在 SyncWorker 的 HTTP 呼叫流程裡，欄位設計由 MOA API 的回傳格式決定，維護人員看到它的時候要想到「這是外部資料的形狀」。
+
+**ApiResponses**（API 輸出用）：Service 查詢 DB 後組裝，序列化後回傳給 Vue 3 前端，欄位設計由前台的畫面需求決定，維護人員看到它的時候要想到「這是前端會收到的 JSON 結構」。
+
+兩者放在一起，未來維護時需要逐一查看才能判斷每個 DTO 的用途，認知負擔不必要地提升。重組後拆成兩個子資料夾：`WorkerResponses/` 承接原有的所有 Worker DTO，`ApiResponses/` 放新建的五支輸出 DTO。
+
+命名選擇「角色」而非「來源」（例如 `Moa/`），原因是角色對維護者更直觀——不需要知道 MOA 是什麼組織就能理解資料夾的用途。重組後，五支 SyncWorker 的 using 路徑同步更新為 `WorkerResponses/` 路徑。
+
+---
+
+### 關鍵設計決策二：MarketService 歸屬 Modules.Market，而非 TaiwanAgri.Web
+
+第一直覺可能是「Service 是給 Controller 用的，放在 Web 就好」，但這忽略了相依方向的問題。如果 `MarketService` 放在 `TaiwanAgri.Web`，未來若需要額外的入口——例如後台管理介面（`TaiwanAgri.Admin`）或其他消費端——這些入口也需要呼叫同樣的查詢邏輯，就必須依賴 `TaiwanAgri.Web`，形成下層依賴上層的反向依賴，是錯誤的架構方向。
+
+正確的相依關係是：Web（上層）→ Modules.Market（下層）。`MarketService` 放在 `TaiwanAgri.Modules.Market`，查詢邏輯屬於市場模組本身；`MarketController` 在 `TaiwanAgri.Web` 只做一件事——把 HTTP 請求翻譯成 Service 呼叫，不直接碰 `MarketDbContext`。
+
+對應地，`PriceResponseDto` 等輸出 DTO 也放在 `Modules.Market/Dtos/ApiResponses/`，理由相同：上層（Web）可以依賴下層（Modules.Market）的型別，反過來則不行。
+
+---
+
+### 關鍵設計決策三：IMarketService 介面——依賴反轉與可測試性
+
+`IMarketService + MarketService` 的模式在小型專案裡有時候被省略，認為是過度設計。但本專案的 Solution 結構裡已有 `TaiwanAgri.Tests` 專案，代表測試是明確的規劃目標。`MarketController` 依賴 `IMarketService`（抽象）而非 `MarketService`（具體），讓單元測試可以注入 mock 版本，不需要啟動真實的資料庫連線，這個收益是具體可見的。
+
+`IMarketService` 定義在 `Modules.Market/Services/` 而非 `TaiwanAgri.Core`，考量是它和市場模組高度相關，放到 Core 有過度抽象之嫌；放在 `Modules.Market` 讓 Web 層透過依賴 `Modules.Market` 這個 lower layer 取得介面定義，相依方向依然正確。
+
+---
+
+### 關鍵設計決策四：TaiwanAgri.Web 改造策略——不砍重建，直接改造
+
+`TaiwanAgri.Web` 是 Visual Studio 用「ASP.NET Core Web App with Authentication」樣板建出來的，包含 MVC + Razor Pages + Identity，從未認真改過。現在需要一個純 Web API 專案，有兩個選擇：
+
+**選項 A（砍掉重建 TaiwanAgri.Api）**：代價是 `ApplicationDbContext`（管理 `AspNetUsers` 等 Identity 六張表）的 Migration 歷史要搬移，DB 對齊有踩坑風險，而且要重新配置 Identity 的所有設定。
+
+**選項 B（直接改造 TaiwanAgri.Web）**：步驟只有四個——`AddControllersWithViews()` 改成 `AddControllers()`、移除 `Views/`、`wwwroot/`、`MapRazorPages()`、`MapControllerRoute()`，`HomeController` 繼承從 `Controller` 改成 `ControllerBase`。Migration 完全不需要動，Identity 的 `AspNetUsers` 表繼續在原位。
+
+兩種結果在功能上等效，改造的風險幾乎為零。Portfolio 專案的開發成本是有限的，不應該花在沒有業務價值的重建上。
+
+同時追加了幾項改善：`AddProblemDetails()` 讓正式環境回傳標準化的 Problem Details JSON（而非 MVC 的 HTML 錯誤頁）；CORS 設定允許 Vue 3 dev server（`:5173`）的跨域請求；Middleware 順序調整為 `UseRouting → UseCors → UseAuthentication → UseAuthorization`，確保認證中介軟體在正確的位置。
+
+---
+
+### 關鍵設計決策五：Controller 日期參數 string + ParseIsoDate 取代 [FromQuery] DateOnly
+
+`[FromQuery] DateOnly startDate` 在 ASP.NET Core 的 Model Binding 對 `"yyyy-MM-dd"` 格式的支援在不同版本下行為不確定；更重要的是，即使框架能自動解析，失敗時回傳的是框架預設的不友好錯誤格式，前端無法直接顯示給使用者。
+
+Controller 的職責包含「輸入驗證」，用 `string + DateHelper.ParseIsoDate + null check + BadRequest` 讓整個錯誤路徑完全在應用程式的控制下：
+
+```csharp
+var start = DateHelper.ParseIsoDate(startDate);
+if (start == null) return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
+```
+
+`ParseIsoDate` 設計為回傳 `DateOnly?`（null 代表格式不合法）而非拋例外，讓 Controller 用 null check 做流程控制，符合「預期的失敗用回傳值處理，不預期的失敗才用例外」的原則。GetPrices 的選填日期則用 `startDate != null && start == null` 的條件，精確區分「使用者沒傳」和「使用者傳了但格式錯」兩種情況。
+
+---
+
+### 關鍵設計決策六：預設日期區間的歸屬——商業邏輯在 Service，輸入驗證在 Controller
+
+`GetPricesAsync` 的日期參數是選填，不傳時應該「預設今天往前 365 天」。判斷這段邏輯應該在哪一層的標準是：這是技術約束還是業務決策？
+
+「格式必須是 yyyy-MM-dd」是技術約束，放 Controller 合理——因為這個規則永遠不會因為 PM 的想法改變。「預設看一年的資料」是產品決策——如果哪天改成「預設看三個月」，你要去改哪一層？Service。那它就屬於 Service 的商業邏輯。
+
+```csharp
+// Service 內部，Controller 不需要知道這個規則
+DateOnly finalEnd   = endDate   ?? DateOnly.FromDateTime(DateTime.Today);
+DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+```
+
+Controller 的 `DateOnly?` 型別參數（可為 null）傳進 Service 後，由 Service 填補預設值，職責邊界清晰。
+
+---
+
+### 關鍵設計決策七：GetPricesAsync 三表 JOIN + 聚合策略
+
+這是五支 API 中邏輯最複雜的一支，有兩個核心設計問題。
+
+第一，三表 JOIN 的必要性：`AgriProductsTrans` 只存了 `CropCode` 和 `MarketCode`，前端需要的 `CropName` 在 `CropInfos`，`marketType` 過濾條件（Veg/Fruit/Flower）在 `MarketInfos`。這三張表之間沒有 EF Core Navigation Property（同 DbContext 但設計上無物理 FK），只能用 LINQ 的 `join...on...equals` 手動連結。Query Syntax 在三表 JOIN 的可讀性顯著優於連鎖的 Method Syntax `.Join().Join()`（後者需要巢狀匿名型別），選擇 Query Syntax。
+
+第二，全台均價時的聚合策略。不選擇特定市場時，同一天同一作物可能在多個市場各自有交易紀錄，需要 `GroupBy(TransDate, CropCode)` 後聚合：價格欄位（`UpperPrice`、`MiddlePrice`、`LowerPrice`、`AvgPrice`）用 `AVG`——價格是一個比率，跨市場平均反映全台價格水準；`TransQuantity` 用 `SUM`——交易量是絕對數字，「全台今天這個作物一共賣了多少公斤」才是有意義的數字，不是「平均每個市場賣了多少」。這個選擇是由業務語意驅動的，不是隨意決定的。
+
+`AsQueryable()` 讓 `marketCode` 的 optional 過濾條件在一個查詢路徑裡動態組合：基礎查詢建立完成後，透過 `if (!string.IsNullOrEmpty(marketCode)) { baseQuery = baseQuery.Where(...) }` 追加條件，最後才 `ToListAsync()` 送出一條完整 SQL，不需要兩條完全分開的 query 分支。
+
+---
+
+### 驗收標準
+
+編譯 0 錯誤。`dotnet run --project TaiwanAgri.Web` 啟動後：
+
+- `GET /api/market/markets?marketType=Veg` 回傳市場清單 JSON（`[{ marketCode, marketName }]`）
+- `GET /api/market/crops?marketType=Veg` 回傳有交易記錄的作物清單（無重複、有 CropName）
+- `GET /api/market/prices?marketType=Veg&cropCodes=11&cropCodes=459` 回傳歷史價格資料，格式符合 Contract
+- `GET /api/market/disasters?startDate=2024-01-01&endDate=2024-12-31` 回傳天災事件列表
+- `GET /api/market/restdays?marketCode=104&startDate=2024-01-01&endDate=2024-12-31` 回傳休市日列表
+- 傳入格式錯誤的日期（如 `startDate=abc`）回傳 400 且包含 `"格式錯誤，請使用 yyyy-MM-dd"` 的訊息
+- Vue 3 dev server（`:5173`）打 Web API 不出現 CORS 錯誤
+- Swagger（如已設定）或 Postman 均可正常測試以上端點
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

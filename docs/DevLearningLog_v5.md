@@ -2627,6 +2627,310 @@ SyncWorker 是資料的搬運工，不是資料的裁判。來源髒資料原樣
 
 ---
 
+### 條目 091 — DTO 職責分層：WorkerResponses 與 ApiResponses 解決「這個 DTO 是給誰用的」
+
+**我做了什麼**
+
+將 `TaiwanAgri.Modules.Market/Dtos/` 資料夾從一個扁平目錄重組為兩個子資料夾：`WorkerResponses/`（既有的 Worker 反序列化 DTO）和 `ApiResponses/`（新建的 Service 輸出 DTO），並同步更新五支 SyncWorker 的 using 路徑。
+
+**我遇到的問題**
+
+開始建立 `PriceResponseDto`、`CropResponseDto` 時，直覺是放到 `Dtos/` 資料夾根目錄，和 `AgriProductsTransTypeDto`、`DebrisAlertRecordDto` 並列。這樣做有什麼問題？
+
+問題在於打開 `Dtos/` 資料夾後，你看到的是十幾個 DTO 檔案，但你無法一眼判斷每一個是「SyncWorker 用來解析農業部 API 回傳 JSON 的」還是「Service 用來組裝給前端看的」。兩者的維護邏輯截然不同——前者的欄位名稱由農業部 API 的 JSON 格式決定，後者的欄位名稱由前台畫面的需求決定。
+
+**我怎麼想通的**
+
+判斷「這個 DTO 屬於哪個資料夾」的標準不是它有多長或多複雜，而是它服務的資料流方向：資料是從外部進來還是從系統出去？DTO 作為資料的形狀描述，它的用途決定了它的歸屬。
+
+命名子資料夾時，`WorkerResponses/` 和 `ApiResponses/` 比 `Moa/`（來源命名）更好，因為後者需要讀者事先知道「MOA 是什麼」才能理解；前者用角色命名，維護者不需要任何背景知識就能讀懂意圖。這個原則可以推廣到任何命名決策：角色命名比來源命名更有自解釋性。
+
+**我學到的原則**
+
+資料夾結構是程式碼的第一層說明文件。當一個資料夾裡的檔案服務兩種截然不同的用途時，應該拆開，而不是讓讀者自己去辨別。重組的代價很低（只是移動檔案和更新 using），但帶來的可讀性提升是永久的。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到一個資料夾裡的檔案需要仔細辨別才能分類時，先問「這些檔案服務幾種不同的用途？」。如果答案超過一種，分資料夾的成本幾乎為零，但帶來的清晰度提升是持久的。
+
+---
+
+### 條目 092 — 相依方向決定 Service 的位置：上層依賴下層，而非反過來
+
+**我做了什麼**
+
+決定 `MarketService` 應該放在 `TaiwanAgri.Modules.Market/Services/` 而不是 `TaiwanAgri.Web/Services/`，並確認 `PriceResponseDto` 等輸出 DTO 也應該跟著放在 `Modules.Market`，不是 Web 層。
+
+**我遇到的問題**
+
+「Service 是 Controller 用的，放在 Web 不是更直覺嗎？」這個直覺從何而來，又為什麼是錯的？
+
+**我怎麼想通的**
+
+問題的關鍵不在 Service 是給誰「用」，而在「誰依賴誰」的方向。如果 `MarketService` 放在 `TaiwanAgri.Web`，那麼 `TaiwanAgri.Web` 就同時是「所有 HTTP 入口的組裝點」和「查詢邏輯的持有者」，兩個職責混在一個專案裡。
+
+更嚴重的問題是未來的擴展性：如果哪天需要一個 `TaiwanAgri.Admin` 後台，它也需要查詢市場資料，就必須參考 `TaiwanAgri.Web` 才能拿到 `MarketService`——這是一個下層依賴上層的反向依賴。正確的架構方向是：`TaiwanAgri.Web`（上層，負責 HTTP）→ 依賴 → `TaiwanAgri.Modules.Market`（下層，負責業務邏輯）。
+
+這個判斷讓所有後續的位置決策都變得清晰：凡是「查詢資料、組裝資料」的邏輯，都是 `Modules.Market` 的職責；凡是「收 HTTP 請求、回 HTTP 回應」的邏輯，才是 `TaiwanAgri.Web` 的職責。
+
+**我學到的原則**
+
+決定一段程式碼屬於哪個層的問題不是「誰用它」，而是「它的知識屬於哪個概念域」。查詢市場價格資料是市場模組的知識；處理 HTTP Request/Response 是 Web 入口層的知識。知識歸位，相依方向自然正確。
+
+**下次遇到類似情況，我會先想到什麼**
+
+遇到「這個 Class 要放哪」的問題，先問：「它的核心知識（它本來就該知道的事）是什麼？哪個專案最直接擁有這份知識？」而不是「誰會呼叫它」。
+
+---
+
+### 條目 093 — IMarketService 介面的具體價值：不是為了優雅，是為了可測試
+
+**我做了什麼**
+
+在 `Modules.Market/Services/` 建立 `IMarketService` 介面和 `MarketService` 實作，讓 `MarketController` 透過建構子注入 `IMarketService` 而非直接使用 `MarketService`。
+
+**我遇到的問題**
+
+Portfolio 專案加 `IMarketService` 是不是過度設計？介面增加了兩個檔案和一定的複雜度，但在這個規模下，它帶來的價值在哪裡？
+
+**我怎麼想通的**
+
+先確認這個專案有沒有讓介面有意義的前提：Solution 裡有 `TaiwanAgri.Tests` 專案。Controller 的單元測試需要注入一個「不會真的去打資料庫」的 `IMarketService`——透過 Moq 之類的工具建立 mock 版本，讓測試可以獨立執行，不依賴 DB 的狀態。這個需求是具體的，不是假設的。
+
+如果沒有測試計畫，介面的確可以省略；一旦有測試，介面就不是「優雅的錦上添花」，而是「讓測試成為可能的基礎設施」。決定加不加介面，應該從測試需求出發，而不是從架構上的美感出發。
+
+**我學到的原則**
+
+設計決策要有具體的理由，不是「這樣比較『正確』」。`IMarketService` 的存在理由是：Controller 的單元測試需要 mock，mock 需要介面，所以介面有必要。這個推導鏈清楚，任何人看到這個介面都能理解它為什麼存在。
+
+**下次遇到類似情況，我會先想到什麼**
+
+問「要不要加介面」之前，先問「這個 Class 的呼叫端有沒有需要在測試時被替換掉的需求？」。有測試需求 → 加介面。沒有 → 可以省略，之後有需要再加也不遲。
+
+---
+
+### 條目 094 — TaiwanAgri.Web 改造策略：不砍重建的工程判斷
+
+**我做了什麼**
+
+將 Visual Studio 用「ASP.NET Core Web App with Authentication」樣板建出來的 `TaiwanAgri.Web` 直接改造成純 Web API 專案，而不是砍掉重建一個 `TaiwanAgri.Api`。
+
+**我遇到的問題**
+
+樣板專案帶了很多「不需要的包袱」：MVC、Razor Pages、Views 資料夾、wwwroot、Identity UI 等。直覺上「砍掉重建一個乾淨的 Api 專案」似乎更正確，為什麼最後選擇直接改造？
+
+**我怎麼想通的**
+
+砍重建的代價不只是「新建一個專案」，最大的成本在 `ApplicationDbContext`。它管理 Identity 的六張表（`AspNetUsers`、`AspNetRoles` 等），並且已有 Migration 歷史。搬移 `ApplicationDbContext` 到新專案意味著要決定：重新 Migration 還是保留舊 Migration？重新 Migration 要處理 DB 現有資料的對齊；保留舊的要設定 Migration Assembly 路徑。
+
+直接改造的步驟只有四個：`AddControllersWithViews()` 改 `AddControllers()`、移除 `Views/wwwroot/Razor` 的殘骸、改 `HomeController` 繼承、調整 Middleware pipeline。Migration 完全不動，Identity 表繼續在原位。兩者的結果完全等效，改造的風險趨近於零。
+
+工程判斷不只是「哪種架構更美」，也要考量「這個決策的代價是否與它帶來的好處相稱」。在這個場景下，代價不相稱，所以選改造。
+
+**我學到的原則**
+
+評估「重建 vs 改造」的標準是：改造後的結果和重建後的結果，在功能上是否等效？如果等效，而且改造的代價遠低於重建，就不應該重建。「更乾淨」不是充分的理由，除非它帶來的可維護性提升能具體說清楚在哪裡。
+
+**下次遇到類似情況，我會先想到什麼**
+
+想到「砍掉重建」的衝動出現時，先列出：重建的實際步驟和代價是什麼？直接改造需要哪些步驟？兩者的結果有什麼實質差異？如果差異只是「感覺更乾淨」，通常選改造。
+
+---
+
+### 條目 095 — CORS 與 Middleware 順序：前後端分離架構的必要配置
+
+**我做了什麼**
+
+在 `TaiwanAgri.Web` 的 `Program.cs` 設定 CORS Policy，允許 Vue 3 dev server（`http://localhost:5173`）的跨域請求，並確認 `UseCors()` 在 Middleware pipeline 中放在 `UseAuthentication()` 之前的正確位置。
+
+**我遇到的問題**
+
+CORS 錯誤是前後端分離架構最常見的第一個障礙。為什麼瀏覽器會拒絕這個請求？`UseCors()` 放錯位置會發生什麼事？
+
+**我怎麼想通的**
+
+CORS 是瀏覽器的安全機制，不是伺服器的安全機制。當 Vue 3（`localhost:5173`）發送一個請求到 Web API（`localhost:7000`，不同 port = 不同 Origin），瀏覽器在真正發出請求之前，會先發一個 OPTIONS 預檢請求問伺服器「你允許我這個 Origin 嗎？」。如果伺服器沒有回應正確的 CORS 標頭，瀏覽器就阻止請求，開發者工具才看到那個經典的紅色 CORS 錯誤。
+
+Middleware 的執行順序在 ASP.NET Core 裡是固定的，每個請求依序通過每個 Middleware。`UseCors()` 必須放在 `UseRouting()` 之後（路由已解析）、`UseAuthentication()` 之前（CORS 預檢請求不帶認證 token，如果認證 Middleware 先跑，預檢請求就會被擋掉，導致所有 API 對未認證用戶都無法預檢）。
+
+**我學到的原則**
+
+Middleware 順序錯誤的 bug 很難追蹤，因為問題不在個別 Middleware 的邏輯，而在它們的交互作用。理解每個 Middleware 在做什麼、它需要什麼前提，是排正確順序的依據，不是死記硬背。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設定 CORS 後，先確認：`UseCors()` 在 `UseRouting()` 後面了嗎？在 `UseAuthentication()` 前面了嗎？這兩個位置要求是 CORS 能正常工作的必要條件。
+
+---
+
+### 條目 096 — Controller 日期驗證策略：string + ParseIsoDate 取代 [FromQuery] DateOnly
+
+**我做了什麼**
+
+設計 `MarketController` 的日期參數時，選擇用 `[FromQuery] string? startDate` 加上手動呼叫 `DateHelper.ParseIsoDate` 做驗證，而不是直接用 `[FromQuery] DateOnly? startDate` 依賴框架的 Model Binding。
+
+**我遇到的問題**
+
+為什麼不直接讓框架幫我解析日期？`[FromQuery] DateOnly startDate` 看起來更簡潔，也更「標準」。
+
+**我怎麼想通的**
+
+問題有兩個層面。第一，技術可靠性：`DateOnly` 是 .NET 6 加入的型別，ASP.NET Core 的 Model Binding 對它的 Query String 解析支援在不同版本間有行為差異，不是永遠可靠的。
+
+第二，也是更重要的：Controller 的職責包含「輸入驗證」，這個職責應該被明確表達，而不是隱藏在框架的自動行為裡。當 `startDate = "abc"` 傳進來，我希望發生的是：Controller 回傳一個友好的 400 並告訴前端「請使用 yyyy-MM-dd 格式」。框架自動解析失敗的話，它回傳的錯誤訊息格式不在我的控制下。
+
+這個選擇讓 Controller 對「壞輸入」的行為是明確的、可測試的：
+
+```csharp
+var start = DateHelper.ParseIsoDate(startDate);
+if (start == null) return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
+```
+
+**我學到的原則**
+
+越靠近使用者的層（Controller）越應該主動表達驗證邏輯，而不是依賴框架的隱式行為。隱式行為在 happy path 下很方便，但在錯誤路徑下很難控制——而錯誤路徑的體驗往往比 happy path 更重要（因為使用者在出錯時最需要清楚的引導）。
+
+**下次遇到類似情況，我會先想到什麼**
+
+遇到「要不要用框架的自動型別轉換」，先問：「如果輸入不合法，我希望使用者看到什麼錯誤訊息？這個訊息是框架自動產生的，還是我自己控制的？」如果需要自訂錯誤訊息，就選手動驗證。
+
+---
+
+### 條目 097 — 商業邏輯與輸入驗證的邊界：預設日期區間的正確歸屬
+
+**我做了什麼**
+
+決定 `GetPricesAsync` 的「選填日期不傳時預設今天往前 365 天」這段邏輯應該放在 `MarketService` 裡，而不是在 `MarketController` 中補預設值再傳進 Service。
+
+**我遇到的問題**
+
+同樣是「處理日期」，為什麼格式驗證放 Controller，預設值邏輯卻放 Service？這條線怎麼劃的？
+
+**我怎麼想通的**
+
+區分的標準是：這段邏輯是「技術約束」還是「業務決策」？
+
+格式驗證（`"abc"` 不是合法日期）是技術約束，它的正確性是由資料型別的定義決定的，跟任何業務需求無關，也永遠不會因為 PM 的想法改變。放 Controller 合理。
+
+預設日期區間（「不傳日期就看最近一年」）是業務決策，它的正確性由產品設計決定——如果 PM 說「使用者研究發現三個月比一年更有用，改成九十天」，這個邏輯就要改。它應該放在能反映業務決策的層（Service），讓 Controller 完全不知道「預設值是多少」這件事。
+
+這個分層讓 Controller 的測試變得簡單：Controller 只需要測「傳了格式錯的日期會回傳 400」；Service 的測試只需要測「不傳日期時，查詢的起始日期是否正確套用了 -365 天的規則」。兩個測試各自獨立，互不干擾。
+
+**我學到的原則**
+
+「這段邏輯如果需要改，我會去哪一層改？」是判斷它歸屬哪一層的最好問題。會因為業務需求改變的邏輯放 Service；只由技術規格決定的邏輯放 Controller（輸入驗證）。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到某段邏輯不確定歸屬時，問：「如果需求改了，這段邏輯要跟著改，會是因為 PM/使用者的想法改了，還是因為技術規格改了？」前者 → Service；後者 → Controller。
+
+---
+
+### 條目 098 — AsQueryable() 延遲執行：讓 LINQ 查詢條件動態組合成為可能
+
+**我做了什麼**
+
+在 `GetDisastersAsync` 和 `GetPricesAsync` 裡用 `AsQueryable()` + 條件式 `if` 追加 `.Where()` 的模式，讓動態過濾條件在不重複基礎查詢邏輯的情況下優雅地組合。
+
+**我遇到的問題**
+
+`counties` 是選填陣列，不傳時要回傳全台資料，傳了才過濾特定縣市。如果不用 `AsQueryable()`，這個條件怎麼表達？
+
+**我怎麼想通的**
+
+不用 `AsQueryable()` 的話，唯一的選項是兩條分開的查詢路徑：
+
+```csharp
+if (counties.Any())
+    // 查詢帶 counties 過濾的版本（含日期範圍）
+else
+    // 查詢不帶 counties 過濾的版本（含日期範圍）
+```
+
+日期範圍這個共同條件要在兩個分支裡各寫一次，重複且難維護。
+
+`AsQueryable()` 的核心概念是：它回傳的是一個「查詢計畫」（`IQueryable<T>`），不是資料。每次追加 `.Where()` 只是在這個計畫上加一個條件，SQL 語句只在 `ToListAsync()` 那一刻才真正被組裝出來並送往資料庫。因此可以這樣寫：
+
+```csharp
+var query = _context.DebrisAlertRecords.AsQueryable();
+query = query.Where(d => d.LastUpdateDate >= start && d.LastUpdateDate <= end); // 必填條件
+if (counties != null && counties.Any())
+    query = query.Where(d => counties.Contains(d.County)); // 選填條件
+return await query.Select(...).ToListAsync();
+```
+
+共同條件只寫一次，動態條件以 `if` 組合，最後只送出一條完整 SQL。
+
+**我學到的原則**
+
+EF Core 的 `IQueryable<T>` 是一個延遲執行的查詢建構器，不是一個資料集合。在 `ToListAsync()` 之前的所有操作都是在「描述查詢」，不是在「執行查詢」。理解這一點，動態條件組合就是自然而然的結果，不需要任何 SQL 字串拼接或多條分開的查詢。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「這個條件是不是要加，要看使用者傳了什麼參數」的情境，立刻想到 `AsQueryable()` + 條件式 `.Where()` 的模式，而不是寫多條分開的 LINQ 查詢。
+
+---
+
+### 條目 099 — EF Core 查詢的兩個世界：ToListAsync 前後的 SQL vs C# 邊界
+
+**我做了什麼**
+
+在實作 `GetRestDaysAsync` 時，發現 `new DateOnly(r.Year, r.Month, r.RestDay)` 無法放在 `ToListAsync()` 之前的 EF Core LINQ 裡，必須拆成兩段：先 `ToListAsync()` 把資料載入記憶體，再用純 C# LINQ 做 `DateOnly` 的建構和日期範圍過濾。
+
+**我遇到的問題**
+
+為什麼 `GetMarketsAsync` 的 `Select` 可以在 `ToListAsync()` 之前，但 `GetRestDaysAsync` 裡的 `Select` 就不行？兩個都是 `Select`，差在哪裡？
+
+**我怎麼想通的**
+
+關鍵在於 EF Core 需要把 LINQ 翻譯成 SQL。SQL 理解「取這個資料表的某個欄位的值」，但不理解「用三個值呼叫 C# 的建構子」。
+
+`GetMarketsAsync` 的 `Select(m => new MarketResponseDto { MarketCode = m.MarketCode, ... })` 本質上是在說「從這個資料列取這幾個欄位的值，放到新物件裡」——SQL 可以翻譯成 `SELECT MarketCode, MarketName FROM ...`，完全合法。
+
+`GetRestDaysAsync` 的 `Select(r => new DateOnly(r.Year, r.Month, r.RestDay))` 是在說「呼叫一個 C# 的建構子，傳入三個值」——SQL 裡沒有「呼叫 C# 建構子」這個概念，EF Core 不知道怎麼翻譯，在執行時拋例外。
+
+解法是讓資料先越過 `ToListAsync()` 這條邊界進入 C# 的記憶體空間，再用普通的 C# 操作——包括呼叫建構子、使用任何 .NET 方法——處理資料。兩步驟的拆分不是因為「我想分兩步」，而是因為「SQL 翻譯邊界」要求必須這樣做。
+
+**我學到的原則**
+
+EF Core LINQ 和普通 LINQ 看起來一模一樣，但執行環境完全不同：`ToListAsync()` 之前是 SQL 翻譯模式（每個操作必須能對應到合法 SQL），之後是 C# 執行模式（任何 C# 語法都可以用）。這條邊界是很多 EF Core 新手踩坑的根本原因，理解它之後，「這個操作能不能放在 `ToListAsync()` 之前」就有了清楚的判斷標準。
+
+**下次遇到類似情況，我會先想到什麼**
+
+在 EF Core LINQ 裡看到自訂建構子、C# 專屬方法（`string.IsNullOrEmpty()`、`new DateOnly(...)`）或 ValueTuple 投影，立刻想到「這必須放在 `ToListAsync()` 之後」，先載入記憶體再處理，不要嘗試讓 EF Core 翻譯 C# 語法。
+
+---
+
+### 條目 100 — 聚合語意的選擇：AVG(價格) + SUM(數量) 不是隨意決定的
+
+**我做了什麼**
+
+設計 `GetPricesAsync` 的「全台均價」模式（使用者不選特定市場）時，決定對 `UpperPrice`、`MiddlePrice`、`LowerPrice`、`AvgPrice` 用 `AVG()`，對 `TransQuantity` 用 `SUM()`，而不是全部用 `AVG()` 或全部用 `SUM()`。
+
+**我遇到的問題**
+
+為什麼五個欄位不是統一用同一種聚合函數？既然是「均價」，全部用 AVG 不是更一致？
+
+**我怎麼想通的**
+
+這個問題需要從業務語意出發，而不是從數學操作出發。
+
+**價格欄位的語意**：`AvgPrice = 26.80 元/公斤` 代表的是「這個市場這一天的批發均價」，是一個比率，代表的是「這個市場對這個作物的定價水準」。當你想知道「全台高麗菜今天的市場均價是多少」，把各個市場的均價再平均，得到的是各市場定價水準的平均值，這是有業務意義的。
+
+**數量欄位的語意**：`TransQuantity = 1410 公斤` 代表的是「這個市場這一天賣出了多少公斤」，是一個絕對數量，不是比率。當你想知道「全台高麗菜今天一共賣了多少公斤」，正確的答案是把所有市場的數量加起來（SUM），而不是算「平均每個市場賣了多少」（AVG）。使用者關心的是「全台今天的總成交量」，不是「平均每個市場的成交量」。
+
+這個區分——比率用 AVG、絕對量用 SUM——是一個通用的統計設計原則，在任何需要跨維度聚合的場景都適用。
+
+**我學到的原則**
+
+設計聚合策略時，先問「這個欄位的語意是什麼，它是比率還是絕對量？跨維度聚合後，使用者期望看到的是平均值還是加總？」。技術上 AVG 和 SUM 都可以用，但只有語意正確的那個才能給前端提供有意義的資料。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到需要 `GroupBy` 後聚合的設計，對每個欄位逐一問：「這個值是比率還是絕對量？使用者對 GroupBy 後的這個欄位，最想看到的是什麼？」從業務語意決定聚合函數，而不是憑直覺選一個「看起來合理」的。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -2735,4 +3039,25 @@ EF Core LINQ 和普通 LINQ 看起來相同，但執行環境不同。`ToListAsy
  
 **關於 Change Tracker 可見範圍與去重邏輯的時序**
 把 SaveChangesAsync 移出迴圈（批次化）之後，Change Tracker 會在迴圈執行期間累積多個來源的資料。任何依賴「查 DB 做去重」的 existingKeySet 對這些尚未存入 DB 的資料完全不可見。批次化之後的去重邏輯必須在 AddRange 之前完成，作用範圍必須覆蓋本次批次的所有來源，不能依賴 DB 查詢的快照來攔截批次內的重複。
+
+---
+
+## 跨條目的通用原則整理（v15.0 更新）
+
+以下為 v15.0 新增或強化的原則，和既有原則並列管理：
+
+**關於 API 查詢層的設計原則**
+Service 層（MarketService）的職責是「查什麼資料、怎麼計算」，Controller 層的職責是「收什麼輸入、驗什麼格式、回什麼 HTTP 狀態碼」。任何根據業務需求可能改變的邏輯（預設日期區間、聚合策略）屬於 Service；任何永遠由技術規格決定的邏輯（輸入格式驗證）屬於 Controller。
+
+**關於輸入驗證的顯式表達**
+Controller 越靠近使用者，越應該對「壞輸入」做出明確的、友好的回應，而不是依賴框架的隱式行為。用 `TryXxx` 或 `nullable` 回傳值做驗證，配合 `BadRequest("清楚的訊息")` 回應，讓錯誤路徑和 happy path 一樣清晰可見。
+
+**關於 DTO 的分層命名**
+DTO 資料夾的命名應該反映「這個 DTO 服務的角色」，而不是「這個 DTO 的來源」。角色命名（`WorkerResponses`、`ApiResponses`）比來源命名（`Moa`）更有自解釋性，讓維護者不需要任何背景知識就能理解資料夾的用途。
+
+**關於 EF Core 的查詢邊界**
+`ToListAsync()` 是 EF Core 查詢的 SQL/C# 邊界。邊界之前是 SQL 翻譯模式，每個操作必須能對應到合法 SQL；邊界之後是 C# 執行模式，可以使用任何 .NET 語法。C# 專屬操作（建構子呼叫、自訂方法、ValueTuple 投影）必須放在邊界之後。
+
+**關於聚合語意**
+聚合函數的選擇由欄位的業務語意決定：比率型欄位（價格、濃度）跨維度聚合用 AVG；絕對量型欄位（數量、金額）跨維度聚合用 SUM。技術上兩者都可行，但只有語意正確的那個能給前端提供有意義的資料。
 

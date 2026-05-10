@@ -5,7 +5,7 @@ using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Core.Infrastructure.Entities;
 using TaiwanAgri.Modules.Market.Data;
-using TaiwanAgri.Modules.Market.Dtos;
+using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Market.Entities;
 
 namespace TaiwanAgri.Worker

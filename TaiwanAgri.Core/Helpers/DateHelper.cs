@@ -71,5 +71,20 @@ namespace TaiwanAgri.Core.Helpers
         // MM 與 dd 確保月日固定兩位
         return $"{rocYear:D3}{inputDate.Month:D2}{inputDate.Day:D2}";
 		}
+
+		public static DateOnly? ParseIsoDate(string? input)
+		{
+			if (string.IsNullOrWhiteSpace(input)) return null;
+
+			if (DateOnly.TryParseExact(input, "yyyy-MM-dd",
+				CultureInfo.InvariantCulture,
+				DateTimeStyles.None,
+				out var result))
+			{
+				return result;
+			}
+
+			return null;
+		}
 	}
 }

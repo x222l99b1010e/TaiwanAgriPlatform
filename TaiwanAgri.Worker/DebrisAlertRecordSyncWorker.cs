@@ -1,9 +1,9 @@
 ﻿using TaiwanAgri.Modules.Market.Data;
 using Microsoft.EntityFrameworkCore;
-using TaiwanAgri.Modules.Market.Dtos;
 using TaiwanAgri.Core.Constants;
 using System.Text.Json;
 using TaiwanAgri.Modules.Market.Entities;
+using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 
 
 namespace TaiwanAgri.Worker

@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using TaiwanAgri.Core.Constants;
 using TaiwanAgri.Modules.Market.Data;
-using TaiwanAgri.Modules.Market.Dtos;
+using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Market.Entities;
 
 namespace TaiwanAgri.Worker
