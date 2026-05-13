@@ -59,39 +59,45 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			return result;
 		}
-		public async Task<List<DisasterResponseDto>> GetDisastersAsync(string[] counties, DateOnly startDate, DateOnly endDate)
+		public async Task<List<DisasterResponseDto>> GetDisastersAsync(
+			string[] counties,
+			DateOnly startDate,
+			DateOnly endDate)
 		{
-			// 1. 建立基礎查詢
-			var query = _context.DebrisAlertRecords.AsQueryable();
-
-			// 2. 必填條件：日期區間
-			// 修正：將 DateOnly 轉為 DateTime 才能與資料庫欄位比較
-			// startDate.ToDateTime(TimeOnly.MinValue) 會變成該日的 00:00:00
-			// endDate.ToDateTime(TimeOnly.MaxValue) 會變成該日的 23:59:59.999...
 			DateTime startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
 			DateTime endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
 
-			query = query.Where(d => d.LastUpdateDate >= startDateTime && d.LastUpdateDate <= endDateTime);
+			var query = _context.DebrisAlertRecords
+				.Where(d => d.LastUpdateDate >= startDateTime && d.LastUpdateDate <= endDateTime);
 
-			// 3. 選填條件：縣市過濾
 			if (counties != null && counties.Any())
-			{
 				query = query.Where(d => counties.Contains(d.County));
-			}
 
-			// 4. 投影到 Dto 並執行非同步回傳
-			return await query
-				.Select(d => new DisasterResponseDto
-				{
-					DisasterName = d.DisasterName,
-					County = d.County,
-					Town = d.Town,
-					AlertLevel = d.AlertLevel,
-					AlertType = d.AlertType,
-					// 修正：從 DateTime 轉回 DateOnly 給 DTO
-					LastUpdateDate = DateOnly.FromDateTime(d.LastUpdateDate)
+			// 先撈出去，再在記憶體 GroupBy 去重
+			// 同一天同一個災害可能有幾百筆（每個村落一筆），前端只需要唯一事件
+			var raw = await query
+				.Select(d => new {
+					d.DisasterName,
+					d.AlertType,
+					d.County,                                          // ← 補回
+					AlertDate = DateOnly.FromDateTime(d.LastUpdateDate)
 				})
 				.ToListAsync();
+
+			return raw
+				.GroupBy(d => new { d.DisasterName, d.AlertDate })
+				.Select(g => new DisasterResponseDto
+				{
+					DisasterName = g.Key.DisasterName,
+					AlertType = g.First().AlertType,
+					AlertDate = g.Key.AlertDate.ToString("yyyy-MM-dd"),
+					AffectedCounties = g.Select(x => x.County)
+										.Distinct()
+										.OrderBy(c => c)
+										.ToList()
+				})
+				.OrderBy(d => d.AlertDate)
+				.ToList();
 		}
 		public async Task<List<CropResponseDto>> GetCropsAsync(string marketType)
 		{
@@ -143,7 +149,13 @@ namespace TaiwanAgri.Modules.Market.Services
 			// 在記憶體組成 DateOnly，再篩日期範圍
 			return records
 				 //new DateOnly(r.Year, r.Month, r.RestDay) 是在用三個值計算出一個新的物件，這個邏輯 SQL 沒有對應的語法。
-				.Select(r => new DateOnly(r.Year, r.Month, r.RestDay))
+				 .Select(r =>
+				 {
+					 try { return (DateOnly?)new DateOnly(r.Year + 1911, r.Month, r.RestDay); }
+					 catch { return null; }
+				 })
+				.Where(d => d.HasValue)
+				.Select(d => d!.Value)
 				.Where(d => d >= startDate && d <= endDate)
 				.Select(d => new RestDayResponseDto { RestDate = d })
 				.ToList();

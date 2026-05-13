@@ -2,7 +2,7 @@
 using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.Market.Services;
 
-namespace TaiwanAgri.Web
+namespace TaiwanAgri.Web.Controllers
 {
 	[Route("api/market")]
 	[ApiController]
@@ -19,6 +19,10 @@ namespace TaiwanAgri.Web
 			[FromQuery] string startDate,
 			[FromQuery] string endDate)
 		{
+			if (string.IsNullOrWhiteSpace(marketCode)) 
+			{
+				return BadRequest("marketCode 為必填");
+			}
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);
 
@@ -42,15 +46,16 @@ namespace TaiwanAgri.Web
 		}
 		[HttpGet("disasters")]
 		public async Task<IActionResult> GetDisasters(
-			[FromQuery] string[] counties, 
-			[FromQuery] string startDate, 
-			[FromQuery] string endDate)
+			[FromQuery] string[] counties,
+			[FromQuery] string startDate,
+			[FromQuery] string endDate)   // ← 移除 alertDate 參數和驗證
 		{
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);
 
 			if (start == null) return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
 			if (end == null) return BadRequest("endDate 格式錯誤，請使用 yyyy-MM-dd");
+
 			var result = await _marketService.GetDisastersAsync(counties, start.Value, end.Value);
 			return Ok(result);
 		}
@@ -63,6 +68,16 @@ namespace TaiwanAgri.Web
 			[FromQuery] string? startDate = null,
 			[FromQuery] string? endDate = null)
 		{
+			if (cropCodes == null || cropCodes.Length == 0)
+			{
+				// 填入 BadRequest
+				return BadRequest("cropCodes 為必填，至少需傳入一個作物代碼");
+			}
+			else if (cropCodes.Length > 5)
+			{
+				// 填入 BadRequest
+				return BadRequest("cropCodes 最多只能傳入 5 個");
+			}
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);
 

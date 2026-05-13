@@ -18,7 +18,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		Task<List<DisasterResponseDto>> GetDisastersAsync(
 			string[] counties,
 			DateOnly startDate,
-			DateOnly endDate);
+			DateOnly endDate);   // ← 移除 alertDate
 
 		Task<List<PriceResponseDto>> GetPricesAsync(
 			string marketType,

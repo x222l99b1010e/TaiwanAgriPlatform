@@ -1429,6 +1429,340 @@ Controller 的 `DateOnly?` 型別參數（可為 null）傳進 Service 後，由
 
 ---
 
+# PR #021 — W9-10 前端 Market 模組完整實作
+
+**標題**：`feat(frontend+market): W9-10 前端 Market 模組——Vue 3 折線圖介面、天災事件整合、CSV 匯出`
+
+---
+
+## 背景與動機
+
+PR #020 完成了 Market 模組的後端查詢層（MarketService + MarketController），五支 API 端點已驗證可正常回傳資料。本 PR 是 W9-10 的核心工作：從零建立 `TaiwanAgri.Frontend`（Vue 3）的 Market 模組畫面，讓後端資料真正能呈現在使用者眼前。
+
+這個 PR 同時包含一批後端修正——`DisasterResponseDto` 的重設計。在前端實作天災垂直線標記的過程中，發現原本的 DTO 欄位語意不正確、且資料結構不適合前端使用，趁此機會在同一個 PR 裡一起修正，讓後端輸出格式和前端實際需求對齊。
+
+本次工作量涵蓋：
+
+- 前端三層架構從零建立（api / store / component）
+- 五支 API 串接驗證
+- Chart.js 折線圖 + 7 日移動均線
+- 天災事件垂直線 Plugin（自訂 Chart.js afterDraw）
+- Chip 作物多選（取代原生 select multiple）
+- CSV 匯出（含 UTF-8 BOM）
+- 版面排版調整與視覺質感設計
+
+---
+
+## 後端異動——DisasterResponseDto 重設計
+
+### 問題一：欄位語意錯誤
+
+`DebrisAlertRecord` 實體中有兩個 DateTime 欄位：
+
+| 欄位 | 語意 |
+|------|------|
+| `LastUpdateDate` | 警報發布時間（對應農業部 API 第 12 欄） |
+| `CreatedAt` | 資料同步時間（SyncWorker 寫入時間） |
+
+原本的 DTO 直接把 `LastUpdateDate` 回傳為 `DateOnly`，欄位命名帶有誤導性，且前端拿到的是日期物件而非格式化字串，增加前端解析負擔。
+
+### 問題二：資料結構不適合前端
+
+同一個天災事件（例如「0404豪雨」在 2026-04-04 發布警報）在 DB 裡有幾百筆記錄——每個村落一筆。前端的需求是「這個事件影響了哪些縣市」，不是「這個事件影響了哪些村落」。把幾百筆原始資料回傳給前端，前端反而需要在 JavaScript 做 GroupBy，職責放錯地方。
+
+### 問題三：alertDate 參數設計錯誤
+
+Controller 把 `alertDate` 設計為必填 Query 參數，但前端不可能事先知道這個值，導致 API 根本無法被正常呼叫。
+
+### 修正內容
+
+**DisasterResponseDto.cs**——欄位精簡，語意明確：
+
+```csharp
+public class DisasterResponseDto
+{
+    public string DisasterName { get; set; } = string.Empty;
+    public string AlertType    { get; set; } = string.Empty;
+    public string AlertDate    { get; set; } = string.Empty;   // yyyy-MM-dd，來自 LastUpdateDate
+    public List<string> AffectedCounties { get; set; } = new();
+}
+```
+
+**MarketService.GetDisastersAsync**——Service 層做 GroupBy，前端收到的是去重後的事件清單：
+
+```csharp
+return raw
+    .GroupBy(d => new { d.DisasterName, d.AlertDate })
+    .Select(g => new DisasterResponseDto
+    {
+        DisasterName     = g.Key.DisasterName,
+        AlertType        = g.First().AlertType,
+        AlertDate        = g.Key.AlertDate.ToString("yyyy-MM-dd"),
+        AffectedCounties = g.Select(x => x.County).Distinct().OrderBy(c => c).ToList()
+    })
+    .OrderBy(d => d.AlertDate)
+    .ToList();
+```
+
+**IMarketService / MarketController**——移除 `alertDate` 參數，讓 API 可被正常呼叫。
+
+---
+
+## 前端架構設計
+
+### 三層架構與後端類比
+
+前端採用和後端對稱的三層結構，讓有後端背景的開發者能快速定位各層職責：
+
+| 後端 | 前端 | 職責 |
+|------|------|------|
+| Controller | Vue 元件 | 接收使用者操作，觸發動作 |
+| Service | Pinia Store | 管理共享狀態，協調 API 呼叫 |
+| HttpClient in SyncWorker | `src/api/market.ts` | 封裝 HTTP 呼叫，不管理狀態 |
+
+`api/market.ts` 對應後端的 HttpClient 封裝——只負責「打出去、回傳資料」，不持有任何狀態。Store 呼叫它，就像後端 Service 呼叫 Repository 一樣，職責層次清晰。
+
+### 狀態歸屬判斷原則
+
+判斷一個資料應該放在 Store 還是元件本地 `ref`，標準只有一個：**這個狀態是否需要被多個元件共享**。
+
+- `marketType`（蔬菜/水果/花卉）→ Store：MarketFilter 選的，PriceChart 打 API 時也需要
+- `selectedCropCodes` → Store：MarketFilter 選的，MarketView 查詢按鈕和清空按鈕都需要讀寫
+- Chip 選單的開關狀態（isOpen）→ 元件本地：只有 MarketFilter 自己關心
+
+---
+
+## 關鍵設計決策一：平鋪 prices → Chart.js 格式的轉換放在 PriceChart.vue 內部 computed()
+
+`GetPricesAsync` 回傳的是平鋪陣列，每筆一列：
+
+```json
+[
+  { "transDate": "2025-01-01", "cropCode": "A01", "cropName": "高麗菜", "avgPrice": 12.5, ... },
+  { "transDate": "2025-01-01", "cropCode": "A02", "cropName": "菠菜",   "avgPrice": 18.0, ... }
+]
+```
+
+Chart.js 折線圖需要每條線有自己的 data 陣列（每個 cropCode 一條線），格式完全不同。這個「從平鋪陣列 → 按 cropCode 分組」的轉換有三個放置選項：
+
+- **Option A：在 PriceChart.vue 內部 computed()**
+- Option B：在 MarketView.vue 預處理後傳入
+- Option C：在 Pinia Store
+
+選擇 Option A，理由：**顯示格式屬於這個元件自己的職責**。Chart.js 的 dataset 結構是為了「畫折線圖」而存在的，和任何其他元件無關。如果未來加入「表格顯示模式」（同樣的 prices 資料但用表格顯示），Store 裡的 Chart.js 格式資料對表格完全無用，代表這個格式從一開始就不該放在 Store。
+
+類比後端：Service 不負責把資料格式化成特定視圖的格式，那是 Controller（View Model）的職責。PriceChart.vue 就是自己的 Controller。
+
+---
+
+## 關鍵設計決策二：天災垂直線——落在 X 軸沒有的日期時跳過（不找最近交易日）
+
+天災警報日（例如週日颱風登陸）可能剛好是休市日，X 軸 labels 裡不會有這個日期。處理方式有兩種：
+
+- **Option A**：找「最近的交易日」畫線
+- **Option B**：那天沒有 label 就直接跳過不畫
+
+選擇 Option B，理由：**Option A 會製造假資訊**。明明颱風是週日發生，垂直線卻畫在週一，使用者會以為颱風影響了週一的市場交易，但這天其實是事後才受到影響的。Option B 讓使用者看到的資訊是真實的——「這段時間有天災，但當天沒有交易記錄」。
+
+```typescript
+const idx = labels.indexOf(date)
+if (idx === -1) return   // 不在 X 軸，跳過，不製造假資訊
+const x = scales['x']!.getPixelForValue(idx)
+```
+
+---
+
+## 關鍵設計決策三：Chart.js 自訂 Plugin 的技術選型
+
+天災垂直線不是 Chart.js 內建功能，需要自訂繪圖。選項有：
+
+- **chartjs-plugin-annotation**：第三方套件，需要額外安裝和學習 API
+- **Inline Plugin（afterDraw hook）**：直接在 buildChart() 裡定義，使用 Canvas 2D API
+
+選擇 Inline Plugin，理由：需求只有「在特定 X 位置畫垂直線 + 頂部三角 + 旋轉文字」，標準 Canvas API 完全足夠，引入套件只會增加套件相依。`afterDraw` 在 Chart.js 完成所有資料繪製後才執行，確保垂直線覆蓋在圖表上方而非被資料線遮住。
+
+```typescript
+const disasterPlugin = {
+  id: 'disasterLines',
+  afterDraw(chart: Chart) {
+    disasterLines.forEach(({ name, date }) => {
+      const idx = labels.indexOf(date)
+      if (idx === -1) return
+      const x = scales['x']!.getPixelForValue(idx)
+      // 畫垂直虛線、頂部三角、旋轉文字
+    })
+  }
+}
+```
+
+---
+
+## 關鍵設計決策四：Chip 作物多選取代原生 select multiple
+
+原生 `<select multiple>` 需要按住 Ctrl 才能多選，在農業資料查詢的使用情境下體驗極差——使用者不是開發者，不知道要按 Ctrl。
+
+改為 Chip 點擊式選擇，核心邏輯只有一個 `toggleCrop` 函式：
+
+```typescript
+function toggleCrop(cropCode: string) {
+  const idx = store.selectedCropCodes.indexOf(cropCode)
+  if (idx >= 0) {
+    store.selectedCropCodes.splice(idx, 1)   // 已選 → 取消
+  } else if (store.selectedCropCodes.length < 5) {
+    store.selectedCropCodes.push(cropCode)   // 未選且未滿 → 加入
+  }
+}
+```
+
+同時新增「關鍵字搜尋」——`filteredCrops` 是前端 `computed()` 對 `store.crops` 做過濾，不打 API：
+
+```typescript
+const filteredCrops = computed(() =>
+  cropSearch.value.trim() === ''
+    ? store.crops
+    : store.crops.filter(c => c.cropName.includes(cropSearch.value.trim()))
+)
+```
+
+---
+
+## 關鍵設計決策五：CSV 匯出的架構分層
+
+CSV 匯出這個動作由三個部分組成：
+
+1. 讀取 `prices` 資料（來源是元件本地 ref，不在 Store）
+2. `prices 陣列 → CSV 字串`（純資料轉換，無副作用）
+3. 觸發瀏覽器下載（UI 行為，操作 DOM）
+
+判斷各部分歸屬：
+
+| 部分 | 歸屬 | 理由 |
+|------|------|------|
+| prices → CSV 字串 | `src/utils/exportCsv.ts` 純函式 | 無狀態、可重用、可單獨測試 |
+| 觸發下載 | MarketView.vue method | DOM 操作是 UI 職責，Store 不該碰 DOM |
+| 資料來源 | 元件本地 `prices.value` | 查詢結果存在元件，不在 Store |
+
+**後端類比**：把 CSV 轉換邏輯放進 Store（Service）就像把 `Response.WriteAsync(csv)` 放進 Service 層——Service 不應該直接操作 HTTP Response，這是 Controller 的職責。
+
+CSV 加入 UTF-8 BOM（`\uFEFF`）確保 Excel 在 Windows 上開啟中文不亂碼：
+
+```typescript
+const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+```
+
+---
+
+## 關鍵設計決策六：Promise.all 並行打兩支 API
+
+使用者按下查詢，需要同時取得：
+- `GetPrices`（農產品價格資料）
+- `GetDisasters`（天災警戒紀錄）
+
+兩支 API 沒有先後依賴關係，用 `Promise.all` 並行呼叫，節省一半等待時間：
+
+```typescript
+const [priceResult, disasterResult] = await Promise.all([
+  marketApi.getPrices({ ... }),
+  marketApi.getDisasters({ ... }),
+])
+```
+
+任何一支失敗時 `Promise.all` 整體 reject，透過 `try/catch` 統一處理，不需要分開寫兩個 loading 狀態。
+
+---
+
+## 版面問題根本原因——Vite demo 樣式干擾
+
+初始版面只佔左半邊畫面，排查後發現根本原因在 `src/assets/main.css`——這是 Vite 樣板預設生成的 demo 樣式：
+
+```css
+/* 元凶一：限制最大寬度並置中 */
+#app {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* 元凶二：強制 flexbox 垂直置中 + 兩欄 grid */
+@media (min-width: 1024px) {
+  body { display: flex; place-items: center; }
+  #app { grid-template-columns: 1fr 1fr; }
+}
+```
+
+修正方式：將 `main.css` 替換為兩行：
+
+```css
+@import './base.css';
+#app { width: 100%; min-height: 100vh; }
+```
+
+**教訓**：Vite 樣板包含針對 demo 頁面設計的 CSS，在新專案開始時應立即清除，不然隨著元件增加，排版問題越來越難追蹤根本原因。
+
+---
+
+## 最終版面結構
+
+```
+.market-view（width:100%, padding:36px 56px, min-width:960px）
+├── .filter-section（全寬）
+│   ├── MarketFilter（Tab + 市場下拉 + Chip 多選 + 搜尋框）
+│   ├── DateRangePicker + 快捷按鈕
+│   └── [查詢價格] [匯出 CSV] [清空作物]
+└── .bottom-grid（grid-template-columns: 1fr 280px）
+    ├── .chart-section（PriceChart — 折線 + 均線 + 天災垂直線）
+    └── .disaster-section（天災面板 — 事件清單，合併日期區間 + 受影響縣市）
+```
+
+---
+
+## 驗收標準
+
+- `npm run dev` 後，瀏覽器開啟 `http://localhost:5173` 可見完整 Market 介面
+- Tab 切換（蔬菜/水果/花卉）自動重打 GetMarkets + GetCrops，下拉選單更新
+- Chip 點擊選取作物，最多 5 個；關鍵字搜尋即時過濾（不打 API）
+- 查詢後折線圖出現，每個作物一條主線 + 一條 7 日均線虛線
+- 天災警戒紀錄面板顯示去重後的事件清單（按 DisasterName 合併，顯示首末日期 + 受影響縣市）
+- 圖表上的天災垂直線只出現在 X 軸有的日期，休市日對應的天災日期不強制畫線
+- 匯出 CSV 下載後以 Excel 開啟，中文欄位名稱不亂碼
+- `GET /api/market/disasters?startDate=...&endDate=...` 回傳去重後的事件清單，每筆包含 `alertDate` 和 `affectedCounties`
+- 傳入格式錯誤的日期回傳 400
+
+---
+
+## 檔案異動清單
+
+### 後端修改
+
+| 檔案 | 異動類型 | 說明 |
+|------|----------|------|
+| `Dtos/ApiResponses/DisasterResponseDto.cs` | M | 重設計：移除 LastUpdateDate / County / Town / AlertLevel，新增 AlertDate（string） + AffectedCounties（List\<string\>） |
+| `Services/IMarketService.cs` | M | GetDisastersAsync 移除 alertDate 參數 |
+| `Services/MarketService.cs` | M | GetDisastersAsync 重寫：GroupBy 去重 + 聚合縣市 |
+| `Controllers/MarketController.cs` | M | GetDisasters 移除 alertDate Query 參數與驗證 |
+
+### 前端新增 / 修改
+
+| 檔案 | 異動類型 | 說明 |
+|------|----------|------|
+| `src/api/market.ts` | A | axios 封裝 + DTO interface 定義 |
+| `src/stores/market.ts` | A | Pinia Store（marketType / markets / crops / selectedCropCodes） |
+| `src/components/MarketFilter.vue` | A | Tab + 市場下拉 + Chip 多選 + 關鍵字搜尋 + 捲動框 |
+| `src/components/DateRangePicker.vue` | A | 日期範圍選擇器（v-model:startDate / endDate + 快捷按鈕） |
+| `src/components/PriceChart.vue` | A | Chart.js 折線圖 + 7 日均線 + 天災垂直線 Plugin |
+| `src/views/MarketView.vue` | A | 主頁面（篩選全寬 + 圖表/天災並排） |
+| `src/utils/exportCsv.ts` | A | CSV 匯出純函式（UTF-8 BOM） |
+| `src/router/index.ts` | M | / → /market 路由設定 |
+| `src/assets/main.css` | M | 清除 Vite demo 樣式 |
+| `src/assets/base.css` | M | 深色主題色彩變數 |
+| `App.vue` | M | 純 RouterView + 全域樣式（農業 × 科技背景漸層） |
+| `package.json / package-lock.json` | M | 新增 chart.js、axios 相依 |
+
+### 刪除（Vite 樣板預設檔案）
+
+`HelloWorld.vue` / `TheWelcome.vue` / `WelcomeItem.vue` / `AboutView.vue` / `HomeView.vue`
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

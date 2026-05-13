@@ -36,6 +36,10 @@ namespace TaiwanAgri.Web
 			});
 			// 註冊 IMarketService 及其對應的實作 MarketService
 			builder.Services.AddScoped<IMarketService, MarketService>();
+			// builder 區段加：
+			//Install - Package Swashbuckle.AspNetCore - ProjectName TaiwanAgri.Web
+			builder.Services.AddEndpointsApiExplorer();
+			builder.Services.AddSwaggerGen();
 			var app = builder.Build();
 
 			// Configure the HTTP request pipeline.
@@ -43,6 +47,10 @@ namespace TaiwanAgri.Web
 			{
 				// 開發者模式：看到詳細的報錯
 				app.UseDeveloperExceptionPage();
+				// Swagger UI 只在開發環境啟用，正式環境不暴露 API 文件
+				app.UseSwagger();
+				app.UseSwaggerUI(); // 預設路徑：/swagger
+				app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 			}
 			else
 			{
@@ -54,8 +62,11 @@ namespace TaiwanAgri.Web
 				// 2. 強制 HTTPS 安全傳輸
 				app.UseHsts();
 			}
-			
-			app.UseHttpsRedirection();
+
+			if (!app.Environment.IsDevelopment())
+			{
+				app.UseHttpsRedirection();
+			}
 			app.UseRouting();
 			app.UseCors("MyPolicy");
 			app.UseAuthentication(); // 既然有 Identity，這行通常要加在 Authorization 之前

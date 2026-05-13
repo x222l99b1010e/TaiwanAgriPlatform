@@ -2931,6 +2931,390 @@ EF Core LINQ 和普通 LINQ 看起來一模一樣，但執行環境完全不同�
 
 ---
 
+### 條目 101 — 前端三層架構：api / Store / Component 和後端 HttpClient / Service / Controller 的對應
+
+**我做了什麼**
+
+在 TaiwanAgri.Frontend 從零建立 `src/api/market.ts`（axios 封裝）、`src/stores/market.ts`（Pinia Store）、元件層（MarketFilter / DateRangePicker / PriceChart / MarketView），並在開發過程中持續用後端架構類比來判斷每段邏輯放在哪一層。
+
+**我遇到的問題**
+
+前端的「Service 層」在哪裡？API 呼叫函式是直接寫在 Store 裡，還是另外拆出 `src/api/` 層？
+
+**我怎麼想通的**
+
+從後端出發：你的 SyncWorker 用 HttpClient 打農業部 API，這個 HttpClient 呼叫不會直接寫在 Service 裡，而是封裝在獨立的 HTTP 呼叫層。前端的 `src/api/market.ts` 就是這個 HttpClient 封裝——只負責「打出去、回傳資料」，不持有任何狀態。Store 呼叫它，就像 Service 呼叫 Repository 一樣。
+
+```
+MarketView.vue（元件，接收使用者操作）
+    ↓ 呼叫 store.action()
+Pinia Store（管理共享狀態）
+    ↓ 呼叫 marketApi.getXxx()
+src/api/market.ts（axios，打 HTTP）
+    ↓ GET /api/market/...
+ASP.NET Core（localhost:5258）
+```
+
+**我學到的原則**
+
+前後端架構有鏡像關係。判斷前端某段邏輯應該放哪一層，把它類比到後端對應的概念就有答案——「DOM 操作」是 Controller 的事（元件），「HTTP 呼叫」是基礎設施的事（api 層），「業務邏輯與狀態」是 Service 的事（Store）。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「這個函式是打 API 還是管狀態還是觸發 UI」，三個問題各對應一層，不用猜，直接分類。
+
+---
+
+### 條目 102 — computed() 的職責邊界：顯示格式轉換屬於元件，不屬於 Store
+
+**我做了什麼**
+
+在 `PriceChart.vue` 裡用 `computed()` 把 `props.prices`（平鋪陣列）轉換成 Chart.js 需要的 `datasets` 格式（按 cropCode 分組的折線資料），而非把這個轉換放在 Pinia Store 或 MarketView.vue。
+
+**我遇到的問題**
+
+同一份 `prices` 資料，Chart.js 需要的格式和原始格式完全不同。這個「格式轉換」的邏輯應該放在哪一層——Store（因為它要存資料）、MarketView（因為它傳資料給圖表），還是 PriceChart 內部？
+
+**我怎麼想通的**
+
+關鍵問題是：「如果未來加入表格顯示模式（同樣的 prices 資料，但用表格呈現），Store 裡的 Chart.js 格式資料還有用嗎？」
+
+答案是沒有。Chart.js 的 `datasets` 結構把高中低價全部丟掉了，只留下均價，這個格式只服務折線圖這一個顯示元件。把它放進 Store 意味著 Store 在管一個「只有圖表才懂的顯示格式」，Store 開始知道太多它不需要知道的事。
+
+後端類比：Service 不負責把資料格式化成 CSV 或 JSON，那是 Controller 的事。`PriceChart.vue` 就是它自己的 Controller，決定怎麼把資料呈現給 Chart.js。
+
+**我學到的原則**
+
+`computed()` 的正確使用場景是「從已知狀態衍生出這個元件需要的顯示格式」。如果某個 computed 的結果只有一個元件會用到，它就屬於那個元件，不屬於 Store。Store 管原始狀態，元件管顯示格式。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「需要把 A 格式轉成 B 格式來顯示」，先問「這個 B 格式有其他元件也需要嗎」。沒有 → 放元件的 computed，有 → 才考慮放 Store。
+
+---
+
+### 條目 103 — TypeScript 嚴格模式與陣列索引的 undefined 問題
+
+**我做了什麼**
+
+在 `PriceChart.vue` 使用 TypeScript 嚴格模式開發，遇到四個紅線錯誤，全部都是「陣列索引存取可能回傳 undefined」的問題，逐一用非 null 斷言（`!`）或 helper function 解決。
+
+**我遇到的問題**
+
+```typescript
+// ❌ 錯誤：TS 認為 groups[p.cropCode] 可能是 undefined
+groups[p.cropCode].priceMap[p.transDate] = p.avgPrice
+
+// ❌ 錯誤：maRaw[i] 是 number | undefined
+actualPairs.forEach((p, i) => { maMap[p.d] = maRaw[i] })
+
+// ❌ 錯誤：PALETTE[i % PALETTE.length] 可能是 undefined
+const color = PALETTE[ci++ % PALETTE.length]
+```
+
+**我怎麼想通的**
+
+TypeScript 在嚴格模式下，任何陣列索引存取的回傳型別都是 `T | undefined`，即使你用 `%` 確保不會越界，TypeScript 靜態分析不知道你的迴圈邏輯能保證這點，它只看型別定義。
+
+修法有幾種：
+
+```typescript
+// 方法一：非 null 斷言，告訴 TS「我確定這裡有值」
+const entry = groups[p.cropCode]!
+entry.priceMap[p.transDate] = p.avgPrice
+
+// 方法二：同上，對陣列元素
+actualPairs.forEach((p, i) => { maMap[p.d] = maRaw[i]! })
+
+// 方法三：封裝成 helper，讓 ! 只出現一次
+const getColor = (i: number) => PALETTE[i % PALETTE.length]!
+```
+
+**我學到的原則**
+
+TypeScript 嚴格模式下的陣列索引型別是 `T | undefined`，這是設計上刻意的——陣列索引越界在 JavaScript 是常見的 bug 來源，TS 透過型別系統強迫開發者明確表態「我確定這裡有值」或「我需要處理 undefined 的情況」。`!` 是告訴 TS「我比你更了解這裡的執行期行為」，合理但要謹慎——只在你能靠邏輯保證不越界時使用。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 `Property 'x' does not exist on type 'T | undefined'`，優先找「為什麼 TS 認為這裡可能是 undefined」，再決定是加 `!` 斷言、用 `?.` 可選鏈、還是先做 null check。
+
+---
+
+### 條目 104 — Chart.js 按需註冊設計：不用的功能不打包
+
+**我做了什麼**
+
+在 `PriceChart.vue` 引入 Chart.js 時，沒有用 `import Chart from 'chart.js/auto'`（全量引入），而是只 import 和 register 實際用到的元件（LineElement、PointElement、CategoryScale 等）。
+
+**我遇到的問題**
+
+為什麼要分開 import 再 register？直接 `import 'chart.js/auto'` 不是更方便嗎？
+
+**我怎麼想通的**
+
+`chart.js/auto` 會把所有圖表類型（Bar、Pie、Radar、Polar...）和所有 Plugin 全部打包進 bundle，但我們只用折線圖。按需引入讓 bundler（Vite）的 tree-shaking 能移除沒有用到的部分，最終打包體積顯著更小。
+
+```typescript
+// 只引入折線圖需要的六個元件
+Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
+```
+
+**我學到的原則**
+
+前端套件的「全量引入」方便開發但懲罰效能。Chart.js 採用按需註冊的設計，是刻意讓開發者能精確控制打包體積。對一個展示型的 Side Project，載入速度是面試官會注意的細節。
+
+**下次遇到類似情況，我會先想到什麼**
+
+引入任何前端套件前，先確認有沒有按需引入的路徑。能精確 import 的，不用 `/auto` 或全量版本。
+
+---
+
+### 條目 105 — Chart.js 自訂 Plugin 與 afterDraw hook
+
+**我做了什麼**
+
+在 `PriceChart.vue` 的 `buildChart()` 裡定義了一個 inline plugin `disasterPlugin`，使用 `afterDraw` hook 在圖表所有資料線繪製完成後，用 Canvas 2D API 畫天災垂直虛線、頂部三角標記和旋轉文字。
+
+**我遇到的問題**
+
+Chart.js 沒有內建「在特定 X 位置畫垂直線並標注文字」的功能。Plugin 系統是什麼？`afterDraw` 是什麼時機觸發的？`scales['x']!.getPixelForValue(idx)` 的 `idx` 為什麼要傳索引而不是 label 字串？
+
+**我怎麼想通的**
+
+Chart.js 的 Plugin 是一個物件，定義了在圖表生命週期各個時間點的 callback。`afterDraw` 在 Chart.js 完成主體繪製後觸發，此時 canvas context 已經有資料線，我們在它上面再疊加繪製，就不會被資料線覆蓋。
+
+`getPixelForValue(idx)` 的參數是 label 的索引（數字），不是 label 的值（字串），因為 X 軸是 `CategoryScale`，它用整數索引定位每個類別的像素位置。傳字串會找不到對應位置。
+
+```typescript
+const idx = labels.indexOf(date)     // 先把字串 date 轉成索引
+if (idx === -1) return               // 不在 X 軸，跳過
+const x = scales['x']!.getPixelForValue(idx)  // 索引 → 像素 X 座標
+```
+
+**我學到的原則**
+
+Canvas 2D API 的繪圖是「所有操作都在同一張畫布上堆疊」。後畫的覆蓋先畫的，所以在 `afterDraw` 時機畫的東西永遠在資料線上方。`save()` + `restore()` 確保每次繪圖操作結束後還原 context 狀態，不影響後續的繪圖。
+
+**下次遇到類似情況，我會先想到什麼**
+
+需要在 Chart.js 圖表上疊加非標準圖形時，先查 Plugin 的 hook 時機（`beforeDraw` / `afterDraw` / `afterDatasetsDraw`），而不是去找第三方套件。`afterDraw` 是最常用的，`afterDatasetsDraw` 用在需要圖形出現在資料線之間的情況。
+
+---
+
+### 條目 106 — 天災垂直線的設計決策：日期不在 X 軸時跳過，不找最近交易日
+
+**我做了什麼**
+
+在設計天災垂直線的邏輯時，面對「天災日期是休市日，X 軸沒有這個日期」的情況，選擇直接跳過（`if (idx === -1) return`），不改為在最近的交易日畫線。
+
+**我遇到的問題**
+
+如果颱風在週日登陸，但 X 軸只有交易日（週一到週五），垂直線就沒辦法畫在正確的位置。為什麼不找「最近的交易日」來畫？
+
+**我怎麼想通的**
+
+「找最近的交易日畫線」等於把颱風週日發生這件事，在圖表上呈現成「發生在週一」。使用者看到週一有一條紅線，自然會以為颱風的影響是從週一開始，但實際上週一的價格已經是天災之後的交易，不是天災當天。這個位移製造了因果關係的誤導。
+
+跳過不畫雖然讓圖表看起來「少一條線」，但它呈現的是真實情況——「這一天有天災，但沒有交易記錄」。右側的天災面板清單仍然顯示完整的事件資訊（日期 + 受影響縣市），使用者可以對照查看。
+
+**我學到的原則**
+
+資料視覺化的首要原則是「忠實呈現資料，不製造假資訊」。圖表的工作是把資料變得易於理解，不是讓圖表「看起來更完整」。當「讓圖表更完整」和「呈現真實」衝突時，選後者。
+
+**下次遇到類似情況，我會先想到什麼**
+
+任何「為了視覺效果而移動資料點位置」的設計，先問「這樣做是否改變了使用者對資料的理解方式，以及改變的方向是否符合真實情況」。
+
+---
+
+### 條目 107 — DisasterResponseDto 重設計：GroupBy 去重 + AffectedCounties 聚合
+
+**我做了什麼**
+
+重新設計 `DisasterResponseDto` 和 `GetDisastersAsync` 的資料處理邏輯，把「同一個天災事件在每個村落各一筆」的資料庫記錄，彙整成「一個事件 + 受影響縣市清單」的輸出格式，並移除前端無法使用的 `alertDate` 必填參數。
+
+**我遇到的問題**
+
+原本 API 回傳幾百筆資料（每個受警戒的村落一筆），前端拿到這份資料後要自己 GroupBy，才能在天災面板上顯示「0404豪雨：苗栗縣、台中市」這樣的格式。問題出在哪裡？
+
+**我怎麼想通的**
+
+前端做 GroupBy 不是不可以，但這個彙整操作涉及業務判斷（「什麼叫做同一個天災事件」），屬於業務邏輯，應該在 Service 層做，而不是散落在 Vue 的 computed 裡。
+
+後端在 Service 層做 GroupBy 還有另一個好處：`AffectedCounties` 的去重（`Distinct()`）和排序（`OrderBy`）在 SQL 層完成，前端拿到的是乾淨、可直接渲染的資料：
+
+```csharp
+.GroupBy(d => new { d.DisasterName, d.AlertDate })
+.Select(g => new DisasterResponseDto
+{
+    DisasterName     = g.Key.DisasterName,
+    AlertDate        = g.Key.AlertDate.ToString("yyyy-MM-dd"),
+    AffectedCounties = g.Select(x => x.County).Distinct().OrderBy(c => c).ToList()
+})
+```
+
+`alertDate` 參數的問題更基本：前端不可能事先知道天災的發布日期，這個必填參數讓 API 根本無法被正常呼叫，是設計上的根本錯誤，必須移除。
+
+**我學到的原則**
+
+API 的輸出格式應該以「前端可以直接使用」為設計目標。如果前端收到資料後還需要大量的 GroupBy / 去重 / 排序，說明 Service 層沒有做好它的工作。Service 的職責是把業務需求翻譯成正確的資料，不是把原始資料直接丟給前端自己想辦法。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計 API 輸出 DTO 時，從「前端需要渲染什麼畫面」出發，倒推 DTO 應該長什麼樣子，再決定 Service 要做哪些彙整。不要從「DB 裡存了什麼」出發設計 DTO。
+
+---
+
+### 條目 108 — Promise.all 並行 API 呼叫：兩支無依賴關係的 API 不需要等第一支完成才打第二支
+
+**我做了什麼**
+
+在 `MarketView.vue` 的 `handleQuery()` 裡，用 `Promise.all` 同時呼叫 `GetPrices` 和 `GetDisasters`，而非依序呼叫。
+
+**我遇到的問題**
+
+直覺是先拿到 prices 再拿 disasters，但這樣「先後」的感覺對嗎？
+
+**我怎麼想通的**
+
+先問「GetDisasters 需要 GetPrices 的結果嗎？」——不需要。它們的輸入只有 `startDate` 和 `endDate`，彼此沒有依賴關係。兩支 API 並行打，等待時間從「A + B 毫秒」變成「max(A, B) 毫秒」，對使用者來說查詢速度快一倍。
+
+```typescript
+// ❌ 依序：等 A 完成才打 B，浪費了等待時間
+const priceResult   = await marketApi.getPrices({ ... })
+const disasterResult = await marketApi.getDisasters({ ... })
+
+// ✅ 並行：A 和 B 同時打，等最慢的那個
+const [priceResult, disasterResult] = await Promise.all([
+  marketApi.getPrices({ ... }),
+  marketApi.getDisasters({ ... }),
+])
+```
+
+**我學到的原則**
+
+`await` 的依序語義在「B 需要 A 的結果」時才有意義。兩個沒有因果關係的非同步操作，依序呼叫是在浪費使用者的時間。`Promise.all` 是前端並行化的標準工具，任何一支 reject 時整體 reject，不需要分別處理兩個 loading 狀態。
+
+**後端類比**：`Task.WhenAll(taskA, taskB)` 就是 C# 的 `Promise.all`。同樣的原則，在後端已經用過了。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到兩個以上的 `await` 並排，先問「後面的需要前面的結果嗎」。不需要 → 改成 `Promise.all`。需要 → 依序 await 是正確的。
+
+---
+
+### 條目 109 — CSV 匯出的架構分層：純函式、DOM 操作、資料來源各屬不同層
+
+**我做了什麼**
+
+把 CSV 匯出拆成三個部分並放在三個不同的位置：`src/utils/exportCsv.ts`（轉換純函式）、`MarketView.vue` method（觸發下載）、元件本地 `prices.value`（資料來源），而非全部塞進一個函式或放進 Store。
+
+**我遇到的問題**
+
+CSV 匯出這個功能看起來不大，但要判斷「匯出邏輯放哪裡」。是放 Store、放 utils、還是直接在元件裡寫？
+
+**我怎麼想通的**
+
+把這個動作分解成三個部分：
+
+1. **讀取資料**：`prices.value`，是元件本地的查詢結果，不在 Store
+2. **資料轉換**（prices → CSV 字串）：純函式，輸入確定輸出確定，沒有副作用
+3. **觸發瀏覽器下載**：`document.createElement('a')`，這是 DOM 操作，是 UI 行為
+
+後端類比：把「生成 CSV 字串」的邏輯放進 Store（Service），就像把 `Response.WriteAsync(csv)` 放進 Service 層。Service 不應該直接操作 HTTP Response，這是 Controller 的事。
+
+純函式放 `src/utils/`，讓它可以被其他元件重用、可以單獨測試。DOM 操作放在元件，因為只有元件有資格操作瀏覽器的視窗。Store 不需要知道「CSV 是什麼格式的」這件事。
+
+UTF-8 BOM（`'\uFEFF'`）是一個必要的細節——Excel 在 Windows 上開啟沒有 BOM 的 UTF-8 CSV 會把中文當成亂碼，加 BOM 後 Excel 才知道這是 UTF-8 編碼。
+
+**我學到的原則**
+
+「這個函式可以不依賴任何外部狀態獨立執行嗎？」如果可以，它就是純函式，放 `utils/`。「這個操作需要改變 UI 或操作 DOM 嗎？」如果是，它屬於元件。Store 管的是「應用程式狀態」，不是「UI 行為」或「工具函式」。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「產生檔案並下載」這類操作，拆成「生成內容（純函式）」和「觸發下載（UI 行為）」兩步，分開放，不要揉在一起。
+
+---
+
+### 條目 110 — Vite 樣板的 demo 樣式是版面問題的根本原因
+
+**我做了什麼**
+
+排查「MarketView 版面為何只佔畫面左半邊、圖表無法撐滿寬度」的問題，最終發現根本原因在 `src/assets/main.css`——這是 Vite 在建立新專案時自動生成的 demo 頁面樣式，包含對儀表板應用完全有害的 CSS。
+
+**我遇到的問題**
+
+MarketView.vue 和各子元件的 `width: 100%` 設定都正確，但版面死活就是縮在左半邊，各種追加 CSS 都無效。
+
+**我怎麼想通的**
+
+`width: 100%` 的意思是「100% 的父層寬度」，如果父層（`#app`）被限制了，子元素再怎麼設都沒用。追蹤到 `src/assets/main.css`：
+
+```css
+/* Vite demo 樣式——對儀表板應用有害的三行 */
+#app {
+  max-width: 1280px;   /* 限制寬度 */
+  margin: 0 auto;      /* 置中，兩側留白 */
+}
+
+@media (min-width: 1024px) {
+  body {
+    display: flex;
+    place-items: center;  /* 強制垂直置中，整頁縮在中間 */
+  }
+  #app {
+    grid-template-columns: 1fr 1fr;  /* 強制兩欄 Grid */
+  }
+}
+```
+
+這三段 CSS 是為 Vite 的 HelloWorld demo 頁面設計的，對儀表板應用完全有害。修正方式是把整個 `main.css` 替換為：
+
+```css
+@import './base.css';
+#app { width: 100%; min-height: 100vh; }
+```
+
+**我學到的原則**
+
+新專案開始時，Vite / Vue CLI / Create React App 等腳手架工具會生成一批 demo 用的樣式和元件，這些東西服務的是「讓你看到一個可以運行的初始畫面」，而不是服務你的應用。開始真正開發前，應該先清理這些文件，不然後面的排版問題會越來越難追蹤根本原因。
+
+**下次遇到類似情況，我會先想到什麼**
+
+版面問題無法靠修改元件 CSS 解決時，沿著 DOM 樹往上找父層，從 `#app` → `body` → `html` 逐層確認有沒有意外的寬度限制或 flex/grid 設定干擾。
+
+---
+
+### 條目 111 — spanGaps 與農業資料的斷點：真實資料的空白應該被如實呈現
+
+**我做了什麼**
+
+在 Chart.js 的折線圖設定中，對每條 dataset 設定 `spanGaps: true`，讓圖表在資料缺失的日期（休市、產季外）跨越空白繼續畫線，而不是中斷折線。同時了解「中間有明顯斷口」是正常且被允許的行為。
+
+**我遇到的問題**
+
+查詢高麗菜和火鶴花一年的資料後，圖表中間出現了幾段斷口——某幾個日期區間完全沒有折線。這是 bug 嗎？
+
+**我怎麼想通的**
+
+農業交易資料不是每天都有，斷口有兩種情況：
+
+1. **有 label 但值是 null**：`spanGaps: true` 讓 Chart.js 跨越這個點繼續連線，視覺上看起來是連續的（但那個日期沒有資料點）
+2. **連續多天的完全空白**：某個作物整段時間都沒有交易記錄（產季結束、特定市場不交易這個品項），折線在這個區間根本沒有資料，出現明顯斷口是正確的
+
+斷口不是 bug，是「這個作物在這段時間沒有交易」的視覺呈現，反映真實資料情況。如果強制消除斷口（例如用前後的值做線性插值），反而是在捏造不存在的交易資料。
+
+**我學到的原則**
+
+圖表的工作是「讓資料說話」，不是「讓圖表看起來漂亮」。資料有空白，圖表就應該有斷口。`spanGaps: true` 解決的是「偶發性的單天缺失」，對「連續多天的完全缺失」，斷口是正確且誠實的呈現方式。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到時序圖表有斷口時，先確認是「資料本身就沒有這段時間的記錄」還是「資料存在但沒有被正確載入」。前者是正常的，後者才需要排查。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
