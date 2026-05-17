@@ -102,22 +102,45 @@ namespace TaiwanAgri.Modules.Market.Services
 		public async Task<List<CropResponseDto>> GetCropsAsync(string marketType)
 		{
 			// 1. 定義查詢邏輯
-			var crops = await (from c in _context.CropInfos
-						join t in _context.AgriProductsTrans
-							on c.CropCode equals t.CropCode
-						join m in _context.MarketInfos
-							on t.MarketCode equals m.MarketCode
-						where m.MarketType == marketType
-						   && c.CropName != ""
-						// 2. 執行 Distinct 去重，並異步轉換成 List
-						// 注意：Distinct 必須放在 Select 之後，確保是針對 CropCode + CropName 組合進行去重
-						select new CropResponseDto
-						{
-							CropCode = c.CropCode,
-							CropName = c.CropName
-						})
-						.Distinct()
-						.ToListAsync();
+			//var crops = await (from c in _context.CropInfos
+			//			join t in _context.AgriProductsTrans
+			//				on c.CropCode equals t.CropCode
+			//			join m in _context.MarketInfos
+			//				on t.MarketCode equals m.MarketCode
+			//			where m.MarketType == marketType
+			//			   && c.CropName != ""
+			//			// 2. 執行 Distinct 去重，並異步轉換成 List
+			//			// 注意：Distinct 必須放在 Select 之後，確保是針對 CropCode + CropName 組合進行去重
+			//			select new CropResponseDto
+			//			{
+			//				CropCode = c.CropCode,
+			//				CropName = c.CropName
+			//			})
+			//			.Distinct()
+			//			.ToListAsync();
+
+			// Step 1: 先拿 MarketCodes（小表，幾筆）
+			var marketCodes = await _context.MarketInfos
+				.Where(m => m.MarketType == marketType)
+				.Select(m => m.MarketCode)
+				.ToListAsync();
+
+			// Step 2: 用具體的 MarketCode 值查 AgriProductsTrans
+			// EF Core 會產生 IN ('101','102',...) 而不是 JOIN + 參數
+			var crops = await _context.CropInfos
+				.Where(c => c.CropName != "" &&
+							_context.AgriProductsTrans
+								.Where(a => marketCodes.Contains(a.MarketCode))
+								.Select(a => a.CropCode)
+								.Contains(c.CropCode))
+				.Select(c => new CropResponseDto
+				{
+					CropCode = c.CropCode,
+					CropName = c.CropName
+				})
+				.Distinct()
+				.ToListAsync();
+
 			return crops;
 		}
 

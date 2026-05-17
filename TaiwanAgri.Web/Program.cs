@@ -1,5 +1,9 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Entities;
+using TaiwanAgri.Core.Infrastructure;
+using TaiwanAgri.Core.Infrastructure.Data;
+using TaiwanAgri.Core.Services;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Services;
 using TaiwanAgri.Web.Data;
@@ -8,7 +12,7 @@ namespace TaiwanAgri.Web
 {
 	public class Program
 	{
-		public static void Main(string[] args)
+		public static async Task Main(string[] args)
 		{
 			var builder = WebApplication.CreateBuilder(args);
 
@@ -18,8 +22,12 @@ namespace TaiwanAgri.Web
 				options.UseSqlServer(connectionString));
 
 			builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+				.AddRoles<IdentityRole>()
 				.AddEntityFrameworkStores<ApplicationDbContext>();
 			builder.Services.AddDbContext<MarketDbContext>(options =>
+				options.UseSqlServer(
+					builder.Configuration.GetConnectionString("DefaultConnection")));
+			builder.Services.AddDbContext<CoreDbContext>(options =>
 				options.UseSqlServer(
 					builder.Configuration.GetConnectionString("DefaultConnection")));
 			builder.Services.AddControllers();
@@ -36,11 +44,19 @@ namespace TaiwanAgri.Web
 			});
 			// 註冊 IMarketService 及其對應的實作 MarketService
 			builder.Services.AddScoped<IMarketService, MarketService>();
+			builder.Services.AddScoped<INavService, NavService>();
 			// builder 區段加：
 			//Install - Package Swashbuckle.AspNetCore - ProjectName TaiwanAgri.Web
 			builder.Services.AddEndpointsApiExplorer();
 			builder.Services.AddSwaggerGen();
 			var app = builder.Build();
+
+			using (var scope = app.Services.CreateScope())
+			{
+				var coreContext = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+				var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+				await DbInitializer.SeedAsync(coreContext, roleManager);
+			}
 
 			// Configure the HTTP request pipeline.
 			if (app.Environment.IsDevelopment())

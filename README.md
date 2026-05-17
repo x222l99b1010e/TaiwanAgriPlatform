@@ -32,14 +32,15 @@
 - **★ 智慧病蟲害提示**：規則引擎偵測「連續 72 小時濕度 > 85%」等條件，主動推送通知
 - 農藥查詢（中文俗名 → 學名 → 許可證字號，跨三支 API 橋接）
 
-### 📊 模組 4：大數據探險 — 天災與菜價關聯分析（**後端全部完成，前台進行中**）
+### 📊 模組 4：大數據探險 — 天災與菜價關聯分析（**後端 + 前台均已完成**）
 面向研究者，用歷史資料找出天氣事件與農產品批發價格之間的連動規律。
 
-- 作物歷史價格圖 + 7 日移動平均線（SQL Window Functions）
-- 天災事件時間軸疊加（土石流 / 豪雨 / 颱風警戒）
-- 事件前後漲跌幅分析（LAG / LEAD 函數）
+- 作物歷史價格圖 + 7 日移動平均線（Chart.js + computed 轉換層）
+- 天災事件垂直線疊加（chartjs-plugin-annotation，土石流 / 豪雨 / 颱風警戒）
+- Chip 多選篩選器（市場類型 / 作物 / 日期區間）
 - 休市日標記（排除統計陷阱）— **已完成（32,149 筆休市記錄同步完畢）**
-- 數據 CSV 匯出（串流輸出）
+- 數據 CSV 匯出（純函式 exportCsv.ts，含 UTF-8 BOM）
+- **★ 前台已完成**：Vue 3 + Pinia + api/Store/Component 三層架構，Promise.all 並行兩支 API
 
 ### 🛒 模組 1：台灣生鮮物價與食安透明網（待開發）
 面向一般消費者，今日物價查詢 + 食安追溯核查。
@@ -65,7 +66,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    農業部 Open Data API                      │
-│              data.moa.gov.tw  (60 支 REST API)               │
+│              data.moa.gov.tw  (60 支 REST API)              │
 └──────────────────────┬──────────────────────────────────────┘
                        │ HTTP / IHttpClientFactory
                        ▼
@@ -77,33 +78,33 @@
 │    PestRuleEngineWorker     | MarketRestDaySyncWorker       │
 │    CropMarketSyncWorker     | AgriProductsTransSyncWorker   │
 │    DebrisAlertRecordSyncWorker | PorkTransSyncWorker        │
-└──────────┬────────────────────────┬────────────────────────┘
+└──────────┬────────────────────────┬─────────────────────────┘
            │ EF Core                │ RabbitMQ
            │ (多 DbContext)         │
      ┌─────┴────────────┐           │
      │ WeatherDbContext │           │
      │ MarketDbContext  │           ▼
      │ CoreDbContext    │   ┌────────────────────────────────┐
-     └─────┬────────────┘   │         RabbitMQ              │
-           │                │   Exchange: agri.topic        │
-           ▼                │   RoutingKey: agri.price.*    │
-┌──────────────────┐        └──────────────┬────────────────┘
+     └─────┬────────────┘   │         RabbitMQ               │
+           │                │   Exchange: agri.topic         │
+           ▼                │   RoutingKey: agri.price.*     │
+┌──────────────────┐        └──────────────┬─────────────────┘
 │   SQL Server     │                       │ Subscribe
 │   2022           │                       ▼
 └──────────────────┘    ┌──────────────────────────────────────┐
                         │          TaiwanAgri.Web              │
                         │   ASP.NET Core Web API               │
                         │   ApplicationDbContext               │
-                        │   (繼承 IdentityDbContext)           │
-                        │   MarketController (5 支端點)        │
+                        │   (繼承 IdentityDbContext)            │
+                        │   MarketController (5 支端點)         │
                         └──────────┬───────────────────────────┘
                                    │ Cache-Aside
                                    ▼
-                  ┌────────────────────────────────────┐
-                  │ Redis TTL 25hr  |  Vue 3 Frontend  │
+                  ┌─────────────────────────────────────┐
+                  │ Redis TTL 25hr  |  Vue 3 Frontend   │
                   │ StackExchange   |  Vite + Chart.js  │
                   │                 |  Leaflet + Pinia  │
-                  └────────────────────────────────────┘
+                  └─────────────────────────────────────┘
 ```
 
 ### Solution 結構
@@ -144,7 +145,7 @@ TaiwanAgriPlatform/
 │   │       ├── CropResponseDto.cs
 │   │       ├── MarketResponseDto.cs
 │   │       ├── PriceResponseDto.cs
-│   │       ├── DisasterResponseDto.cs
+│   │       ├── DisasterResponseDto.cs  # v16.0 重設計：GroupBy 去重 + AffectedCounties
 │   │       └── RestDayResponseDto.cs
 │   ├── Entities/
 │   │   └── (MarketRestDay / MarketInfo / CropInfo / AgriProductsTrans
@@ -166,9 +167,20 @@ TaiwanAgriPlatform/
 │                                     # ApplicationDbContext（繼承 IdentityDbContext）
 │
 ├── TaiwanAgri.Frontend/              # Vue 3 + Vite + TypeScript + Pinia + Vue Router
-│   └── (前台 SPA，待開發)
+│   ├── src/
+│   │   ├── api/market.ts             # API 層：五支端點封裝 + 型別定義
+│   │   ├── stores/market.ts          # Pinia Store：全域狀態 + actions
+│   │   ├── components/
+│   │   │   ├── MarketFilter.vue      # Chip 多選篩選器
+│   │   │   ├── DateRangePicker.vue   # 日期區間選擇
+│   │   │   └── PriceChart.vue        # Chart.js 折線圖 + 7 日均線 + 天災垂直線
+│   │   ├── views/MarketView.vue      # 主視圖（Promise.all 並行 API）
+│   │   ├── utils/exportCsv.ts        # CSV 匯出純函式（含 UTF-8 BOM）
+│   │   └── router/index.ts
+│   └── (模組 4 前台已完成，其他模組前台待開發)
 │
 └── TaiwanAgri.Tests/                 # xUnit + Moq + TestContainers
+    └── (目前僅佔位專案，待 W19-20 補完測試案例)
 ```
 
 ---
@@ -185,7 +197,7 @@ TaiwanAgriPlatform/
 | 快取 | Redis + IMemoryCache | 7.x | 首頁物價秒讀 |
 | 身分驗證 | ASP.NET Core Identity + JWT | 10.0 | 使用者認證 |
 | 前端 | Vue 3 + Vite + TailwindCSS | 最新穩定版 | SPA 前台 |
-| 圖表 | Chart.js | 4.x | 折線圖 / 移動平均線 |
+| 圖表 | Chart.js | 4.x | 折線圖 / 移動平均線 / 天災垂直線 |
 | 地圖 | Leaflet.js + OpenStreetMap | 1.9.x | 認領養地圖 |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務 |
 | 測試 | xUnit + Moq + TestContainers | 最新版 | 單元 + 整合測試 |
@@ -322,7 +334,7 @@ npm run dev
 **ApplicationDbContext**（`TaiwanAgri.Web`）管理身分驗證：
 `AspNetUsers`（含擴充欄位）| `AspNetRoles` | 其他 Identity 標準表
 
-完整資料表設計、欄位型別、索引說明請參考 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v14.docx)。
+完整資料表設計、欄位型別、索引說明請參考 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v16.1.docx)。
 
 ---
 
@@ -335,7 +347,7 @@ npm run dev
 | GET | `/api/market/crops?marketType=Veg` | 有交易記錄的作物清單（三表 JOIN + DISTINCT） | 不需要 |
 | GET | `/api/market/markets?marketType=Veg` | 市場清單（依市場類型篩選） | 不需要 |
 | GET | `/api/market/prices` | 作物歷史價格走勢（含全台均價 / 單一市場，GroupBy 聚合） | 不需要 |
-| GET | `/api/market/disasters` | 天災警戒事件清單（縣市選填，日期區間必填） | 不需要 |
+| GET | `/api/market/disasters` | 天災警戒事件清單（GroupBy 去重，AffectedCounties 彙整） | 不需要 |
 | GET | `/api/market/restdays` | 市場休市日清單（市場代碼 + 日期區間） | 不需要 |
 
 #### GET /api/market/prices 參數說明
@@ -344,7 +356,7 @@ npm run dev
 |------|------|------|------|
 | marketType | string | ✅ | Veg / Fruit / Flower |
 | cropCodes | string[] | ✅ | 可傳多個（`&cropCodes=E1&cropCodes=E2`），最多 5 個 |
-| marketCode | string | — | 不傳則回傳全台均價（AVG price + SUM quantity） |
+| marketCode | string | — | 不傳則回傳全台均價（各價格欄位 AVG + SUM quantity） |
 | startDate | string | — | yyyy-MM-dd，不傳預設今天往前 365 天 |
 | endDate | string | — | yyyy-MM-dd，不傳預設今天 |
 
@@ -392,7 +404,8 @@ npm run dev
 | W7–8 上半 | 模組 4 後端 — 基礎建設 | MarketDbContext Schema 分離；MarketInfo surrogate PK 重構；MarketRestDaySyncWorker（32,149 筆）；CropMarketSyncWorker | ✅ 完成 |
 | W7–8 中半 | 模組 4 後端 — 核心同步 | CoreDbContext + SyncState；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker 完整實作 | ✅ 完成 |
 | W7–8 下半 | 模組 4 後端 — 優化與收尾 | Task.WhenAll 併發優化；SaveChanges 批次化；跨市場重複寫入 Bug Fix；DebrisAlertRecordSyncWorker；PorkTransSyncWorker；ConfigureConventions 全域 decimal(8,2) | ✅ 完成 |
-| W9–10 | 模組 4 前台 | **查詢層已完成（PR #020）**：TaiwanAgri.Web 改造、MarketService + IMarketService、MarketController 五支端點、DTO 結構重組；Vue 3 前台開發進行中 | 🔄 進行中 |
+| W9–10 前半 | 模組 4 查詢層 | TaiwanAgri.Web 改造（MVC→Web API）；IMarketService + MarketService 五支查詢方法；MarketController 五支端點；DTO 結構重組（WorkerResponses / ApiResponses）（PR #020） | ✅ 完成 |
+| W9–10 後半 | 模組 4 前台 | Vue 3 完整前台：Chart.js 折線圖 + 7 日均線；天災垂直線 Plugin；Chip 多選篩選器；CSV 匯出；DisasterResponseDto 重設計；前端三層架構（api/Store/Component）（PR #021） | ✅ 完成 |
 | W11–12 | 模組 1 後端 + 前台 | RabbitMQ + Redis + 物價首頁 + 食安功能 | ⬜ 待開始 |
 | W13–14 | 模組 2 前台 | Vue 3 氣象面板、雨量折線圖、病蟲害警報牆、通知紅點 | ⬜ 待開始 |
 | W15–16 | 身分驗證完整實作 | JWT 發行、Login / Register API、Vue 3 登入頁 | ⬜ 待開始 |
@@ -403,7 +416,7 @@ npm run dev
 
 ## 🧠 關鍵架構決策記錄
 
-這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v14.docx)。
+這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v16.1.docx)。
 
 **BackgroundService 生命週期管理**
 `WeatherSyncWorker` 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbContext` 是 Scoped。不能直接在建構子注入 DbContext，必須注入 `IServiceScopeFactory`，在每次同步任務執行時建立新 Scope，用完即釋放，避免 Change Tracker 持續累積狀態。
@@ -453,6 +466,12 @@ PorkTrans API 一次只接受單一 `TransDate`，休市日無資料寫入，和
 **Controller 輸入驗證策略：string + ParseIsoDate 取代 [FromQuery] DateOnly**
 日期參數用 `string` 接收，手動呼叫 `DateHelper.ParseIsoDate` 解析，格式不合法時回傳明確的 `BadRequest("...請使用 yyyy-MM-dd")`。這讓錯誤訊息對前端友好，驗證邏輯明確可見，且不依賴 ASP.NET Core Model Binding 對 `DateOnly` 的版本特定行為。選填日期的預設值邏輯（今天往前 365 天）放在 Service 而非 Controller，因為它是業務決策而非技術約束。
 
+**前端三層架構：api / Store / Component 職責分離**
+模組 4 前台採用嚴格的三層架構：`api/market.ts` 負責 HTTP 封裝與型別定義（對應後端 HttpClient 層）；`stores/market.ts`（Pinia）負責全域狀態與 actions（對應後端 Service 層）；Vue 元件負責 UI 渲染與使用者互動（對應後端 Controller 層）。平鋪 prices → Chart.js datasets 的格式轉換放在 `PriceChart.vue` 的 `computed()`，而非 Store 或 api 層——這是純顯示格式轉換，不需要跨元件共享，也不屬於業務邏輯。
+
+**DisasterResponseDto 重設計：GroupBy 去重 + AffectedCounties 彙整**
+同一天災事件在 DB 中對應多筆記錄（每縣市一筆）。前端的天災卡片以「事件」為單位呈現，不是以「縣市紀錄」為單位。Service 層以 `(DisasterName, AlertDate)` GroupBy 後，將同群的 County 彙整為 `AffectedCounties`（`Distinct().OrderBy()` 的 `List<string>`）。DTO 輸出的 `AlertDate` 是 Entity 欄位 `LastUpdateDate` 的改名 + 格式轉換（yyyy-MM-dd），Entity 本身未異動。
+
 ---
 
 ## 🧪 執行測試
@@ -462,6 +481,8 @@ cd TaiwanAgri.Tests
 dotnet test
 ```
 
+> **注意**：`TaiwanAgri.Tests` 目前為佔位專案，尚無實際測試案例。xUnit + Moq 測試實作規劃於 W19-20 完成。
+
 或在 Visual Studio 使用測試總管（Test Explorer）執行。
 
 ---
@@ -470,7 +491,7 @@ dotnet test
 
 | 文件 | 說明 |
 |------|------|
-| `docs/TaiwanAgriPlatform_SA_SD_v14.docx` | SA/SD 完整設計文件（痛點故事、API 清單、DB 設計、Sprint 計畫、W1–W8 全部實戰開發紀錄，含效能優化與 DebrisAlert/PorkTrans 設計決策） |
+| `docs/TaiwanAgriPlatform_SA_SD_v16.1.docx` | SA/SD 完整設計文件（痛點故事、API 清單、DB 設計、Sprint 計畫、W1–W10 全部實戰開發紀錄，含前端三層架構、DisasterResponseDto 重設計、Chart.js 整合決策） |
 
 ---
 
@@ -492,4 +513,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v14.0 ｜ PR #020 查詢層完成*
+*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v16.1 ｜ PR #021 模組 4 前台完整實作完成*

@@ -3315,6 +3315,461 @@ MarketView.vue 和各子元件的 `width: 100%` 設定都正確，但版面死�
 
 ---
 
+### 條目 112 — SQL Server 統計資料失真：9 萬筆的查詢比 578 萬筆更慢的根本原因
+
+**我做了什麼**
+
+排查 `GetCropsAsync` 在「水果」市場類型下發生 CommandTimeout（30 秒）的生產問題。當天沒有任何程式碼異動，蔬菜（578 萬筆）和花卉（355 萬筆）查詢完全正常，只有水果（9.5 萬筆）失敗。
+
+**我遇到的問題**
+
+資料量最小的市場類型反而最慢，而且同一支查詢、同樣的索引，三個 `@marketType` 值卻產生截然不同的效能結果。直覺上「資料越少應該越快」，但實際上完全相反。
+
+為什麼索引都有了，資料量也最少，還是會逾時？
+
+**我怎麼想通的**
+
+排查分三個階段展開：
+
+第一階段：確認問題在 DB 層。把逾時的 SQL 直接在 SSMS 執行，帶入 `N'Fruit'`——跑了整整 62 秒。確認問題不在 ASP.NET Core 或 EF Core，而在資料庫的執行計畫。
+
+第二階段：排除明顯假設。查三個 MarketType 的資料筆數——水果只有 9.5 萬，蔬菜 578 萬，花卉 355 萬。「水果資料量太大」這個假設直接被推翻，問題方向轉移到「為什麼同一份索引對不同參數值產生不同效能」。
+
+第三階段：確認根本原因。SQL Server 在第一次執行帶參數的查詢時，會根據當時的統計資料（Statistics）編譯一份執行計畫並快取。統計資料記錄的是各欄位值的分佈情況——資料量多少、哪些值出現頻率高——優化器根據這份資訊選擇 Join 策略（Nested Loop vs Hash Join vs Merge Join）。當統計資料與實際資料分佈脫節，優化器會對某些特定的參數值選出極差的執行計畫，其他參數值剛好沒踩到這個壞計畫，就形成了「同一支 SQL，A 快 B 慢」的現象。
+
+修正方式：
+
+```sql
+-- 強制重新掃描全表建立正確的統計資料
+UPDATE STATISTICS market.AgriProductsTrans WITH FULLSCAN;
+
+-- 清除快取的執行計畫，強迫下次執行時用新統計資料重新編譯
+DBCC FREEPROCCACHE;
+```
+
+執行後，`N'Fruit'` 的查詢瞬間完成。
+
+**為什麼「自動更新統計資料」開著還是出問題**
+
+確認資料庫的 `is_auto_update_stats_on = 1`，但自動更新有觸發門檻——大型資料表需要累積約 `√(1000 × 總列數)` 筆變更才會觸發。`AgriProductsTrans` 將近 900 萬筆，門檻非常高。SyncWorker 每天寫入的量在門檻以下，但統計資料已經累積到足夠失真、讓優化器做出壞決策的程度。「昨天還好」是因為昨天剛好還在臨界點以內，今天寫入量讓某個分佈統計值跨過了另一個臨界點。
+
+**我學到的原則**
+
+執行計畫的品質依賴統計資料的準確性。統計資料的自動更新是有延遲的，不是即時的。對於每天持續寫入的資料表，「自動更新開著」不代表「執行計畫永遠最佳」——在兩次自動更新之間，統計資料會逐漸失真，直到某次查詢踩到壞計畫才暴露問題。
+
+這類問題的特徵是：沒有程式碼異動、只有特定參數值失敗、資料量和直覺預期不符——三個現象同時出現，根本原因幾乎確定是統計資料或執行計畫快取。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「同一支查詢、相同索引，A 參數正常但 B 參數逾時」，第一反應是統計資料失真或執行計畫被快取的壞版本。確認方式：直接在 SSMS 帶入那個失敗的參數值執行，確認是 DB 層的問題。修正方式：`UPDATE STATISTICS ... WITH FULLSCAN` + `DBCC FREEPROCCACHE`。長期維護：對持續寫入的核心資料表，排一個週期性的 SQL Server Agent Job 強制更新統計資料，不依賴自動更新的門檻機制。
+
+---
+
+### 條目 113 — EF Core 參數型別預設值：nvarchar(4000) 讓索引失效的根本原因
+
+**我做了什麼**
+
+在排查 `GetCropsAsync` 水果逾時問題的過程中，發現 `OPTION (RECOMPILE)` 無法解決問題，最終確認根本原因是 EF Core 對 `string` 型別參數的預設行為：不管欄位實際定義是 `nvarchar(20)`，EF Core 統一送出 `nvarchar(4000)`。改用兩段式查詢（先取 `MarketCode` 清單，再用 `IN` 查 `AgriProductsTrans`）繞開型別不符問題，查詢恢復正常。
+
+**我遇到的問題**
+
+同一支 SQL：
+
+- SSMS 帶入字面值 `N'Fruit'` → 約 3 秒，正常
+- App 帶入參數 `@p0` → 30 秒逾時
+
+兩者的 SQL 文字完全相同，差異只有「字面值」vs「參數」。`OPTIMIZE FOR UNKNOWN` 和 `OPTION (RECOMPILE)` 都沒有解決問題。為什麼改成參數就掛掉？
+
+**我怎麼想通的**
+
+從 log 看到關鍵差異：
+
+```
+-- SSMS 字面值
+WHERE m.MarketType = N'Fruit'
+
+-- App 參數
+Parameters=[p0='?' (Size = 4000)]
+WHERE m.MarketType = @p0
+```
+
+`MarketType` 欄位是 `nvarchar(20)`，但 EF Core 對 `string` 型別的參數，預設一律送 `nvarchar(4000)`。型別不符有兩個後果：
+
+第一，SQL Server 必須對每一列做隱式型別轉換（把欄位值從 `nvarchar(20)` 轉成 `nvarchar(4000)` 再比對），這讓索引無法有效使用——索引是對 `nvarchar(20)` 值建立的，參數型別不同，優化器選擇 scan 而不是 seek。
+
+第二，`RECOMPILE` 重新編譯也無濟於事，因為問題不在計畫快取，而在每次執行時的型別轉換本身。SSMS 傳字面值，SQL Server 直接用值做比對，不需要型別轉換，所以快。
+
+**解法：兩段式查詢**
+
+把 `MarketType → MarketCode` 的翻譯拆成獨立的 Step 1：
+
+```csharp
+// Step 1: MarketInfos 是小表，幾筆，nvarchar(4000) 的成本可以忽略
+var marketCodes = await _context.MarketInfos
+    .Where(m => m.MarketType == marketType)
+    .Select(m => m.MarketCode)
+    .ToListAsync();
+
+// Step 2: 用具體的 MarketCode 值查 AgriProductsTrans
+// EF Core 產生 IN (@marketCodes1, @marketCodes2, ...) 且型別為 nvarchar(20)
+var crops = await _context.CropInfos
+    .Where(c => c.CropName != "" &&
+                _context.AgriProductsTrans
+                    .Where(a => marketCodes.Contains(a.MarketCode))
+                    .Select(a => a.CropCode)
+                    .Contains(c.CropCode))
+    .Select(c => new CropResponseDto { CropCode = c.CropCode, CropName = c.CropName })
+    .Distinct()
+    .ToListAsync();
+```
+
+Step 1 對小表做型別轉換，成本可以忽略。Step 2 的 `IN` 清單是從資料庫取回的真實 `MarketCode` 值，EF Core 會正確推斷型別為 `nvarchar(20)`，不再有型別不符的問題。
+
+**這個解法的已知取捨**
+
+兩段式代表兩次 SQL 往返，且 `IN` 清單的大小等於該 MarketType 下的市場數量（蔬菜 20 個、水果 5 個、花卉 20 個）。原始單一 JOIN 查詢如果型別正確，理論上效能更好（一次往返、資料庫端做完所有事）。長期來看，補 `MarketInfos.MarketType` 的索引才是根本解，加完索引後原始 LINQ JOIN 版恢復正常的可能性很高。
+
+**我學到的原則**
+
+EF Core 對 `string` 型別參數一律送 `nvarchar(4000)`，不管對應欄位的實際定義是多少。在欄位本身有索引、且欄位長度遠小於 4000 的情況下，這個預設行為會讓索引失效，造成隱式 scan。
+
+這個問題的診斷特徵是：「SSMS 字面值快，App 參數慢」——兩者 SQL 文字相同但效能截然不同，排查方向應該先看 log 裡的參數型別（`Size`），確認是否和欄位定義不符。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「SSMS 快、App 慢」且排除了計畫快取的影響，立刻查 log 裡的 `Parameters=[... (Size = ???)]`，對比欄位實際的 `nvarchar` 長度。如果 `Size` 是 4000 但欄位是短字串，型別不符就是根本原因。短期解法是兩段式查詢；長期解法是補齊相關欄位的索引，讓優化器有足夠資訊選出正確計畫。
+
+---
+
+### 條目 114 — DbInitializer vs Migration InsertData：種子資料應該放在哪裡
+
+**我做了什麼**
+
+在建立 RBAC 骨架後，需要寫入初始資料（NavModules 模組清單 + Guest/Admin 角色 + RoleModulePermissions 權限記錄）。面臨兩個選擇：把資料寫進 Migration 的 `migrationBuilder.InsertData()`，或另外建立獨立的 `DbInitializer` 類別在程式啟動時執行。選擇了後者，並在 `Web/Program.cs` 的 `builder.Build()` 之後、middleware 設定之前呼叫。
+
+**我遇到的問題**
+
+起初不確定為什麼已經有 Migration 機制，還需要另外建一個 Seed 腳本——感覺像是重複的工作。
+
+**我怎麼想通的**
+
+關鍵在於理解 Migration 的職責邊界。Migration 管的是**資料庫結構（Schema）的版本**，每一個 Migration 檔案對應一個歷史時間點的結構變化。如果把資料塞進去：
+
+```sql
+-- 三個月後的 Migration 歷史長這樣
+0001_CreateMarketTables
+0002_CreateWeatherTables
+0003_CreateRBACTables
+0004_SeedInitialModules       ← 塞資料
+0005_AddFoodSafetyTable
+0006_UpdateModuleNameWeather  ← 只是改一個模組名稱，卻要開 Migration？
+0007_AddPetModule             ← 新增一筆資料，又開一個？
+```
+
+Migration 的歷史紀錄就開始說兩種故事（結構變化和資料變化），rollback 一個 Migration 時資料狀態也很難預測。`DbInitializer` 的優點是：
+
+```csharp
+// 每次啟動時執行，邏輯自己控制
+if (!context.NavModules.Any()) return;   // 冪等：有就跳過，沒有才寫入
+
+context.NavModules.AddRange(/* 初始模組 */);
+context.SaveChanges();
+```
+
+未來新增模組？直接改這個檔案，不碰 Migration。Portfolio 環境重建？`dotnet ef database update` 建表，啟動時自動 Seed，不需要任何額外步驟。
+
+**我學到的原則**
+
+Migration 管 Schema，`DbInitializer` 管初始資料，兩者職責分離。可能會改動的初始資料（模組清單、角色設定）屬於業務邏輯，不屬於資料庫結構，應放在可以靈活修改的 Seed 腳本裡，而不是版本化的 Migration 歷史中。
+
+**下次遇到類似情況，我會先想到什麼**
+
+問自己：「這份資料在系統正式上線後會不會被業務需求改動？」如果答案是「可能」，那就放 `DbInitializer`，不要放 Migration。Migration 只處理「資料庫結構的一次性變更」。
+
+---
+
+### 條目 115 — System.Reflection.Module 命名衝突：.NET 內建型別的隱性陷阱
+
+**我做了什麼**
+
+將 RBAC 的導覽模組 Entity 命名為 `Module`，新增到 `TaiwanAgri.Core.Entities` 命名空間後，`CoreDbContext.cs` 出現編譯錯誤：
+
+```
+CS0104: 'Module' 是 'TaiwanAgri.Core.Entities.Module' 與 'System.Reflection.Module' 之間模稜兩可的參考
+```
+
+**我遇到的問題**
+
+命名空間已經很明確地寫了 `TaiwanAgri.Core.Entities`，為什麼編譯器還是找不到正確的型別？
+
+**我怎麼想通的**
+
+`System.Reflection.Module` 是 .NET 基礎類別庫的內建型別，在啟用 `<ImplicitUsings>` 的現代 .NET 專案中，`System.Reflection` 會被隱性引入，所以即使你沒有明確寫 `using System.Reflection`，`Module` 這個名稱還是存在於解析範圍內。當自訂類別和內建型別同名，編譯器無法決定用哪個，就會報 CS0104。
+
+最乾淨的解法是改名，而不是到處加完整命名空間前綴。`NavModule`（Navigation Module）語意更清楚——一看就知道這是「導覽用的模組」，而不是軟體架構中的「模組」這個抽象概念。
+
+**我學到的原則**
+
+自訂類別命名時要注意 .NET BCL（基礎類別庫）的常見型別名稱。`Module`、`Task`、`Action`、`Type`、`Path`、`Console`、`Stream` 這類通用詞彙都有風險，稍微加個前綴（`Nav`、`App`、`Market`）讓語意更具體，同時也能避免命名衝突。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 CS0104 報「是 X 與 Y 之間模稜兩可的參考」，先確認 Y 是不是 .NET 內建型別——如果是，直接改自訂類別的名稱，不要試圖用 `using alias` 或完整命名空間來繞開，那只是掩蓋問題而不是解決問題。
+
+---
+
+### 條目 116 — EF Core 自參照設計：一張表表達父子層級的關係
+
+**我做了什麼**
+
+`NavModule` 同時存放頂層模組（TopNav 頁籤）和子功能（SideNav 清單），用 `ParentId` 自參照來區分層級。在 Entity 裡宣告兩個導覽屬性，在 `OnModelCreating` 裡設定關聯，EF Core 自動推導出父層和子層的對應關係。
+
+**我遇到的問題**
+
+一開始不確定 EF Core 怎麼「知道」`Parent` 和 `Children` 分別指向哪個方向——同一個型別怎麼能同時是父層和子層？
+
+**我怎麼想通的**
+
+EF Core 用命名慣例和型別推導：
+
+```csharp
+public int? ParentId { get; set; }              // FK，nullable = 可選（頂層無父層）
+public NavModule? Parent { get; set; }           // 型別是 NavModule → 多對一，指向父層
+public ICollection<NavModule> Children { get; set; } = new List<NavModule>(); // 型別是 ICollection<NavModule> → 一對多，指向子層
+```
+
+`ParentId` 是 FK，`Parent` 的型別和自身相同，EF Core 推導出「這個實體的 ParentId 欄位指向同型別的另一筆記錄」，`Children` 則是另一方向的導覽——「有哪些同型別的實體以我為父層」。
+
+`OnModelCreating` 明確聲明：
+
+```csharp
+entity.HasOne(n => n.Parent)
+      .WithMany(p => p.Children)
+      .HasForeignKey(n => n.ParentId)
+      .OnDelete(DeleteBehavior.Restrict);  // 有子功能的模組不能直接刪除
+```
+
+`Restrict` 而不是 `Cascade`，是因為頂層模組被刪除時，應該先確認子功能都已處理，不應靜默地把子功能也一起刪掉。
+
+**我學到的原則**
+
+兩層固定深度的層級關係（頂層 → 子層），自參照是最乾淨的選擇。一張表，Permission 表的 FK 也指向同一張，查詢邏輯統一。超過兩層、或深度不固定時，才需要考慮 Closure Table 或 Path Enumeration 等更複雜的設計。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「需要表達父子層級」的需求時，先問深度：只有兩層就用自參照，三層以上才評估 Closure Table。自參照的 `Children` 記得初始化 `= new List<T>()`，否則未載入時是 null，`.Count` 會拋 NullReferenceException。
+
+---
+
+### 條目 117 — AddRoles<IdentityRole>()：讓 RoleManager 進入 DI 容器
+
+**我做了什麼**
+
+`DbInitializer.SeedAsync` 需要 `RoleManager<IdentityRole>` 來建立 Guest / Admin 角色並取得對應的 RoleId。在 DI 容器解析時拋出「找不到 `RoleManager<IdentityRole>` 的服務」的錯誤。
+
+**我遇到的問題**
+
+已經呼叫了 `AddDefaultIdentity<ApplicationUser>()`，為什麼 `RoleManager` 不可用？
+
+**我怎麼想通的**
+
+`AddDefaultIdentity` 是 Identity 的精簡版本，它預設**不**包含角色管理功能（`RoleManager`、`RoleStore`、`IdentityRole`）——這個設計是刻意的，因為很多應用不需要角色系統，加上去只會增加複雜度。
+
+要啟用角色功能，需要在 Identity builder 鏈上加一個擴充方法：
+
+```csharp
+builder.Services.AddDefaultIdentity<ApplicationUser>(options => ...)
+    .AddRoles<IdentityRole>()          // ← 這行把 RoleManager 和所有角色相關服務加進 DI
+    .AddEntityFrameworkStores<ApplicationDbContext>();
+```
+
+`AddRoles<IdentityRole>()` 做的事包括：把 `RoleManager<IdentityRole>`、`IRoleStore<IdentityRole>`、`RoleValidator<IdentityRole>` 都加進 DI 容器，讓後面注入 `RoleManager<IdentityRole>` 時能正確解析。
+
+**我學到的原則**
+
+ASP.NET Core Identity 採用「按需啟用」的設計，基礎功能（使用者認證）和進階功能（角色管理）是分開的。需要用 `RoleManager` 的地方（DbInitializer、NavService），都需要確認 Identity 有加上 `.AddRoles<IdentityRole>()`，否則 DI 解析會在 runtime 而不是 compile time 爆掉，不容易及早發現。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 DI 找不到 `RoleManager<IdentityRole>` 的服務，立刻去 `Program.cs` 的 Identity 註冊部分確認有沒有 `.AddRoles<IdentityRole>()`。這比找其他原因快得多。
+
+---
+
+### 條目 118 — NavService 三段式查詢：permittedModuleIds 的具現化時機
+
+**我做了什麼**
+
+`NavService.GetNavModulesAsync` 需要三次 DB 查詢：（1）撈出有權限的 ModuleId 清單，（2）用這個清單撈頂層模組，（3）再用這個清單撈子功能。第一段查詢如果不先具現化，就會在後續兩次查詢時各自觸發一次 SQL，等於同一份資料打了三次 DB。
+
+**我遇到的問題**
+
+起初寫成：
+
+```csharp
+var permittedModuleIds = _context.RoleModulePermissions
+    .Where(rmp => rmp.RoleId == targetRoleId && rmp.CanView)
+    .Select(rmp => rmp.ModuleId);   // ← IQueryable，還沒執行
+
+// 查頂層
+var navModules = await _context.NavModules
+    .Where(nm => permittedModuleIds.Contains(nm.Id))   // ← 第一次執行 SQL
+    .ToListAsync();
+
+// 查子層
+var childNavModules = await _context.NavModules
+    .Where(cnm => permittedModuleIds.Contains(cnm.Id)) // ← 第二次執行 SQL！
+    .ToListAsync();
+```
+
+**我怎麼想通的**
+
+EF Core 的 `IQueryable` 是「延遲執行」的——它只是一個查詢描述，不是資料。每次把 `IQueryable` 當作 `Contains` 的參數傳入另一個查詢，EF Core 就會把它翻譯成子查詢（subquery），在那個時刻打一次 DB。
+
+解法是在第一段查詢後就 `ToListAsync()`，把結果具現化為 `List<int>`：
+
+```csharp
+var permittedModuleIds = await _context.RoleModulePermissions
+    .Where(rmp => rmp.RoleId == targetRoleId && rmp.CanView)
+    .Select(rmp => rmp.ModuleId)
+    .ToListAsync();   // ← 立刻執行，結果存在記憶體
+
+// 後續兩次 Contains 都是記憶體操作（IN 清單），只各打一次 DB
+```
+
+`ToListAsync()` 是 EF Core 查詢邊界的明確標誌：之前是 SQL 世界，之後是 C# 記憶體世界。
+
+**我學到的原則**
+
+`IQueryable` 被使用多次時，一定要問「這個查詢會被執行幾次？」。如果同一個 `IQueryable` 出現在兩個不同查詢的 `Contains` 或 `Any` 裡，就是兩次 DB 往返。解法是提前 `ToListAsync()` 具現化，之後的操作都在記憶體中完成。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到一個 `IQueryable` 變數被傳入多個 `.Where(x => someQuery.Contains(x.Id))` 時，立刻加 `ToListAsync()` 把它具現化。這個細節在 N+1 問題的討論中很少被提到，但卻是同樣性質的反模式——同一份資料因為「查詢描述被重複使用」而打了多次 DB。
+
+---
+
+### 條目 119 — 兩個 DTO 而不是一個：型別即文件的具體實踐
+
+**我做了什麼**
+
+回傳導覽模組的 API 需要兩層結構：頂層模組有 `Children` 陣列，子功能沒有。面臨選擇：一個可以 nullable 遞迴的 `NavModuleDto`，還是兩個分開的 `NavModuleDto` + `NavChildDto`。
+
+**我遇到的問題**
+
+一個 DTO 的方案看起來程式碼更少，直覺上「更簡單」，為什麼要多寫一個 `NavChildDto`？
+
+**我怎麼想通的**
+
+問題的關鍵不是程式碼行數，而是型別在說什麼：
+
+```csharp
+// 一個 DTO（Children 是 nullable）
+public class NavModuleDto
+{
+    public List<NavModuleDto>? Children { get; set; }   // null 代表子層？還是「還沒載入」？型別不說明
+}
+
+// 兩個 DTO
+public class NavModuleDto  { public List<NavChildDto> Children { get; set; } = new(); }
+public class NavChildDto   { /* 沒有 Children —— 型別本身說「這層不能再展開」 */ }
+```
+
+`NavChildDto` 沒有 `Children` 屬性，不是疏漏，是設計。任何讀到這個型別的人都能立刻知道：子功能不會有子子功能。這種「型別即文件」的設計在後端的 `IEnumerable<NavChildDto>` 出現時，就已經在說明系統的結構，不需要額外的注釋。
+
+更重要的是未來擴充彈性：如果子功能需要加 `BadgeCount`（紅點通知數）而頂層不需要，兩個 DTO 方案只改 `NavChildDto`，一個 DTO 方案只能在唯一的型別上加 `int? BadgeCount`，讓型別對頂層模組也撒謊（「我有 BadgeCount 欄位，但永遠是 null」）。
+
+**我學到的原則**
+
+「兩個地方看起來相似，是否要合併成一個型別」這個問題，答案取決於：「這兩個概念的**演化方向**是否相同？」如果頂層模組和子功能未來可能有不同的屬性需求，它們就不是同一個概念，不應強行合併。類似的決策也出現在後端 DTO 命名（`WorkerResponses` vs `ApiResponses`）：分開命名是因為服務對象不同，演化方向不同。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「這兩個型別結構現在一樣，要不要合併」時，先想「三個月後它們還會一樣嗎？」如果不確定，保持分開。合併兩個型別容易，但把一個已被廣泛使用的型別拆成兩個要付出更大的代價。
+
+---
+
+### 條目 120 — Vite Proxy：前端開發時的 API 轉發機制
+
+**我做了什麼**
+
+前端 `axios` 呼叫 `/api/nav/modules`，在 `npm run dev` 環境下被 Vite dev server 攔截，回傳的是 `index.html`（前端的 HTML entry point）而不是後端 API 的 JSON 回應。設定 `vite.config.ts` 的 `server.proxy` 後問題解決。
+
+**我遇到的問題**
+
+瀏覽器 Network 顯示 `/api/nav/modules` 的狀態碼是 200，但 Response 內容是 HTML——API 呼叫「成功」了，但拿到的是錯誤的東西。
+
+**我怎麼想通的**
+
+Vite dev server 在開發時作為一個 HTTP 伺服器，它攔截所有對 `localhost:5173`（前端 port）的請求。對它不認識的路徑（如 `/api/*`），它沒有轉發的指示，就直接回傳前端的 SPA entry point（`index.html`）——這是 SPA 的標準行為，用來支援 client-side routing。問題是前端的 `axios` 以為拿到的是 JSON，卻拿到一個 HTML 字串，解析失敗。
+
+解法是告訴 Vite：凡是符合 `/api` 前綴的請求，轉發給後端：
+
+```typescript
+// vite.config.ts
+server: {
+  proxy: {
+    '/api': {
+      target: 'https://localhost:7147',  // .NET 後端的 port
+      changeOrigin: true,                // 修改 Host header
+      secure: false,                     // 不驗證本地開發憑證
+    }
+  }
+}
+```
+
+> **重要**：`vite.config.ts` 的變更不支援 hot reload，一定要重啟 `npm run dev` 才能生效。
+
+**我學到的原則**
+
+前後端分離開發時，前端的請求路徑和後端路由之間存在一個「轉發層」。在正式部署時這個轉發通常由 nginx 或 API Gateway 處理；在本地開發時，前端的 bundler（Vite、webpack、vite）自帶的 proxy 設定承擔這個角色。沒有設定 proxy，前端打 `/api/*` 就是打自己的 dev server，不是後端。
+
+**下次遇到類似情況，我會先想到什麼**
+
+前端 API 呼叫狀態碼是 200 但拿到 HTML——立刻想到：「這個請求有沒有被轉發到後端？」先看 `vite.config.ts` 有沒有 `server.proxy` 設定，再確認 proxy target 的 port 和後端的 launchSettings 是否吻合。
+
+---
+
+### 條目 121 — RBAC 模組可見度繼承：父層 AND 子層的查詢設計
+
+**我做了什麼**
+
+在 RBAC 的設計討論中，確認了「父層關閉 → 子功能全部不可見」的繼承語意，並在 `NavService` 的查詢邏輯中同時過濾頂層模組和子功能，確保兩者都必須通過 `permittedModuleIds` 的驗證。
+
+**我遇到的問題**
+
+討論過三個選項：（1）DB 存的時候就算好繼承關係、（2）API 層做 AND 計算、（3）前端做過濾。起初不清楚為什麼選項 3（前端過濾）是不可接受的。
+
+**我怎麼想通的**
+
+選項 3 的問題是安全性，不是效能：如果前端過濾，後端 API 還是把「父層 false、子層 true」的資料都回傳給前端，只是靠 JavaScript 把它藏起來。使用者打開瀏覽器的 DevTools → Network，就能看到所有模組的完整清單，包括應該被隱藏的付費功能或管理功能。
+
+選項 2（API 層）才是正確的做法：沒有權限的資料在後端就被過濾掉，根本不出現在 HTTP response 裡。`NavService` 的查詢同時驗證頂層和子功能是否在 `permittedModuleIds` 清單內：
+
+```csharp
+// 子功能查詢：ParentId 存在（是子層）AND 父層有權限（topLevelIds）AND 自身也有權限（permittedModuleIds）
+var childNavModules = await _context.NavModules
+    .Where(cnm => cnm.ParentId != null 
+               && topLevelIds.Contains(cnm.ParentId!.Value)
+               && permittedModuleIds.Contains(cnm.Id))
+    .ToListAsync();
+```
+
+這樣確保了：頂層關閉 → 子功能不出現在 `topLevelIds` → 子功能被過濾掉，語意等同於「父層 AND 子層都必須有 `CanView = true`」。
+
+**我學到的原則**
+
+權限判斷永遠在後端做，前端只負責渲染。這個原則適用於所有需要存取控制的場景：不論是模組可見度、按鈕狀態、還是資料列的顯示，後端負責「決定你能看什麼」，前端負責「把能看到的東西呈現出來」。前端的隱藏只是 UI 行為，不是安全邊界。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「這個過濾邏輯要放在前端還是後端」的問題，如果過濾的是「哪些資料使用者有權存取」，答案永遠是後端。如果過濾的是「哪些資料要顯示在這個視圖（但資料本身是使用者有權存取的）」，才是前端的責任。
+
+---
+
+
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。

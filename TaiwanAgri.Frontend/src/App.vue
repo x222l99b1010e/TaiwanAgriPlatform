@@ -1,9 +1,23 @@
 <template>
-  <RouterView />
+  <div class="app-layout">
+    <TopNav />
+    <div class="content-area">
+      <SideNav />
+      <main class="main-content">
+        <RouterView />
+      </main>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { onMounted } from 'vue'
+import TopNav from '@/components/TopNav.vue'
+import SideNav from '@/components/SideNav.vue'
+import { useNavStore } from '@/stores/nav'
+
+const navStore = useNavStore()
+onMounted(() => navStore.loadModules())
 </script>
 
 <style>
@@ -16,7 +30,7 @@ import { RouterView } from 'vue-router'
 html { width: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.7;
   background-color: #161c18;
@@ -33,4 +47,8 @@ body {
   width: 100%;
   min-height: 100vh;
 }
+
+.app-layout { display: flex; flex-direction: column; height: 100vh; }
+.content-area { display: flex; flex: 1; overflow: hidden; }
+.main-content { flex: 1; overflow-y: auto; padding: 24px; }
 </style>

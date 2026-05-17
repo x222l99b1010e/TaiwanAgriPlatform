@@ -1763,6 +1763,303 @@ const [priceResult, disasterResult] = await Promise.all([
 
 ---
 
+# PR #022 — W11 RBAC 骨架 + Navbar 動態三欄結構
+
+**標題**：`feat(core+web+frontend): W11 RBAC 骨架 + Navbar 動態三欄結構——NavModule Entity、DbInitializer Seed、NavService 三段式查詢、Vue MDI Navbar`
+
+---
+
+## 背景與動機
+
+PR #021 完成了 Market 模組的前端頁面（折線圖 + 天災面板 + CSV 匯出），整個 Market 模組的前後端已成一體。這個 PR 標誌著開發策略的轉折點：從「模組逐一完成」進入「建立全域骨架」階段。
+
+在實際上線的農業資訊系統中，使用者看到什麼功能，由他的身份（訪客 / 管理員 / 付費會員）決定。這個 PR 完成的是讓這件事能夠運作的最小骨架：
+
+**後端 RBAC**：定義「哪個角色可以看哪些模組」的資料結構，並在程式啟動時自動 Seed 初始資料，讓 `GET /api/nav/modules` 能根據使用者身份動態回傳他能看到的模組清單。
+
+**前端 Navbar**：從固定寫死的選單，改為從 API 動態撈取模組清單，根據路由高亮對應頁籤，並在 SideNav 顯示當前模組的子功能，整個 Navbar 不再有任何硬編碼的路由或模組名稱。
+
+---
+
+## 後端實作
+
+### Entity 設計
+
+#### NavModule — 自參照層級結構
+
+```csharp
+public class NavModule
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Route { get; set; } = string.Empty;   // 含前置斜線，如 /market
+    public string Icon { get; set; } = string.Empty;    // MDI class name，如 mdi-chart-line
+    public bool IsActive { get; set; }
+    public int SortOrder { get; set; }
+    public int? ParentId { get; set; }
+
+    public NavModule? Parent { get; set; }
+    public ICollection<NavModule> Children { get; set; } = new List<NavModule>();
+    public ICollection<RoleModulePermission> RoleModulePermissions { get; set; } = new List<RoleModulePermission>();
+}
+```
+
+頂層模組（`ParentId = null`）和子功能（`ParentId = 父層 Id`）用同一張表管理，靠自參照 FK 區分層級。EF Core 透過命名慣例自動推導 `ParentId ↔ Parent ↔ Children` 三者的關係，`OnDelete(Restrict)` 確保有子功能的模組不能直接刪除。
+
+> **命名決策**：原本命名為 `Module`，與 `System.Reflection.Module` 撞名導致編譯錯誤，改為 `NavModule`（Navigation Module）語意更清楚，也避免了 using 衝突。
+
+#### RoleModulePermission — 跨 DbContext 邏輯 FK
+
+```csharp
+public class RoleModulePermission
+{
+    public string RoleId { get; set; } = string.Empty;  // 邏輯 FK → AspNetRoles.Id，不建物理 FK
+    public int ModuleId { get; set; }
+    public bool CanView { get; set; }
+
+    public NavModule NavModule { get; set; } = null!;   // 同 DbContext，可建導覽屬性
+}
+```
+
+`RoleId` 指向 `AspNetRoles`，但屬於 `ApplicationDbContext` 管轄；`RoleModulePermission` 屬於 `CoreDbContext`。跨 DbContext 不能建物理 FK，因此 `RoleId` 純存字串（GUID），查詢時靠應用層保證關聯正確性。這是本專案「跨 DbContext 用邏輯 FK」原則的又一次應用。
+
+複合主鍵在 `OnModelCreating` 設定：
+
+```csharp
+entity.HasKey(r => new { r.RoleId, r.ModuleId });
+```
+
+### Migration
+
+```
+20260515160820_AddNavModuleAndRoleModulePermission（core schema）
+```
+
+兩張表均放在 `core` schema，與 `SyncStates` 一致。`NavModules` 建立自參照 FK + 索引，`RoleModulePermissions` 建立複合 PK 及 `ModuleId → NavModules` 的 Cascade 外鍵（模組刪除時權限記錄一併清除）。
+
+### DbInitializer — Seed 策略選擇
+
+種子資料放在 `DbInitializer.cs`（`TaiwanAgri.Core/Infrastructure/`），不使用 `migrationBuilder.InsertData()`，原因是：
+
+Migration InsertData 將「資料版本」與「Schema 版本」綁在一起——未來新增一個模組或改模組名稱，就需要開一個新 Migration，職責混亂且難以 rollback。`DbInitializer` 的運作方式是在 `Program.cs` 啟動時呼叫，先檢查資料是否已存在再決定是否寫入，靠 `if (!context.NavModules.Any()) return;` 確保冪等性，Portfolio 環境重建多次也不會重複插入。
+
+```csharp
+// TaiwanAgri.Web/Program.cs
+using (var scope = app.Services.CreateScope())
+{
+    var coreContext = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    await DbInitializer.SeedAsync(coreContext, roleManager);
+}
+```
+
+Seed 內容：四個頂層模組（市場行情、青農戰情室、食安透明網、毛小孩地圖）、九個子功能（Market × 4、Weather × 5），以及 Guest 和 Admin 兩個角色各對 13 個模組的 `CanView = true` 權限記錄，合計 26 筆 `RoleModulePermissions`。
+
+> **RoleManager DI 注入**：`DbInitializer` 需要 `RoleManager<IdentityRole>` 來建立角色並查詢 RoleId。這需要在 Identity 註冊時加上 `.AddRoles<IdentityRole>()`，讓 DI 容器知道要提供 `RoleManager`。放在 Web 層而非 Worker 層，也是因為 `RoleManager` 只有 Web 層有完整的 Identity 服務。
+
+### NavService — 三段式查詢
+
+```
+第一段：決定 targetRoleId
+  → 未登入：RoleManager.FindByNameAsync("Guest") → .Id
+  → 已登入：直接使用傳入的 roleId
+
+第二段：三次 DB 查詢
+  → permittedModuleIds（先 ToListAsync，避免 IQueryable 被執行兩次）
+  → navModules（ParentId == null，OrderBy SortOrder）
+  → childNavModules（ParentId IN topLevelIds AND Id IN permittedModuleIds，OrderBy SortOrder）
+
+第三段：記憶體組裝
+  → navModules.Select(nm => new NavModuleDto { Children = childNavModules.Where(c => c.ParentId == nm.Id)... })
+```
+
+Controller 負責解析 `User.Claims` 取得 `isAuthenticated` 和 `roleId`，Service 只接收這兩個純值，不碰 `ClaimsPrincipal`，職責邊界清晰。
+
+### NavController
+
+```csharp
+[Route("api/nav")]
+[ApiController]
+public class NavController : ControllerBase
+{
+    [HttpGet("modules")]
+    [AllowAnonymous]                   // 未登入也能打，由 Service 決定用 Guest 還是 Member 權限
+    public async Task<IActionResult> GetModules()
+    {
+        var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
+        var roleId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+        var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleId);
+        return Ok(modules);
+    }
+}
+```
+
+---
+
+## 關鍵設計決策
+
+### 決策一：Seed 策略——DbInitializer vs Migration InsertData
+
+選擇 `DbInitializer`，理由：Migration 的職責是管 Schema（表結構），把資料內容混進去會讓歷史紀錄難以閱讀，而且 rollback 一個 Migration 時資料狀態很難預測。`DbInitializer` 的資料邏輯與 Schema 完全分離，未來新增模組只需修改一個檔案，不需要開新 Migration。Portfolio 重建環境時，`dotnet ef database update` 建表，啟動時自動 Seed，兩步即可完全就緒。
+
+### 決策二：NavModule 兩層結構——自參照（方案 A）vs 拆兩張表（方案 B）
+
+選擇自參照（方案 A）：`RoleModulePermission.ModuleId` 永遠指向同一張 `NavModules` 表，不管是頂層模組還是子功能，FK 乾淨、查詢單純。方案 B 需要兩個 nullable FK 或兩張 Permission 表，nullable FK 是 DB 設計的壞味道，業界慣例也傾向自參照處理兩層層級的需求。
+
+### 決策三：角色不自建——沿用 AspNetRoles
+
+自建 Role 表意味著要再建一張 UserRole 中間表，但 `AspNetUserRoles` 已經存在，等於重複造輪子。沿用 Identity 的角色系統，使用者登入後 `ClaimsPrincipal` 已包含 Role 資訊，`NavService` 透過 `RoleManager.FindByNameAsync` 取得 RoleId，不需要任何額外的使用者-角色關聯查詢。
+
+### 決策四：兩個 DTO vs 一個 DTO
+
+```csharp
+// 方案 A（一個 DTO）
+public class NavModuleDto
+{
+    public List<NavModuleDto>? Children { get; set; }  // null 代表子層，但「null 代表子層」需要文件才能理解
+}
+
+// 方案 B（兩個 DTO）—— 選擇這個
+public class NavModuleDto { public List<NavChildDto> Children { get; set; } = new(); }
+public class NavChildDto  { /* 沒有 Children，型別本身就說明它不能再展開 */ }
+```
+
+選擇方案 B。型別名稱是自解釋的文件：`NavChildDto` 一看就知道是子層，不需要查 API 規格。更重要的是未來擴充彈性：如果子功能需要加 `BadgeCount`（紅點通知數）而頂層不需要，方案 B 只改 `NavChildDto` 即可，方案 A 只能在唯一的 DTO 上加 `int? BadgeCount`，讓型別開始說謊。
+
+### 決策五：permittedModuleIds 的 ToListAsync 時機
+
+```csharp
+// ❌ 錯誤：IQueryable 被使用兩次，打兩次 DB
+var permittedModuleIds = _context.RoleModulePermissions.Where(...).Select(r => r.ModuleId);
+navModules = ....Where(nm => permittedModuleIds.Contains(nm.Id));      // 第一次執行 SQL
+childNavModules = ....Where(cnm => permittedModuleIds.Contains(cnm.Id)); // 第二次執行 SQL
+
+// ✅ 正確：先具現化為 List，之後 Contains 是記憶體操作
+var permittedModuleIds = await _context.RoleModulePermissions
+    .Where(...).Select(r => r.ModuleId).ToListAsync();
+```
+
+`IQueryable` 在真正被消費前不執行 SQL，如果同一個 `IQueryable` 被用在兩個 `Contains` 裡，就是兩次 DB 往返。先 `ToListAsync()` 把結果存成 `List<int>`，之後的 `Contains` 在記憶體中完成，只打一次 DB。
+
+### 決策六：前端 API 結構——巢狀 vs 平鋪
+
+```json
+// 巢狀（選擇這個）
+[{ "name": "市場行情", "route": "/market", "children": [{ "name": "行情查詢" }] }]
+
+// 平鋪
+[{ "name": "市場行情", "parentId": null }, { "name": "行情查詢", "parentId": 1 }]
+```
+
+選擇巢狀結構：API 回傳的形狀直接對應 UI 的形狀。`TopNav` 用 `modules.map(m => m)` 渲染頂層頁籤，`SideNav` 用 `modules.find(m => path.startsWith(m.route))?.children` 渲染子功能，沒有任何額外的過濾或重組邏輯。
+
+### 決策七：Vite Proxy 設定
+
+前端開發時，`/api/*` 請求由 Vite dev server 攔截轉發至後端，避免瀏覽器 CORS 問題：
+
+```typescript
+// vite.config.ts
+server: {
+  proxy: {
+    '/api': {
+      target: 'https://localhost:7147',
+      changeOrigin: true,
+      secure: false,   // 本地開發憑證不驗證
+    }
+  }
+}
+```
+
+這個設定需要重啟 `npm run dev` 才能生效（vite.config 變更不支援 hot reload）。
+
+---
+
+## 前端版面結構
+
+```
+App.vue（三欄骨架）
+├── <TopNav />
+│     ├── Logo（mdi-sprout + 台灣農業平台）
+│     ├── 頂層模組頁籤（從 API 撈，useRoute().path 比對高亮）
+│     └── 登入按鈕（靜態，待後續 Auth 實作）
+└── <div class="content-area">
+    ├── <SideNav />（依路由顯示對應模組的 children）
+    └── <main><RouterView /></main>
+```
+
+`SideNav` 透過 `navStore.currentModule(route.path)` 計算當前模組，再渲染 `currentMod.children`，當路由切換至 `/food-safety` 或 `/pet` 時，因子功能尚未定義，`SideNav` 自動隱藏（`v-if="currentMod && currentMod.children.length > 0"`）。
+
+Icon 格式採 MDI CSS class 字串（`"mdi-chart-line"`），`npm install @mdi/font`，前端用 `<span :class="'mdi ' + module.icon" />` 渲染，DB 存的就是這個 class name，格式簡單且語意清楚。
+
+---
+
+## 驗收標準
+
+- Web 啟動時自動執行 `DbInitializer.SeedAsync`，`NavModules` 13 筆、`RoleModulePermissions` 26 筆正確存入。
+- `GET /api/nav/modules`（未帶 Token）回傳 Guest 角色的 4 個頂層模組，每個模組含正確的 `children` 陣列。
+- 前端啟動後，`TopNav` 顯示四個頂層模組頁籤，圖示正確渲染（MDI）。
+- 切換至 `/market` 時，`SideNav` 顯示行情查詢、天災記錄、休市日查詢、畜禽行情四個子功能。
+- 切換至 `/weather` 時，`SideNav` 顯示對應的五個子功能。
+- 切換至 `/food-safety` 或 `/pet` 時，`SideNav` 不顯示（無子功能）。
+- 路由切換時，`TopNav` 頁籤高亮正確跟著當前路由移動。
+
+---
+
+## 檔案異動清單
+
+### 後端新增
+
+| 檔案 | 說明 |
+|------|------|
+| `TaiwanAgri.Core/Entities/NavModule.cs` | 自參照 Entity，含 Parent + Children 導覽屬性 |
+| `TaiwanAgri.Core/Entities/RoleModulePermission.cs` | 複合 PK，RoleId 邏輯 FK |
+| `TaiwanAgri.Core/Dtos/NavModuleDto.cs` | 頂層模組 DTO，含 `List<NavChildDto> Children` |
+| `TaiwanAgri.Core/Dtos/NavChildDto.cs` | 子功能 DTO，無 Children（型別即語意） |
+| `TaiwanAgri.Core/Services/INavService.cs` | 服務介面，`GetNavModulesAsync(bool, string?)` |
+| `TaiwanAgri.Core/Services/NavService.cs` | 三段式查詢實作 |
+| `TaiwanAgri.Core/Infrastructure/DbInitializer.cs` | Seed 4 頂層 + 9 子功能 + Guest/Admin 26 筆權限 |
+| `TaiwanAgri.Core/Infrastructure/Data/Migrations/…AddNavModuleAndRoleModulePermission.cs` | core schema Migration |
+| `TaiwanAgri.Web/Controllers/NavController.cs` | `[AllowAnonymous]` GET /api/nav/modules |
+
+### 後端修改
+
+| 檔案 | 異動內容 |
+|------|---------|
+| `TaiwanAgri.Core/Infrastructure/Data/CoreDbContext.cs` | 補 `DbSet<NavModule>`、`DbSet<RoleModulePermission>`、`OnModelCreating` 設定 |
+| `TaiwanAgri.Web/Program.cs` | `async Task Main`、`AddRoles<IdentityRole>`、`AddDbContext<CoreDbContext>`、`DbInitializer.SeedAsync`、`AddScoped<INavService, NavService>` |
+
+### 前端新增
+
+| 檔案 | 說明 |
+|------|------|
+| `src/api/nav.ts` | axios 封裝，`NavModule` + `NavChild` interface |
+| `src/stores/nav.ts` | Pinia store，`modules`、`loadModules`、`currentModule` |
+| `src/components/TopNav.vue` | MDI icon + 動態頁籤 + useRoute 高亮 |
+| `src/components/SideNav.vue` | 依路由顯示子功能 children |
+| `src/views/PlaceholderView.vue` | 施工中佔位頁（Weather / FoodSafety / Pet 子路由用） |
+
+### 前端修改
+
+| 檔案 | 異動內容 |
+|------|---------|
+| `src/App.vue` | 改為三欄結構（TopNav + SideNav + RouterView），`onMounted` 觸發 `loadModules` |
+| `src/router/index.ts` | 新增 `/weather`、`/food-safety`、`/pet`、weather 子路由 |
+| `src/main.ts` | 引入 `@mdi/font/css/materialdesignicons.css` |
+| `vite.config.ts` | 新增 `server.proxy`（/api → https://localhost:7147） |
+| `package.json` | 新增 `@mdi/font` 相依 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 的核心是「動態 vs 靜態」的架構選擇。寫死的 Navbar 很簡單，但每次新增模組就要改程式碼；動態的 Navbar 需要 Entity、Migration、Seed、Service、Controller、前端 Store 一整條鏈，但之後新增模組只需要改 `DbInitializer` 一個檔案，其他都自動跟著更新。
+
+注意 `NavService` 三段式查詢的設計：每一段各自完成一個明確的任務，第一段不碰 DB，第二段全部是 DB 查詢（並且刻意讓 `permittedModuleIds` 先具現化），第三段全部是記憶體操作。這樣的切割讓每一段都容易閱讀和測試，也讓 DB 往返次數是可預測的（固定三次，而不是 N+1）。
+
+`NavChildDto` 沒有 `Children` 屬性這件事，不是疏漏，是設計。型別本身在說：「這一層不能再展開」。這是「型別即文件」的具體體現。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
