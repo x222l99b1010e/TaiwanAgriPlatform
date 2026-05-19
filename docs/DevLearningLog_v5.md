@@ -3945,10 +3945,106 @@ Production-grade 的系統需要持久化的 log。Console logger 是開發工�
 
 新加一個背景服務或定時任務時，第一件事確認：「這個服務的 log 會存在哪裡，我事後可以看嗎？」如果只有 Console，評估是否需要加 Serilog File sink。`retainedFileCountLimit` 一定要設定，不要讓 log 無限累積。
 
+---
+
+### 條目 126 — 診斷閉環：索引補完後的驗證，以及「確認不改」的工程意義
+
+**我做了什麼**
+
+這個條目是條目 112（統計資料失真）和條目 113（nvarchar(4000) 參數型別不符）的後續驗證。5/15 的診斷結束時，我找到了根本原因（nvarchar(4000)）、找到了繞過解法（兩段式），但也識別出一個殘留的技術債：`MarketInfos.MarketType` 欄位缺少索引，兩段式的第一段走的是全表掃描。PR #024 補上這個索引後，依計畫驗證原始 JOIN 版能否恢復，結論是不能。
+
+**我遇到的問題**
+
+索引補完後，原本以為「型別不符讓索引失效」這個問題應該可以被索引本身「繞過」——有了索引，SQL Server 應該更傾向使用它，即使參數型別不完全符合。但驗證結果是仍然逾時，EF Core SQL log 又出現了 `Parameters=[p0='?' (Size = 4000)]`。
+
+**我怎麼想通的**
+
+索引的作用是「告訴 SQL Server 這個欄位可以用更快的方式查找」，但使用索引的前提是「查詢條件和索引欄位的型別必須相容」。`nvarchar(4000)` 的參數要比對一個 `nvarchar(20)` 的欄位，SQL Server 的型別相容規則不允許直接使用索引——它必須做隱式型別轉換，而轉換本身就讓索引失效。索引的存在與否不改變這個型別層面的根本限制。
+
+這個驗證雖然沒有帶來「修好了」的結果，但它帶來了「確認判斷是正確的」這個價值。5/15 的診斷是在時間壓力下推斷的，PR #024 的驗證在沒有壓力的情況下把這個推斷變成了有實驗依據的結論。
+
+另一個值得記錄的是「確認不改」本身是一個工程動作。技術上可以在 Entity 設定中加上 `.HasColumnType("nvarchar(20)")` 來修正 EF Core 的參數型別送出行為，這樣 JOIN 版就能恢復。但這需要修改 Entity、跑額外 Migration、驗證資料長度，而現有的兩段式已被測試有效、效能可接受。在技術債代價 vs 收益的評估下，「確認不改」是比「因為能改就改」更成熟的判斷——差別在於一個是有意識的決策，一個是習慣性的行動。
+
+**我學到的原則**
+
+診斷工作的閉環不只是「找到原因、修好問題」，也包括「在非緊急情境下驗證緊急情境下的推斷是否正確」。5/15 的診斷是在故障排查的壓力下進行的，當時的結論是推斷，不是實驗結果。PR #024 的驗證把它升格為確認。這個習慣讓「技術債的記錄」從「我猜這是原因所以這樣做」變成「我驗證過這是原因，這是我做的決策和依據」，後者在面試或文件回顧時說服力更強。
+
+**下次遇到類似情況，我會先想到什麼**
+
+緊急修復後，如果當時有識別出「這是暫時解法、根本原因還需要補完」，排出時間做驗收閉環。即使驗收結論是「暫時解法就是長期解法」，記錄驗證過程也比讓它停留在猜測狀態更好。
 
 ---
 
+### 條目 127 — EF Core Migration 的多專案架構：-Project 和 -StartupProject 的分工邏輯
 
+**我做了什麼**
+
+在多專案的解決方案裡執行 EF Core Migration，踩到「Your target project doesn't match your migrations assembly」的錯誤，透過加入 `-Project` 和 `-StartupProject` 參數解決。
+
+**我遇到的問題**
+
+直接執行 `Add-Migration ... -Context MarketDbContext` 報錯，EF Core CLI 抱怨 target project 和 migrations assembly 不吻合。
+
+**我怎麼想通的**
+
+EF Core 的 Migration 命令需要兩個完全不同性質的定位點，理解它們的職責分工就能理解為什麼需要各自指定。
+
+「把生成的 Migration 檔案存在哪裡？」這是 `-Project` 的責任。它指向包含 `DbContext` 的專案，也就是 `TaiwanAgri.Modules.Market`，Migration 檔案會產生在這個專案的 `Data/Migrations/` 資料夾下。
+
+「執行時從哪裡取得 DI 設定和 Connection String？」這是 `-StartupProject` 的責任。它指向可執行的進入點，也就是 `TaiwanAgri.Worker`，EF Core 需要從這裡找到 `AddDbContext<MarketDbContext>` 的設定和對應的 Connection String。
+
+```
+Add-Migration AddMarketInfosMarketTypeIndex
+  -Context MarketDbContext
+  -Project TaiwanAgri.Modules.Market     ← Migration 存放位置（DbContext 所在）
+  -StartupProject TaiwanAgri.Worker      ← DI + Connection String 來源（啟動專案）
+```
+
+這兩個定位點分開是架構的必然結果，而不是 EF Core 的設計缺陷。乾淨的模組化架構讓 `DbContext` 定義在業務模組層，啟動和設定屬於應用層，兩個職責分別在不同的 csproj，所以需要分別告訴 EF Core。Package Manager Console 的 Default Project 下拉選單只控制 `-Project`，不控制 `-StartupProject`，這是容易造成誤解的地方。
+
+`Designer.cs` 和更新後的 `MarketDbContextModelSnapshot.cs` 是 EF Core 自動產生的，不需要手動維護，但每次 PR 都應該包含這兩個檔案。`Designer.cs` 記錄這次 Migration 時的 Model 狀態，`ModelSnapshot.cs` 是最新的完整 Schema 快照——它是整個資料庫 Schema 的「代碼版」，是 EF Core 判斷「下一個 Migration 需要產生什麼 SQL」的依據。
+
+**我學到的原則**
+
+多專案架構下，EF Core Migration 的完整命令格式幾乎每次都需要 `-Project` 和 `-StartupProject` 兩個參數。把這個命令格式記錄在專案的 README 或開發文件裡，可以節省每次開新 Migration 時重新查文件的時間。`ModelSnapshot.cs` 每次 PR 都要包含，漏掉它會讓下一個 Migration 產生的 SQL 基準狀態不正確。
+
+**下次遇到類似情況，我會先想到什麼**
+
+多個 csproj 的解決方案裡跑 Migration，直接用完整格式：`Add-Migration [Name] -Context [ContextName] -Project [DbContext所在] -StartupProject [啟動專案]`。遇到「migrations assembly mismatch」報錯，第一反應就是補這兩個參數。
+
+---
+
+### 條目 128 — 「決定不改」也是工程決策：技術債的代價 vs 收益框架
+
+**我做了什麼**
+
+在 PR #024 的決策過程中，面對三個可以讓 JOIN 版走索引的技術解法，最終選擇了「不改代碼，保留兩段式現狀，補充診斷說明」。這個「決定不改」的過程值得記錄，因為它不是因為懶，而是一個有意識的評估結果。
+
+**我遇到的問題**
+
+「明明找到了問題的根本原因（nvarchar(4000) 型別不符），為什麼不直接修掉？」這個問題合理，但它隱含了一個假設：「找到根本原因就應該修根本原因」。這個假設忽略了「修」這件事本身也有代價。
+
+**我怎麼想通的**
+
+把三個選項的代價和收益並列評估，答案就清楚了。
+
+第一個選項是在 Entity 設定中明確宣告欄位型別（`.HasColumnType("nvarchar(20)")`），讓 EF Core 送出正確長度的參數。這讓 JOIN 版可以恢復、代碼最乾淨。但它需要修改 Entity 設定、跑額外 Migration、驗證現有資料裡 `MarketType` 的實際長度沒有超過宣告值——如果有任何資料超長，Migration 會失敗。這是一個代價不低的 schema 變更。
+
+第二個選項是改用 `Database.SqlQueryRaw` 直接寫 SQL 並帶入 query hint。但 5/15 的測試已確認，即使 `RECOMPILE` 也無法解決型別不符問題，而且直接寫 Raw SQL 會失去 EF Core LINQ 的型別安全和可讀性，是一種設計退步。
+
+第三個選項是保持現有的兩段式，它已被測試有效，效能（約 4 秒）在可接受範圍，不需要任何代碼修改，只需要補充清楚的診斷說明。
+
+選擇第三個選項。「技術債的代價 vs 收益」的正確評估框架是三個問題：現在改的代價是什麼（時間、風險、測試工作），改完的收益是什麼（效能提升多少、代碼多乾淨），現在不改而以後改的代價是什麼（維護者困惑、債務累積）。在這個場景裡，第一個問題的答案是「不低」，第二個問題的答案是「邊際效益小（效能已可接受）」，第三個問題的答案是「靠診斷說明可以大幅降低」。三個答案合起來支持保留現狀。
+
+補充診斷說明是這個決策裡代價最低但價值最高的動作：寫四行注釋，讓下一個人（包括幾個月後的自己）不需要重新排查，不需要重新踩一遍 OPTIMIZE FOR UNKNOWN 失效和 RECOMPILE 失效的路徑，直接從結論開始思考「如果以後要改，往哪個方向」。沒有說明的 comment 掉的代碼是技術債，有清楚說明的 comment 掉的代碼是已知的設計限制——兩者之間的差距只是幾行文字。
+
+**我學到的原則**
+
+每次遇到「技術上可以改，但要不要改」的問題，先用三個問題的框架評估，而不是靠直覺或習慣。「找到根本原因就應該修根本原因」只有在「修的代價遠小於不修的代價」的時候才成立，而這個條件需要評估，不能假設。「記錄診斷結論」是低代價高價值的投資，讓任何關於「要不要改」的未來決策都有完整的背景可以參考。
+
+**下次遇到類似情況，我會先想到什麼**
+
+找到問題根本原因之後，先問「修這個的代價是什麼」，再問「不修的代價是什麼」。如果決定不修，一定留下「為什麼不修，以及如果以後要修，方向在哪裡」的說明。這個說明的受眾不是現在的自己，而是三個月後什麼都不記得的自己。
 
 ---
 

@@ -57,6 +57,9 @@ namespace TaiwanAgri.Modules.Market.Data
 				entity.HasIndex(e => new { e.MarketCode, e.MarketName })
 						.HasDatabaseName("IX_MarketInfos_MarketCode_MarketName")
 						.IsUnique();
+
+				entity.HasIndex(e => new { e.MarketType })
+						.HasDatabaseName("IX_MarketInfos_MarketType");
 			});
 			modelBuilder.Entity<CropInfo>(entity =>
 			{

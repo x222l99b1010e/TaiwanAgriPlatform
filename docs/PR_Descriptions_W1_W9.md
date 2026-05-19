@@ -2266,6 +2266,179 @@ Serilog 的 outputTemplate 格式正確（`yyyy-MM-dd HH:mm:ss [LEVEL] Message`�
 
 ---
 
+# PR #024 — W12 技術債補丁：MarketInfos.MarketType 索引 + GetCropsAsync 診斷閉環
+
+**標題**：`perf(market): W12 MarketInfos.MarketType Migration 索引補丁 + EF Core nvarchar(4000) 診斷閉環 + GetCropsAsync 兩段式查詢保留說明`
+
+---
+
+## 背景與動機
+
+這個 PR 的起點不是今天，而是 5/15 的一次生產障礙排查。
+
+### 5/15 的事件：「資料量最小的反而最慢」
+
+5/15 當天沒有任何程式碼異動，但 `GET /api/market/crops?marketType=Fruit` 開始回傳 500 逾時。蔬菜（578 萬筆）和花卉（355 萬筆）完全正常，只有水果（9.5 萬筆）失敗——資料量最小的反而最慢，這個反直覺的現象是整個診斷的起點。
+
+**第一階段：誤判為統計資料失真**。把失敗的 SQL 直接在 SSMS 帶入 `N'Fruit'` 執行，跑了 62 秒，確認問題在資料庫層。執行 `UPDATE STATISTICS ... WITH FULLSCAN` 和 `DBCC FREEPROCCACHE` 後，查詢暫時恢復，但很快三個類型全部變慢。清掉快取後，蔬菜的大資料量查詢先被執行，SQL Server 編譯了一份「針對大資料量最佳化」的計畫並快取，Fruit 沿用這份計畫後效果極差。這指向了 Parameter Sniffing（參數嗅探）問題。
+
+**第二階段：逐一測試查詢 hint，全部失敗**。依序嘗試了 `OPTION (OPTIMIZE FOR UNKNOWN)`（讓優化器用統計平均值估算）和 `OPTION (RECOMPILE)`（每次執行都重新編譯）——兩個都仍然逾時。此時觀察 EF Core 的 SQL log，出現一行關鍵資訊：
+
+```
+Parameters=[p0='?' (Size = 4000)]
+```
+
+EF Core 對 C# `string` 型別的參數，一律送出 `nvarchar(4000)` 。`MarketType` 欄位的實際型別是較短的 `nvarchar`，兩者長度不符，SQL Server 放棄使用索引，退回全表掃描。這就是為什麼 SSMS 帶字面值 3 秒、App 傳參數逾時：字面值讓優化器直接知道要比對什麼，參數則讓它只知道「有個 nvarchar(4000) 的值」，連 RECOMPILE 也無法解決這個型別層面的根本問題。
+
+**第三階段：找到繞過路徑，兩段式查詢**。解法是把一支三表 JOIN 拆成兩段：第一段從 `MarketInfos` 拿到具體的 MarketCode 清單，第二段的 `IN` 子句傳這些具體值，完全繞開 EF Core 的 nvarchar(4000) 參數路徑：
+
+```csharp
+// Step 1：先拿 MarketCodes（小表，幾筆，結果是具體字串值）
+var marketCodes = await _context.MarketInfos
+    .Where(m => m.MarketType == marketType)
+    .Select(m => m.MarketCode)
+    .ToListAsync();
+
+// Step 2：IN (marketCodes) 傳的是具體值，SQL Server 能正確判斷型別
+var crops = await _context.CropInfos
+    .Where(c => c.CropName != "" &&
+                _context.AgriProductsTrans
+                    .Where(a => marketCodes.Contains(a.MarketCode))
+                    .Select(a => a.CropCode)
+                    .Contains(c.CropCode))
+    .Select(c => new CropResponseDto { CropCode = c.CropCode, CropName = c.CropName })
+    .Distinct()
+    .ToListAsync();
+```
+
+兩段式有效，最慢約 4 秒，對下拉選單初始化可接受。同一次排查中也發現 `MarketInfos` 完全缺少 `MarketType` 的索引，兩段式 Step 1 目前走全表掃描，記錄為待補技術債。
+
+### 這個 PR 的定位
+
+這個 PR 是 5/15 診斷工作的後續閉環：補上當時確認缺少的索引，並驗證索引加上後原始 JOIN 版能不能恢復（結論是不能，nvarchar(4000) 在索引層面無解，兩段式是正確的長期決策）。
+
+---
+
+## 實作內容
+
+### 步驟一：補 MarketDbContext 索引設定
+
+在 `OnModelCreating` 的 `MarketInfo` entity 區塊加入單欄索引：
+
+```csharp
+modelBuilder.Entity<MarketInfo>(entity =>
+{
+    entity.ToTable("MarketInfos", schema: "market");
+
+    entity.HasIndex(e => new { e.MarketCode, e.MarketName })
+            .HasDatabaseName("IX_MarketInfos_MarketCode_MarketName")
+            .IsUnique();
+
+    // 新增：MarketType 過濾索引，優化兩段式查詢第一段的效能
+    entity.HasIndex(e => new { e.MarketType })
+            .HasDatabaseName("IX_MarketInfos_MarketType");
+});
+```
+
+這個索引讓兩段式的 Step 1（`WHERE m.MarketType = @value`）從全表掃描升級為 Index Seek。`MarketInfos` 資料量本身不大，即時效益有限，但索引建立後任何依 `MarketType` 過濾的查詢都能受益。
+
+### 步驟二：跑 EF Core Migration
+
+```
+PM> Add-Migration AddMarketInfosMarketTypeIndex
+    -Context MarketDbContext
+    -Project TaiwanAgri.Modules.Market
+    -StartupProject TaiwanAgri.Worker
+```
+
+`-Project` 和 `-StartupProject` 分開指定，是多專案架構的必要設定：`MarketDbContext` 定義在模組層，Connection String 和 DI 設定在啟動層，EF Core 需要知道「Migration 存在哪」和「DI 從哪裡取得」這兩個不同的位置。
+
+產生的 Migration 結構符合預期，`Down` 方法確保索引變更可以回滾：
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.CreateIndex(
+        name: "IX_MarketInfos_MarketType",
+        schema: "market",
+        table: "MarketInfos",
+        column: "MarketType");
+}
+
+protected override void Down(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.DropIndex(
+        name: "IX_MarketInfos_MarketType",
+        schema: "market",
+        table: "MarketInfos");
+}
+```
+
+### 步驟三：驗證 JOIN 版，確認無法恢復
+
+索引補完後，嘗試把 comment 掉的 JOIN 版恢復，結果仍然 500 逾時，EF Core SQL log 再次出現 `Parameters=[p0='?' (Size = 4000)]`。這個驗證結果確認了 5/15 的判斷：nvarchar(4000) 問題在索引層面無解，兩段式是正確的長期解法。
+
+### 步驟四：補診斷說明到 GetCropsAsync
+
+在 comment 掉的 JOIN 版旁補診斷說明：
+
+```csharp
+// JOIN 版因 EF Core 對 string 參數送出 nvarchar(4000)，與 MarketType 欄位型別不符，
+// 導致索引失效（Index Seek 退化為 Table Scan）加上 JOIN 計算，查詢逾時。
+// 5/15 診斷確認（條目 112、113），兩段式 IN 查詢繞過型別不符問題，效能約 4 秒以內。
+// IX_MarketInfos_MarketType 索引已補入，優化第一段查詢的 MarketType 過濾效能。
+```
+
+---
+
+## 關鍵設計決策
+
+### 決策一：索引仍然值得補，即使它無法讓 JOIN 版恢復
+
+補這個索引的動機不是「讓 JOIN 版可用」，而是「讓現有的兩段式更快，並為未來的查詢鋪路」。這是 5/15 排查中已識別的缺失，補上它是閉環診斷工作的必要步驟。「現在資料量小所以不需要索引」是一個常見的錯誤判斷，正確的思考是「這個欄位的查詢模式決定索引的必要性，不是當前的資料量」。
+
+### 決策二：nvarchar(4000) 問題為什麼不在 Entity 層直接修
+
+從技術上，在 Entity 設定中明確宣告欄位型別（`.HasColumnType("nvarchar(20)")`）可以讓 EF Core 送出正確長度的參數，這是讓 JOIN 版可用的最乾淨解法。但它需要修改 Entity 設定、跑額外 Migration、驗證現有資料長度不超限，代價不低；而現有的兩段式已被 5/15 的測試確認有效，效能在可接受範圍。技術債的處理原則不是「能修就修」，而是「代價 vs 收益」——這次的評估是保留兩段式、補好文件，把 Entity 型別宣告留作未來有需要時的選項。
+
+### 決策三：「SSMS 快、App 慢」是診斷 nvarchar(4000) 的特徵信號
+
+5/15 的診斷揭露了一個可重複使用的信號：同一支 SQL 在 SSMS 帶字面值快，但透過 EF Core 傳參數慢，根本原因幾乎可以確定是參數型別問題。在 EF Core SQL log 裡的對應特徵是 `Parameters=[p0='?' (Size = 4000)]`，看到這行，就是 nvarchar(4000) 的問題。即使是 `RECOMPILE`、`OPTIMIZE FOR UNKNOWN` 這類針對執行計畫快取的 hint，在型別不符的情況下也無效，因為問題發生在更底層（型別比對），而不是在計畫選擇層。
+
+---
+
+## 驗收標準
+
+`Update-Database` 執行後，SSMS 查詢 `sys.indexes WHERE object_id = OBJECT_ID('market.MarketInfos')` 能看到 `IX_MarketInfos_MarketType` 出現在結果清單中。
+
+`GET /api/market/crops?marketType=Fruit`（以及 Veg、Flower）在 4 秒以內回傳正確資料，不出現 500 逾時。
+
+`GetCropsAsync` 的 JOIN 版保持 comment 狀態，並帶有說明 nvarchar(4000) 根本原因及參考條目的診斷說明。
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動內容 |
+|------|---------|
+| `TaiwanAgri.Modules.Market/Data/MarketDbContext.cs` | `MarketInfo` entity 設定補 `IX_MarketInfos_MarketType` |
+| `TaiwanAgri.Modules.Market/Data/Migrations/20260519150011_AddMarketInfosMarketTypeIndex.cs` | 新增 Migration，`Up` 建索引，`Down` 移除 |
+| `TaiwanAgri.Modules.Market/Data/Migrations/20260519150011_AddMarketInfosMarketTypeIndex.Designer.cs` | EF Core 自動產生的 Migration 設計器快照 |
+| `TaiwanAgri.Modules.Market/Data/Migrations/MarketDbContextModelSnapshot.cs` | EF Core 自動更新的 Model 快照，反映最新索引設定 |
+| `TaiwanAgri.Modules.Market/Services/MarketService.cs` | `GetCropsAsync` 補診斷說明，JOIN 版維持 comment |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 展示的不只是「加一個索引」，而是一次完整診斷週期的閉環：問題出現（5/15 逾時）→ 診斷根本原因（統計資料失真誤判、Parameter Sniffing 確認、nvarchar(4000) 根本原因找到）→ 找到可行解法（兩段式）→ 識別殘留技術債（缺索引）→ 補齊技術債並驗證（這個 PR）→ 確認長期決策（JOIN 版不恢復，兩段式是正確解）。
+
+5/15 的診斷歷程嘗試了統計資料更新、OPTIMIZE FOR UNKNOWN、RECOMPILE 三個方向，全部失效，最後才找到 nvarchar(4000) 的根本原因。這個「逐一排除假設」的過程不是走彎路，而是效能診斷的正確姿勢，每一個失敗的嘗試都縮小了問題的可能範圍。能在面試中完整敘述這個排查過程，遠比只說「我加了個索引然後它就好了」更有說服力，因為它展示的是系統性的問題解決能力。
+
+`MarketDbContextModelSnapshot.cs` 被自動修改的這件事也值得理解：這個檔案是 EF Core 維護的「當前資料庫 Schema 的 C# 表示」，每次跑 Migration 都會自動更新，不需要手動維護，但每次 PR 都應該包含它，因為它是整個 Schema 狀態的單一真實來源。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

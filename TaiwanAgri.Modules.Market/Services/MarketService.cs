@@ -103,19 +103,19 @@ namespace TaiwanAgri.Modules.Market.Services
 		{
 			// 1. 定義查詢邏輯
 			//var crops = await (from c in _context.CropInfos
-			//			join t in _context.AgriProductsTrans
-			//				on c.CropCode equals t.CropCode
-			//			join m in _context.MarketInfos
-			//				on t.MarketCode equals m.MarketCode
-			//			where m.MarketType == marketType
-			//			   && c.CropName != ""
-			//			// 2. 執行 Distinct 去重，並異步轉換成 List
-			//			// 注意：Distinct 必須放在 Select 之後，確保是針對 CropCode + CropName 組合進行去重
-			//			select new CropResponseDto
-			//			{
-			//				CropCode = c.CropCode,
-			//				CropName = c.CropName
-			//			})
+			//				   join t in _context.AgriProductsTrans
+			//					   on c.CropCode equals t.CropCode
+			//				   join m in _context.MarketInfos
+			//					   on t.MarketCode equals m.MarketCode
+			//				   where m.MarketType == marketType
+			//					  && c.CropName != ""
+			//				   // 2. 執行 Distinct 去重，並異步轉換成 List
+			//				   // 注意：Distinct 必須放在 Select 之後，確保是針對 CropCode + CropName 組合進行去重
+			//				   select new CropResponseDto
+			//				   {
+			//					   CropCode = c.CropCode,
+			//					   CropName = c.CropName
+			//				   })
 			//			.Distinct()
 			//			.ToListAsync();
 
