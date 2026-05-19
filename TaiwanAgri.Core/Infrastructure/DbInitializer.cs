@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Entities;
 using TaiwanAgri.Core.Infrastructure.Data;
 
@@ -8,6 +9,14 @@ namespace TaiwanAgri.Core.Infrastructure
 	{
 		public static async Task SeedAsync(CoreDbContext coreContext, RoleManager<IdentityRole> roleManager)
 		{
+			// 檢查是否有尚未套用的 Migration，若有則提早拋出友善錯誤，避免後續操作資料表時才爆掉
+			var pendingMigrations = await coreContext.Database.GetPendingMigrationsAsync();
+			if (pendingMigrations.Any())
+				throw new InvalidOperationException(
+					$"CoreDbContext 有 {pendingMigrations.Count()} 筆尚未套用的 Migration，" +
+					$"請先執行 Update-Database 再啟動應用程式。\n" +
+					$"待套用：{string.Join(", ", pendingMigrations)}");
+
 			await SeedRoleAsync(roleManager);
 			await SeedNavModulesAsync(coreContext);
 			await SeedRoleModulePermissionsAsync(coreContext, roleManager);

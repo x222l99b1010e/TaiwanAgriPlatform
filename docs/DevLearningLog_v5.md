@@ -4048,6 +4048,155 @@ Add-Migration AddMarketInfosMarketTypeIndex
 
 ---
 
+### 條目 129 — Chart.js options 不是可選的：空物件等於全部用預設值
+
+**我做了什麼**
+
+把 `PriceChart.vue` 裡 `buildChart` 的 `options: { /* 原本的 options 不變 */ }` 換成完整的設定，包含響應式、軸線樣式、tooltip 深色主題和 legend 位置。這個注釋代表的是「待補」，但實際上是空物件——Chart.js 全部使用預設值。
+
+**我遇到的問題**
+
+圖表渲染出來的樣式和整個系統的深色主題完全不一致：白色 legend 文字、白底 tooltip、淺灰格線。這些都是 Chart.js 預設值，在白色背景的系統上合理，在 `#161c18` 深色背景上完全不搭。問題不在程式碼有 bug，而在「沒有設定」本身就是一種選擇，選擇了預設值。
+
+**我怎麼想通的**
+
+Chart.js 的 `options` 物件裡的每一個屬性都有預設值，開發者不設定就等於接受預設值。`options: {}` 和 `options: { responsive: true, maintainAspectRatio: true, ... }` 在執行效果上是一樣的——差別只在於後者是顯式地選擇了某個值，而前者是隱式地接受了同樣的值。隱式接受的代價是「不知道自己接受了什麼」，一旦需要覆蓋某個預設值，就要先去查文件才知道要覆蓋哪個鍵。
+
+補完 options 的過程也讓幾個設計細節變得清晰。`maintainAspectRatio: false` 是讓 Chart.js 把高度控制權交還給 CSS，一旦設定了 `.canvas-wrap { height: 400px }`，就需要這個設定讓圖表真的用那個高度，否則 Chart.js 的比例計算會覆蓋 CSS 設定的高度。`interaction.mode: 'index'` 讓 hover 同時顯示所有資料集在那個 X 位置的值，對多條線比較的場景特別有用；預設的 `'nearest'` 只顯示最近的那條線，使用者需要精準 hover 到每條線才能看到各別的資料。Tooltip 的 `backgroundColor` 設為接近背景色的深色（`rgba(22, 30, 24, 0.92)`），而不是純黑，因為純黑在深色主題上太突兀，半透明的深色有「浮在畫面上」而不是「蓋在畫面上」的感覺。
+
+**我學到的原則**
+
+任何需要「設定一次、永遠生效」的視覺元素，都應該在初始化時明確設定所有需要的屬性，不依賴框架的預設值。依賴預設值是一種隱性的依賴關係，框架版本升級時預設值可能改變，你的視覺效果就會在完全沒有改動程式碼的情況下改變。明確設定代表「我知道我選擇了什麼」，不明確設定代表「我接受了一個隨時可能改變的值」。
+
+**下次遇到類似情況，我會先想到什麼**
+
+引入新的視覺元件（Chart.js、Leaflet、Quill）時，第一件事是找到該框架的「主題設定」入口，把所有視覺相關的屬性顯式設定一遍，確認和系統的設計語言一致。不要讓「留著之後補」的空物件留在程式碼裡。
+
+---
+
+### 條目 130 — Hover Dropdown 的 DOM 邊界：padding 是你的，gap 不是
+
+**我做了什麼**
+
+實作 `TopNav.vue` 的 hover dropdown 子選單。第一版用 `top: calc(100% + 4px)` 在 tab 和 dropdown 之間留了 4px 的視覺間距，結果滑鼠從 tab 移往 dropdown 時 dropdown 會消失，無法點選。修正方式是把間距從「外部 gap」改成「元素內部 padding」，dropdown 行為恢復正常。
+
+**我遇到的問題**
+
+第一版的實作思路很直觀：tab 和 dropdown 之間有 4px 的視覺留白，就在 CSS 上設 4px 的 gap。結果是 dropdown 在滑鼠移過那 4px 的空白時就消失。
+
+**我怎麼想通的**
+
+`mouseenter` 和 `mouseleave` 是基於 DOM 元素的邊界觸發的。`.tab-wrapper` 是事件的監聽者，滑鼠在 wrapper 範圍內，`hoveredRoute` 保持有值；滑鼠離開 wrapper，`mouseleave` 觸發，`hoveredRoute` 變成 `null`，dropdown 消失。
+
+`top: calc(100% + 4px)` 讓 dropdown 在 `.tab-wrapper` 底部邊界的外面 4px 之後才開始。滑鼠從 tab 移往 dropdown 時，必須穿越這 4px 的空隙，這段路程不屬於任何 DOM 元素，`mouseleave` 在此觸發。
+
+解法是把間距從外部移到內部：
+
+```css
+/* ❌ 間距在元素外：滑鼠穿越時觸發 mouseleave */
+.tab-dropdown {
+  top: calc(100% + 4px);
+  padding: 6px;
+}
+
+/* ✅ 間距在元素內：滑鼠停在 padding 區域，不觸發 mouseleave */
+.tab-dropdown {
+  top: 100%;
+  padding: 4px 6px 6px;   /* 頂部 4px padding 取代原本的外部 gap */
+}
+```
+
+`padding` 是元素盒模型的一部分，滑鼠在 `padding` 區域時仍然在元素內部，不觸發 `mouseleave`。視覺上看起來有 4px 間距（padding 透明，背景不顯示），但 DOM 事件的邊界是連貫的。
+
+**我學到的原則**
+
+DOM 事件的邊界由元素的盒模型決定，不是由「視覺上看起來連在一起」決定。`padding`、`border` 都屬於元素，`margin` 和元素外的空隙不屬於。任何「hover 觸發、hover 維持」的互動，觸發元素和響應元素之間不能有 DOM 上的空隙；如果需要視覺間距，就用 `padding` 或 `pseudo-element` 填補，確保 hover 範圍連貫。
+
+**下次遇到類似情況，我會先想到什麼**
+
+實作任何 hover dropdown 時，CSS 預設用 `top: 100%`（無縫連接），視覺留白靠 `padding-top` 產生，絕對不用 `top: calc(100% + Npx)` 在外面留空隙。遇到 dropdown 在滑鼠移動時消失的 bug，第一個問題是：「觸發元素和響應元素之間有沒有 DOM 空隙？」
+
+---
+
+### 條目 131 — 用框架已有的功能：Chart.js 內建 Legend 的點擊切換
+
+**我做了什麼**
+
+在嘗試了自訂圖例面板（`cropVisibility` ref、`toggleCrop` 函式、自訂按鈕）之後，回到了 Chart.js 內建 legend 的點擊切換功能。最終的設定只有 `position: 'top'` 加上標籤樣式，三行。
+
+**我遇到的問題**
+
+自訂圖例面板走進了複雜性陷阱：`cropVisibility` ref、`maVisibility` ref、兩個 toggle 函式、圖例面板的 HTML 和 CSS。更嚴重的是發現了一個隱藏 bug——隱藏某條作物線時若從 `datasets` 陣列直接移除，其他作物的顏色索引跳號（橘色變成綠色、藍色變成橘色），整個色彩對應關係亂掉。
+
+**我怎麼想通的**
+
+Chart.js 的 legend 本來就有點擊切換功能，是框架的預設行為：點擊 legend 裡的任一條線名稱，Chart.js 自動切換那條線的顯示狀態，內部用 `hidden` 屬性處理（不從陣列移除，所以顏色索引固定）。不需要任何額外的程式碼，只需要設定 legend 的位置和樣式。
+
+```typescript
+legend: {
+  position: 'top' as const,
+  labels: {
+    color: 'rgba(190, 205, 195, 0.75)',
+    font: { size: 12 },
+    usePointStyle: true,
+    pointStyleWidth: 10,
+  },
+},
+```
+
+自訂圖例的所有複雜性歸零，連顏色索引偏移的 bug 也自動消失，因為 Chart.js 內部就是用 `hidden` 屬性處理的，從來不從陣列移除。
+
+這個經歷讓「造輪子」有了更具體的感受：造輪子最常見的形式不是「重新發明完全相同的東西」，而是「在框架內自己實作框架已提供的功能，但因為不熟悉框架，所以不知道它已經有了」。
+
+**我學到的原則**
+
+引入新功能之前，先查框架文件：「框架的這個部分有沒有內建的互動能力？」判斷標準不是「我能不能自己實作」，而是「框架的現有功能是否已夠用，且維護成本更低」。先用框架現有的，只有在真的不夠用時再自訂。自訂的代碼量永遠比框架提供的多，bug 也更多。
+
+**下次遇到類似情況，我會先想到什麼**
+
+在開始為某個 UI 互動寫自訂邏輯之前，先花五分鐘查框架文件：「這個元件有沒有內建的點擊/hover/切換行為？」有的話優先使用。只有在內建行為真的無法滿足需求時（例如需要額外顯示圖標、需要和外部狀態同步），才考慮自訂。
+
+---
+
+### 條目 132 — Fail-Fast 設計：讓錯誤盡早、盡可能靠近根本原因地出現
+
+**我做了什麼**
+
+在 `DbInitializer.SeedAsync` 的最前面加入 `GetPendingMigrationsAsync()` 的預檢，把「新人 clone 專案後忘記跑 Migration」這個情境從底層的 SqlException 換成啟動時的明確提示。
+
+**我遇到的問題**
+
+原本的行為：新人 clone 專案，啟動應用程式，在某個深層的資料庫操作時拋出 `Invalid object name 'core.NavModules'`。這個錯誤告訴你「這張表不存在」，但不告訴你「為什麼不存在，你應該怎麼辦」。開發者需要往上追 call stack，推斷是 Migration 問題，再想到要跑 `Update-Database`——這整個推斷過程是額外的認知負擔。
+
+**我怎麼想通的**
+
+問題的根本不在錯誤本身，而在「錯誤發生的時間點和位置」。`Invalid object name` 出現在 `context.NavModules.Any()` 被執行的瞬間，此時已經進入業務邏輯的深處。但 Migration 未套用這件事，在 `SeedAsync` 被呼叫之前就已經是事實——只是沒有人去檢查。
+
+Fail-Fast 的原則是：「知道前提條件沒有滿足，就立刻拋出錯誤，不要讓程式繼續走到它依賴這個前提條件的地方才爆炸。」EF Core 提供了 `GetPendingMigrationsAsync()` 讓我們可以在任何時間點查詢「有沒有待套用的 Migration」：
+
+```csharp
+var pendingMigrations = await coreContext.Database.GetPendingMigrationsAsync();
+if (pendingMigrations.Any())
+    throw new InvalidOperationException(
+        $"CoreDbContext 有 {pendingMigrations.Count()} 筆尚未套用的 Migration，" +
+        $"請先執行 Update-Database 再啟動應用程式。\n" +
+        $"待套用：{string.Join(", ", pendingMigrations)}");
+```
+
+這三行放在 `SeedAsync` 最前面，確保一進入方法就先確認前提條件成立。有問題就立刻拋出一個描述性的、有行動指引的錯誤訊息，讓開發者不需要任何診斷就知道要做什麼。
+
+「讓錯誤盡早出現」和「讓錯誤靠近根本原因出現」是兩個互相強化的目標。在 call stack 的深處爆出的錯誤，通常是一個症狀（表不存在），而不是根本原因（Migration 未套用）。越早拋出，越容易保持錯誤訊息的語意貼近根本原因。
+
+**我學到的原則**
+
+任何方法或流程有隱含的前提條件（資料庫 Schema 存在、外部服務可連線、設定值格式正確），就應該在入口處顯式地驗證這些前提條件，有問題就 Fail-Fast。「先跑完看看會不會壞」讓錯誤的出現位置偏離根本原因，增加診斷成本。驗證前提條件的代碼不是多餘的防禦，是讓系統「誠實」的必要步驟。
+
+**下次遇到類似情況，我會先想到什麼**
+
+寫一個有隱含前提條件的方法時，在方法最前面問：「這個方法依賴什麼才能正常執行？如果那個前提不成立，現在能知道嗎，還是要到很深的地方才會爆？」能提早知道，就提早驗證，提早拋出有行動指引的錯誤。`GetPendingMigrationsAsync()` 是 EF Core 提供的標準工具，任何在應用程式啟動時涉及資料庫操作的初始化方法都可以在入口加這個預檢。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。

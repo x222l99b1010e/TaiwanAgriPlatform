@@ -201,8 +201,63 @@ function buildChart() {
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
-    options: { /* 原本的 options 不變 */ },
-    plugins: [disasterPlugin],  // ← 加這行
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+      scales: {
+        x: {
+          ticks: {
+            maxTicksLimit: 12,
+            color: 'rgba(170, 185, 205, 0.55)',
+            font: { size: 11 },
+            // 完整顯示 YYYY-MM-DD，不截斷
+            callback(val: unknown, index: number) {
+              return (this as any).getLabelForValue(index) ?? String(val)
+            },
+          },
+          grid:   { color: 'rgba(255, 255, 255, 0.05)' },
+          border: { color: 'rgba(255, 255, 255, 0.08)' },
+        },
+        y: {
+          ticks: {
+            color: 'rgba(170, 185, 205, 0.55)',
+            font: { size: 11 },
+            callback: (val: unknown) => `${val} 元`,
+          },
+          grid:   { color: 'rgba(255, 255, 255, 0.05)' },
+          border: { color: 'rgba(255, 255, 255, 0.08)' },
+        },
+      },
+      plugins: {
+        tooltip: {
+          backgroundColor: 'rgba(22, 30, 24, 0.92)',
+          titleColor:      'rgba(200, 215, 200, 0.9)',
+          bodyColor:       'rgba(170, 190, 175, 0.8)',
+          borderColor:     'rgba(255, 255, 255, 0.10)',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: (ctx: any) =>
+              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
+          },
+        },
+        // 保留 Chart.js 內建 legend，點擊就能單獨關閉任一條線
+        legend: {
+          position: 'top' as const,
+          labels: {
+            color: 'rgba(190, 205, 195, 0.75)',
+            font: { size: 12 },
+            usePointStyle: true,
+            pointStyleWidth: 10,
+          },
+        },
+      },
+    },
+    plugins: [disasterPlugin],
   })
 }
 

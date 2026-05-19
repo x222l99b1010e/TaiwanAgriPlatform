@@ -2439,6 +2439,193 @@ protected override void Down(MigrationBuilder migrationBuilder)
 
 ---
 
+# PR #025 — 前端收尾補完 + DbInitializer Migration 狀態預檢
+
+**標題**：`feat(frontend+core): PriceChart options 深色主題 + TopNav hover dropdown（含間隙修正）+ SideNav 退場 + DbInitializer Fail-Fast 預檢`
+
+---
+
+## 背景與動機
+
+PR #024 完成了後端的索引技術債，這個 PR 收尾前端的三個待修項目，並補上一個後端的開發體驗改善。
+
+**PriceChart.vue 的 options 是空的**。`buildChart` 裡面有一行 `options: { /* 原本的 options 不變 */ }`，這個注釋代表「之後再補」，但它實際上是一個空物件，Chart.js 全部使用預設值：白色 legend 文字、白底 tooltip、灰色格線。在整個系統的深色主題（`#161c18` 背景）下，每次圖表渲染出來都顯得格格不入，是 Portfolio 展示上最明顯的視覺缺陷。
+
+**SideNav 的定位問題**。SideNav 在 PR #022 作為三欄佈局的一部分引入，但實際使用後發現：左側欄位佔用了相當的水平空間，而子路由導覽可以整合進 TopNav 的 hover dropdown，讓內容區域更寬，圖表的呈現更好。
+
+**DbInitializer 的靜默崩潰**。新人 clone 專案後若忘記跑 Migration，`SeedAsync` 直接對尚不存在的表操作，拋出的是底層的 `Invalid object name 'core.NavModules'` SqlException，沒有任何提示說明是 Migration 問題。這是一個典型的「讓開發者花時間在不必要的排查上」的開發體驗問題。
+
+---
+
+## 實作內容
+
+### PriceChart.vue — options 補完
+
+從空物件換成完整的設定，涵蓋響應式、軸線、tooltip 和 legend 四個面向：
+
+**響應式與尺寸控制**
+
+```typescript
+responsive: true,
+maintainAspectRatio: false,  // 高度由 .canvas-wrap { height: 400px } 決定
+```
+
+`maintainAspectRatio: false` 讓高度控制權交還給 CSS。Chart.js 預設會按畫布長寬比自動縮放高度，在窄視窗下圖表會被壓得很矮；設為 `false` 後，視窗縮放時只有寬度改變，高度維持穩定。
+
+**互動模式**
+
+```typescript
+interaction: {
+  mode: 'index' as const,  // 滑鼠靠近某 X 位置，同時顯示所有作物當天資料
+  intersect: false,         // 不需精準點到線上，靠近就觸發
+},
+```
+
+`mode: 'index'` 對多作物比較場景特別有用——滑鼠在圖表上移動時，所有作物當天的價格一起出現在 tooltip，不需要分別 hover 到每條線。
+
+**深色主題的軸線、格線、tooltip**
+
+軸線文字色 `rgba(170, 185, 205, 0.55)`，格線 `rgba(255, 255, 255, 0.05)`（極淡白，只是輔助線），tooltip 背景 `rgba(22, 30, 24, 0.92)`（接近背景色的深色半透明）。
+
+**Legend — 使用內建點擊切換**
+
+```typescript
+legend: {
+  position: 'top' as const,
+  labels: {
+    color: 'rgba(190, 205, 195, 0.75)',
+    font: { size: 12 },
+    usePointStyle: true,
+    pointStyleWidth: 10,
+  },
+},
+```
+
+Chart.js 內建 legend 點擊切換：點擊任一條線的名稱，那條線就會在圖表上隱藏或顯示，包含主線和 7 日均線都可以獨立控制。這個功能是 Chart.js 預設就有的，不需要任何自訂的 `cropVisibility` ref 或 `toggleCrop` 函式。
+
+### TopNav.vue — Hover Dropdown + 滑鼠間隙修正
+
+每個頂層模組的 tab 包在一個 `.tab-wrapper` div 裡，`mouseenter` 和 `mouseleave` 監聽在 wrapper 上，確保滑鼠從 tab 移到 dropdown 時不觸發 `mouseleave`：
+
+```vue
+<div
+  class="tab-wrapper"
+  @mouseenter="hoveredRoute = mod.route"
+  @mouseleave="hoveredRoute = null"
+>
+  <router-link :to="mod.route" class="tab" ...>...</router-link>
+  <div class="tab-dropdown" v-if="mod.children?.length > 0 && hoveredRoute === mod.route">
+    <router-link v-for="child in mod.children" ...>...</router-link>
+  </div>
+</div>
+```
+
+**滑鼠間隙問題的修正**是這次最有趣的 bug。原始實作用 `top: calc(100% + 4px)` 在 tab 和 dropdown 之間留了 4px 視覺間距，但這 4px 不屬於任何 DOM 元素，滑鼠穿越時觸發 `mouseleave`，dropdown 消失：
+
+```css
+/* ❌ gap 在元素外：滑鼠穿越時觸發 mouseleave */
+.tab-dropdown { top: calc(100% + 4px); padding: 6px; }
+
+/* ✅ 間距改成 padding：屬元素內部，不觸發 mouseleave */
+.tab-dropdown { top: 100%; padding: 4px 6px 6px; }
+```
+
+### App.vue — 佈局簡化
+
+移除 `SideNav` import 和 `<SideNav />` 元件，`.content-area` 的 flex 佈局一起移除，`.main-content` 直接作為 TopNav 之後的唯一內容區。
+
+### SideNav.vue — 退場
+
+子路由導覽功能已整合進 TopNav 的 hover dropdown，以 git delete 處理，保留 git 歷史方便日後查閱或還原。
+
+### DbInitializer.cs — Migration 狀態預檢（Fail-Fast）
+
+在 `SeedAsync` 最前面加三行，把錯誤抓在系統啟動時而不是操作資料表時：
+
+```csharp
+public static async Task SeedAsync(CoreDbContext coreContext, RoleManager<IdentityRole> roleManager)
+{
+    // Fail-Fast：有尚未套用的 Migration 就提早拋出，避免後續操作資料表時出現隱晦的 SqlException
+    var pendingMigrations = await coreContext.Database.GetPendingMigrationsAsync();
+    if (pendingMigrations.Any())
+        throw new InvalidOperationException(
+            $"CoreDbContext 有 {pendingMigrations.Count()} 筆尚未套用的 Migration，" +
+            $"請先執行 Update-Database 再啟動應用程式。\n" +
+            $"待套用：{string.Join(", ", pendingMigrations)}");
+
+    await SeedRoleAsync(roleManager);
+    await SeedNavModulesAsync(coreContext);
+    await SeedRoleModulePermissionsAsync(coreContext, roleManager);
+}
+```
+
+`GetPendingMigrationsAsync()` 是 EF Core 內建的方法，回傳所有「已在 Migrations 資料夾裡但尚未套用到資料庫」的 Migration 名稱清單。有任何待套用的 Migration，就提早拋出 `InvalidOperationException` 並列出清單，讓開發者立即知道要跑 `Update-Database`。
+
+改動前後的差異：
+
+| 情境 | 改動前 | 改動後 |
+|------|--------|--------|
+| 忘記跑 Migration | `Invalid object name 'core.NavModules'`（在深層 call stack 爆出） | 啟動時立即：`CoreDbContext 有 N 筆尚未套用的 Migration，請先執行 Update-Database` |
+| 正常啟動 | 不受影響 | 不受影響（`pendingMigrations.Any()` 為 false，直接繼續） |
+
+---
+
+## 關鍵設計決策
+
+### 決策一：使用 Chart.js 內建 Legend 而非自訂控制
+
+這個 PR 的前期曾嘗試自訂圖例面板（`cropVisibility` ref、`toggleCrop` 函式、自訂按鈕 HTML）。自訂版本的代碼量遠超圖表核心邏輯本身，而且有一個隱藏的顏色偏移 bug——隱藏某條線時若從 `datasets` 陣列移除，其他作物的顏色索引跳號，整個色彩對應關係亂掉。
+
+Chart.js 內建 legend 點擊切換：三行設定，零自訂邏輯，功能完全對等。選擇內建是「優先使用框架已有的功能」原則的具體應用——不要造已經有人做好的輪子。
+
+### 決策二：Hover 觸發 vs 點擊觸發 dropdown
+
+Hover 觸發只需要 `mouseenter` / `mouseleave`，邏輯單純；點擊觸發需要監聽 `document.click` 做 outside click 偵測，複雜度更高。對「快速切換子路由」的使用場景，hover 更流暢——滑鼠移過去 dropdown 出現，直接點選，移開後自動消失。選擇 hover 觸發，但需要處理 CSS 間隙問題（見上）。
+
+### 決策三：Fail-Fast vs 讓錯誤在底層爆出
+
+`SeedAsync` 在操作資料表之前先檢查 Migration 狀態，有問題就提早拋出，而不是等到 `context.NavModules.Any()` 的那一刻才因為表不存在而爆炸。Fail-Fast 原則的核心是：「越早發現問題，越容易診斷，錯誤訊息越接近根本原因」。把 `Invalid object name` 換成 `請先執行 Update-Database`，不是讓系統更寬容，而是讓系統更誠實——它知道問題在哪，就直接說。
+
+### 決策四：SideNav 退場而非改良
+
+SideNav 本來可以改成可收合的側欄，但需要追加狀態管理和動畫 CSS，而 hover dropdown 已完全覆蓋它的功能。在一個以圖表為主要內容的系統裡，讓圖表佔滿整個視窗寬度比保留側欄導覽更有價值。退場是正確的決策，不是技術債。
+
+---
+
+## 驗收標準
+
+圖表渲染後，legend 顯示在頂部，點擊任一條線名稱後那條線隱藏/顯示。Tooltip 在深色背景上呈現深色半透明樣式，顯示所有作物當天的價格。
+
+TopNav 各模組 tab hover 後出現 dropdown，滑鼠從 tab 移往 dropdown 過程中 dropdown 不消失，點選子路由後路由正確跳轉。
+
+主內容區佔滿 TopNav 以下的全部寬度，沒有左側欄位。
+
+新人 clone 專案後若忘記跑 Migration，啟動時出現「CoreDbContext 有 N 筆尚未套用的 Migration，請先執行 Update-Database」的明確錯誤，不出現底層 SqlException。
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `src/components/PriceChart.vue` | M | 補完 Chart.js options（深色主題、legend 頂部可點擊、tooltip 深色、X 軸完整日期） |
+| `src/components/TopNav.vue` | M | 新增 hover dropdown、`hoveredRoute` ref、CSS 間隙修正（`top: 100%` + padding） |
+| `src/App.vue` | M | 移除 SideNav import 和元件，佈局從三欄簡化為兩層 |
+| `src/components/SideNav.vue` | D | 子路由導覽功能移至 TopNav dropdown，元件退場 |
+| `TaiwanAgri.Core/Infrastructure/DbInitializer.cs` | M | `SeedAsync` 加入 `GetPendingMigrationsAsync()` 預檢，Fail-Fast 設計 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 有兩個值得反覆咀嚼的工程判斷。
+
+第一個是「走了彎路後選擇回頭」。自訂圖例面板的嘗試失敗，失敗的根本原因不是技術能力不夠，而是「Chart.js 已經把這個功能做好了，我們卻在外面重新實作一遍，還踩到顏色索引偏移的坑」。能識別出「這是造輪子」並果斷放棄，選回最簡單有效的解法，是比「把自訂版本做到能用」更難的判斷。
+
+第二個是 Fail-Fast 的哲學。`DbInitializer` 的改動只有三行，但它改變的是「錯誤被發現的時間點和位置」。底層的 SqlException 出現在操作資料表的瞬間，此時 call stack 已經很深，開發者需要從錯誤往回追溯才能找到是 Migration 問題。Fail-Fast 把這個診斷過程壓縮成零：啟動時就說清楚。「讓錯誤盡可能早、盡可能靠近根本原因地出現」是系統設計的通用原則，不只適用於 Migration 檢查。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
