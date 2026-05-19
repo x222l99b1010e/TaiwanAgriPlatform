@@ -23,6 +23,18 @@
 
 ## ✨ 功能模組
 
+### 🔐 RBAC 骨架 + 動態 Navbar（W11 已完成）
+
+首次引入角色型存取控制基礎建設，讓前端導覽列根據登入狀態與角色動態渲染。
+
+- **NavModule** 自參照樹狀 Entity（頂層 + 子功能兩層，DB Seed 13 筆）
+- **RoleModulePermission** 複合 PK Entity（RoleId × ModuleId，Seed 26 筆）
+- **DbInitializer** 種子資料職責分離（Schema 歸 Migration，Data 歸 Initializer）
+- **NavService** 三段式 RBAC 查詢（FindByNameAsync GUID 解析 → permittedModuleIds ToListAsync → 巢狀 DTO 組裝）
+- **NavController** `[AllowAnonymous]`：訪客直接取得 Guest 可見模組清單，無需 JWT
+- **Vue 3 三欄 Shell**：TopNav（頂層 tabs）+ SideNav（子功能，依路由高亮）+ RouterView
+- **Pinia nav store** + **Vite Proxy** `/api → https://localhost:7147`
+
 ### 🌤️ 模組 2：智慧青農戰情室（後端已完成）
 面向返鄉青農，整合即時氣象、病蟲害警報與市場行情，透過規則引擎主動推播智慧提示。
 
@@ -85,26 +97,28 @@
      │ WeatherDbContext │           │
      │ MarketDbContext  │           ▼
      │ CoreDbContext    │   ┌────────────────────────────────┐
-     └─────┬────────────┘   │         RabbitMQ               │
-           │                │   Exchange: agri.topic         │
-           ▼                │   RoutingKey: agri.price.*     │
-┌──────────────────┐        └──────────────┬─────────────────┘
-│   SQL Server     │                       │ Subscribe
-│   2022           │                       ▼
-└──────────────────┘    ┌──────────────────────────────────────┐
-                        │          TaiwanAgri.Web              │
-                        │   ASP.NET Core Web API               │
-                        │   ApplicationDbContext               │
-                        │   (繼承 IdentityDbContext)            │
-                        │   MarketController (5 支端點)         │
-                        └──────────┬───────────────────────────┘
-                                   │ Cache-Aside
-                                   ▼
-                  ┌─────────────────────────────────────┐
-                  │ Redis TTL 25hr  |  Vue 3 Frontend   │
-                  │ StackExchange   |  Vite + Chart.js  │
-                  │                 |  Leaflet + Pinia  │
-                  └─────────────────────────────────────┘
+     │ (NavModules,     │   │         RabbitMQ               │
+     │  RoleModule-     │   │   Exchange: agri.topic         │
+     │  Permissions,    │   │   RoutingKey: agri.price.*     │
+     │  SyncStates)     │   └──────────────┬─────────────────┘
+     └─────┬────────────┘                  │ Subscribe
+           │                               ▼
+           ▼                ┌──────────────────────────────────────┐
+┌──────────────────┐        │          TaiwanAgri.Web              │
+│   SQL Server     │        │   ASP.NET Core Web API               │
+│   2022           │        │   ApplicationDbContext               │
+└──────────────────┘        │   (繼承 IdentityDbContext)            │
+                            │   MarketController (5 支端點)         │
+                            │   NavController [AllowAnonymous]     │
+                            └──────────┬───────────────────────────┘
+                                       │ Cache-Aside
+                                       ▼
+                      ┌─────────────────────────────────────┐
+                      │ Redis TTL 25hr  |  Vue 3 Frontend   │
+                      │ StackExchange   |  Vite + Chart.js  │
+                      │                 |  TopNav + SideNav │
+                      │                 |  Pinia nav store  │
+                      └─────────────────────────────────────┘
 ```
 
 ### Solution 結構
@@ -119,40 +133,37 @@ TaiwanAgriPlatform/
 │   ├── Constants/
 │   │   └── MoaApiEndpoints.cs        # 60 個 API 端點路徑集中定義
 │   ├── Entities/
-│   │   └── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
+│   │   ├── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
+│   │   ├── NavModule.cs              # 自參照樹狀 Entity（ParentId 自參照 FK）
+│   │   └── RoleModulePermission.cs   # 複合 PK (RoleId string, ModuleId int)
+│   ├── Dtos/
+│   │   ├── NavModuleDto.cs           # 頂層模組 DTO（含 List<NavChildDto> Children）
+│   │   └── NavChildDto.cs            # 子功能 DTO（無 Children，型別即契約）
+│   ├── Services/
+│   │   ├── INavService.cs
+│   │   └── NavService.cs             # 三段式 RBAC 查詢（RoleManager GUID 解析）
 │   ├── Helpers/
-│   │   └── DateHelper.cs             # ParseRocDate / FormatRocDate / ParseRocNumericDate
-│   │                                 # ToRocNumericDate / ParseIsoDate
-│   └── Data/
-│       └── CoreDbContext.cs          # SyncStates 跨模組進度追蹤
+│   │   └── DateHelper.cs             # ParseRocDate / ParseIsoDate 等
+│   └── Infrastructure/
+│       ├── Data/
+│       │   └── CoreDbContext.cs      # SyncStates + NavModules + RoleModulePermissions
+│       └── DbInitializer.cs          # Seed 13 NavModules + 26 RoleModulePermissions
 │
 ├── TaiwanAgri.Modules.Weather/       # 模組 2：氣象 + 病蟲害後端
-│   └── (WeatherDbContext — 普通 DbContext)
+│   └── (WeatherDbContext)
 │
 ├── TaiwanAgri.Modules.Market/        # 模組 4 + 1：行情分析後端
 │   ├── Data/
 │   │   └── MarketDbContext.cs        # ConfigureConventions decimal(8,2)
 │   ├── Dtos/
 │   │   ├── WorkerResponses/          # Worker 從 MOA API 反序列化用 DTO
-│   │   │   ├── AgriProductsTransTypeDto.cs
-│   │   │   ├── AgriProductsTransTypeApiResponse.cs
-│   │   │   ├── CropMarketTypeDto.cs
-│   │   │   ├── DebrisAlertRecordDto.cs
-│   │   │   ├── MarketRestDayDto.cs
-│   │   │   ├── PorkTransTypeDto.cs
-│   │   │   └── ...
-│   │   └── ApiResponses/             # Service 輸出給前端的 DTO（依相依方向放在 Modules.Market）
-│   │       ├── CropResponseDto.cs
-│   │       ├── MarketResponseDto.cs
-│   │       ├── PriceResponseDto.cs
-│   │       ├── DisasterResponseDto.cs  # v16.0 重設計：GroupBy 去重 + AffectedCounties
-│   │       └── RestDayResponseDto.cs
+│   │   └── ApiResponses/             # Service 輸出給前端的 DTO
 │   ├── Entities/
 │   │   └── (MarketRestDay / MarketInfo / CropInfo / AgriProductsTrans
 │   │         / DebrisAlertRecord / PorkTrans)
 │   └── Services/
-│       ├── IMarketService.cs         # 五支查詢方法的介面定義
-│       └── MarketService.cs          # 實作（三表 JOIN、GroupBy 聚合、AsQueryable 動態過濾）
+│       ├── IMarketService.cs
+│       └── MarketService.cs          # 三表 JOIN、GroupBy 聚合、AsQueryable 動態過濾
 │
 ├── TaiwanAgri.Modules.FoodSafety/    # 模組 1：食安追溯後端
 ├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組後端
@@ -161,23 +172,33 @@ TaiwanAgriPlatform/
 │
 ├── TaiwanAgri.Web/                   # 入口層：Web API + Vue 3 Shell
 │   ├── Controllers/
-│   │   ├── HomeController.cs         # ControllerBase（空殼）
-│   │   └── MarketController.cs       # 5 支端點：crops/markets/prices/disasters/restdays
-│   └── Program.cs                    # AddControllers / CORS / AddProblemDetails
-│                                     # ApplicationDbContext（繼承 IdentityDbContext）
+│   │   ├── MarketController.cs       # 5 支端點：crops/markets/prices/disasters/restdays
+│   │   └── NavController.cs          # [AllowAnonymous] GET /api/nav/modules
+│   └── Program.cs                    # AddRoles<IdentityRole> / CoreDbContext /
+│                                     # DbInitializer.SeedAsync / AddScoped<INavService>
 │
 ├── TaiwanAgri.Frontend/              # Vue 3 + Vite + TypeScript + Pinia + Vue Router
 │   ├── src/
-│   │   ├── api/market.ts             # API 層：五支端點封裝 + 型別定義
-│   │   ├── stores/market.ts          # Pinia Store：全域狀態 + actions
+│   │   ├── api/
+│   │   │   ├── market.ts             # 模組 4 五支端點封裝
+│   │   │   └── nav.ts                # GET /api/nav/modules 封裝 + NavModule 型別
+│   │   ├── stores/
+│   │   │   ├── market.ts             # Pinia：市場行情全域狀態
+│   │   │   └── nav.ts                # Pinia：nav store + loadModules + currentModule()
 │   │   ├── components/
-│   │   │   ├── MarketFilter.vue      # Chip 多選篩選器
-│   │   │   ├── DateRangePicker.vue   # 日期區間選擇
+│   │   │   ├── TopNav.vue            # 頂層模組 tabs + MDI 圖示
+│   │   │   ├── SideNav.vue           # 子功能側欄（依 currentRoute 決定顯示）
+│   │   │   ├── MarketFilter.vue
+│   │   │   ├── DateRangePicker.vue
 │   │   │   └── PriceChart.vue        # Chart.js 折線圖 + 7 日均線 + 天災垂直線
-│   │   ├── views/MarketView.vue      # 主視圖（Promise.all 並行 API）
-│   │   ├── utils/exportCsv.ts        # CSV 匯出純函式（含 UTF-8 BOM）
-│   │   └── router/index.ts
-│   └── (模組 4 前台已完成，其他模組前台待開發)
+│   │   ├── views/
+│   │   │   ├── MarketView.vue
+│   │   │   └── PlaceholderView.vue   # 🚧 未開發模組佔位頁
+│   │   ├── App.vue                   # 三欄 Shell：TopNav + SideNav + RouterView
+│   │   ├── router/index.ts           # 4 頂層路由 + weather 子路由
+│   │   ├── main.ts                   # import @mdi/font CSS
+│   │   └── utils/exportCsv.ts
+│   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
 └── TaiwanAgri.Tests/                 # xUnit + Moq + TestContainers
     └── (目前僅佔位專案，待 W19-20 補完測試案例)
@@ -195,10 +216,11 @@ TaiwanAgriPlatform/
 | 背景排程 | .NET Worker Service + Hangfire | 最新穩定版 | 資料同步排程 |
 | 訊息佇列 | RabbitMQ | 3.13 | 非同步事件推播 |
 | 快取 | Redis + IMemoryCache | 7.x | 首頁物價秒讀 |
-| 身分驗證 | ASP.NET Core Identity + JWT | 10.0 | 使用者認證 |
+| 身分驗證 | ASP.NET Core Identity + JWT | 10.0 | RBAC 骨架 W11 完成，JWT W15 |
 | 前端 | Vue 3 + Vite + TailwindCSS | 最新穩定版 | SPA 前台 |
 | 圖表 | Chart.js | 4.x | 折線圖 / 移動平均線 / 天災垂直線 |
 | 地圖 | Leaflet.js + OpenStreetMap | 1.9.x | 認領養地圖 |
+| 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務 |
 | 測試 | xUnit + Moq + TestContainers | 最新版 | 單元 + 整合測試 |
 | CI/CD | GitHub Actions | — | 自動測試 + 建置 |
@@ -278,7 +300,7 @@ taiwanagriplatform-rabbitmq-1       running (healthy)
 
 ### Step 4：執行 EF Core Migration
 
-本專案採用多 DbContext 架構，**三個 DbContext 各自有獨立的 Migration 目錄，必須分別執行**。若漏掉任何一個，對應的資料表不會建立，相關 Worker 啟動時即報錯。
+本專案採用多 DbContext 架構，**三個 DbContext 各自有獨立的 Migration 目錄，必須分別執行**。
 
 ```powershell
 # 1. 氣象 + 病蟲害模組（含 ASP.NET Core Identity 表）
@@ -287,23 +309,26 @@ Update-Database -Context WeatherDbContext -StartupProject TaiwanAgri.Worker
 # 2. 行情模組（MarketRestDays / MarketInfos / CropInfos / AgriProductsTrans / PorkTrans / DebrisAlertRecords）
 Update-Database -Context MarketDbContext -StartupProject TaiwanAgri.Worker
 
-# 3. 跨模組基礎設施（SyncStates — 所有增量 SyncWorker 的進度追蹤表）
-#    ⚠️ 若此步驟漏掉，AgriProductsTransSyncWorker 和 PorkTransSyncWorker 啟動即拋出例外
+# 3. 跨模組基礎設施（SyncStates + NavModules + RoleModulePermissions）
+#    ⚠️ W11 新增兩張資料表，Migration 名稱：AddNavModuleAndRoleModulePermission
+#    ⚠️ 若此步驟漏掉，NavController 啟動即拋出例外
 Update-Database -Context CoreDbContext -StartupProject TaiwanAgri.Worker
 ```
 
-> **注意**：多 DbContext 時，`Add-Migration` 也必須明確指定 `-Context` 和 `-Project` 參數，
-> 例如：`Add-Migration InitCore -Context CoreDbContext -Project TaiwanAgri.Core`
+Migration 執行完成後，確認 `core.NavModules`（13 筆）與 `core.RoleModulePermissions`（26 筆）已由 `DbInitializer.SeedAsync` 自動寫入。
 
-Migration 執行完成後，用 SQL Server 物件總管確認 `TaiwanAgriPlatform` 資料庫以及 `weather.*`、`market.*`、`core.*` 三個 Schema 下的資料表均已建立。
+> **注意**：`Add-Migration` 也必須明確指定 `-Context` 和 `-Project` 參數，
+> 例如：`Add-Migration AddNavModuleAndRoleModulePermission -Context CoreDbContext -Project TaiwanAgri.Core`
 
-### Step 5：啟動應用程式
+### Step 5：啟動 Worker
 
 在 Visual Studio 將啟動專案設定為 `TaiwanAgri.Worker`，按 F5 啟動。
 
 ### Step 6：啟動 Web API
 
 在 Visual Studio 將啟動專案設定為 `TaiwanAgri.Web`，按 F5 啟動。預設監聽 `https://localhost:7xxx`。
+
+`Program.cs` 在 `builder.Build()` 後會自動執行 `DbInitializer.SeedAsync`（AnyAsync 冪等保護，重複執行不重複插入）。
 
 ### Step 7：啟動前台開發伺服器
 
@@ -312,6 +337,7 @@ cd TaiwanAgri.Frontend
 npm install
 npm run dev
 # 前台伺服器啟動於 http://localhost:5173
+# /api/* 請求透過 Vite Proxy 自動轉發至 https://localhost:7147
 ```
 
 ---
@@ -320,45 +346,53 @@ npm run dev
 
 本專案資料表分三類型，由四個 DbContext 分工管理：
 
-**WeatherDbContext**（`TaiwanAgri.Modules.Weather`）管理氣象與病蟲害相關資料表：
+**WeatherDbContext**（`TaiwanAgri.Modules.Weather`）：
 `WeatherObservations` | `RainfallStations` | `RainfallObservations` | `PestAlerts` | `PestAlertCities` | `PestAlertCrops` | `PestDecadeSummaries` | `PestRuleConfig` | `UserNotifications`
 
-**MarketDbContext**（`TaiwanAgri.Modules.Market`）管理行情相關資料表：
+**MarketDbContext**（`TaiwanAgri.Modules.Market`）：
 `MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans` | `DebrisAlertRecords`
 
-> `DebrisAlertRecords`（土石流歷史記錄）是已完成的獨立資料表，提供模組 4 天災時間軸的資料來源。
+**CoreDbContext**（`TaiwanAgri.Core`，schema: core）：
+`SyncStates`（增量同步進度追蹤）| `NavModules`（自參照樹狀導覽主檔，Seed 13 筆）| `RoleModulePermissions`（角色模組可見度，複合 PK，Seed 26 筆）
 
-**CoreDbContext**（`TaiwanAgri.Core`）管理跨模組基礎設施：
-`SyncStates`（增量同步進度追蹤，`AgriProductsTransSyncWorker` 和 `PorkTransSyncWorker` 共用）
+**ApplicationDbContext**（`TaiwanAgri.Web`）：
+`AspNetUsers` | `AspNetRoles` | 其他 Identity 標準表
 
-**ApplicationDbContext**（`TaiwanAgri.Web`）管理身分驗證：
-`AspNetUsers`（含擴充欄位）| `AspNetRoles` | 其他 Identity 標準表
+> **跨 DbContext FK 說明**：`RoleModulePermissions.RoleId` 指向 `AspNetRoles.Id`（GUID），以 `nvarchar(450)` 邏輯 FK 處理，無物理 FOREIGN KEY CONSTRAINT。`NavModules` 自參照 FK 使用 `OnDelete Restrict`。
 
-完整資料表設計、欄位型別、索引說明請參考 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v16.1.docx)。
+完整資料表設計請參考 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v17.3.docx)。
 
 ---
 
 ## 🌐 API 端點摘要
 
+### 導覽 RBAC（W11 完成）
+
+| Method | URL | 說明 | 認證 |
+|--------|-----|------|------|
+| GET | `/api/nav/modules` | 依登入狀態回傳可見模組清單（巢狀 DTO） | `[AllowAnonymous]` |
+
+未登入時回傳 Guest 角色可見模組；已登入時依 ClaimsPrincipal 中的 RoleId 篩選。回傳 `NavModuleDto`（含 `List<NavChildDto> Children`），前端 TopNav / SideNav 直接消費，無需重組。
+
 ### 模組 4 — 天災與菜價關聯分析（已完成）
 
 | Method | URL | 說明 | 認證 |
 |--------|-----|------|------|
-| GET | `/api/market/crops?marketType=Veg` | 有交易記錄的作物清單（三表 JOIN + DISTINCT） | 不需要 |
-| GET | `/api/market/markets?marketType=Veg` | 市場清單（依市場類型篩選） | 不需要 |
-| GET | `/api/market/prices` | 作物歷史價格走勢（含全台均價 / 單一市場，GroupBy 聚合） | 不需要 |
-| GET | `/api/market/disasters` | 天災警戒事件清單（GroupBy 去重，AffectedCounties 彙整） | 不需要 |
-| GET | `/api/market/restdays` | 市場休市日清單（市場代碼 + 日期區間） | 不需要 |
+| GET | `/api/market/crops?marketType=Veg` | 作物清單（三表 JOIN + DISTINCT） | 不需要 |
+| GET | `/api/market/markets?marketType=Veg` | 市場清單 | 不需要 |
+| GET | `/api/market/prices` | 作物歷史價格走勢（GroupBy 聚合） | 不需要 |
+| GET | `/api/market/disasters` | 天災警戒事件清單（GroupBy 去重） | 不需要 |
+| GET | `/api/market/restdays` | 市場休市日清單 | 不需要 |
 
-#### GET /api/market/prices 參數說明
+#### GET /api/market/prices 參數
 
 | 參數 | 型別 | 必填 | 說明 |
 |------|------|------|------|
 | marketType | string | ✅ | Veg / Fruit / Flower |
-| cropCodes | string[] | ✅ | 可傳多個（`&cropCodes=E1&cropCodes=E2`），最多 5 個 |
-| marketCode | string | — | 不傳則回傳全台均價（各價格欄位 AVG + SUM quantity） |
-| startDate | string | — | yyyy-MM-dd，不傳預設今天往前 365 天 |
-| endDate | string | — | yyyy-MM-dd，不傳預設今天 |
+| cropCodes | string[] | ✅ | 最多 5 個（`&cropCodes=E1&cropCodes=E2`） |
+| marketCode | string | — | 不傳則回傳全台均價 |
+| startDate | string | — | yyyy-MM-dd，預設今天往前 365 天 |
+| endDate | string | — | yyyy-MM-dd，預設今天 |
 
 ### 其他模組端點（規劃中）
 
@@ -367,12 +401,11 @@ npm run dev
 | GET | `/api/v1/prices/today` | 首頁物價快照（Redis Cache-Aside） | 不需要 |
 | GET | `/api/v1/pests/alerts` | 病蟲害警報列表 | 不需要 |
 | GET | `/api/v1/weather/stations` | 氣象站即時資料 | 不需要 |
-| GET | `/api/v1/traceability/{traceCode}` | 追溯碼查詢（直連 API + Redis TTL） | 不需要 |
+| GET | `/api/v1/traceability/{traceCode}` | 追溯碼查詢 | 不需要 |
 | GET | `/api/v1/animals` | 認領養動物列表 + 地理篩選 | 不需要 |
 | POST | `/api/v1/animals/lost` | 登記寵物遺失啟事 | **需要 JWT** |
 | GET | `/api/v1/notifications/mine` | 使用者個人告警通知 | **需要 JWT** |
 | PUT | `/api/v1/users/watchlist` | 更新關注作物清單 | **需要 JWT** |
-| GET | `/api/v1/prices/export` | 價格 + 天災事件 CSV 匯出 | 不需要 |
 
 ---
 
@@ -383,11 +416,7 @@ npm run dev
 - **免費可用（53 支）**：涵蓋所有核心功能，MVP 開發不受限制
 - **需要 api_key（7 支）**：`SheepQuotation`、`WashedEggsTraceabilityType`、`LegalSpecificPet`、`PetFood`、`FeedAndAdditiveInputCertificate`、`FeedManagementInfo`、`MothSpecimenData`
 
-> **重要限制**：免費帳號分頁 API 只回傳第一頁資料（每頁最多 1,000 筆）。
-> 程式碼中保留分頁迴圈，當 API 回傳 `RS: "ERROR"` 時會優雅地 `break`，不影響正常運作。
-
-> **AgriProductsTransSyncWorker 的分頁抑制策略**：同時帶入 `Start_time + End_time + MarketName`
-> 三個參數，讓 API 回傳特定市場特定天的資料，結果量有自然上限，`Next` 始終為 `false`，無需分頁迴圈。
+> **重要限制**：免費帳號分頁 API 只回傳第一頁資料（每頁最多 1,000 筆）。程式碼中保留分頁迴圈，當 API 回傳 `RS: "ERROR"` 時會優雅地 `break`，不影響正常運作。
 
 所有 60 個 API 端點路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
 
@@ -401,14 +430,15 @@ npm run dev
 | W3–4 | 模組 2 資料收集（一） | WeatherSyncWorker（分頁、HashSet 防重複、30 天自動清除） | ✅ 完成 |
 | W5–6 上半 | 模組 2 資料收集（二） | Identity Migration 提前執行；RainfallStation + Rainfall + PestDecade SyncWorker | ✅ 完成 |
 | W5–6 下半 | 模組 2 規則引擎 | PestRuleConfig + UserNotifications + PestRuleEngine.EvaluateAsync() 完整實作 | ✅ 完成 |
-| W7–8 上半 | 模組 4 後端 — 基礎建設 | MarketDbContext Schema 分離；MarketInfo surrogate PK 重構；MarketRestDaySyncWorker（32,149 筆）；CropMarketSyncWorker | ✅ 完成 |
-| W7–8 中半 | 模組 4 後端 — 核心同步 | CoreDbContext + SyncState；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker 完整實作 | ✅ 完成 |
-| W7–8 下半 | 模組 4 後端 — 優化與收尾 | Task.WhenAll 併發優化；SaveChanges 批次化；跨市場重複寫入 Bug Fix；DebrisAlertRecordSyncWorker；PorkTransSyncWorker；ConfigureConventions 全域 decimal(8,2) | ✅ 完成 |
-| W9–10 前半 | 模組 4 查詢層 | TaiwanAgri.Web 改造（MVC→Web API）；IMarketService + MarketService 五支查詢方法；MarketController 五支端點；DTO 結構重組（WorkerResponses / ApiResponses）（PR #020） | ✅ 完成 |
-| W9–10 後半 | 模組 4 前台 | Vue 3 完整前台：Chart.js 折線圖 + 7 日均線；天災垂直線 Plugin；Chip 多選篩選器；CSV 匯出；DisasterResponseDto 重設計；前端三層架構（api/Store/Component）（PR #021） | ✅ 完成 |
-| W11–12 | 模組 1 後端 + 前台 | RabbitMQ + Redis + 物價首頁 + 食安功能 | ⬜ 待開始 |
+| W7–8 上半 | 模組 4 後端 — 基礎建設 | MarketDbContext Schema 分離；MarketInfo surrogate PK 重構；MarketRestDaySyncWorker；CropMarketSyncWorker | ✅ 完成 |
+| W7–8 中半 | 模組 4 後端 — 核心同步 | CoreDbContext + SyncState；DateHelper ROC 日期雙向轉換；AgriProductsTransSyncWorker | ✅ 完成 |
+| W7–8 下半 | 模組 4 後端 — 優化與收尾 | Task.WhenAll 併發；DebrisAlertRecordSyncWorker；PorkTransSyncWorker；ConfigureConventions decimal(8,2) | ✅ 完成 |
+| W9–10 前半 | 模組 4 查詢層 | TaiwanAgri.Web 改造（MVC→Web API）；IMarketService + MarketService 五支查詢；MarketController（PR #020） | ✅ 完成 |
+| W9–10 後半 | 模組 4 前台 | Vue 3：Chart.js 折線圖 + 7 日均線；天災垂直線；Chip 多選；CSV 匯出；前端三層架構（PR #021） | ✅ 完成 |
+| W11 | RBAC 骨架 + 動態 Navbar | NavModule 自參照；RoleModulePermission 複合 PK；DbInitializer；NavService；NavController [AllowAnonymous]；Vue 3 三欄 Shell（PR #022） | ✅ 完成 |
+| W12 | 模組 1 後端 | RabbitMQ + Redis + 物價首頁 + 食安功能 | 🔄 進行中 |
 | W13–14 | 模組 2 前台 | Vue 3 氣象面板、雨量折線圖、病蟲害警報牆、通知紅點 | ⬜ 待開始 |
-| W15–16 | 身分驗證完整實作 | JWT 發行、Login / Register API、Vue 3 登入頁 | ⬜ 待開始 |
+| W15–16 | 身分驗證完整實作 | JWT 發行、Login / Register API、Vue 3 登入頁；NavService nullable roleId 修復 | ⬜ 待開始 |
 | W17–18 | 模組 3 | Leaflet 認領養地圖、遺失啟事、合法業者查驗 | ⬜ 待開始 |
 | W19–20 | 整合優化 | 全域搜尋、xUnit 測試覆蓋 80%+、Docker 打包、GitHub Actions CI | ⬜ 待開始 |
 
@@ -416,61 +446,54 @@ npm run dev
 
 ## 🧠 關鍵架構決策記錄
 
-這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v16.1.docx)。
+這些決策在開發過程中從真實問題推導出來，詳細推論記錄在 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_v17.3.docx)。
 
 **BackgroundService 生命週期管理**
 `WeatherSyncWorker` 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbContext` 是 Scoped。不能直接在建構子注入 DbContext，必須注入 `IServiceScopeFactory`，在每次同步任務執行時建立新 Scope，用完即釋放，避免 Change Tracker 持續累積狀態。
 
+**NavModule 自參照設計（W11）**
+選擇單表自參照而非兩張表，`RoleModulePermission` 的 FK 只需指向一張表。命名從 `Module` 改為 `NavModule` 以避免與 `System.Reflection.Module` 的命名衝突（原命名導致 `Add-Migration` Up() 出現非預期行為）。自參照 FK 使用 `OnDelete Restrict`。`Icon` 欄位存 MDI CSS class 字串，更換圖示只改 DB 不需部署前端。
+
+**RoleModulePermission 跨 DbContext 設計（W11）**
+`RoleId` 為 `nvarchar(450)` 邏輯 FK，存的是 IdentityRole 的 **GUID**（非 Role Name）。訪客流程透過 `_roleManager.FindByNameAsync("Guest")` 先做名稱→GUID 轉換。複合 PK `(RoleId, ModuleId)` 天然防重複。`ModuleId` 物理 FK 指向 `NavModules`（同 DbContext），Cascade Delete。
+
+> **⚠️ 已知技術債（commit c9c4621，待 W15 修復）**：`NavService.cs` 第 32 行 `targetRoleId = roleId` 未做 null 防護（CS8600）。已登入使用者若 ClaimsPrincipal 未帶 Role Claim，後續查詢靜默回傳空集合，登入後 Navbar 消失且無任何錯誤訊息。W15 修復方向：null guard 回退至 Guest，或 `ArgumentNullException` 提早失敗。
+
+**DbInitializer 與 Migration 職責分離（W11）**
+Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 Migration，長期維護下遷移歷史可讀性差。DbInitializer 以 `AnyAsync()` 做冪等保護，在 `builder.Build()` 後（DI Container 完整初始化後）透過 `CreateScope()` 呼叫。
+
+**NavController `[AllowAnonymous]` 安全邊界（W11）**
+訪客需能取得 Guest 可見的導覽清單，否則前端無法渲染 Navbar。`[Authorize]` 會直接回傳 401。Controller 讀取 `User.Identity.IsAuthenticated` 後傳純值給 Service，Service 不依賴 `HttpContext`，可被任何入口呼叫。W15 JWT 整合時此設計無需異動。
+
+**NavService `RoleManager<IdentityRole>` 注入位置（W11）**
+「依名稱解析角色 GUID」是業務邏輯，不是 HTTP 處理層的職責。若將 `FindByNameAsync` 移至 NavController，Controller 開始承擔業務決策，違反薄層原則。`RoleManager<IdentityRole>` 在 ASP.NET Core 生態中接近 Platform-level 工具，此邊界妥協在 Modular Monolith 單一部署情境下可接受。日後如需脫離 Identity 的測試能力，可包裝為 `IRoleIdResolver` 介面。
+
 **防重複寫入策略**
-使用 HashSet 存放 DB 中已有的 `(StationId, ObservedAt)` 組合，而非只比較單一最新時間欄位。後者在多測站同時回傳相同時間時會出現漏判；HashSet 方式在任何情況下都能正確過濾。部分資料源（`PestAlerts`）使用 SHA256 SourceHash 取代 HashSet，因為去重維度是「內容語意相同」而非「相同時間點」——業務定義不同，策略也不同。
+使用 HashSet 存放 DB 中已有的自然鍵組合，而非只比較最新時間欄位。部分資料源（`PestAlerts`）使用 SHA256 SourceHash，因為去重維度是「內容語意相同」而非「相同時間點」。
 
-**多 DbContext 架構**
-採用 Modular Monolith 設計。每個業務模組有獨立的 DbContext（`WeatherDbContext`、`MarketDbContext`），部署在各自的 Module Project 中，只宣告 Entity 結構，不碰連線字串。連線字串設定與 Worker 啟動統一由入口層（`TaiwanAgri.Worker`、`TaiwanAgri.Web`）的 `Program.cs` 負責組裝，模組本身不感知執行環境。`ApplicationDbContext`（繼承 `IdentityDbContext`）僅在 `TaiwanAgri.Web` 管理 Identity 六張表，與業務 DbContext 完全分離。`CoreDbContext` 放在 `TaiwanAgri.Core`，專門管理跨模組共用的基礎設施實體（目前只有 `SyncStates`），讓任何模組的 Worker 都能引用，不需要跨模組依賴。
-
-**跨 DbContext FK 策略**
-`UserNotifications.UserId` 指向 `AspNetUsers.Id`，但兩者分屬不同 DbContext，EF Core 無法建立物理 FOREIGN KEY CONSTRAINT 跨 DbContext 邊界。解法是以 `nvarchar(450)` 純字串欄位作為邏輯 FK，由應用程式層保證值的正確性。同時不加 Navigation Property——一旦加了，EF Core `Add-Migration` 會把被導航到的 Entity 誤判為自己要管的表，在 Migration 中多建一張孤立的冗餘表。
-
-**Identity Migration 提前策略**
-`AspNetUsers` 表在 W5–6 就建立（只需三行設定），讓後續所有 B 類資料表的 `UserId FK` 從一開始就是 `NOT NULL`，不欠技術債。Login UI 和 JWT 在 W15–16 才實作，兩件事獨立進行互不干擾。
-
-**API 端點路徑集中管理**
-60 個 MOA API 端點全部定義在 `MoaApiEndpoints.cs` 為 `const string`。散落各處等同於 60 個潛在的手動維護點；集中定義後，IDE 的「尋找所有參考」可以立即找到每個端點的所有使用位置。
+**多 DbContext 架構（Modular Monolith）**
+每個業務模組有獨立的 DbContext，連線字串設定與啟動由入口層統一組裝，模組本身不感知執行環境。`CoreDbContext` 管理跨模組共用的基礎設施（`SyncStates`、`NavModules`、`RoleModulePermissions`）。
 
 **SyncState 模式取代 MAX(TransDate)**
-增量同步的進度不能從 DB 業務資料推算（`MAX(TransDate)`）——在全市場休市日，`AgriProductsTrans` 表沒有任何記錄寫入，MAX 值永遠停在前一天，Worker 無限重跑同一天無法自癒。改用 `CoreDbContext` 的 `SyncStates` 資料表獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。`SyncState` 放在 `TaiwanAgri.Core` 而非 Market 模組，確保 `PorkTransSyncWorker` 等後續 Worker 都能共用同一套機制。
-
-**MarketInfo surrogate PK 設計**
-MarketCode 514 在 Veg API 叫「溪湖鎮」、在 Flower API 叫「彰化市場」，兩個名稱各自查詢到不同的 AgriProductsTrans 資料集，必須分別存為兩筆。「一個 MarketCode 對應一筆主檔」的假設失效，PK 改成 surrogate Id，Unique constraint 改為 `(MarketCode, MarketName)`。這個決策同時移除了 `AgriProductsTrans` 對 `MarketInfos` 的物理 FK，改用應用程式層保證：Worker 的市場清單本來就從 `MarketInfos` 讀出，寫入的 `MarketCode` 一定有效，不需要 DB 層重複保護。
+在全市場休市日，`AgriProductsTrans` 表沒有記錄寫入，MAX 值卡死。改用 `SyncStates` 獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。
 
 **Task.WhenAll 併發 API 請求策略**
-`AgriProductsTransSyncWorker` 初版串行跑 90 天 × 50 市場 = 4,500 次 HTTP 請求，實際執行 8 小時只同步 1 年 2 個月。改用 `Task.WhenAll` 讓同一天的所有市場 API 同時發出，等待時間從串行加總降為最慢單一市場。Task 只負責打 API 回傳原始 json，所有有狀態的操作（去重、快取更新、AddRange）集中在主執行緒依序執行，完全規避執行緒安全與 TOCTOU 問題，不需要 `ConcurrentDictionary` 或 `ConcurrentBag`。
+`AgriProductsTransSyncWorker` 初版串行 4,500 次 HTTP 請求，8 小時只同步 1 年 2 個月。改用 `Task.WhenAll` 讓同一天的所有市場 API 同時發出。Task 只負責 HTTP，所有有狀態操作集中在主執行緒依序執行，規避執行緒安全問題。
 
 **跨市場合併去重（Change Tracker 可見範圍陷阱）**
-MarketInfos 允許同一 MarketCode 有多筆 MarketName，`Task.WhenAll` 會以多個 MarketName 各打一次 API。農業部回傳的交易資料欄位是 `MarketCode`，不是查詢用的 MarketName，導致不同 MarketName 查詢可能回傳相同自然鍵的交易記錄。原本各市場獨立 `DistinctBy` 的設計無法攔截跨市場重複——SaveChanges 批次化之後，Change Tracker 累積的新增資料對 `existingKeySet`（查 DB 快照建立）完全不可見，批次內的跨來源重複只有在 `AddRange` 前合併去重才能正確攔截。修正為先把所有市場 incoming 資料收集進 `allIncoming`，foreach 結束後統一執行 `DistinctBy`。
+不同 MarketName 查詢可能回傳相同自然鍵的交易記錄。各市場獨立 `DistinctBy` 無法攔截跨市場重複。修正為先收集所有市場 incoming 資料進 `allIncoming`，foreach 結束後統一 `DistinctBy`。
 
 **DebrisAlertRecord：HasFilter(null) 解決 nullable UNIQUE Index 失效問題**
-`DebrisAlertRecord` 的去重自然鍵由 `(ReportID, DebrisNo, LandslideID)` 組成，其中 `DebrisNo` 和 `LandslideID` 互斥為 null（D 型土石流 `DebrisNo` 有值、L 型大規模崩塌 `LandslideID` 有值）。EF Core 對含 nullable 欄位的 UNIQUE Index 預設自動加上 `WHERE [DebrisNo] IS NOT NULL AND [LandslideID] IS NOT NULL`，這個 AND 條件對所有記錄永遠不成立，UNIQUE Index 形同虛設。解法是在 `OnModelCreating` 加 `.HasFilter(null)`，覆蓋 EF Core 的預設行為，讓 SQL Server 建立不帶任何 filter 的完整 UNIQUE Index。
-
-**PorkTransSyncWorker：lastSuccessfulDate 精確斷點模式**
-PorkTrans API 一次只接受單一 `TransDate`，休市日無資料寫入，和 `AgriProductsTrans` 一樣面對 `MAX(TransDate)` 卡死問題，因此也需要 `SyncState`。進度推進策略使用 `lastSuccessfulDate`：只有 API 回傳 `RS==OK`（含休市日空回傳）才推進 `lastSuccessfulDate`；`RS != OK` 或例外則 `break`；迴圈結束後以 `lastSuccessfulDate` 更新 `SyncState`，而非迴圈計數器。這確保「已確認完成的最後一天」精確記錄，中途任何一天失敗都不會讓進度跳過那天。
+`DebrisNo` 和 `LandslideID` 互斥為 null。EF Core 預設對 nullable 欄位的 UNIQUE Index 加 `WHERE ... IS NOT NULL AND ...`，此 AND 條件永遠不成立，UNIQUE Index 形同虛設。`.HasFilter(null)` 覆蓋預設行為。
 
 **ConfigureConventions 取代逐欄位 HasPrecision**
-`PorkTrans` Entity 有 36 個 decimal 欄位，若逐一設定 `HasPrecision(8,2)` 過於繁瑣且易漏。在 `MarketDbContext.ConfigureConventions` 設定全域規則，讓所有 decimal 欄位自動套用 `decimal(8,2)`，`OnModelCreating` 只在需要例外精度時才個別覆蓋。這是從「局部設定」演進為「全域標準」的系統性改善。
-
-**查詢層的相依方向：Service 歸屬 Modules.Market**
-`MarketService` 放在 `TaiwanAgri.Modules.Market/Services/` 而非 `TaiwanAgri.Web`，確保相依方向正確：Web（上層）→ Modules.Market（下層）。任何需要市場查詢邏輯的入口（Web API、後台管理、測試）都可以直接依賴 Modules.Market，不需要跨層依賴。`IMarketService` 定義在同一模組，讓 Controller 依賴抽象而非具體實作，支援後續的單元測試 mock。
-
-**DTO 結構分層：WorkerResponses vs ApiResponses**
-`Dtos/` 資料夾依資料流方向分兩個子目錄，而非混放：`WorkerResponses/` 存放 MOA API 回傳資料的反序列化 DTO（欄位形狀由外部 API 決定），`ApiResponses/` 存放 Service 輸出給前端的 DTO（欄位形狀由前台畫面需求決定）。角色命名比來源命名更有自解釋性，讓維護者不需要任何背景知識就能判斷檔案的用途。
-
-**Controller 輸入驗證策略：string + ParseIsoDate 取代 [FromQuery] DateOnly**
-日期參數用 `string` 接收，手動呼叫 `DateHelper.ParseIsoDate` 解析，格式不合法時回傳明確的 `BadRequest("...請使用 yyyy-MM-dd")`。這讓錯誤訊息對前端友好，驗證邏輯明確可見，且不依賴 ASP.NET Core Model Binding 對 `DateOnly` 的版本特定行為。選填日期的預設值邏輯（今天往前 365 天）放在 Service 而非 Controller，因為它是業務決策而非技術約束。
+`PorkTrans` Entity 有 36 個 decimal 欄位，在 `ConfigureConventions` 設定全域 `decimal(8,2)` 規則。
 
 **前端三層架構：api / Store / Component 職責分離**
-模組 4 前台採用嚴格的三層架構：`api/market.ts` 負責 HTTP 封裝與型別定義（對應後端 HttpClient 層）；`stores/market.ts`（Pinia）負責全域狀態與 actions（對應後端 Service 層）；Vue 元件負責 UI 渲染與使用者互動（對應後端 Controller 層）。平鋪 prices → Chart.js datasets 的格式轉換放在 `PriceChart.vue` 的 `computed()`，而非 Store 或 api 層——這是純顯示格式轉換，不需要跨元件共享，也不屬於業務邏輯。
+`api/` 負責 HTTP 封裝；`stores/`（Pinia）負責全域狀態；Vue 元件負責 UI 渲染。平鋪 prices → Chart.js datasets 的格式轉換放在 `PriceChart.vue` 的 `computed()`，純顯示格式轉換，不屬於業務邏輯。
 
 **DisasterResponseDto 重設計：GroupBy 去重 + AffectedCounties 彙整**
-同一天災事件在 DB 中對應多筆記錄（每縣市一筆）。前端的天災卡片以「事件」為單位呈現，不是以「縣市紀錄」為單位。Service 層以 `(DisasterName, AlertDate)` GroupBy 後，將同群的 County 彙整為 `AffectedCounties`（`Distinct().OrderBy()` 的 `List<string>`）。DTO 輸出的 `AlertDate` 是 Entity 欄位 `LastUpdateDate` 的改名 + 格式轉換（yyyy-MM-dd），Entity 本身未異動。
+同一天災在 DB 對應多筆記錄（每縣市一筆）。Service 層以 `(DisasterName, AlertDate)` GroupBy 後，將同群的 County 彙整為 `AffectedCounties`（`Distinct().OrderBy()` 的 `List<string>`）。
 
 ---
 
@@ -483,15 +506,13 @@ dotnet test
 
 > **注意**：`TaiwanAgri.Tests` 目前為佔位專案，尚無實際測試案例。xUnit + Moq 測試實作規劃於 W19-20 完成。
 
-或在 Visual Studio 使用測試總管（Test Explorer）執行。
-
 ---
 
 ## 📁 相關文件
 
 | 文件 | 說明 |
 |------|------|
-| `docs/TaiwanAgriPlatform_SA_SD_v16.1.docx` | SA/SD 完整設計文件（痛點故事、API 清單、DB 設計、Sprint 計畫、W1–W10 全部實戰開發紀錄，含前端三層架構、DisasterResponseDto 重設計、Chart.js 整合決策） |
+| `docs/TaiwanAgriPlatform_SA_SD_v17.3.docx` | SA/SD 完整設計文件（W1–W11 全部實戰開發紀錄，含 RBAC 骨架、NavModule 自參照設計、RoleModulePermission 跨 DbContext FK、DbInitializer 職責分離、NavService 三段式查詢、[AllowAnonymous] 安全邊界、前端三欄 Navbar 架構） |
 
 ---
 
@@ -513,4 +534,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v16.1 ｜ PR #021 模組 4 前台完整實作完成*
+*最後更新：2026-05 ｜ 對應 SA/SD 文件版本 v17.3 ｜ PR #022 W11 RBAC 骨架 + 動態 Navbar 完成*

@@ -2060,6 +2060,212 @@ Icon 格式採 MDI CSS class 字串（`"mdi-chart-line"`），`npm install @mdi/
 
 ---
 
+# PR #023 — P0 Worker 並發限制 + LastSyncedDate 安全推進 + P1 NavService null guard
+
+**標題**：`fix(worker+core): P0 AgriProductsTransSyncWorker 並發超時修正 + LastSyncedDate 安全推進機制 + Serilog 檔案日誌 + P1 NavService roleId null guard 回退 Guest`
+
+---
+
+## 背景與動機
+
+PR #022 完成了 RBAC 骨架與動態 Navbar，系統進入「全域骨架建立完成」的里程碑。但在這個里程碑之下，有兩個每天都在靜默發生的 Bug，以及一個已標記但未修復的 null 參照問題，一起累積成技術債。
+
+這個 PR 的出發點是「出問題的地方不在新功能，而在已有的東西」：
+
+**P0 — Worker 每天燒掉 75% 的市場資料**：`AgriProductsTransSyncWorker` 用 `Task.WhenAll` 同時對農業部 API 送出 20 個 HTTP 請求。農業部 API 承受不住瞬間壓力，回應時間拉長，最終觸發 60 秒 timeout。結果是 20 個市場裡大約 15 個失敗，但 `SyncState.LastSyncedDate` 依然被推進——系統以為同步完成了，其實每天有約 75% 的市場資料是缺失的。
+
+**P1 — NavService 靜默消失**：已登入用戶的 Role Claim 若因任何原因（Identity 設定問題、Token 異常）缺失，`roleId` 傳入 `null`，服務層不做任何防守，結果是 `RoleModulePermissions` 查不到任何資料，使用者看到完全空白的 Navbar，沒有任何錯誤訊息。這個問題已在 commit `c9c4621` 標記，但未修。
+
+兩個問題一起進這個 PR，因為它們都屬於「每天都在發生但沒有人知道」的靜默故障，而且解法都很小（代碼改動各自在 10 行以內），適合一起收尾。
+
+---
+
+## 實作內容
+
+### P0 修正一：SemaphoreSlim 並發限制
+
+問題的根源是 `Task.WhenAll` 讓所有市場的 HTTP 請求同時打出，等於在農業部 API 門口塞進了 20 個人。解法是加一個「閘門」，同時只允許 5 個請求進行，其餘在 C# 層排隊等待——這正是 `SemaphoreSlim` 的用途。
+
+```csharp
+// 宣告在 for 迴圈外，確保整個同步過程共用同一個閘門
+var semaphore = new SemaphoreSlim(5);
+
+var rawResults = await Task.WhenAll(marketInfos.Select(async market =>
+{
+    await semaphore.WaitAsync(stoppingToken);   // 拿到入場券才能繼續
+    try
+    {
+        var url = $"...";
+        var json = await _httpClient.GetStringAsync(url, stoppingToken);
+        return (Market: market, Json: json, Success: true);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "市場 {Market} 抓取失敗", market.MarketName);
+        return (Market: market, Json: string.Empty, Success: false);
+    }
+    finally
+    {
+        semaphore.Release();   // 離場，讓下一個進來
+    }
+}));
+```
+
+`semaphore` 宣告在 `for` 迴圈外面是刻意的設計：如果每天重建一個 `SemaphoreSlim`，效果相同，但語意是「這個閘門是整個 Worker 共用的限流機制」，而不是「每一天各自的限制」。`catch (Exception ex)` 而非 `catch (TaskCanceledException ex)` 也是刻意的——只攔 timeout 的話，其他如 `HttpRequestException`（網路斷線）、`JsonException`（API 格式異常）都會讓整個 `Task.WhenAll` 爆掉，影響所有市場。
+
+### P0 修正二：LastSyncedDate 條件推進 + 5 天安全閥
+
+修正並發問題後，還需要修正「即使有失敗，LastSyncedDate 也照推」的邏輯。策略是：
+
+全部成功 → 正常推進 `LastSyncedDate`，兩個 DbContext 都 `SaveChanges`。
+
+有任何失敗 → `dbMarket.SaveChangesAsync`（成功的那幾筆資料不浪費），但 `dbCore` 不執行 `SaveChanges`，`LastSyncedDate` 維持不動，下次 Worker 執行時從同一天重試。
+
+```csharp
+if (failedMarkets.Any())
+{
+    _logger.LogWarning("{Date} 有 {Count} 個市場失敗：{Markets}，LastSyncedDate 維持不更新",
+        currentDate, failedMarkets.Count, string.Join(", ", failedMarkets));
+    await dbMarket.SaveChangesAsync(stoppingToken);
+
+    // 安全閥：若已落後 5 天仍有失敗，強制推進並留下缺口記錄
+    var daysBehind = yesterdayDate.DayNumber - currentDate.DayNumber;
+    if (daysBehind >= 5)
+    {
+        _logger.LogWarning("{Date} 已落後 {Days} 天仍有失敗，強制推進 LastSyncedDate，資料存在缺口",
+            currentDate, daysBehind);
+        lastSyncState.LastSyncedDate = currentDate;
+        lastSyncState.UpdatedAt = DateTime.UtcNow;
+        await dbCore.SaveChangesAsync(stoppingToken);
+    }
+}
+else
+{
+    lastSyncState.LastSyncedDate = currentDate;
+    lastSyncState.UpdatedAt = DateTime.UtcNow;
+    await dbMarket.SaveChangesAsync(stoppingToken);
+    await dbCore.SaveChangesAsync(stoppingToken);
+    _logger.LogInformation("{Date} 同步完成", currentDate);
+}
+```
+
+安全閥的存在是防止「農業部 API 整體掛掉持續超過一周」的無限卡死情境。5 天是一個合理的容忍窗口：給 API 恢復的機會，但不讓 Worker 永久停滯在同一天而落後過多。強制推進時會留下 `Warning` 等級的 log，讓日後手動補資料有據可查。
+
+### 可觀測性：Serilog 檔案日誌
+
+「Worker 執行完關掉視窗，出事了不知道」是一個現實的維運問題。加入 Serilog 的 `WriteTo.File` 之後，每天的執行 log 都會存在 `logs/` 資料夾：
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .WriteTo.File(
+        path: "logs/worker-.log",
+        rollingInterval: RollingInterval.Day,     // 每天一個新檔案
+        retainedFileCountLimit: 60,               // 保留最近 60 天
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+```
+
+`retainedFileCountLimit: 60` 確保磁碟不會無限成長，保留的 60 天窗口足夠覆蓋大多數的事後調查需求。
+
+### P1 修正：NavService roleId null guard
+
+在 `isAuthenticated = true` 但 `roleId` 為空的情境，改為回退 Guest 權限而非靜默消失。同時注入 `ILogger<NavService>` 讓回退行為可被觀察到：
+
+```csharp
+private readonly ILogger<NavService> _logger;
+
+public NavService(RoleManager<IdentityRole> roleManager, CoreDbContext coreDbContext, ILogger<NavService> logger)
+{
+    _roleManager = roleManager;
+    _context = coreDbContext;
+    _logger = logger;
+}
+
+// GetNavModulesAsync 的 else 分支
+else
+{
+    if (string.IsNullOrWhiteSpace(roleId))
+    {
+        var guestRole = await _roleManager.FindByNameAsync("Guest");
+        if (guestRole == null)
+            throw new InvalidOperationException("Guest role not found");
+        targetRoleId = guestRole.Id;
+        _logger.LogWarning("已登入用戶缺少 Role Claim，回退至 Guest 權限顯示");
+    }
+    else
+    {
+        targetRoleId = roleId;
+    }
+}
+```
+
+`IsNullOrWhiteSpace` 比 `IsNullOrEmpty` 更嚴謹，連純空白字串（Token 解析出格式異常的 Claim）也能攔截。回退 Guest 而非拋例外的決策是基於使用體驗：使用者看到一個功能受限的 Navbar，遠好過看到一個完全空白的頁面。
+
+---
+
+## 關鍵設計決策
+
+### 決策一：SemaphoreSlim(5) vs Sequential foreach + delay
+
+有兩種方式可以解決 API 打爆的問題。一是回到 sequential `foreach`，每次請求之間加 500ms delay，簡單但慢，20 個市場 × 500ms 加上實際請求時間，每天約需 15 秒以上；二是保留 `Task.WhenAll` 並加 `SemaphoreSlim(5)`，保有 I/O 並發的效能收益，同時限制瞬間壓力。
+
+選擇 `SemaphoreSlim`。Sequential 是退回到「完全放棄並發」，而問題的根源只是「並發數太高」，不是「並發本身有問題」。5 這個數字可以根據農業部 API 的實際承受能力調整，是一個參數，不是一個硬限制。
+
+### 決策二：失敗時 dbMarket 仍要 SaveChanges
+
+失敗時不推進 `LastSyncedDate` 是清楚的，但「成功的那幾筆要不要存」有兩種選項：一是全部 rollback，保持當天資料一致性（要嘛全有、要嘛全無）；二是成功的先存，失敗的下次補。
+
+選擇先存成功的資料。全部 rollback 的問題是：下次重試時，`existingKeys` 的 HashSet 比對會擋掉已存過的資料，不會重複寫入，所以先存不會產生問題；而 rollback 代表成功抓回來的資料也要放棄，多浪費了一次 API 請求。先存、下次補，符合「盡量減少資料缺漏」的原則。
+
+### 決策三：5 天安全閥的閾值選擇
+
+安全閥的目的是避免農業部 API 長期故障時 Worker 永久卡死。閾值選 5 天而非 3 天的理由是：農業部 API 有時候在週末或國定假日維護，3 天可能會誤觸安全閥並強制推進，留下實際可以補回來的缺口；5 天則給了足夠的緩衝，超過 5 天幾乎可以確定是 API 長期故障而非短暫維護。
+
+### 決策四：NavService null guard 回退 Guest 而非 throw
+
+已登入但缺少 Role Claim 是一種「系統內部的異常狀態」，從技術角度可以拋例外。但從使用者角度，拋例外通常意味著頁面崩潰或空白，使用者得不到任何有意義的回饋。回退 Guest 的好處是：使用者至少能看到系統存在，知道自己登入了，而後台的 `LogWarning` 能讓開發者知道有異常發生。這個決策把「系統穩定性優先於嚴格的狀態一致性」的設計哲學落實在具體的程式碼裡。
+
+---
+
+## 驗收標準
+
+執行 Worker 後，`logs/` 資料夾下產生當天的 `.log` 檔案，且 log 內容中所有市場均顯示成功或「無資料跳過」，不出現 `TaskCanceledException`。
+
+`SyncStates.LastSyncedDate` 在全部市場成功後被推進至昨天的日期；若有部分市場失敗，`LastSyncedDate` 維持不動，下次執行時從同一天重試。
+
+NavService 在 `roleId = null` 的情況下不拋例外，前端 Navbar 顯示 Guest 權限的模組，後台 log 出現 `Warning: 已登入用戶缺少 Role Claim，回退至 Guest 權限顯示`。
+
+Serilog 的 outputTemplate 格式正確（`yyyy-MM-dd HH:mm:ss [LEVEL] Message`），`retainedFileCountLimit` 生效（超過 60 個檔案時自動清理最舊的）。
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動內容 |
+|------|---------|
+| `TaiwanAgri.Worker/AgriProductsTransSyncWorker.cs` | 加入 `SemaphoreSlim(5)` 並發限制；`failedMarkets` 統計；`LastSyncedDate` 條件推進；5 天安全閥 |
+| `TaiwanAgri.Worker/Program.cs` | 加入 Serilog `WriteTo.File`，每日滾動，保留 60 天 |
+| `TaiwanAgri.Core/Services/NavService.cs` | 加入 `ILogger<NavService>` 注入；`IsNullOrWhiteSpace(roleId)` null guard；回退 Guest + LogWarning |
+| `TaiwanAgri.Worker/TaiwanAgri.Worker.csproj` | 加入 `Serilog.Sinks.File` 套件參照 |
+| `README.md` | 更新進度說明 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 沒有新功能，只有修正——但這類 PR 在工程實務中往往比新功能 PR 更有討論價值。
+
+注意 `SemaphoreSlim` 的位置和 `catch (Exception ex)` 的選擇，這兩個細節各自背後都有一個取捨：閘門宣告在迴圈外是為了讓語意清晰（這是全域限流機制，不是每天重建的局部機制）；攔截所有例外是為了讓單一市場的失敗不會影響其他市場的完整性。每一個「看起來很小的細節」背後都有一個「如果不這樣做，會發生什麼」的問題值得問。
+
+`LastSyncedDate` 的條件推進和 `dbMarket` 先存的決策，也是一個「系統的一致性邊界要劃在哪裡」的問題：不是「要嘛全對要嘛全錯」，而是「能保留的先保留，有缺漏的留下記錄」。這個設計哲學在分散式系統或任何涉及外部 API 的系統裡是反覆出現的主題——最終一致性優先於嚴格一致性，但一致性的邊界必須明確且可追蹤。
+
+`NavService` 的 null guard 則展示了「防禦性編程不是到處加 try-catch」，而是「在系統邊界上明確定義異常輸入的處理策略，讓系統的行為在所有情境下都是可預期的」。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

@@ -74,15 +74,19 @@ namespace TaiwanAgri.Worker
 			var existingCropCodeSet = await dbMarket.CropInfos
 				.Select(x => x.CropCode)
 				.ToHashSetAsync(stoppingToken);
+			var semaphore = new SemaphoreSlim(5); // 控制併發數量，避免過度壓垮 API 或資料庫
 			for (DateOnly currentDate = startDate; currentDate <= yesterdayDate; currentDate = currentDate.AddDays(1))
 			{
 				_logger.LogInformation("--- 開始同步日期: {Date} ---", currentDate);
 				// 併發抓取所有市場 API 請求，減少網路等待時間
 				var rawResults = await Task.WhenAll(marketInfos.Select(async market =>
 				{
-					var url = $"{MoaApiEndpoints.AgriProductsTrans}?Start_time={DateHelper.FormatRocDate(currentDate)}&End_time={DateHelper.FormatRocDate(currentDate)}&MarketName={market.MarketName}";
+					// 1. 控制併發數量，避免過度壓垮 API 或資料庫
+					await semaphore.WaitAsync(stoppingToken);
+					// 2. 抓取 API 資料，並捕捉可能的例外（例如網路問題、API 異常等），確保即使某個市場失敗也不會影響整體流程
 					try
 					{
+						var url = $"{MoaApiEndpoints.AgriProductsTrans}?Start_time={DateHelper.FormatRocDate(currentDate)}&End_time={DateHelper.FormatRocDate(currentDate)}&MarketName={market.MarketName}";
 						var json = await _httpClient.GetStringAsync(url, stoppingToken);
 						return (Market: market, Json: json, Success: true);
 					}
@@ -91,7 +95,12 @@ namespace TaiwanAgri.Worker
 						_logger.LogError(ex, "市場 {Market} 抓取失敗", market.MarketName);
 						return (Market: market, Json: string.Empty, Success: false);
 					}
+					finally
+					{
+						semaphore.Release();
+					}
 				}));
+				var failedMarkets = rawResults.Where(r => !r.Success).Select(r => r.Market.MarketName).ToList();
 				// 【效能優化比對：當日已存在資料】
 				// 1. AsNoTracking & Select: 僅抓取必要欄位且不追蹤實體，極大化查詢效能。
 				// 2. 批次處理: 進入市場迴圈前先抓出該日所有資料，避免在巢狀迴圈中反覆查詢 DB。
@@ -170,15 +179,38 @@ namespace TaiwanAgri.Worker
 				_logger.LogInformation("[SyncAgriProductsTransAsync] 成功抓取 共 {Count} 筆資料", saveData.Count);
 				//注意：這裡不需要立刻呼叫 SaveChangesAsync，因為同一天的資料還有其他市場的，等全部市場的資料都準備好後再一起寫入資料庫，這樣效率更好，也能確保資料一致性。
 
-				// 當日所有市場處理完畢，一次性提交資料庫更改 (原子性操作)
-				lastSyncState.LastSyncedDate = currentDate;
-				lastSyncState.UpdatedAt = DateTime.UtcNow;
-				await dbMarket.SaveChangesAsync(stoppingToken); // 先把 AgriProductsTrans 的新增寫入資料庫，確保資料已經存在了
-				await dbCore.SaveChangesAsync(stoppingToken);
-				_logger.LogInformation("{Date} 同步完成", currentDate);
+				// ★ 改動：只有全部市場成功才推進 LastSyncedDate
+				
+				if (failedMarkets.Any())
+				{
+					// 注意：dbCore 不 SaveChanges，LastSyncedDate 不推進 => 下次還是會從同一天開始嘗試，直到成功為止
+					_logger.LogWarning("{Date} 有 {Count} 個市場失敗：{Markets}，LastSyncedDate 維持不更新，下次將重新嘗試此日",
+						currentDate, failedMarkets.Count, string.Join(", ", failedMarkets));
+					// 成功的那幾筆還是要存
+					await dbMarket.SaveChangesAsync(stoppingToken);
+					// ★ 安全閥：如果這天已經超過 5 天還是有失敗，強制推進並記錄缺口
+					var daysBehind = yesterdayDate.DayNumber - currentDate.DayNumber;
+					if (daysBehind >= 5)
+					{
+						_logger.LogWarning("{Date} 已落後 {Days} 天仍有失敗市場，強制推進 LastSyncedDate，資料存在缺口",
+							currentDate, daysBehind);
+						lastSyncState.LastSyncedDate = currentDate;
+						lastSyncState.UpdatedAt = DateTime.UtcNow;
+						await dbCore.SaveChangesAsync(stoppingToken);
+					}
+
+				}
+				else
+				{
+					// 當日所有市場處理完畢，一次性提交資料庫更改 (原子性操作)
+					lastSyncState.LastSyncedDate = currentDate;
+					lastSyncState.UpdatedAt = DateTime.UtcNow;
+					await dbMarket.SaveChangesAsync(stoppingToken); // 先把 AgriProductsTrans 的新增寫入資料庫，確保資料已經存在了
+					await dbCore.SaveChangesAsync(stoppingToken);
+					_logger.LogInformation("{Date} 同步完成", currentDate);
+				}
 			}
 		}
-
 		private AgriProductsTrans MapToEntity(AgriProductsTransTypeDto dto)
 		{
 			return new AgriProductsTrans

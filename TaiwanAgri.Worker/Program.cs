@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Polly;
+using Serilog;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Weather.Data;
@@ -11,7 +12,21 @@ namespace TaiwanAgri.Worker
 	{
 		public static void Main(string[] args)
 		{
+			Log.Logger = new LoggerConfiguration()
+				.MinimumLevel.Information()
+				.WriteTo.Console()
+				.WriteTo.File(
+					path: "logs/worker-.log",
+					rollingInterval: RollingInterval.Day,      // 每天一個新檔案
+					retainedFileCountLimit: 60,                // 只保留最近 60 天
+					outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+				)
+				.CreateLogger();
+
 			var builder = Host.CreateApplicationBuilder(args);
+			builder.Logging.ClearProviders();
+			builder.Logging.AddSerilog();
+
 			//DbContext 註冊
 			builder.Services.AddDbContext<CoreDbContext>(options =>
 				options.UseSqlServer(

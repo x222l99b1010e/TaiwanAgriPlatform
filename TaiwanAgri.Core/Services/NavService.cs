@@ -2,6 +2,7 @@
 using TaiwanAgri.Core.Dtos;
 using TaiwanAgri.Core.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace TaiwanAgri.Core.Services
 {
@@ -9,10 +10,12 @@ namespace TaiwanAgri.Core.Services
 	{
 		private readonly RoleManager<IdentityRole> _roleManager;
 		private readonly CoreDbContext _context;
-		public NavService(RoleManager<IdentityRole> roleManager, CoreDbContext coreDbContext)
+		private readonly ILogger<NavService> _logger;
+		public NavService(RoleManager<IdentityRole> roleManager, CoreDbContext coreDbContext, ILogger<NavService> logger)
 		{
 			_roleManager = roleManager;
 			_context = coreDbContext;
+			_logger = logger;
 		}
 		public async Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleId)
 		{
@@ -28,7 +31,19 @@ namespace TaiwanAgri.Core.Services
 			}
 			else
 			{
-				targetRoleId = roleId;
+				if (string.IsNullOrWhiteSpace(roleId))
+				{
+					// 已登入但沒有 Role Claim，回退到 Guest 權限而不是靜默消失
+					var guestRole = await _roleManager.FindByNameAsync("Guest");
+					if (guestRole == null)
+						throw new InvalidOperationException("Guest role not found");
+					targetRoleId = guestRole.Id;
+					_logger.LogWarning("已登入用戶缺少 Role Claim，回退至 Guest 權限顯示");
+				}
+				else
+				{
+					targetRoleId = roleId;
+				}
 			}
 			// 第二段：查資料庫，根據 RoleId 查詢 NavModuleDto
 			// 1. 用 RoleId 查出所有有權限的 ModuleId 清單
@@ -67,7 +82,7 @@ namespace TaiwanAgri.Core.Services
 					.Where(c => c.ParentId == nm.Id)  // ← 這裡的 nm.Id 是當前頂層模組
 					.Select(c => new NavChildDto
 					{
-						Name = c.Name,      // ← 你來填
+						Name = c.Name,
 						Route = c.Route,
 						Icon = c.Icon,
 						SortOrder = c.SortOrder

@@ -3766,6 +3766,188 @@ var childNavModules = await _context.NavModules
 
 ---
 
+### 條目 122 — SemaphoreSlim：用閘門控制並發，而不是放棄並發
+
+**我做了什麼**
+
+`AgriProductsTransSyncWorker` 用 `Task.WhenAll` 對農業部 API 同時送出 20 個 HTTP 請求，導致 API 承受不住，大多數請求 timeout 失敗。修正方案是引入 `SemaphoreSlim(5)`，把同時進行中的請求數限制在 5 個以內。
+
+**我遇到的問題**
+
+面臨兩個選項：（1）保留 `Task.WhenAll` 並加 `SemaphoreSlim`；（2）改回 `foreach` 加 `Task.Delay(500)`。第二個選項看起來更簡單，直覺上「一個一個打就不會爆掉」。但直接捨棄並發等於用最保守的方式解決問題，而問題的根源只是「並發數太高」，不是「並發本身有問題」。
+
+**我怎麼想通的**
+
+`SemaphoreSlim` 是一個計數式閘門：初始化時指定「最多幾個人同時進門」，每個進去的人拿走一個名額（`WaitAsync`），出來時歸還（`Release`）。它解決的是「控制瞬間並發數」，而不是「消滅並發」。
+
+```csharp
+// semaphore 宣告在 for 迴圈外，是語意上的刻意選擇
+// 代表這個閘門是整個 Worker 的全域限流機制，不是每天重建的局部機制
+var semaphore = new SemaphoreSlim(5);
+
+var rawResults = await Task.WhenAll(marketInfos.Select(async market =>
+{
+    await semaphore.WaitAsync(stoppingToken);   // 沒有名額就在這裡等
+    try
+    {
+        // ... HTTP 請求 ...
+    }
+    finally
+    {
+        semaphore.Release();   // 不管成功還是失敗，一定要還名額
+    }
+}));
+```
+
+`Release()` 放在 `finally` 是關鍵：如果放在 `try` 裡，一旦請求拋例外，`Release()` 就不會執行，名額永遠不回來，最終所有執行緒都卡在 `WaitAsync` 等一個永遠不會出現的名額——系統死鎖。`finally` 保證「不管發生什麼，名額一定歸還」。
+
+另一個細節是 `catch (Exception ex)` 而非 `catch (TaskCanceledException ex)`。只攔 timeout 的話，`HttpRequestException`（網路斷線）或 `JsonException`（API 回傳格式異常）都會讓 `Task.WhenAll` 把整個任務炸掉，不只是記錄那個市場失敗，而是當天所有市場的處理全部中斷。攔所有例外讓每個市場的失敗都被隔離在自己的 Task 裡。
+
+**我學到的原則**
+
+「並發造成問題」不等於「並發本身是問題」。先診斷問題的根源（是並發數過高、還是並發本身不安全），再選擇對應的解法。`SemaphoreSlim` 是「並發數過高」的解法；改回 sequential 是「並發本身不安全」的解法。把兩個不同問題的解法搞混，會讓代碼付出不必要的效能代價。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 `Task.WhenAll` + 外部 API 的組合，先問「這個 API 能承受同時幾個請求？」如果答案不是「不限制」，就加 `SemaphoreSlim`。`Release()` 永遠放 `finally`，這是 `SemaphoreSlim` 的鐵律。
+
+---
+
+### 條目 123 — 同步狀態推進的邊界：什麼叫「這天完成了」
+
+**我做了什麼**
+
+修正 `AgriProductsTransSyncWorker` 的 `LastSyncedDate` 推進邏輯：原本是不管有沒有市場失敗都推進，改為只有全部市場成功才推進，並加入「成功的資料先存，失敗的下次補」的策略，以及「落後 5 天自動強制推進」的安全閥。
+
+**我遇到的問題**
+
+修完之後面臨一個新問題：如果農業部 API 整體故障，Worker 每天重試都失敗，`LastSyncedDate` 永遠不推進，系統卡死在同一天。這是「修了一個 Bug，引入了另一個風險」的典型情境。
+
+需要在「有失敗就不推進（資料正確性）」和「不能永久卡死（系統可用性）」之間找到一個平衡點。
+
+**我怎麼想通的**
+
+這個問題本質上是「一致性 vs 可用性」的取捨，在任何需要推進進度的增量同步系統裡都會出現。解法是分兩層處理：
+
+第一層（正常情況）：有失敗 → 不推進 `LastSyncedDate`，下次重試。這是「資料正確性優先」的設計，給 API 恢復的機會。
+
+第二層（長期故障）：落後超過 N 天 → 強制推進並留下缺口記錄。這是「系統可用性保底」的設計，防止無限卡死。
+
+```csharp
+var daysBehind = yesterdayDate.DayNumber - currentDate.DayNumber;
+if (daysBehind >= 5)
+{
+    // Warning 等級記錄：這是一個需要人工關注的異常狀態
+    _logger.LogWarning("{Date} 已落後 {Days} 天仍有失敗，強制推進 LastSyncedDate，資料存在缺口",
+        currentDate, daysBehind);
+    lastSyncState.LastSyncedDate = currentDate;
+    lastSyncState.UpdatedAt = DateTime.UtcNow;
+    await dbCore.SaveChangesAsync(stoppingToken);
+}
+```
+
+N 選 5 是一個考量了農業部 API 維護週期的判斷：週末或連假可能 2-3 天無回應，3 天的閾值可能誤觸；5 天幾乎可以確定是長期故障而非短暫維護。
+
+「成功的資料先存」的決策也是類似的思路：下次重試時，`existingKeys` HashSet 會擋掉已存過的資料，不會重複寫入，所以先存不會造成資料問題；而如果全部 rollback，已成功抓回的資料就浪費了一次 API 請求。能保留的先保留，有缺漏的留下記錄，符合「最終一致性優先於嚴格一致性」的增量同步設計原則。
+
+**我學到的原則**
+
+任何「有進度追蹤」的增量同步系統，都需要明確定義三件事：（1）什麼條件才算「這天完成」，（2）失敗時進度要不要退回，（3）長期故障時如何避免卡死。這三個問題如果在設計時沒有答案，出問題的時候會很難追查。安全閥（強制推進機制）的閾值設定不是精確科學，是對外部系統故障模式的主觀判斷，值得在代碼注釋中說明選擇這個數字的理由。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到增量同步的進度推進邏輯，馬上問：「如果外部系統長期故障，這段代碼的行為是什麼？」如果答案是「卡死」，就需要一個安全閥。安全閥觸發時一定要用 `Warning` 或更高等級記錄，讓運維人員知道有資料缺口需要關注。
+
+---
+
+### 條目 124 — ILogger 注入服務層：可觀測性是服務的一部分
+
+**我做了什麼**
+
+在 `NavService` 加入 `ILogger<NavService>` 依賴注入，用於記錄「已登入用戶缺少 Role Claim，回退至 Guest 權限」的警告。這是 P1 null guard 修正的配套工作。
+
+**我遇到的問題**
+
+原本 `NavService` 沒有 logger，只有 `RoleManager` 和 `CoreDbContext` 兩個依賴。加 null guard 時，只是靜默回退 Guest 也能達到「不崩潰」的效果——為什麼一定要加 logger？
+
+**我怎麼想通的**
+
+靜默回退的問題在於：當這個異常狀態真的發生時（使用者的 Role Claim 缺失），系統表面上正常運作（Navbar 顯示），但沒有任何地方記錄了「這件事發生過」。調查問題時，你只知道某個使用者反映 Navbar 權限好像不對，但完全沒有線索。
+
+`ILogger` 注入服務層是 ASP.NET Core 的標準模式，成本極低：
+
+```csharp
+private readonly ILogger<NavService> _logger;
+
+public NavService(
+    RoleManager<IdentityRole> roleManager,
+    CoreDbContext coreDbContext,
+    ILogger<NavService> logger)   // DI 容器自動提供
+{
+    _roleManager = roleManager;
+    _context = coreDbContext;
+    _logger = logger;
+}
+```
+
+`ILogger<T>` 的泛型參數 `T` 是 category name，也就是這個 logger 的身份標記。在結構化日誌系統（如 Serilog、Application Insights）裡，category name 是過濾和搜尋 log 的關鍵維度——搜尋 `NavService` 就能找到所有來自這個服務的 log，不需要靠關鍵字比對。
+
+`IsNullOrWhiteSpace` 的選擇比 `IsNullOrEmpty` 更嚴謹，是因為 Token 解析異常時可能產生純空白字串的 Claim，而不是真正的 `null`。`IsNullOrWhiteSpace` 一次攔截兩種情況。
+
+**我學到的原則**
+
+服務層的可觀測性（logging）和業務邏輯是同等重要的設計考量，不是「有空再加」的附加工作。異常路徑（fallback、error handling）尤其需要 log，因為這些路徑發生時往往不會有任何外部可見的異常，只有 log 才能告訴你「這件事發生過，而且是什麼時候」。`Warning` 等級是「系統還在運作，但有值得注意的異常狀態」——這個場景正好符合：Navbar 仍然顯示，但以非預期的方式（Guest 權限而非使用者自己的權限）顯示。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計 fallback 邏輯時，先問：「如果這個 fallback 真的被觸發，我怎麼知道？」如果答案是「不知道」，就加一行 `LogWarning`。Fallback 是正確的設計，但靜默的 fallback 是隱患。
+
+---
+
+### 條目 125 — Serilog 檔案日誌：從「跑完就消失」到「可追查的歷史」
+
+**我做了什麼**
+
+在 `Worker/Program.cs` 加入 Serilog 的 `WriteTo.File` sink，讓每天的執行 log 以滾動方式存在 `logs/` 資料夾，保留最近 60 天。
+
+**我遇到的問題**
+
+Worker 的問題是：它跑完就關掉終端機視窗，控制台 log 消失了。如果某天農業部 API 出問題導致資料缺漏，事後調查時完全沒有記錄可以查。這是「只有 Console logger」的根本限制——log 的生命週期和進程一樣短。
+
+**我怎麼想通的**
+
+Serilog 的設計哲學是「sink 化」：日誌寫到哪裡，是一個配置問題，而不是代碼問題。同一份 log，可以同時寫到 Console（開發時即時查看）和 File（生產時持久保存），兩個 sink 並列不互斥。
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()              // 開發時即時查看
+    .WriteTo.File(
+        path: "logs/worker-.log",   // 路徑中的 "-" 會被 Serilog 替換為日期
+        rollingInterval: RollingInterval.Day,      // 每天一個新檔案：worker-20260519.log
+        retainedFileCountLimit: 60,               // 超過 60 個檔案時自動刪最舊的
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+```
+
+`path: "logs/worker-.log"` 裡的 `-` 不是筆誤，是 Serilog 的命名慣例——滾動檔案的日期部分會被插在這個位置，產生 `worker-20260519.log` 這樣的檔名。
+
+`retainedFileCountLimit: 60` 是磁碟管理的平衡點：60 天的 log 窗口足夠覆蓋大多數的事後調查，而且每個 `.log` 檔案大小通常只有幾 KB 到幾百 KB，60 個檔案的總磁碟佔用很低。不設限制（`null`）在生產環境是危險的——log 會無限累積直到磁碟滿。
+
+`builder.Logging.ClearProviders()` 後 `builder.Logging.AddSerilog()` 是把 ASP.NET Core 的預設 logging infrastructure 接管給 Serilog，讓所有透過 `ILogger<T>` 寫出的 log 都走 Serilog 的 sink，包括 EF Core 的 SQL log 和框架自身的 log。
+
+**我學到的原則**
+
+Production-grade 的系統需要持久化的 log。Console logger 是開發工具，不是運維工具。決定「要不要加檔案 log」的標準問題是：「如果這個服務出問題，而我當時不在電腦前，我有辦法事後重建當時發生了什麼嗎？」如果答案是「沒有辦法」，就需要持久化 log。`retainedFileCountLimit` 這類「上限」設定在系統設計中是一個通用原則：任何可以無限成長的資源，都應該設定明確的上限和清理策略，否則遲早耗盡。
+
+**下次遇到類似情況，我會先想到什麼**
+
+新加一個背景服務或定時任務時，第一件事確認：「這個服務的 log 會存在哪裡，我事後可以看嗎？」如果只有 Console，評估是否需要加 Serilog File sink。`retainedFileCountLimit` 一定要設定，不要讓 log 無限累積。
+
+
+---
+
 
 
 ---
