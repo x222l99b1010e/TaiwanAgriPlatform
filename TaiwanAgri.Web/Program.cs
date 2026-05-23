@@ -7,6 +7,7 @@ using TaiwanAgri.Core.Services;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Services;
 using TaiwanAgri.Web.Data;
+using TaiwanAgri.Web.Services;
 
 namespace TaiwanAgri.Web
 {
@@ -42,9 +43,15 @@ namespace TaiwanAgri.Web
 						.AllowCredentials();
 				});
 			});
+			builder.Services.AddStackExchangeRedisCache(options =>
+			{
+				options.Configuration = builder.Configuration.GetConnectionString("Redis");
+			});
 			// 註冊 IMarketService 及其對應的實作 MarketService
 			builder.Services.AddScoped<IMarketService, MarketService>();
 			builder.Services.AddScoped<INavService, NavService>();
+			//
+			builder.Services.AddHostedService<PriceUpdatedConsumer>();
 			// builder 區段加：
 			//Install - Package Swashbuckle.AspNetCore - ProjectName TaiwanAgri.Web
 			builder.Services.AddEndpointsApiExplorer();

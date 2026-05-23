@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using RabbitMQ.Client;
+using System.Text;
 using System.Text.Json;
 using TaiwanAgri.Core.Constants;
 using TaiwanAgri.Core.Helpers;
@@ -28,6 +30,7 @@ namespace TaiwanAgri.Worker
 				try 
 				{
 					await SyncAgriProductsTransAsync(stoppingToken);
+					await PublishPriceUpdatedEventAsync(); // ← 同步成功才發
 				}
 				catch (Exception ex)
 				{
@@ -35,6 +38,28 @@ namespace TaiwanAgri.Worker
 				}
 				await Task.Delay(TimeSpan.FromDays(1), stoppingToken); // 每天執行一次
 			}
+		}
+
+		private async Task PublishPriceUpdatedEventAsync()
+		{
+			var factory = new ConnectionFactory { HostName = "localhost" };
+			await using var connection = await factory.CreateConnectionAsync();
+			await using var channel = await connection.CreateChannelAsync();
+
+			// 宣告 topic exchange（不存在會自動建立，已存在則確認設定一致）
+			await channel.ExchangeDeclareAsync(
+				exchange: "agri.events",
+				type: ExchangeType.Topic,
+				durable: true);
+
+			// 發布訊息
+			var body = Encoding.UTF8.GetBytes("{}"); // 骨架階段，payload 暫時空 JSON
+			await channel.BasicPublishAsync(
+				exchange: "agri.events",
+				routingKey: "agri.market.priceUpdated",
+				body: body);
+
+			_logger.LogInformation("[AgriProductsTransSyncWorker] 已發布 agri.market.priceUpdated 事件");
 		}
 
 		private async Task SyncAgriProductsTransAsync(CancellationToken stoppingToken)

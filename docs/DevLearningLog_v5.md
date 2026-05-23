@@ -4196,6 +4196,214 @@ if (pendingMigrations.Any())
 寫一個有隱含前提條件的方法時，在方法最前面問：「這個方法依賴什麼才能正常執行？如果那個前提不成立，現在能知道嗎，還是要到很深的地方才會爆？」能提早知道，就提早驗證，提早拋出有行動指引的錯誤。`GetPendingMigrationsAsync()` 是 EF Core 提供的標準工具，任何在應用程式啟動時涉及資料庫操作的初始化方法都可以在入口加這個預檢。
 
 ---
+ 
+### 條目 133 — Cache-Aside Pattern：Redis 是保底，RabbitMQ 才是正常路徑
+ 
+**我做了什麼**
+ 
+在 `MarketService.GetPricesAsync` 加入 Redis Cache-Aside Pattern。注入 `IDistributedCache`，在方法最前面先查 Redis，命中則直接回傳反序列化後的結果；沒命中才執行三表 JOIN + GroupBy 的 SQL 查詢，查完把結果序列化成 JSON 寫入 Redis，TTL 設定 25 小時。
+ 
+**我遇到的問題**
+ 
+第一個困惑是 TTL 應該設多長。直覺上覺得「農業部資料每天更新一次，所以 TTL 設 24 小時」，但這個邏輯有一個隱性的問題：TTL 從「第一次有人查詢」開始計時，不是從「Worker 同步完成」開始計時。如果 Worker 凌晨 2 點同步完，下午 2 點第一個人查詢，TTL 12 小時後會在凌晨 2 點過期——剛好 Worker 又在跑了。這時候 cache 的過期時間和資料的更新時間是兩條完全無關的時間線，不應該混為一談。
+ 
+第二個困惑是：TTL 設 25 小時，如果 Worker 今天凌晨 2 點同步完新資料，但 cache 還有 3 小時才過期，這 3 小時查詢到的不是最新資料，這樣不是有問題嗎？
+ 
+**我怎麼想通的**
+ 
+第一個問題的解答是：TTL 的職責不是「讓 cache 在資料更新時失效」，它做不到這件事，因為它從來不知道資料有沒有更新。TTL 的正確定位是「保底機制」——萬一 RabbitMQ 的主動通知沒有送達（Worker 崩潰、網路斷線、Consumer 沒啟動），cache 最多撐多久再自動清掉。所以 TTL 的長短設計考量不是資料更新頻率，而是「我能接受的最壞情況延遲是多少小時」。
+ 
+第二個問題的解答讓我理解了這個系統的核心設計：農業部的農產品交易資料是**歷史快照**，不是即時資料。Worker 今天同步的是「昨天的交易記錄」。如果使用者查的是 2024 年的資料，那 cache 永遠有效，因為 2024 年的資料不會改變。如果使用者查的範圍包含到昨天，那 Worker 跑完後應該透過 **RabbitMQ 主動通知 Consumer 去清掉對應的 cache**，而不是靠 TTL 等它自然過期。TTL 是保底，RabbitMQ 才是正常路徑。這兩個機制各有職責，不是替代關係。
+ 
+**Cache Key 設計的細節**
+ 
+```csharp
+// 日期必須用 finalStart/finalEnd（解析後的值），不能用原始的 startDate/endDate
+// 原因：兩個使用者都沒傳 startDate，startDate 都是 null
+// 但今天呼叫的 finalStart 是 2025-05-23，明天呼叫的是 2025-05-24
+// 如果 Key 用 null，兩次查詢命中同一個 cache，但結果不同——這是 bug
+DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Today);
+DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+ 
+// cropCodes 先排序再 Join，確保 ["B02","A01"] 和 ["A01","B02"] 命中同一個 cache
+var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
+var cacheKey = $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+```
+ 
+**我學到的原則**
+ 
+Cache 的 TTL 和資料的更新頻率是兩個獨立的概念，不應該強行耦合。正確的思考框架是：「如果主動失效機制（RabbitMQ）失敗了，我願意讓 cache 最多撐多久？」這個問題的答案才是 TTL 設定的依據。另外，Cache Key 的設計必須窮舉所有影響查詢結果的參數，任何一個遺漏都可能造成「不同查詢命中同一個 cache」的隱性 bug，這種 bug 難以復現，難以診斷。
+ 
+**下次遇到類似情況，我會先想到什麼**
+ 
+設計 Cache Key 之前，先把這個方法的所有輸入參數列出來，問：「這個參數如果不同，查詢結果會不同嗎？」如果答案是會，就必須進 Key。設計 TTL 之前，問：「主動失效機制是什麼？TTL 是保底還是主要失效手段？」
+ 
+---
+ 
+### 條目 134 — RabbitMQ 的三個 Exchange Type：不是選一個最好的，而是選符合語意的
+ 
+**我做了什麼**
+ 
+在 `AgriProductsTransSyncWorker` 同步成功後加入 `PublishPriceUpdatedEventAsync`，使用 topic exchange `agri.events`，routing key `agri.market.priceUpdated`，發布一個空 JSON payload 的事件。
+ 
+**我遇到的問題**
+ 
+選 Exchange Type 時面臨三個選項：direct（一對一精確配對）、fanout（廣播，所有訂閱者都收到）、topic（萬用字元配對，一對多但可篩選）。直覺上覺得「fanout 最簡單，反正我就是要廣播給所有人」，但這個直覺忽略了一個問題：「所有人」的定義會隨時間擴充。
+ 
+**我怎麼想通的**
+ 
+把未來的可能擴充列出來之後，答案就清楚了。目前只有 Web 端要監聽 `agri.market.priceUpdated`，但未來可能有 Report Worker（重跑報表）、Notification Worker（推使用者通知）也要監聽這個事件，甚至可能有新的 Worker 只想監聽 `agri.weather.updated` 而不想收到 `agri.market.priceUpdated`。
+ 
+fanout 會把訊息送給所有綁定到這個 Exchange 的 Queue，沒有篩選能力。這意味著如果 Notification Worker 只關心天氣事件，它的 Queue 還是會收到農產品價格的事件，然後把它丟棄——這是噪音，不是設計。
+ 
+topic 讓每個 Consumer 的 Queue 在 bind 時宣告自己的 routing key pattern，只收自己關心的訊息。`agri.market.*` 就收所有農業市場事件，`agri.weather.*` 就只收天氣事件，靈活而且語意清楚。
+ 
+```csharp
+// topic exchange 的命名慣例：用點號分隔，代表事件的階層結構
+// agri        → 系統識別碼
+// market      → 模組識別碼
+// priceUpdated → 事件類型
+await channel.ExchangeDeclareAsync(
+    exchange: "agri.events",
+    type: ExchangeType.Topic,
+    durable: true);   // durable: RabbitMQ 重啟後 Exchange 仍然存在
+```
+ 
+**我學到的原則**
+ 
+選 Exchange Type 不是選「最強」或「最簡單」的，而是選「語意最貼近你的通訊模式」的。fanout 的語意是「廣播，我不在乎你是誰，全部送」；topic 的語意是「訂閱，我只送給關心這個主題的人」。現在的場景是訂閱，所以用 topic。另外，`durable: true` 在大多數生產場景都應該開，確保 RabbitMQ 重啟後 Exchange 和 Queue 的設定不會消失。
+ 
+**下次遇到類似情況，我會先想到什麼**
+ 
+決定 Exchange Type 之前，先問：「這個事件的訂閱者是固定的還是可能擴充的？不同訂閱者需要篩選嗎？」如果需要篩選，就用 topic；如果真的所有人都需要所有訊息，才考慮 fanout。
+ 
+---
+ 
+### 條目 135 — IHostedService 的生命週期：跟應用程式一起活，跟應用程式一起死
+ 
+**我做了什麼**
+ 
+在 `TaiwanAgri.Web` 新增 `PriceUpdatedConsumer` 繼承 `BackgroundService`，在 `StartAsync` 建立 RabbitMQ 長連線、宣告 Exchange 和臨時 Queue；在 `ExecuteAsync` 設定事件處理器並用 `Task.Delay(Timeout.Infinite, stoppingToken)` 保持存活；在 `StopAsync` 優雅關閉連線。
+ 
+**我遇到的問題**
+ 
+第一個困惑是為什麼不把 Consumer 邏輯放在 Controller 裡，用一個 HTTP 端點來觸發。第二個困惑是 `Task.Delay(Timeout.Infinite, stoppingToken)` 這行看起來很奇怪，為什麼要讓方法「永遠等下去」？
+ 
+**我怎麼想通的**
+ 
+第一個問題的答案來自於理解 Controller 的本質：Controller 是「有 HTTP request 進來才執行」的，它的生命週期是一個 request-response 週期。但 RabbitMQ Consumer 需要「應用程式啟動就開始監聽，不管有沒有 HTTP request」。這兩種需求根本不搭配，Controller 不是正確的載體。
+ 
+`IHostedService` 的設計語意剛好相反：它跟著應用程式生命週期走，`StartAsync` 在應用程式啟動時呼叫，`StopAsync` 在應用程式停止時呼叫。這正是 Consumer 需要的生命週期。
+ 
+第二個問題的答案是 `ExecuteAsync` 的角色定位。RabbitMQ Consumer 是事件驅動的：有訊息進來，`ReceivedAsync` 事件處理器就被呼叫；沒有訊息，就靜靜等待。`ExecuteAsync` 不需要做任何事，只需要「不結束」——因為如果 `ExecuteAsync` 返回了，`BackgroundService` 就認為這個 hosted service 已經完成工作，不會再監聽了。`Task.Delay(Timeout.Infinite, stoppingToken)` 是一個慣用法：等一個永遠不會到的 timeout，但如果 `stoppingToken` 被取消（應用程式停止），這個 await 就會拋出 `OperationCanceledException`，`ExecuteAsync` 優雅地結束。
+ 
+```csharp
+// StartAsync：建立連線（昂貴，做一次）
+// ExecuteAsync：設定事件處理器，然後「等著」
+// StopAsync：優雅關閉（清理資源）
+ 
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    var consumer = new AsyncEventingBasicConsumer(_channel!);
+    consumer.ReceivedAsync += async (_, ea) =>
+    {
+        // 有訊息進來時，這裡才會被呼叫
+        await _channel!.BasicAckAsync(ea.DeliveryTag, multiple: false);
+    };
+    
+    await _channel!.BasicConsumeAsync(queue: queueName, autoAck: false, consumer: consumer);
+    
+    // 這行讓 ExecuteAsync 永不返回，直到應用程式停止
+    await Task.Delay(Timeout.Infinite, stoppingToken);
+}
+```
+ 
+**Queue 名稱設計的決策**
+ 
+不傳名稱給 `QueueDeclareAsync` 讓 RabbitMQ 自動產生臨時 Queue（`amq.gen-xxxx`）。這個選擇決定了 Consumer 的行為模式：每個獨立的 Consumer 服務都有自己的 Queue，Publisher 發一個訊息，每個 Consumer 都收到一份副本（廣播語意）。如果傳固定名稱，多個相同的 Consumer 實例會共用同一個 Queue，訊息被輪流分配給它們（負載平衡語意）。本專案的場景是廣播，所以用臨時 Queue。
+ 
+**我學到的原則**
+ 
+`IHostedService` 是 ASP.NET Core 中「需要跟應用程式生命週期綁定的背景邏輯」的標準容器。Controller 處理 HTTP，`IHostedService` 處理一切不靠 HTTP 觸發的事情——定時排程、訊息消費、長連線維護。這兩個各司其職，不互相替代。
+ 
+**下次遇到類似情況，我會先想到什麼**
+ 
+看到「需要在應用程式啟動時自動開始的背景邏輯」，就想到 `IHostedService`。看到「需要持續監聽某個事件源（RabbitMQ、WebSocket、gRPC streaming）的 Consumer」，就想到 `BackgroundService` + `Task.Delay(Timeout.Infinite, stoppingToken)` 的慣用法。
+ 
+---
+ 
+### 條目 136 — RabbitMQ 的 Ack 機制：外送員類比，為什麼手動確認比自動確認更安全
+ 
+**我做了什麼**
+ 
+`PriceUpdatedConsumer` 的 `BasicConsumeAsync` 設定 `autoAck: false`，在 `ReceivedAsync` 事件處理器裡處理完訊息後，手動呼叫 `BasicAckAsync`。
+ 
+**我遇到的問題**
+ 
+`autoAck: true` 看起來更簡單，為什麼要用 `autoAck: false` 加上手動 Ack？這樣不是更麻煩嗎？
+ 
+**我怎麼想通的**
+ 
+用外送員的類比來想。`autoAck: true` 相當於：外送員剛按你家門鈴，你還沒打開門，他就在 app 上標記「已送達」，然後走了。如果這時候你不在家，餐點就消失了，沒有任何補救機制。`autoAck: false` 相當於：外送員把餐點交到你手上，你確認收到，他才標記「已送達」。如果你不在家，他會重新跑一次。
+ 
+對應到 RabbitMQ：`autoAck: true` 時，訊息一從 Queue 取出就被標記為已消費，無論後續處理是否成功。如果 Consumer 在處理到一半時崩潰，訊息已經被刪掉，這份訊息就永遠消失了。`autoAck: false` 時，訊息取出後保持 Unacked 狀態，只有在 Consumer 明確呼叫 `BasicAckAsync` 後才會從 Queue 刪除。如果 Consumer 崩潰，RabbitMQ 偵測到連線斷開，會把 Unacked 的訊息重新放回 Queue，等下一個 Consumer 來處理。
+ 
+```csharp
+consumer.ReceivedAsync += async (_, ea) =>
+{
+    try
+    {
+        // 處理訊息（未來是 Cache invalidation）
+        // ...
+ 
+        // 處理成功才 Ack，告訴 RabbitMQ 可以刪掉這筆訊息
+        await _channel!.BasicAckAsync(ea.DeliveryTag, multiple: false);
+    }
+    catch (Exception ex)
+    {
+        // 處理失敗可以 Nack，讓 RabbitMQ 重新派送
+        // await _channel!.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: true);
+    }
+};
+```
+ 
+`multiple: false` 的意思是「只 Ack 這一筆訊息」，不批次確認。`multiple: true` 會確認所有 DeliveryTag 小於等於當前值的訊息，在批次處理場景下可以提升效能，但這個 Consumer 目前是逐筆處理，用 `false` 更精確。
+ 
+**我學到的原則**
+ 
+在任何需要可靠訊息傳遞的場景，`autoAck: false` + 手動 Ack 是預設選擇，不是可選項。`autoAck: true` 只在「訊息遺失完全可以接受」的場景才適合，例如發送遙測資料、統計計數器這類即使漏一筆也沒關係的事件。Cache invalidation 屬於「最好不要遺失」的場景，用手動 Ack。
+ 
+**下次遇到類似情況，我會先想到什麼**
+ 
+設計任何 RabbitMQ Consumer，預設就用 `autoAck: false`。想清楚「如果這個訊息在處理到一半時消失了，後果是什麼」——如果後果不可接受，就手動 Ack；如果後果可以接受，才考慮 `autoAck: true`。
+ 
+---
+ 
+### 條目 137 — 骨架優先：讓整個鏈路跑通比讓功能完整更重要
+ 
+**我做了什麼**
+ 
+W13-14 完成了 Redis Cache-Aside、RabbitMQ Publisher、RabbitMQ Consumer 骨架。Consumer 的 Cache invalidation 是預留位置，實際上什麼都沒清，只有 log。有人問：「這樣不就是半成品嗎？」
+ 
+**我怎麼想通的**
+ 
+「骨架」和「半成品」的差異在於：骨架是刻意的、有計劃的不完整，每一層都做到足以驗證的程度；半成品是不小心的不完整，不知道缺了什麼、缺了多少。
+ 
+W13-14 的骨架驗收標準很明確：Worker 能發訊息（RabbitMQ Management UI 驗證）、Web 端能收訊息（啟動 log 驗證）、SQL 查詢有被 cache（redis-cli 驗證）。這三件事都做到了。整個 Worker → RabbitMQ → Web → Redis 的鏈路是通的，可以在現在就發現「連線設定錯誤」、「套件版本不兼容」這類基礎問題。
+ 
+如果等到 W15 JWT 整合完成後才一起做 Cache invalidation，到時候可能發現 RabbitMQ 的 Exchange 宣告方式跟套件版本不合、或者 `IDistributedCache.GetStringAsync` 的 Key 格式跟 Consumer 預期的不一樣——這些問題在現在做骨架的時候就能發現，比在 W15 資訊量更大時發現要容易處理得多。
+ 
+這個開發節奏在整個專案裡是一致的：想清楚 → 建骨架 → 驗收 → 再往下一層走。
+ 
+**我學到的原則**
+ 
+分散式系統的整合最容易在「所有元件都做完才接在一起」的時候爆炸。骨架優先的價值是把整合風險前移：在功能最少、複雜度最低的時候就讓鏈路通，之後每次新增功能都在一個已驗證的基礎上做，而不是在「這個連線本身對不對都不知道」的情況下繼續往上疊。
+ 
+**下次遇到類似情況，我會先想到什麼**
+ 
+引入新的基礎設施元件（Redis、RabbitMQ、外部 API）時，第一步是讓連線通、讓最簡單的一個操作成功、用眼睛驗收。功能的完整性是第二步。「連得上」和「用得好」是兩個可以分開的問題，不要混在一起解決。
+
+---
 
 ## 跨條目的通用原則整理
 
@@ -4326,4 +4534,25 @@ DTO 資料夾的命名應該反映「這個 DTO 服務的角色」，而不是�
 
 **關於聚合語意**
 聚合函數的選擇由欄位的業務語意決定：比率型欄位（價格、濃度）跨維度聚合用 AVG；絕對量型欄位（數量、金額）跨維度聚合用 SUM。技術上兩者都可行，但只有語意正確的那個能給前端提供有意義的資料。
+
+---
+ 
+## 跨條目的通用原則整理（v18.0 更新）
+ 
+以下為 v18.0 新增或強化的原則，和既有原則並列管理：
+ 
+**關於 Cache 設計**
+Cache Key 必須包含所有影響查詢結果的參數，包括那些有預設值的可選參數（用解析後的 final 值，不用原始的 null）。TTL 的設計依據不是資料更新頻率，而是「主動失效機制失敗時能接受的最大延遲」。Cache-Aside 的三步邏輯（查 cache → 查 DB → 寫 cache）是最常見的模式，職責透明，易於控制。
+ 
+**關於 RabbitMQ 的設計選擇**
+Exchange Type 的選擇依據是通訊的語意，不是複雜度的高低。fanout 是廣播（所有人都收），topic 是訂閱（只有關心這個主題的人才收）。routing key 用點號分層命名（`系統.模組.事件`）讓未來的 pattern matching 更有彈性。`durable: true` 在絕大多數生產場景都應該開。
+ 
+**關於訊息可靠性**
+`autoAck: false` + 手動 `BasicAckAsync` 是 RabbitMQ Consumer 的預設選擇，確保訊息在成功處理後才從 Queue 刪除。訊息遺失的代價決定了 Ack 策略：代價可接受才考慮 `autoAck: true`。
+ 
+**關於 IHostedService**
+需要跟應用程式生命週期綁定的背景邏輯（訊息消費、排程、長連線維護），就用 `IHostedService`。事件驅動的 Consumer 用 `Task.Delay(Timeout.Infinite, stoppingToken)` 保持 `ExecuteAsync` 不返回，直到應用程式停止。
+ 
+**關於分散式系統整合**
+骨架優先：先讓鏈路通（連線建立、基本操作驗收），再實作完整功能。整合風險前移比在功能完整後才整合更容易控制和診斷。
 

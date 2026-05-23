@@ -2626,6 +2626,139 @@ TopNav 各模組 tab hover 後出現 dropdown，滑鼠從 tab 移往 dropdown �
 
 ---
 
+# PR #026 — W13-14 Redis Cache-Aside + RabbitMQ Publisher/Consumer 骨架
+
+**標題**：`feat(infra): W13-14 Redis Cache-Aside for GetPricesAsync + RabbitMQ Publisher/Consumer 骨架`
+
+---
+
+## 背景與動機
+
+這個 PR 是整個平台第一次引入分散式基礎設施：Redis 和 RabbitMQ。在此之前，每一次對 `GET /api/market/prices` 的請求都會直接打 SQL Server，執行三表 JOIN + GroupBy 聚合。這個端點是整個平台查詢量最高的端點，同樣的查詢條件在短時間內可能被重複呼叫數百次，每次都重跑相同的 SQL 是純粹的浪費。
+
+`docker-compose.yml` 從 W1 起就規劃了 Redis 和 RabbitMQ，但應用程式端一直未串接。本 PR 完成這個串接，讓基礎設施的設計意圖真正落地。
+
+本 Sprint 的目標定義清楚：**做骨架，做對，做可以延伸的**。Redis Cache-Aside 要完整實作並驗證，RabbitMQ Publisher/Consumer 則是骨架，Cache invalidation 邏輯留到 W15 JWT 整合後再強化。
+
+---
+
+## 實作內容
+
+### 一、Redis Cache-Aside（`MarketService.GetPricesAsync`）
+
+Cache-Aside Pattern 的核心邏輯是三步：先查 Redis，命中直接回傳；沒命中才查 SQL；查完把結果寫回 Redis。
+
+**Cache Key 設計**是這個 Pattern 最重要的決策。Key 必須包含所有影響查詢結果的參數，任何一個不同就應該對應不同的 cache 條目。`GetPricesAsync` 有五個參數（`marketType`、`cropCodes[]`、`marketCode?`、`startDate?`、`endDate?`），全部進 Key。
+
+其中有兩個設計細節值得說明。第一，`cropCodes` 在進 Key 之前會先排序後再 Join，確保 `["A01","B02"]` 和 `["B02","A01"]` 產生同一個 Key，命中同一個 cache，而不是產生兩份相同內容的 cache 條目。第二，`startDate` 和 `endDate` 如果使用者未傳入，Service 層會先解析成 `finalStart` 和 `finalEnd`（分別為今天往前 365 天和今天），才用 final 值組 Key。如果用原始的 `null` 組 Key，今天呼叫和明天呼叫會命中同一個 cache，但查出來的日期範圍不同——這是一個隱性的正確性 bug。
+
+```csharp
+// Cache Key 格式
+// market:prices:{marketType}:{sortedCrops}:{marketCode}:{finalStart}:{finalEnd}
+// 例：market:prices:Fruit:A01,B02:101:2025-05-23:2026-05-23
+
+var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
+var cacheKey = $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+```
+
+**TTL 設定 25 小時**。農業部的農產品交易資料是歷史資料（同步昨天的交易記錄），一旦寫入就不會再改變。TTL 的意義不是「資料多久會變」，而是「如果 RabbitMQ 主動通知失敗，最多讓舊 cache 撐多久才自動過期」。設 25 小時而不是 24 小時，是為了避免 Worker 每天凌晨同步完成後，cache 剛好在同步前一刻過期，造成短暫空窗。
+
+**驗證方式**：啟動專案後打 Swagger，進入 redis-cli 執行 `KEYS market:prices:*` 確認 Key 已建立，再執行 `TTL {key}` 確認回傳值接近 90000 秒（25 × 3600）。
+
+### 二、RabbitMQ Publisher（`AgriProductsTransSyncWorker`）
+
+`AgriProductsTransSyncWorker` 每天同步完成後，需要通知 Web 端「資料有更新，可以清掉對應的 cache」。兩個獨立的 Process 之間的非同步通訊，就是 RabbitMQ 的設計場景。
+
+Publisher 邏輯放在 `SyncAgriProductsTransAsync` 成功後、`catch` 之前：只有同步成功才發事件，失敗時不發（因為資料沒有真正更新，清 cache 沒有意義）。
+
+Exchange 選擇 **topic**，而不是 fanout 或 direct。未來可能不只 Web 端要監聽 `agri.market.priceUpdated`，Report Worker、Notification Worker 也可能訂閱。topic 讓每個 Consumer 指定自己關心的 routing key pattern，比 fanout 的「全部廣播」更有彈性。
+
+```csharp
+// 骨架階段 payload 是空 JSON，W15 之後會帶上更新的作物代碼和日期範圍
+// 讓 Consumer 能做精確 invalidation 而不是全部清除
+var body = Encoding.UTF8.GetBytes("{}");
+await channel.BasicPublishAsync(
+    exchange: "agri.events",
+    routingKey: "agri.market.priceUpdated",
+    body: body);
+```
+
+### 三、RabbitMQ Consumer 骨架（`PriceUpdatedConsumer`）
+
+`PriceUpdatedConsumer` 繼承 `BackgroundService`，在 `TaiwanAgri.Web` 啟動時自動連線 RabbitMQ，訂閱 `agri.market.priceUpdated`。
+
+選擇 `IHostedService`（`BackgroundService`）而不是 Controller 或普通 Service，是因為 Consumer 需要「程式啟動就開始監聽，一直保持到程式關閉」的生命週期。Controller 只在有 HTTP request 時才執行，普通 Service 沒有生命週期管理。
+
+Queue 使用**不傳名稱的臨時 Queue**（`amq.gen-xxxx`）。這個選擇對應未來的擴充模式：多個不同的 Consumer（Web 端、Report Worker、Notification Worker）各自有獨立的 Queue，Publisher 發一個訊息，每個 Consumer 都收到一份副本。若使用固定名稱的 Queue，則變成多個相同 Consumer 共用 Queue 做負載平衡，語意完全不同。
+
+`autoAck: false` + 手動 `BasicAckAsync` 確保訊息處理完成後才告知 RabbitMQ 可以刪除。萬一程式在處理過程中崩潰，未 Ack 的訊息會被 RabbitMQ 重新派送，不會遺失。
+
+本 Sprint 的 Cache invalidation 是預留位置（只有 log），W15 會讓 Publisher 帶上具體的更新資訊，Consumer 再根據這些資訊決定清哪些 Key。
+
+### 四、基礎設施調整
+
+`docker-compose.yml` 補上 RabbitMQ 服務，使用 `rabbitmq:3-management` image，同時開放 AMQP port（5672）和 Management UI port（15672）。Management UI 可直接在瀏覽器驗證 Exchange 和 Queue 是否正確建立。
+
+`Program.cs` 補上 `AddStackExchangeRedisCache`（連線字串讀 User Secrets）和 `AddHostedService<PriceUpdatedConsumer>`。
+
+---
+
+## 關鍵設計決策
+
+### 決策一：為什麼用 Cache-Aside 而不是 Read-Through？
+
+Read-Through 是「cache 層自動去 DB 補資料」，應用程式只與 cache 溝通。Cache-Aside 是「應用程式自己負責查 cache、查 DB、寫 cache」，職責更透明。在 ASP.NET Core 的架構下，`IDistributedCache` 不支援 Read-Through，而 Cache-Aside 的三步邏輯清晰易讀、易測試，且能完全控制 cache 的生命週期。對 Portfolio 展示而言，Cache-Aside 比黑盒的 Read-Through 更能在面試中說清楚決策過程。
+
+### 決策二：為什麼 TTL 是 25 小時而不是 24 小時？
+
+剛好 24 小時的問題在於：如果 Worker 在凌晨 2 點跑完，而 cache 是從昨天凌晨 2 點開始計時，剛好 24 小時後過期，就在今天凌晨 2 點——這個時間點 Worker 可能正在跑或剛跑完。多 1 小時的緩衝確保 RabbitMQ 主動 invalidation 優先生效，TTL 只是最後的保底機制。
+
+### 決策三：為什麼現在不做精確 Cache invalidation？
+
+Worker 目前發送的 payload 是空 JSON `{}`，Consumer 收到後無法知道「哪些 cropCode、哪個日期範圍受影響」。精確 invalidation 需要 Publisher 帶上這些資訊，Consumer 根據資訊組出對應的 Key 再刪除。這個邏輯可以做，但它依賴 JWT 整合後確認「哪些使用者的 watchlist 對應哪些 cropCode」，所以合理地推到 W15。骨架階段的 log 佔位，讓整個鏈路可以跑通、可以驗證，是更重要的事。
+
+### 決策四：Connection 為什麼在 StartAsync 建立而不是每次收到訊息時建立？
+
+RabbitMQ 的 Connection 建立是昂貴操作（TCP 握手）。Channel 建立在 Connection 之上，相對輕量。Consumer 的設計是：應用程式啟動時建立一條長連線，之後所有訊息收發都用這條連線，停止時優雅關閉。如果每次收訊息都重新建立 Connection，效能會很差，也不符合 RabbitMQ 的使用慣例。
+
+---
+
+## 驗收標準
+
+Redis 驗收：啟動專案後打 `GET /api/market/prices`，進入 `redis-cli` 執行 `KEYS market:prices:*`，應看到對應的 Key；執行 `TTL {key}` 應看到接近 90000 的數字。
+
+RabbitMQ Publisher 驗收：開啟 RabbitMQ Management UI（`http://localhost:15672`，帳密 guest/guest），在 Exchanges 頁籤確認 `agri.events` 存在，Type 為 `topic`，Feature 有 `D`（durable）。
+
+RabbitMQ Consumer 驗收：啟動 `TaiwanAgri.Web`，啟動 log 出現 `[PriceUpdatedConsumer] 已連線 RabbitMQ，等待事件...`。
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Modules.Market/Services/MarketService.cs` | M | `GetPricesAsync` 加入 Cache-Aside 三步邏輯，注入 `IDistributedCache` |
+| `TaiwanAgri.Worker/AgriProductsTransSyncWorker.cs` | M | 同步成功後呼叫 `PublishPriceUpdatedEventAsync`，發布 `agri.market.priceUpdated` |
+| `TaiwanAgri.Web/Services/PriceUpdatedConsumer.cs` | A | 新增 `BackgroundService`，訂閱 RabbitMQ，Cache invalidation 預留位置 |
+| `TaiwanAgri.Web/Program.cs` | M | 補 `AddStackExchangeRedisCache`、`AddHostedService<PriceUpdatedConsumer>` |
+| `docker-compose.yml` | M | 補 RabbitMQ 服務（`rabbitmq:3-management`，port 5672/15672） |
+| `TaiwanAgri.Web/TaiwanAgri.Web.csproj` | M | 新增 `Microsoft.Extensions.Caching.StackExchangeRedis`、`RabbitMQ.Client` 套件參考 |
+| `TaiwanAgri.Worker/TaiwanAgri.Worker.csproj` | M | 新增 `RabbitMQ.Client` 套件參考 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 展示的不只是「把 Redis 和 RabbitMQ 接起來」，而是兩個更深層的工程決策模式。
+
+第一個是**基礎設施的引入時機**。Redis 和 RabbitMQ 從 W1 就在 docker-compose 裡規劃好了，但應用程式端故意推遲到現在才串接。這不是技術債，而是刻意的決策：先把資料同步層和查詢層做正確，確認 SQL 查詢的結構穩定後，再加快取層。如果在 W3 就加 cache，後來 Schema 一改，cache key 設計可能要全部重來。
+
+第二個是**骨架優先的設計哲學**。RabbitMQ Consumer 目前什麼都沒清，只有 log。這個「有跑通、但不完整」的狀態，比「等 W15 功能完整了再一起做」更有價值——因為它讓整個 Worker → RabbitMQ → Web 的鏈路可以在現在就被驗證，而不是累積到 W15 才發現連線設定有問題。分層推進、每層驗收，是這個專案一貫的開發節奏。
+
+`PriceUpdatedConsumer` 裡的 `await Task.Delay(Timeout.Infinite, stoppingToken)` 這行值得特別注意。它讓 `ExecuteAsync` 永遠不結束，直到應用程式關閉。這是 `BackgroundService` 的標準慣用法：事件驅動的 Consumer 不需要輪詢迴圈，只需要一個「保持存活」的機制，讓事件處理器掛在那裡等事件進來。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

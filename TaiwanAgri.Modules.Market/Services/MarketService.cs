@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using TaiwanAgri.Core.Helpers;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 
@@ -8,9 +9,11 @@ namespace TaiwanAgri.Modules.Market.Services
 	public class MarketService : IMarketService
 	{
 		private readonly MarketDbContext _context;
-		public MarketService(MarketDbContext context)
+		private readonly IDistributedCache _cache;
+		public MarketService(MarketDbContext context, IDistributedCache cache)
 		{
 			_context = context;
+			_cache = cache;
 		}
 		public async Task<List<PriceResponseDto>> GetPricesAsync(
 			string marketType,
@@ -19,11 +22,24 @@ namespace TaiwanAgri.Modules.Market.Services
 			DateOnly? startDate = null,
 			DateOnly? endDate = null)
 		{
-			// 1. 日期解析與預設值
+			// 1. 日期解析與預設值（先解析，cache key 才能用實際日期）
 			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Today);
 			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
 
-			// 2. 三表 JOIN 基礎查詢
+			// 2. 組合 Cache Key
+			//    cropCodes 排序後 Join，確保 ["A01","B02"] 和 ["B02","A01"] 命中同一個 cache
+			//    格式：market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}
+			var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
+			var cacheKey = $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+
+			// 3. Cache-Aside Step 1：查 Redis
+			//    命中（Hit）→ 直接反序列化回傳，跳過 DB 查詢
+			var cached = await _cache.GetStringAsync(cacheKey);
+			if (cached != null)
+				return JsonSerializer.Deserialize<List<PriceResponseDto>>(cached)!;
+
+			// 4. Cache-Aside Step 2：Redis Miss，查 SQL
+			//    三表 JOIN：AgriProductsTrans + CropInfos + MarketInfos
 			var baseQuery = from t in _context.AgriProductsTrans
 							join c in _context.CropInfos
 								on t.CropCode equals c.CropCode
@@ -34,13 +50,14 @@ namespace TaiwanAgri.Modules.Market.Services
 							   && m.MarketType == marketType
 							   && cropCodes.Contains(t.CropCode)
 							select new { t, c.CropName };
-			// 3. 動態追加市場過濾
+
+			// 5. 動態追加市場過濾（marketCode 為 null 時查所有市場）
 			if (!string.IsNullOrEmpty(marketCode))
 			{
 				baseQuery = baseQuery.Where(x => x.t.MarketCode == marketCode);
 			}
 
-			// 4. GroupBy + 聚合
+			// 6. GroupBy + 聚合：同一天同一作物跨市場取 AVG 價格、SUM 數量
 			var result = await baseQuery
 				.GroupBy(x => new { x.t.TransDate, x.t.CropCode, x.CropName })
 				.Select(g => new PriceResponseDto
@@ -56,6 +73,15 @@ namespace TaiwanAgri.Modules.Market.Services
 				})
 				.OrderByDescending(x => x.TransDate)
 				.ToListAsync();
+
+			// 7. Cache-Aside Step 3：結果寫進 Redis，TTL 25 小時
+			//    農業部資料每天更新一次（昨天的歷史資料），25 小時確保跨天不提早過期
+			//    TTL 是保底機制；Worker 同步完成後會透過 RabbitMQ 主動 invalidation
+			var cacheOptions = new DistributedCacheEntryOptions
+			{
+				AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(25)
+			};
+			await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), cacheOptions);
 
 			return result;
 		}
