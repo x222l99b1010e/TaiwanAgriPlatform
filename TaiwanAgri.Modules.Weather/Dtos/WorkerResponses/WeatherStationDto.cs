@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
 
-namespace TaiwanAgri.Modules.Weather.Dtos
+namespace TaiwanAgri.Modules.Weather.Dtos.WorkerResponses
 {
 	// 對應 Data 陣列裡的每一筆測站資料
 	public class WeatherStationDto

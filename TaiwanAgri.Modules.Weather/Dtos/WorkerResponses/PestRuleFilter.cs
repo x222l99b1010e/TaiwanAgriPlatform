@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TaiwanAgri.Modules.Weather.Dtos
+namespace TaiwanAgri.Modules.Weather.Dtos.WorkerResponses
 {
 	public class PestRuleFilter
 	{

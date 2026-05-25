@@ -43,6 +43,7 @@
     </nav>
 
     <div class="top-right">
+      <NotificationBell />
       <button class="login-btn">登入</button>
     </div>
   </header>
@@ -52,6 +53,7 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useNavStore } from '@/stores/nav'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const route = useRoute()
 const navStore = useNavStore()
@@ -127,7 +129,11 @@ function isActive(moduleRoute: string) {
 .dropdown-item:hover { background: rgba(255,255,255,0.1); color: white; }
 .dropdown-item.active { background: rgba(255,255,255,0.18); color: white; font-weight: 600; }
 
-.top-right { margin-left: auto; }
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .login-btn {
   padding: 6px 16px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.5);
   background: transparent; color: white; cursor: pointer;

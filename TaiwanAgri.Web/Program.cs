@@ -6,6 +6,8 @@ using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Core.Services;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Services;
+using TaiwanAgri.Modules.Weather.Data;
+using TaiwanAgri.Modules.Weather.Services;
 using TaiwanAgri.Web.Data;
 using TaiwanAgri.Web.Services;
 
@@ -31,6 +33,9 @@ namespace TaiwanAgri.Web
 			builder.Services.AddDbContext<CoreDbContext>(options =>
 				options.UseSqlServer(
 					builder.Configuration.GetConnectionString("DefaultConnection")));
+			builder.Services.AddDbContext<WeatherDbContext>(options =>
+				options.UseSqlServer(
+					builder.Configuration.GetConnectionString("DefaultConnection")));
 			builder.Services.AddControllers();
 			builder.Services.AddProblemDetails(); // 註冊標準錯誤格式服務
 			builder.Services.AddCors(options =>
@@ -50,6 +55,9 @@ namespace TaiwanAgri.Web
 			// 註冊 IMarketService 及其對應的實作 MarketService
 			builder.Services.AddScoped<IMarketService, MarketService>();
 			builder.Services.AddScoped<INavService, NavService>();
+			builder.Services.AddScoped<IWeatherService, WeatherService>();
+			builder.Services.AddScoped<IPestService, PestService>();
+			builder.Services.AddScoped<INotificationService, NotificationService>();
 			//
 			builder.Services.AddHostedService<PriceUpdatedConsumer>();
 			// builder 區段加：

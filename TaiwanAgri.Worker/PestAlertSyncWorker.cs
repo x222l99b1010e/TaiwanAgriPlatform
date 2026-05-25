@@ -3,9 +3,9 @@ using System.Text;//Encoding.UTF8
 using System.Text.Json;
 using TaiwanAgri.Core.Constants;
 using TaiwanAgri.Modules.Weather.Data;
-using TaiwanAgri.Modules.Weather.Dtos;
 using TaiwanAgri.Modules.Weather.Entities;
 using Microsoft.EntityFrameworkCore;
+using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
 
 namespace TaiwanAgri.Worker
 {

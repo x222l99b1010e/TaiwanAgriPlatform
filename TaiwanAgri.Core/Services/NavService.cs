@@ -54,7 +54,7 @@ namespace TaiwanAgri.Core.Services
 				.ToListAsync();
 			// 2. 查出有權限的頂層模組（NavModules WHERE ParentId == null（只取頂層）），並依 SortOrder 排序
 			var navModules = await _context.NavModules
-				.Where(nm => nm.ParentId == null && permittedModuleIds.Contains(nm.Id))
+				.Where(nm => nm.ParentId == null && nm.IsActive && permittedModuleIds.Contains(nm.Id))
 				.OrderBy(nm => nm.SortOrder) // 在資料庫端先排序
 				.ToListAsync();
 			// 3. 抽出頂層 ID，撈出對應且有權限的子模組
@@ -63,7 +63,7 @@ namespace TaiwanAgri.Core.Services
 			//✅ 先把 ID 抽出來，用 Contains
 			var topLevelIds = navModules.Select(nm => nm.Id).ToList();
 			var childNavModules = await _context.NavModules
-			   .Where(cnm => cnm.ParentId != null && topLevelIds.Contains(cnm.ParentId!.Value) && permittedModuleIds.Contains(cnm.Id))
+			   .Where(cnm => cnm.ParentId != null && cnm.IsActive && topLevelIds.Contains(cnm.ParentId!.Value) && permittedModuleIds.Contains(cnm.Id))
 			   .OrderBy(cnm => cnm.SortOrder) // 子模組也在資料庫端先排序
 			   .ToListAsync();
 

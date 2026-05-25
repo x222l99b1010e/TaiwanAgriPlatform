@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace TaiwanAgri.Modules.Weather.Entities
 {
@@ -24,7 +21,6 @@ namespace TaiwanAgri.Modules.Weather.Entities
 		public decimal? Average { get; set; }
 		public decimal? ProportionIsland { get; set; }
 		public DateTime CreatedAt { get; set; }
-
 
 	}
 }

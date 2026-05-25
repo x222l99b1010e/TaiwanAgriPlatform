@@ -4405,6 +4405,360 @@ W13-14 的骨架驗收標準很明確：Worker 能發訊息（RabbitMQ Managemen
 
 ---
 
+### 條目 138 — EF Core 的查詢邊界：GroupBy + First() 為什麼在 SQL 層跑不動
+
+**我做了什麼**
+
+`GetStationsByCityAsync` 需要「每個測站只取最新一筆觀測」。直覺的 LINQ 寫法是：
+
+```csharp
+_context.WeatherObservations
+    .Where(s => s.CityName == cityName)
+    .GroupBy(s => s.StationId)
+    .Select(g => g.OrderByDescending(w => w.ObservedAt).First())
+    .ToListAsync()
+```
+
+這段程式碼編譯成功，但執行時拋出例外：`The LINQ expression could not be translated. Either rewrite the query in a form that can be translated...`
+
+**我遇到的問題**
+
+編譯器看不到問題，但 EF Core 的 SQL 翻譯器看到了。我原本以為「能編譯就能跑」，這次才清楚地碰到 EF Core 的翻譯限制。
+
+**我怎麼想通的**
+
+`ToListAsync()` 是一條邊界線。邊界之前，EF Core 嘗試把整個 LINQ 表達式翻譯成一條 SQL 送到資料庫執行；邊界之後，回到普通的 C# 記憶體操作，任何 .NET 語法都可以用。
+
+`GroupBy(s => s.StationId).Select(g => g.OrderByDescending(w => w.ObservedAt).First())` 在 SQL 裡沒有一個直接對應的語法——SQL 的 GROUP BY 後面接的是聚合函數（MAX、AVG、COUNT），而不是「取整列」。要在 SQL 層做這件事，需要用 `ROW_NUMBER() OVER (PARTITION BY StationId ORDER BY ObservedAt DESC)`，這是視窗函數語法，EF Core 沒有辦法從 LINQ 自動翻譯出來。
+
+所以問題的本質是：我在 EF Core 的 SQL 翻譯模式裡，寫了一段 SQL 翻譯器表達不了的語意。
+
+**我嘗試過的中間方案（以及為什麼放棄）**
+
+方案一：兩個 HashSet 配對篩選
+
+```csharp
+var stationIds = latestTimes.Select(l => l.StationId).ToHashSet();
+var latestDates = latestTimes.Select(l => l.LastObservedAt).ToHashSet();
+
+.Where(s => stationIds.Contains(s.StationId) && latestDates.Contains(s.ObservedAt))
+```
+
+EF Core 可以把 `Contains` 翻譯成 SQL 的 `IN`，這段編譯和執行都沒問題。但它有一個邏輯漏洞：兩個 `Contains` 是獨立的，「StationId 在集合裡」和「ObservedAt 在集合裡」是分別成立的條件，不是「這個 StationId 配對這個 ObservedAt 才成立」。如果測站 A 最新時間是 5/22，測站 B 最新時間是 5/20，而測站 A 剛好也有一筆 5/20 的資料，這筆資料也會被撈出來——這是一個「看起來對、資料量小時不容易發現」的 bug。
+
+方案二：字串組合 Key
+
+```csharp
+var latestKeys = ... .Select(l => $"{l.StationId}_{l.LastObservedAt}").ToHashSet();
+.Where(s => latestKeys.Contains($"{s.StationId}_{s.ObservedAt}"))
+```
+
+這個配對邏輯是正確的，但 EF Core 無法把 `$"{s.StationId}_{s.ObservedAt}"` 翻譯成 SQL——字串插值包含多個欄位的組合，超出 SQL 翻譯器的能力範圍。
+
+**最終解法：接受邊界，在邊界後操作**
+
+```csharp
+var raw = await _context.WeatherObservations
+    .Where(s => s.CityName == cityName)
+    .ToListAsync();   // ← 在這裡穿越邊界，進入記憶體模式
+
+var result = raw
+    .GroupBy(s => s.StationId)
+    .Select(g => g.OrderByDescending(w => w.ObservedAt).First())
+    .Select(s => new WeatherStationResponseDto { ... })
+    .ToList();        // ← 記憶體操作，沒有翻譯限制
+```
+
+代價是把整個縣市的觀測資料拉回記憶體。這個取捨是刻意接受的——一個縣市最多幾十個測站、歷史資料幾千筆，記憶體代價遠小於引入 `FromSqlRaw` 的複雜性和維護成本。
+
+**我學到的原則**
+
+EF Core LINQ 和普通 LINQ 看起來語法相同，但執行環境完全不同。`ToListAsync()` 之前是「SQL 翻譯模式」，這裡的每個操作都必須能對應到合法的 SQL 片段；之後是「C# 執行模式」，沒有任何限制。遇到「編譯過但執行炸」的 EF Core 問題，第一個問題是：「這個操作發生在 `ToListAsync()` 之前還是之後？」
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 `GroupBy + 取整列`、`複雜的字串操作`、`多欄位組合邏輯` 出現在 EF Core LINQ 裡，先問：「這段邏輯有辦法翻譯成一條合法 SQL 嗎？」有辦法就繼續，沒辦法就把它移到 `ToListAsync()` 之後的記憶體操作裡，同時評估這樣做的資料量代價是否可接受。
+
+---
+
+### 條目 139 — 跨表 JOIN 的兩種路徑：導覽屬性 vs. LINQ Join
+
+**我做了什麼**
+
+`GetRainfallByCityAsync` 需要依縣市篩選雨量資料，但 `RainfallObservation` 本身沒有 `CityName` 欄位，城市資訊在 `RainfallStation` 裡。兩張表透過 `StationId` 關聯。
+
+**我遇到的問題**
+
+WeatherObservation 有 CityName 直接存在同一張表；RainfallObservation 沒有。查詢時需要 JOIN 兩張表，但不確定應該用 `Include` 還是 LINQ `Join`。
+
+**我怎麼想通的**
+
+`Include` 是走導覽屬性的方式。EF Core 透過 Entity 之間定義好的導覽屬性知道「這張表和那張表有關聯」，`Include` 告訴它「一起載入」。但前提是：Entity 上必須有導覽屬性。
+
+```csharp
+// 如果有導覽屬性，可以用 Include：
+public class RainfallObservation {
+    public RainfallStation Station { get; set; }  // ← 這個存在才能 Include
+}
+
+// 如果沒有，只能用 Join：
+_context.RainfallObservations
+    .Join(_context.RainfallStations,
+        obs => obs.StationId,
+        sta => sta.StationId,
+        (obs, sta) => new { obs, sta })
+```
+
+`RainfallObservation` 在 Worker 開發時沒有設計雙向導覽屬性（因為那時候的職責只是「寫入」，不是「查詢」）。所以這裡只能用 LINQ `Join`。
+
+`Join` 的四個參數分別是：外部來源（`RainfallObservations`）、內部來源（`RainfallStations`）、外部 Key 選擇器（`obs.StationId`）、內部 Key 選擇器（`sta.StationId`）、結果選擇器（如何組合兩個物件）。
+
+**我學到的原則**
+
+「要 JOIN 兩張表」有兩條路徑，選哪條取決於 Entity 設計：有導覽屬性就用 `Include`（語意更清楚、EF Core 自動決定 JOIN 類型）；沒有就用 LINQ `Join`（手動指定 Key，但效果相同）。設計 Entity 時如果能預見查詢需求，提前加導覽屬性可以讓查詢層更簡潔。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到跨表查詢，先確認 Entity 有沒有導覽屬性。有 → 用 Include；沒有 → 用 LINQ Join，格式是 `.Join(內部來源, 外部Key, 內部Key, 結果選擇器)`。
+
+---
+
+### 條目 140 — nullable 參數的兩種邏輯錯誤：格式錯誤 vs. 沒有傳值
+
+**我做了什麼**
+
+`WeatherController` 的 `GetRainfallByCity` 接受可選的日期參數：
+
+```csharp
+[HttpGet("rainfall")]
+public async Task<IActionResult> GetRainfallByCity(
+    [FromQuery] string cityName,
+    [FromQuery] string? startDate,
+    [FromQuery] string? endDate)
+```
+
+需要驗證日期格式，但不能把「沒有傳日期」誤判為「格式錯誤」。
+
+**我遇到的問題**
+
+最初的版本：
+
+```csharp
+var start = DateHelper.ParseIsoDate(startDate);
+if (start == null) return BadRequest("startDate 格式錯誤");
+```
+
+問題是：`startDate` 本來就是 nullable，使用者沒傳時 `startDate` 是 `null`，`ParseIsoDate(null)` 也回傳 `null`，這樣使用者沒傳日期也會收到 400 格式錯誤——但使用者根本沒有傳任何格式錯誤的東西。
+
+**我怎麼想通的**
+
+「格式錯誤」的定義是：**有傳值，但值是無法解析的字串**。「沒傳值」不是錯誤，是合法的輸入（讓 Service 套用預設值）。
+
+這兩種情況需要用兩個條件才能分開：
+
+```csharp
+var start = DateHelper.ParseIsoDate(startDate);
+
+// 「有傳」但「解析失敗」= 格式錯誤
+if (startDate != null && start == null)
+    return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
+
+// 「沒傳」（startDate == null）→ start 就是 null，讓 Service 套預設值，不報錯
+```
+
+這個 `null` 的語意需要人為區分：
+
+| `startDate` | `start` | 判斷 |
+|-------------|---------|------|
+| `null`（未傳） | `null` | 正常，讓 Service 套預設值 |
+| `"2026-05-01"`（合法格式） | `DateOnly(...)` | 正常，傳給 Service |
+| `"abc"`（非法格式） | `null` | 格式錯誤，回 400 |
+
+第一列和第三列的 `start` 都是 `null`，但語意完全不同，必須靠 `startDate` 本身是不是 `null` 來區分。
+
+**我學到的原則**
+
+處理 nullable 輸入參數時，先列出所有合法和非法的組合（參數有值/沒有值 × 解析成功/失敗），再設計對應的 if 條件。「解析結果為 null」不等於「錯誤」，因為輸入本身可能就是合法的 null。兩個 null 出於不同原因，需要不同的處理策略。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到「可選參數 + 格式驗證」的組合，先畫出那張表（輸入值 × 解析結果 × 期望回應），確認每一格都有對應的處理，再寫程式碼。
+
+---
+
+### 條目 141 — Service 的例外語意 vs. 回傳碼：MarkAsReadAsync 的設計選擇
+
+**我做了什麼**
+
+`MarkAsReadAsync` 需要找到指定的通知並標記已讀。找不到時有兩種設計：
+
+- 回傳 `Task<int>`（0 代表沒找到），讓 Controller 根據回傳值判斷
+- 回傳 `Task`，找不到時拋出 `KeyNotFoundException`，Controller 捕捉後回 404
+
+**我遇到的問題**
+
+`Task<int>` 看起來讓呼叫方有更多資訊，為什麼選例外語意？
+
+**我怎麼想通的**
+
+`SaveChangesAsync()` 的回傳值是「EF Core 影響了幾行資料」，這是 ORM 底層的實作細節。如果讓這個數字穿透 Service 層到達 Controller 層，Controller 就需要知道「0 行代表沒找到」這個假設——但這個假設只在目前的實作下成立。如果未來改用其他 ORM 或直接 SQL，回傳值的語意可能不同，Controller 的判斷邏輯就會壞掉。
+
+例外語意的設計讓職責更清楚：
+
+```csharp
+// Service 負責「找不到就報錯」這個業務邏輯
+public async Task MarkAsReadAsync(int notificationId, string userId)
+{
+    var notification = await _dbContext.UserNotifications
+        .FirstOrDefaultAsync(x => x.Id == notificationId && x.UserId == userId);
+    if (notification == null)
+        throw new KeyNotFoundException($"通知 {notificationId} 不存在或無權限");
+
+    notification.IsRead = true;
+    await _dbContext.SaveChangesAsync();
+}
+
+// Controller 負責「把例外翻譯成 HTTP 狀態碼」
+try
+{
+    await _notificationService.MarkAsReadAsync(id, userId);
+    return NoContent();
+}
+catch (KeyNotFoundException)
+{
+    return NotFound();
+}
+```
+
+EF Core 的 Change Tracker 追蹤機制在這裡也值得注意：透過 EF Core 查詢取得的 Entity 會被 Change Tracker 自動追蹤，修改屬性後 `SaveChangesAsync()` 會自動產生 `UPDATE` SQL，不需要呼叫 `.Update(entity)`。`.Update()` 是給「Disconnected 場景」（Entity 從外部傳入，不在 Change Tracker 追蹤中）使用的，在 Scoped DbContext 的正常查詢流程裡幾乎不需要。
+
+**我學到的原則**
+
+Service 層應該用業務語意表達結果（找到/找不到/無權限），不應該洩漏底層實作的細節（影響幾行）。業務邏輯用例外表達「不應該發生的情況」，讓呼叫方只需要處理成功路徑，失敗路徑集中在 catch。
+
+**下次遇到類似情況，我會先想到什麼**
+
+設計「寫入操作」的 Service 方法時，先問：「呼叫方需要知道什麼？」只需要知道成功/失敗 → `Task` + 例外；需要知道影響了多少筆 → 考慮 `Task<int>`，但要確認這個數字有業務意義，不只是 ORM 的技術回傳值。
+
+---
+
+### 條目 142 — 前端 API 層的分層邊界：誰需要 Auth Header，就誰獨立
+
+**我做了什麼**
+
+`src/api/weather.ts` 同時定義了 `weatherApi` 和 `notificationApi`，但刻意把兩者分開：
+
+```typescript
+export const weatherApi = {
+    getStations(cityName: string): Promise<...> { ... },
+    getRainfall(...): Promise<...> { ... },
+    // 其他公開查詢...
+}
+
+export const notificationApi = {
+    getList(userId: string, page = 1): Promise<...> { ... },
+    getUnreadCount(userId: string): Promise<...> { ... },
+    markAsRead(id: number, userId: string): Promise<void> { ... },
+}
+```
+
+**我遇到的問題**
+
+為什麼不把通知 API 放進 `weatherApi` 物件裡，或獨立成 `notification.ts`？
+
+**我怎麼想通的**
+
+這個分層的依據是「未來的修改會同時影響哪些東西」。
+
+`weatherApi` 裡的方法都是公開查詢，不需要登入。未來即使有修改（加新端點、改回傳格式），也不需要動到認證邏輯。
+
+`notificationApi` 裡的方法都需要使用者身份。W15 JWT 整合後，這些方法需要在請求 header 加上 `Authorization: Bearer {token}`。如果把通知 API 混在 `weatherApi` 裡，加 Auth header 時要小心不要影響不需要 auth 的公開查詢——這種「要改一部分、要留一部分」的修改最容易出錯。
+
+分開定義後，W15 的修改範圍就很清楚：只動 `notificationApi`，`weatherApi` 完全不用碰。
+
+**我學到的原則**
+
+API 函式的分組依據不是「功能屬於同一個模組」，而是「這批函式會不會因為同一個原因被修改」。Auth 需求的有無是一個非常強的分組信號——需要 auth 的 API 和不需要 auth 的 API，幾乎一定會在不同的時間點、因為不同的原因被修改，應該分開管理。
+
+**下次遇到類似情況，我會先想到什麼**
+
+定義 API 函式時，先問：「這個函式需要 Authorization header 嗎？」需要的放一組，不需要的放另一組，不因為業務上都是同一個模組就混在一起。
+
+---
+
+### 條目 143 — Vue 元件的記憶體管理：onUnmounted 的清理職責
+
+**我做了什麼**
+
+`NotificationBell.vue` 有兩個需要清理的資源：
+
+```typescript
+onMounted(() => {
+    store.fetchUnreadCount()
+    const timer = setInterval(() => store.fetchUnreadCount(), 60000)
+    document.addEventListener('click', handleOutsideClick)
+    
+    onUnmounted(() => {
+        clearInterval(timer)
+        document.removeEventListener('click', handleOutsideClick)
+    })
+})
+```
+
+**我遇到的問題**
+
+`onUnmounted` 嵌在 `onMounted` 裡面是正確的嗎？為什麼不把它放在外層？
+
+**我遇到的問題的解答**
+
+`onUnmounted` 在 `onMounted` 裡面是 Vue 3 Composition API 的合法用法，效果和放在外層相同（都會在元件卸載時執行）。嵌在裡面的好處是 timer 變數的作用域剛好也在 `onMounted` 裡，清理邏輯緊靠著建立邏輯，更容易一眼確認「有建立就有清理」。
+
+**為什麼這兩個資源必須清理**
+
+`setInterval` 的 callback 每 60 秒執行一次，不管元件在不在。如果使用者離開了有 `NotificationBell` 的頁面，Vue 卸載了這個元件，但 `setInterval` 還在執行，它的 callback 嘗試存取已經卸載的元件的 store，可能造成記憶體洩漏或意外的 API 呼叫。
+
+`document.addEventListener` 是全域的，元件卸載後 `handleOutsideClick` 函式仍然在 `document` 上監聽，每一次點擊都會執行這個函式，即使 `NotificationBell` 已經不在畫面上了。移除事件監聽確保這個副作用跟著元件消失。
+
+**我學到的原則**
+
+「有建立就有清理」是副作用管理的基本原則。全域副作用（`setInterval`、`document.addEventListener`、WebSocket 連線、`ResizeObserver`）不會跟著 Vue 元件的生命週期自動消失，必須在 `onUnmounted` 裡手動清理。每次在 `onMounted` 裡建立全域副作用，就要同時問：「這個副作用怎麼清？」
+
+**下次遇到類似情況，我會先想到什麼**
+
+在 `onMounted` 裡建立任何東西之前，先問：「這個東西會不會在元件卸載後繼續存在？」如果會，`onUnmounted` 就是必須的，不是可選的。
+
+---
+
+### 條目 144 — Chart.js 的 spanGaps 與 null 資料點
+
+**我做了什麼**
+
+雨量折線圖和旬密度折線圖都有一個共同問題：不同測站（或城市）的觀測時間點不完全對齊，X 軸是所有時間點的聯集，某個測站在某個時間點沒有資料時，那個位置的值是 `null`。
+
+如果不特別處理，`null` 資料點會讓折線在那個位置斷掉，圖表變成很多段不連續的線段，視覺上很難閱讀。
+
+**我使用的解法**
+
+```typescript
+datasets: [{
+    data: labels.map(t => timeMap[t] ?? null),  // 沒有對應資料就填 null
+    spanGaps: true,     // Chart.js 會自動跳過 null，用直線連接前後的有值點
+    // ...
+}]
+```
+
+`spanGaps: true` 讓 Chart.js 在遇到 `null` 資料點時，直接畫一條線從上一個有值的點連到下一個有值的點，而不是斷開。這在稀疏資料的折線圖中是標準做法。
+
+**我學到的原則**
+
+時間序列資料幾乎都有「某些時間點沒有資料」的情況，這不是錯誤，而是資料的正常狀態。在組裝 Chart.js datasets 時，`null` 是「這個時間點沒有值」的正確表達方式，搭配 `spanGaps: true` 讓圖表仍然保持連續、易讀。不要用 `0` 填補缺失的資料點——`0` 會被解讀為「這個時間點雨量是 0mm」，和「沒有觀測到」的意義完全不同。
+
+**下次遇到類似情況，我會先想到什麼**
+
+時間序列 + 多條線的圖表，先問：「每個資料源的時間點對齊了嗎？」沒對齊就需要建立共用時間軸（所有時間點的聯集），再讓每個資料源在沒有對應值的時間點填 `null`，搭配 `spanGaps: true` 處理視覺上的連續性。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -4555,4 +4909,28 @@ Exchange Type 的選擇依據是通訊的語意，不是複雜度的高低。fan
  
 **關於分散式系統整合**
 骨架優先：先讓鏈路通（連線建立、基本操作驗收），再實作完整功能。整合風險前移比在功能完整後才整合更容易控制和診斷。
+
+---
+
+## 跨條目的通用原則整理（v19.0 更新）
+
+以下為 v19.0 新增或強化的原則，和既有原則並列管理：
+
+**關於 EF Core 的查詢邊界（強化）**
+`ToListAsync()` 是 SQL 翻譯模式和 C# 執行模式的分界點，之前的操作必須能對應合法 SQL，之後可以使用任何 .NET 語法。`GroupBy + 取整列`、多欄位字串組合、自訂方法呼叫都屬於 C# 模式，必須放在 `ToListAsync()` 之後。遇到「編譯過但執行拋 InvalidOperationException: could not be translated」，就是越界了。
+
+**關於跨表關聯的兩條路徑**
+有導覽屬性 → `Include`（語意清楚，EF Core 自動決定 JOIN 類型）；沒有導覽屬性 → LINQ `Join`（手動指定 Key）。Entity 是否有導覽屬性，取決於當初設計時是否預見了查詢需求。後補導覽屬性需要修改 Entity 和可能需要 Migration，不是隨時都能輕易加上去的。
+
+**關於 nullable 參數的驗證邊界**
+可選參數 + 格式驗證的組合，需要明確區分「有傳但格式錯誤」和「沒有傳（合法 null）」。前者回 400，後者套預設值正常處理。判斷條件是 `參數本身 != null && 解析結果 == null`，而不是只看解析結果。
+
+**關於 API 層的分組依據**
+API 函式的分組依據是「修改原因是否相同」，而不是「業務模組是否相同」。需要 auth header 的 API 和不需要的 API 一定要分開，因為它們會在不同時間點因為不同原因被修改（Auth 整合、安全性調整不應該影響公開查詢的邏輯）。
+
+**關於全域副作用的清理**
+`setInterval`、`document.addEventListener`、WebSocket、`ResizeObserver` 等全域副作用的生命週期不跟著 Vue 元件自動結束，必須在 `onUnmounted` 手動清理。「有建立就有清理」是鐵則。每次在 `onMounted` 裡建立全域副作用，立刻問：「清理邏輯在哪裡？」
+
+**關於時間序列圖表的缺失資料**
+多個資料源的時間點不完全對齊是常態，不是錯誤。正確表達方式是 `null`（不是 `0`），搭配 `spanGaps: true` 讓圖表視覺連續。用 `0` 填補缺失值等同於「聲稱那個時間點的量測值是零」，在農業資料的語境下（雨量 0mm vs. 沒有觀測）會造成誤導。
 

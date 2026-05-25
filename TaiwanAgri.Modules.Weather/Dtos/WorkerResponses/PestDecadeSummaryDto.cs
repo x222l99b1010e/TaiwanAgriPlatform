@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace TaiwanAgri.Modules.Weather.Dtos
+namespace TaiwanAgri.Modules.Weather.Dtos.WorkerResponses
 {
 	public class PestDecadeSummaryDto
 	{

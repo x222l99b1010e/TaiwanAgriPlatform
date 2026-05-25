@@ -4,6 +4,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import MarketView from '@/views/MarketView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
+import WeatherView from '@/views/WeatherView.vue'
+import StationView from '@/views/weather/StationView.vue'
+import RainfallView from '@/views/weather/RainfallView.vue'
+import PestAlertsView  from '@/views/weather/PestAlertsView.vue'
+import PestDecadeView  from '@/views/weather/PestDecadeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -21,13 +26,13 @@ const router = createRouter({
     },
     {
       path: '/weather',
-      component: PlaceholderView,
+      component: WeatherView,
       children: [
-        { path: 'station', component: PlaceholderView },
-        { path: 'rainfall', component: PlaceholderView },
-        { path: 'pest-alerts', component: PlaceholderView },
-        { path: 'pest-decade', component: PlaceholderView },
-        { path: 'notifications', component: PlaceholderView },
+        { path: 'station', component: StationView },
+        { path: 'rainfall', component: RainfallView },
+        { path: 'pest-alerts', component: PestAlertsView },
+        { path: 'pest-decade', component: PestDecadeView },
+        // { path: 'notifications', component: PlaceholderView },
       ]
     },
     { path: '/food-safety', component: PlaceholderView },

@@ -1,6 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
-using TaiwanAgri.Core.Entities;
 
 namespace TaiwanAgri.Modules.Weather.Entities
 {

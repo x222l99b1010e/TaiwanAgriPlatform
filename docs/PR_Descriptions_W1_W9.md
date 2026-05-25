@@ -2759,6 +2759,338 @@ RabbitMQ Consumer 驗收：啟動 `TaiwanAgri.Web`，啟動 log 出現 `[PriceUp
 
 ---
 
+# PR #027 — W13-14 模組2前台：氣象查詢層 + Vue 3 天氣面板 + 通知鈴鐺
+
+**標題**：`feat(weather): W13-14 模組2後端查詢層 + Vue 3 天氣面板完整實作（農場氣象 / 雨量折線圖 / 病蟲害警報牆 / 旬報查詢 / 通知鈴鐺）`
+
+---
+
+## 背景與動機
+
+W3-6 完成了模組2的 Worker 層——WeatherObservations、RainfallObservations、PestAlerts、PestDecadeSummaries、UserNotifications 全部同步到資料庫。但查詢層（Service + Controller）一直缺席，前台更是完全空白（PlaceholderView）。
+
+本 PR 補完整條鏈路：
+
+```
+DB（已有資料）→ Service → Controller → Vue 3 前台
+```
+
+同時處理一個隱性問題：NavService 從未過濾 `IsActive` 欄位，資料庫停用的選單項目仍會回傳給前端。本 PR 一併修正。
+
+---
+
+## 實作內容
+
+### 一、後端查詢層
+
+#### 1. WeatherService — 兩個查詢方法，各有不同的技術挑戰
+
+**`GetStationsByCityAsync`：每個測站只取最新一筆**
+
+直觀的寫法是 `GroupBy(StationId).Select(g => g.OrderByDescending(ObservedAt).First())`，但 EF Core 無法將這個 LINQ 翻譯成 SQL，執行時拋出 `InvalidOperationException: The LINQ expression could not be translated`。
+
+最終採用兩步式記憶體策略：
+
+```csharp
+// 第一步：只撈兩個欄位，資料量小
+var raw = await _context.WeatherObservations
+    .Where(s => s.CityName == cityName)
+    .ToListAsync();
+
+// 第二步：記憶體內 GroupBy，沒有 SQL 翻譯限制
+var result = raw
+    .GroupBy(s => s.StationId)
+    .Select(g => g.OrderByDescending(w => w.ObservedAt).First())
+    .Select(s => new WeatherStationResponseDto { ... })
+    .ToList();
+```
+
+這個設計取捨是刻意的：一個縣市的測站數有限（10-20 個），歷史資料量可控，記憶體代價遠小於引入 `FromSqlRaw` 的維護成本。`ROW_NUMBER()` OVER PARTITION 在 SQL 層是最佳解，但需要放棄整個查詢層的 LINQ 一致性——代價不值得。
+
+**`GetRainfallByCityAsync`：跨表 JOIN + 日期型別轉換**
+
+`RainfallObservation` 只有 `StationId`，城市名稱在 `RainfallStation`。兩張表沒有導覽屬性（因為 Worker 開發時沒有設計雙向導覽），只能用 LINQ `Join`：
+
+```csharp
+_context.RainfallObservations
+    .Join(_context.RainfallStations,
+        obs => obs.StationId,
+        sta => sta.StationId,
+        (obs, sta) => new { obs, sta })
+    .Where(x => x.sta.CityName == cityName
+             && DateOnly.FromDateTime(x.obs.ObservedAt) >= finalStart
+             && DateOnly.FromDateTime(x.obs.ObservedAt) <= finalEnd)
+```
+
+日期參數為 `DateOnly?`，null 時套用預設值（近 14 天）。Controller 層對「有傳但格式錯誤」和「沒傳（null）」做了明確區分：
+
+```csharp
+// 有傳但無法解析 → 格式錯誤，回 400
+if (startDate != null && start == null)
+    return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
+
+// 沒傳 → 讓 Service 套用預設值，不報錯
+```
+
+這個細節避免了「使用者沒填日期也被告知格式錯誤」的 UX 問題。
+
+#### 2. PestService — nullable 城市篩選的 Where 設計
+
+病蟲害警報支援「全台」和「指定縣市」兩種模式，城市參數設計為 `string? cityName = null`：
+
+```csharp
+.Where(a => cityName == null || a.Cities.Any(c => c.CityName == cityName))
+```
+
+`cityName == null` 時短路求值，條件直接成立，回傳全部資料；有值時才執行 `Cities.Any()`。這個寫法讓同一個方法同時處理兩種情境，不需要 if/else 分支。
+
+`Cities` 和 `Crops` 是導覽屬性（有 `PestAlertCity`、`PestAlertCrop` 兩張關聯表），透過 `Include` 一起載入後直接在 `Select` 裡展平成 `List<string>`：
+
+```csharp
+Cities = pa.Cities.Select(c => c.CityName).ToList(),
+Crops  = pa.Crops.Select(c => c.CropName).ToList()
+```
+
+EF Core 在有 `Select` 時可以省略 `Include`，但加上去更明確；不影響正確性，只是多一個對 Change Tracker 無效的提示。
+
+#### 3. NotificationService — 例外語意 vs. 回傳碼
+
+`MarkAsReadAsync` 有兩種設計選擇：回傳 `Task<int>`（讓呼叫方判斷影響行數）或回傳 `Task` + 例外（Service 自己負責「找不到就報錯」）。
+
+最終選擇例外語意：
+
+```csharp
+public async Task MarkAsReadAsync(int notificationId, string userId)
+{
+    var notification = await _dbContext.UserNotifications
+        .FirstOrDefaultAsync(x => x.Id == notificationId && x.UserId == userId);
+    if (notification == null)
+        throw new KeyNotFoundException($"通知 {notificationId} 不存在或無權限");
+
+    notification.IsRead = true;
+    await _dbContext.SaveChangesAsync();
+}
+```
+
+理由：`SaveChangesAsync()` 的回傳值是「EF 影響幾行」，這是 ORM 的內部細節，不應該洩漏到 Controller 層成為業務判斷依據。Controller 捕捉 `KeyNotFoundException` 回 404，Service 不需要回傳任何值，職責清楚。
+
+#### 4. NotificationController — 暫時的 userId 策略
+
+`[Authorize]` 搭配 `User.FindFirstValue(ClaimTypes.NameIdentifier)` 是生產目標，但 JWT 整合尚未完成。暫時改用 `[FromQuery] string userId`，讓端點在開發期間可測試：
+
+```csharp
+// 現在（開發期）
+[HttpGet("list")]
+public async Task<IActionResult> GetUserNotifications([FromQuery] string userId, ...)
+
+// W15 JWT 整合後改回
+[Authorize]
+[HttpGet("list")]
+public async Task<IActionResult> GetUserNotifications(...)
+{
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (userId == null) return Unauthorized();
+    ...
+}
+```
+
+這個設計讓後端功能可以獨立於前端 auth 完成測試和驗收，不會因為 JWT 未整合而卡住整個開發進度。
+
+#### 5. DTO 分層重組
+
+原本 `Dtos/` 資料夾同時放了給 Worker 用（從農業部 API 反序列化）和給前台用（Service 查詢回傳）的 DTO，混在一起。本 PR 重組為：
+
+```
+Dtos/
+  ApiResponses/    ← 給前台查詢用（這次新增的 6 個 DTO）
+  WorkerResponses/ ← 給 Worker 從農業部 API 反序列化用（原有，搬移）
+```
+
+命名以「角色」而非「來源」為依據，讓維護者不需要背景知識就能理解資料夾用途。
+
+#### 6. NavService — 補 IsActive 過濾
+
+原有的查詢從未篩 `IsActive`，導致資料庫停用的選單項目仍然回傳給前端。修正：
+
+```csharp
+var navModules = await _context.NavModules
+    .Where(nm => nm.ParentId == null
+        && nm.IsActive          // ← 補這行
+        && permittedModuleIds.Contains(nm.Id))
+    .ToListAsync();
+
+var childNavModules = await _context.NavModules
+    .Where(cnm => cnm.ParentId != null
+        && cnm.IsActive         // ← 補這行
+        && topLevelIds.Contains(cnm.ParentId!.Value)
+        && permittedModuleIds.Contains(cnm.Id))
+    .ToListAsync();
+```
+
+停用「智慧提示」（NotificationId=13）後，前端即自動消失，不需要改前端程式碼。RBAC 控制點完全在後端。
+
+---
+
+### 二、前端
+
+#### 1. API 層設計（`weather.ts`）
+
+`notificationApi` 與 `weatherApi` 分開定義，原因是之後加 JWT 時需要在 `notificationApi` 加 Authorization header，分開讓修改範圍最小：
+
+```typescript
+export const weatherApi = { ... }    // 公開查詢，不需要 auth
+export const notificationApi = { ... } // 個人資料，之後要加 auth header
+```
+
+#### 2. StationView — 對應後端的兩步式查詢策略
+
+後端 `GetStationsByCityAsync` 因 EF Core 限制採用「先拉回記憶體再 GroupBy」，這個設計讓前端拿到的永遠是每個測站最新一筆，不需要前端做任何去重。卡片展示 14 個欄位（溫度、日最高/最低、濕度、風速、風向、最大陣風、24h 雨量、日照時數、氣壓），全部標示 nullable——後端欄位是 `decimal?`，前端顯示時用 `?? '—'` 處理。
+
+#### 3. RainfallView — Chart.js 折線圖設計決策
+
+雨量資料的特性：同一縣市多個測站 × 多個時間點，適合「多條折線按測站分線」的顯示方式。
+
+X 軸對齊策略：把所有 `observedAt` 截成 `YYYY-MM-DD HH:mm` 後去重排序，作為共用時間軸。同一測站同一時間點取值，時間點不存在時填 `null`（Chart.js 的 `spanGaps: true` 會自動連線跳過 null）。
+
+**指標切換（3h / 6h / 12h / 24h）**讓使用者判斷降雨型態——短時間強降雨（3h 高、24h 不高）vs. 長時間穩定降雨（各時距都高）。指標切換不需要重新打 API，只需要重繪圖表，資料已全部在記憶體中。
+
+**全不選按鈕**讓使用者從空白狀態開始，逐一點 legend 加回自己關心的測站，解決測站數多時圖表線條雜亂的問題：
+
+```typescript
+function toggleAllSeries() {
+    if (!chartInstance) return
+    const meta = chartInstance.data.datasets.map((_, i) =>
+        chartInstance!.getDatasetMeta(i)
+    )
+    meta.forEach(m => { m.hidden = allVisible.value })
+    allVisible.value = !allVisible.value
+    chartInstance.update()
+}
+```
+
+#### 4. PestAlertsView — 警報牆的展開設計
+
+警報的 `Body` 和 `Prescription` 可能很長，不適合直接展開在卡片列表裡。採用「點擊展開」模式，每次只有一筆展開（`expandedId` 是單一值，不是陣列），避免畫面同時展開多筆造成閱讀困難。
+
+縣市和作物標籤用不同顏色區分（藍色 vs 綠色），讓使用者一眼識別影響範圍。
+
+#### 5. NotificationBell — 三個機制的組合
+
+```
+① 60 秒輪詢 fetchUnreadCount()     → 紅點即時反映
+② dropdown 開啟時 fetchNotifications(reset=true)  → 每次開啟都刷新
+③ 捲動到底 fetchNotifications()    → 無限分頁載入
+```
+
+點外部關閉用 `document.addEventListener('click', handleOutsideClick)` + `wrapperRef.contains(e.target)` 判斷，在 `onUnmounted` 時移除事件監聽，防止記憶體洩漏。
+
+---
+
+## 關鍵設計決策
+
+### 決策一：EF Core GroupBy + First() 的取捨
+
+「每個測站只取最新一筆」的 SQL 最佳解是 `ROW_NUMBER() OVER (PARTITION BY StationId ORDER BY ObservedAt DESC)`，但 EF Core LINQ 無法直接表達這個語意。
+
+評估了三個選項：
+
+| 方案 | 優點 | 缺點 |
+|------|------|------|
+| `FromSqlRaw` 原生 SQL | SQL 最佳效能 | 破壞 LINQ 一致性，難以測試 |
+| 兩個 Contains HashSet | 保持 LINQ | HashSet 配對有邏輯漏洞（StationId 和 ObservedAt 獨立篩選，可能匹配到不對應的組合） |
+| 記憶體內 GroupBy | 正確、簡單 | 拉回更多資料 |
+
+選擇記憶體內 GroupBy。在縣市規模的資料量下（一個縣市幾千筆觀測），記憶體代價可接受，正確性有保證，程式碼最易讀。
+
+### 決策二：通知鈴鐺 dropdown vs. 跳頁
+
+W3-6 設計的路由有 `/weather/notifications`，原本預期是一個完整的通知頁面。本 PR 改為 dropdown，原因：
+
+通知的主要使用場景是「快速確認有沒有新東西」，dropdown 不需要離開目前的工作頁面。跳頁的代價（失去上下文、需要回上一頁）高於收益。參考 GitHub、Slack、Gmail 的設計，通知幾乎都是 dropdown，不是獨立頁面。
+
+`/weather/notifications` 路由保留（資料庫 `IsActive = 0`），未來若有「通知管理」需求再啟用。
+
+### 決策三：userId 的暫時策略
+
+`[Authorize]` 是安全正確的設計，但 JWT 整合在 W15。提前加 `[Authorize]` 的話，整個通知功能在 W15 之前完全無法測試和驗收。
+
+選擇暫時用 `[FromQuery] string userId`，讓後端功能可以獨立驗收，JWT 整合後只需要改 Controller 的取值方式，不需要改 Service 層的任何邏輯（Service 方法簽名不變）。
+
+### 決策四：雨量前台用表格還是純圖表
+
+API 回傳的雨量資料有四個時距（3h/6h/12h/24h），若只做圖表，使用者需要切換才能看到不同時距的絕對值。若只做表格，資料多時趨勢不直觀。
+
+最終兩者都保留：折線圖在上（趨勢、視覺比較），表格在下（精確數值、可複製），各自有不可替代的場景。
+
+---
+
+## 驗收標準
+
+後端：
+- `GET /api/Weather/stations?cityName=臺北市` → 回傳臺北市所有測站最新一筆，每個 `stationName` 不重複
+- `GET /api/Weather/rainfall?cityName=臺北市&startDate=2026-05-01&endDate=2026-05-25` → 回傳對應區間資料
+- `GET /api/Pest/alerts` → 回傳最新 20 筆警報，`cities` 和 `crops` 是展平的字串陣列
+- `GET /api/Pest/pest-names` → 回傳不重複的害蟲名稱清單
+- `GET /api/Pest/decade-density?pestName=東方果實蠅` → 回傳旬密度資料
+
+前端：
+- 點「農場氣象」→ 選縣市 → 查詢 → 出現測站卡片
+- 點「雨量趨勢」→ 選縣市和日期 → 查詢 → 折線圖 + 表格出現，指標切換正常
+- 點「病蟲害警報」→ 出現警報卡片，點擊展開 Body 和 Prescription
+- 點「旬報查詢」→ 選害蟲 → 查詢 → 折線圖 + 明細表格
+- 右上角鈴鐺顯示，點擊開啟 dropdown（目前無真實資料，需傳入有效 userId 測試）
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Core/Services/NavService.cs` | M | 補 `IsActive` 過濾條件 |
+| `TaiwanAgri.Modules.Weather/Dtos/ApiResponses/WeatherStationResponseDto.cs` | A | 14 個氣象欄位，全 nullable |
+| `TaiwanAgri.Modules.Weather/Dtos/ApiResponses/RainfallResponseDto.cs` | A | 四時距雨量 DTO |
+| `TaiwanAgri.Modules.Weather/Dtos/ApiResponses/PestAlertResponseDto.cs` | A | 警報 DTO，Cities/Crops 展平為 `List<string>` |
+| `TaiwanAgri.Modules.Weather/Dtos/ApiResponses/PestDecadeSummaryResponseDto.cs` | A | 旬密度 DTO |
+| `TaiwanAgri.Modules.Weather/Dtos/ApiResponses/UserNotificationResponseDto.cs` | A | 含 RuleName（來自 PestRuleConfig） |
+| `TaiwanAgri.Modules.Weather/Dtos/ApiResponses/UnreadCountResponseDto.cs` | A | 單欄 Count |
+| `TaiwanAgri.Modules.Weather/Services/IWeatherService.cs` | A | 兩個查詢方法，日期參數 nullable |
+| `TaiwanAgri.Modules.Weather/Services/WeatherService.cs` | A | 兩步式記憶體 GroupBy + RainfallStation JOIN |
+| `TaiwanAgri.Modules.Weather/Services/IPestService.cs` | A | 三個方法，cityName nullable |
+| `TaiwanAgri.Modules.Weather/Services/PestService.cs` | A | Include 導覽屬性、nullable 城市篩選、分頁 |
+| `TaiwanAgri.Modules.Weather/Services/INotificationService.cs` | A | MarkAsReadAsync 回傳 Task（例外語意） |
+| `TaiwanAgri.Modules.Weather/Services/NotificationService.cs` | A | KeyNotFoundException 例外、RuleName 從導覽屬性取 |
+| `TaiwanAgri.Web/Controllers/WeatherController.cs` | A | 日期格式防禦驗證 |
+| `TaiwanAgri.Web/Controllers/PestController.cs` | A | 三個端點 |
+| `TaiwanAgri.Web/Controllers/NotificationController.cs` | A | 暫時 [FromQuery] userId |
+| `TaiwanAgri.Web/Program.cs` | M | 補三個 Service DI 註冊 |
+| `TaiwanAgri.Frontend/src/api/weather.ts` | A | weatherApi + notificationApi 分開定義 |
+| `TaiwanAgri.Frontend/src/stores/notification.ts` | A | 輪詢、無限捲動、本地 markAsRead |
+| `TaiwanAgri.Frontend/src/components/CitySelector.vue` | A | v-model 共用元件 |
+| `TaiwanAgri.Frontend/src/components/NotificationBell.vue` | A | 鈴鐺 + dropdown + 三個機制 |
+| `TaiwanAgri.Frontend/src/components/TopNav.vue` | M | 插入 NotificationBell |
+| `TaiwanAgri.Frontend/src/router/index.ts` | M | weather 子路由補齊，移除 notifications 路由 |
+| `TaiwanAgri.Frontend/src/views/WeatherView.vue` | A | 純路由容器 |
+| `TaiwanAgri.Frontend/src/views/weather/StationView.vue` | A | 測站卡片牆 |
+| `TaiwanAgri.Frontend/src/views/weather/RainfallView.vue` | A | Chart.js 折線圖 + 指標切換 + 全不選 + 表格 |
+| `TaiwanAgri.Frontend/src/views/weather/PestAlertsView.vue` | A | 警報牆 + 點擊展開 + 分頁 |
+| `TaiwanAgri.Frontend/src/views/weather/PestDecadeView.vue` | A | 旬密度折線圖 + 全不選 + 表格 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 有幾個值得注意的設計層次。
+
+**EF Core 的邊界**是整個後端查詢層最核心的學習點。`ToListAsync()` 之前是 SQL 翻譯模式，之後是 C# 執行模式，兩者的能力邊界非常不同。`GetStationsByCityAsync` 的兩步式策略正是接受這個邊界、在邊界之後做記憶體操作，而不是強行讓 EF Core 翻譯它翻譯不了的語意。
+
+**nullable 城市篩選**的 `Where(a => cityName == null || ...)` 是一個常見但容易被過度設計的場景。用兩個方法（有城市/無城市）也能做到，但同一個 `Where` 的短路求值讓呼叫方不需要知道「全台」和「指定縣市」是兩條不同的路徑，介面更乾淨。
+
+**通知鈴鐺的三個機制**（輪詢紅點、開啟刷新、捲動分頁）各自解決不同的使用情境：紅點要即時但不能太頻繁、列表要開啟就最新、歷史通知要按需載入。三個機制分開處理，不互相干擾。
+
+`onUnmounted` 清理事件監聽的慣例在 `NotificationBell.vue` 裡可以看到完整的實作——如果忘記移除，離開頁面後 `handleOutsideClick` 仍然存在於 document，每次點擊都會嘗試存取已卸載的元件，造成記憶體洩漏。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

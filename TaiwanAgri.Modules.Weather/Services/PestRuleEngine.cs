@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TaiwanAgri.Modules.Weather.Data;
-using TaiwanAgri.Modules.Weather.Dtos;
+using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Weather.Entities;
 
 namespace TaiwanAgri.Modules.Weather.Services

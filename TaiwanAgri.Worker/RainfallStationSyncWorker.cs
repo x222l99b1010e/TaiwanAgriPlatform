@@ -2,7 +2,7 @@
 using System.Text.Json;
 using TaiwanAgri.Core.Constants;
 using TaiwanAgri.Modules.Weather.Data;
-using TaiwanAgri.Modules.Weather.Dtos;
+using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Weather.Entities;
 
 namespace TaiwanAgri.Worker
