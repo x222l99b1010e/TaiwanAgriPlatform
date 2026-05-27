@@ -3,24 +3,27 @@
 
 import { createRouter, createWebHistory } from 'vue-router'
 import MarketView from '@/views/MarketView.vue'
+import PricesView from '@/views/market/PricesView.vue'
+import DisastersView from '@/views/market/DisastersView.vue'
+import RestDaysView from '@/views/market/RestDaysView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import WeatherView from '@/views/WeatherView.vue'
 import StationView from '@/views/weather/StationView.vue'
 import RainfallView from '@/views/weather/RainfallView.vue'
-import PestAlertsView  from '@/views/weather/PestAlertsView.vue'
-import PestDecadeView  from '@/views/weather/PestDecadeView.vue'
+import PestAlertsView from '@/views/weather/PestAlertsView.vue'
+import PestDecadeView from '@/views/weather/PestDecadeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', redirect: '/market' },
+    { path: '/', redirect: '/market/prices' },
     {
       path: '/market',
       component: MarketView,
       children: [
-        { path: 'prices', component: PlaceholderView },
-        { path: 'disasters', component: PlaceholderView },
-        { path: 'rest-days', component: PlaceholderView },
+        { path: 'prices', component: PricesView },
+        { path: 'disasters', component: DisastersView },
+        { path: 'rest-days', component: RestDaysView },
         { path: 'pork', component: PlaceholderView },
       ]
     },

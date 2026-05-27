@@ -114,8 +114,8 @@ Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearS
 
 // ── 色盤 ─────────────────────────────────────────────
 const PALETTE = [
-  '#7DD8CF', '#FFA05A', '#64AADC', '#C896DC', '#F0C850',
-  '#6EBE8C', '#E87878', '#78C8E0', '#A8D87A', '#F2CF6A',
+  '#2e7d32', '#e65100', '#1565c0', '#6a1b9a', '#c77700',
+  '#00695c', '#b71c1c', '#0277bd', '#558b2f', '#f57f17',
 ]
 const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 
@@ -184,7 +184,7 @@ const chartData = computed(() => {
     pointRadius: 3.5,
     pointHoverRadius: 7,
     pointBackgroundColor: getColor(i),
-    pointBorderColor: 'rgba(255,255,255,0.5)',
+    pointBorderColor: 'rgba(0,0,0,0.15)',
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
@@ -209,41 +209,42 @@ function buildChart() {
       scales: {
         x: {
           ticks: {
-            maxTicksLimit: 12,
-            color: 'rgba(170,185,205,0.55)',
-            font: { size: 11 },
-            maxRotation: 45,
+            maxTicksLimit: 10,
+            color: 'rgba(26,40,32,0.70)',
+            font: { size: 12 },
+            callback(val, index) {
+              return (this as any).getLabelForValue(index) ?? String(val)
+            },
           },
-          grid:   { color: 'rgba(255,255,255,0.05)' },
-          border: { color: 'rgba(255,255,255,0.08)' },
+          grid:   { color: 'rgba(0,0,0,0.05)' },
+          border: { color: 'rgba(0,0,0,0.12)' },
         },
         y: {
           ticks: {
-            color: 'rgba(170,185,205,0.55)',
-            font: { size: 11 },
+            color: 'rgba(26,40,32,0.70)',
+            font: { size: 12 },
           },
-          grid:   { color: 'rgba(255,255,255,0.05)' },
-          border: { color: 'rgba(255,255,255,0.08)' },
+          grid:   { color: 'rgba(0,0,0,0.05)' },
+          border: { color: 'rgba(0,0,0,0.12)' },
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(18,28,20,0.92)',
-          titleColor:      'rgba(200,215,200,0.9)',
-          bodyColor:       'rgba(170,190,175,0.8)',
-          borderColor:     'rgba(255,255,255,0.10)',
+          backgroundColor: 'rgba(255,255,255,0.96)',
+          titleColor:      'rgba(26,40,32,0.90)',
+          bodyColor:       'rgba(26,40,32,0.70)',
+          borderColor:     'rgba(0,0,0,0.10)',
           borderWidth: 1,
           padding: 12,
           callbacks: {
             label: (ctx) =>
-              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y}` : '',
+              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
           },
         },
         legend: {
-          position: 'top',
           labels: {
-            color: 'rgba(190,205,195,0.75)',
-            font: { size: 12 },
+            color: 'rgba(26,40,32,0.85)',
+            font: { size: 13 },
             usePointStyle: true,
             pointStyleWidth: 10,
           },
@@ -307,220 +308,142 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.pest-view {
-  padding: 36px 56px;
-  min-width: 960px;
-  box-sizing: border-box;
-}
+.pest-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
 
-h1 {
-  font-size: 22px;
-  font-weight: 700;
-  color: rgba(200, 220, 200, 0.9);
-  margin-bottom: 24px;
-}
+h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 
-/* ── 篩選區 ── */
 .filter-section {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  flex-wrap: wrap;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 14px;
-  padding: 24px;
-  margin-bottom: 28px;
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; margin-bottom: 28px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field-label {
-  font-size: 12px;
-  color: rgba(170, 185, 205, 0.5);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
 .pest-select {
-  padding: 8px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(215, 225, 240, 0.88);
-  font-size: 14px;
-  min-width: 200px;
-  cursor: pointer;
-  transition: border-color 0.18s;
+  padding: 8px 14px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface);
+  color: var(--text-primary); font-size: 14px; min-width: 200px; cursor: pointer;
+  transition: border-color 0.18s, box-shadow 0.18s;
 }
+.pest-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
 
-.pest-select option {
-  background: #1a2e1f;
-  color: rgba(215, 225, 240, 0.88);
-}
-
-.pest-select:focus {
-  outline: none;
-  border-color: rgba(125, 216, 160, 0.45);
-}
-
+/* 查詢按鈕金屬反光 */
 .btn-query {
-  padding: 9px 26px;
-  border-radius: 999px;
-  border: none;
-  background: #2e7d32;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.18s;
+  padding: 9px 26px; border-radius: 999px;
+  border: 1px solid #1a5220;
+  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
+  color: white;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    inset 0 -2px 4px rgba(0,0,0,0.25),
+    inset 2px 0 6px rgba(255,255,255,0.08),
+    0 2px 6px rgba(0,0,0,0.20);
+  transition: all 0.15s;
 }
-.btn-query:hover:not(:disabled) { background: #388e3c; }
-.btn-query:disabled { background: rgba(80, 120, 80, 0.4); cursor: not-allowed; }
-
-.error-msg  { font-size: 13px; color: rgba(240, 100, 100, 0.85); margin: 0; }
-.empty-hint { font-size: 14px; color: rgba(170, 185, 205, 0.5); text-align: center; padding: 40px 0; }
-
-/* ── 摘要 ── */
-.summary-bar {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+.btn-query:hover:not(:disabled) {
+  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    inset 0 -2px 4px rgba(0,0,0,0.20),
+    inset 2px 0 6px rgba(255,255,255,0.10),
+    0 3px 10px rgba(0,0,0,0.22);
 }
+.btn-query:active:not(:disabled) {
+  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.35),
+    inset 0 -1px 0 rgba(255,255,255,0.15),
+    0 1px 3px rgba(0,0,0,0.15);
+}
+.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
+
+.error-msg  { font-size: 13px; color: var(--red); margin: 0; }
+.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
+
+.summary-bar { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 12px;
-  padding: 16px 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 130px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 22px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 130px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
-
+/* 摘要卡片 */
 .stat-label {
-  font-size: 11px;
-  color: rgba(170, 185, 205, 0.5);
+  font-size: 12px;
+  color: rgba(26,40,32,0.60);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: rgba(125, 216, 160, 0.9);
-}
-
-.stat-value.pest-name {
-  font-size: 16px;
-}
-
-/* ── 圖表卡片 ── */
-.chart-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 16px;
-  padding: 24px 28px 32px;
-  margin-bottom: 24px;
-}
-
-.chart-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.chart-title {
-  font-size: 13px;
   font-weight: 600;
-  color: rgba(170, 185, 205, 0.6);
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a5c20;
+}
+.stat-value.pest-name { font-size: 18px; }
+
+.chart-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px 28px 32px; margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+/* 圖表標題 */
+.chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(26,40,32,0.75);
   letter-spacing: 0.04em;
 }
+.toolbar-right { display: flex; align-items: center; gap: 10px; }
 
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
+/* 全不選按鈕 */
 .btn-toggle-all {
-  padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(170, 185, 205, 0.7);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  padding: 5px 14px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: rgba(26,40,32,0.65);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
 }
-.btn-toggle-all:hover {
-  background: rgba(255, 255, 255, 0.10);
-  color: rgba(210, 225, 230, 0.9);
-}
+.btn-toggle-all:hover { background: var(--surface-2); color: var(--text-primary); }
 
-.canvas-wrap {
-  position: relative;
-  height: 420px;
-  width: 100%;
-}
+.canvas-wrap { position: relative; height: 420px; width: 100%; }
 
-/* ── 表格 ── */
 .table-wrap {
-  overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 12px;
-  margin-bottom: 8px;
+  overflow-x: auto; border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-}
-
-.data-table thead tr {
-  background: rgba(255, 255, 255, 0.05);
-}
-
+.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.data-table thead tr { background: var(--surface-2); }
+/* 表格標頭 */
 .data-table th {
-  padding: 12px 18px;
-  text-align: left;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: rgba(170, 185, 205, 0.55);
+  padding: 12px 18px; text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(26,40,32,0.70);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border);
 }
-
-.data-table th.num,
-.data-table td.num { text-align: right; }
-
-.data-table tbody tr {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 0.15s;
-}
+.data-table th.num, .data-table td.num { text-align: right; }
+.data-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
 .data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
-
+.data-table tbody tr:hover { background: var(--surface-2); }
+/* 表格內文 */
 .data-table td {
   padding: 11px 18px;
-  color: rgba(210, 225, 215, 0.80);
+  color: rgba(26,40,32,0.85);
+  font-size: 14px;
 }
 
-.city-cell { font-weight: 600; color: rgba(125, 210, 155, 0.88); }
-.town-cell { color: rgba(170, 185, 205, 0.55); }
-
-/* 密度等級 */
-.density-val { font-weight: 600; }
-.level-mid  { color: rgba(255, 190, 80, 0.85); }
-.level-high { color: rgba(255, 90, 60, 0.90); }
+.city-cell  { font-weight: 700; color: #1a5c20; }
+.town-cell  { color: rgba(26,40,32,0.60); }
+.density-val { font-weight: 700; }
+.level-mid  { color: #c77700; }
+.level-high { color: var(--red); }
 </style>

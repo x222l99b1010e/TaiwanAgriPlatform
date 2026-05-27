@@ -29,17 +29,13 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 let chartInstance: Chart | null = null
 
 // ── 色盤（最多 5 條作物線）─────────────────────────────
+// PALETTE 換成這個
 const PALETTE = [
-  { main: '#6EBE8C', fade: 'rgba(110,190,140,0.10)', ma: 'rgba(110,190,140,0.38)' },
-  { main: '#FFA05A', fade: 'rgba(255,160,90,0.10)',  ma: 'rgba(255,160,90,0.38)'  },
-  { main: '#64AADC', fade: 'rgba(100,170,220,0.10)', ma: 'rgba(100,170,220,0.38)' },
-  { main: '#C896DC', fade: 'rgba(200,150,220,0.10)', ma: 'rgba(200,150,220,0.38)' },
-  { main: '#F0C850', fade: 'rgba(240,200,80,0.10)',  ma: 'rgba(240,200,80,0.38)'  },
-// { main: '#7DD8CF', fade: 'rgba(125,216,207,0.10)', ma: 'rgba(125,216,207,0.35)' }, // Tiffany 藍
-// { main: '#A8D87A', fade: 'rgba(168,216,122,0.10)', ma: 'rgba(168,216,122,0.35)' }, // 柔和黃綠
-// { main: '#F2CF6A', fade: 'rgba(242,207,106,0.10)', ma: 'rgba(242,207,106,0.35)' }, // 柔和黃
-// { main: '#78C8A0', fade: 'rgba(120,200,160,0.10)', ma: 'rgba(120,200,160,0.35)' }, // 草地綠
-// { main: '#82B8D8', fade: 'rgba(130,184,216,0.10)', ma: 'rgba(130,184,216,0.35)' }, // 天空藍
+  { main: '#2e7d32', fade: 'rgba(46,125,50,0.08)',   ma: 'rgba(46,125,50,0.28)'   },
+  { main: '#e65100', fade: 'rgba(230,81,0,0.08)',    ma: 'rgba(230,81,0,0.28)'    },
+  { main: '#1565c0', fade: 'rgba(21,101,192,0.08)',  ma: 'rgba(21,101,192,0.28)'  },
+  { main: '#6a1b9a', fade: 'rgba(106,27,154,0.08)',  ma: 'rgba(106,27,154,0.28)'  },
+  { main: '#c77700', fade: 'rgba(199,119,0,0.08)',   ma: 'rgba(199,119,0,0.28)'   },
 ]
 // 加在 PALETTE 定義下方
 const getColor = (i: number) => PALETTE[i % PALETTE.length]!
@@ -97,7 +93,7 @@ const chartData = computed(() => {
       pointRadius: showPoints ? 3.5 : 0,
       pointHoverRadius: 7,
       pointBackgroundColor: color.main,
-      pointBorderColor: 'rgba(255,255,255,0.6)',
+      pointBorderColor: 'rgba(0,0,0,0.15)',
       pointBorderWidth: 1,
       tension: 0.35,
       fill: true,
@@ -212,32 +208,31 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 12,
-            color: 'rgba(170, 185, 205, 0.55)',
-            font: { size: 11 },
-            // 完整顯示 YYYY-MM-DD，不截斷
+             color: 'rgba(26,40,32,0.75)',  // 從 0.45 → 0.75
+            font: { size: 12 },            // 從 11 → 12
             callback(val: unknown, index: number) {
               return (this as any).getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(255, 255, 255, 0.05)' },
-          border: { color: 'rgba(255, 255, 255, 0.08)' },
+          grid:   { color: 'rgba(0,0,0,0.05)' },
+          border: { color: 'rgba(0,0,0,0.08)' },
         },
         y: {
           ticks: {
-            color: 'rgba(170, 185, 205, 0.55)',
-            font: { size: 11 },
+            color: 'rgba(26,40,32,0.75)',  // 從 0.45 → 0.75
+            font: { size: 12 },            // 從 11 → 12
             callback: (val: unknown) => `${val} 元`,
           },
-          grid:   { color: 'rgba(255, 255, 255, 0.05)' },
-          border: { color: 'rgba(255, 255, 255, 0.08)' },
+          grid:   { color: 'rgba(0,0,0,0.05)' },
+          border: { color: 'rgba(0,0,0,0.08)' },
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(22, 30, 24, 0.92)',
-          titleColor:      'rgba(200, 215, 200, 0.9)',
-          bodyColor:       'rgba(170, 190, 175, 0.8)',
-          borderColor:     'rgba(255, 255, 255, 0.10)',
+          backgroundColor: 'rgba(255,255,255,0.96)',
+          titleColor:      'rgba(26,40,32,0.90)',
+          bodyColor:       'rgba(26,40,32,0.70)',
+          borderColor:     'rgba(0,0,0,0.10)',
           borderWidth: 1,
           padding: 12,
           callbacks: {
@@ -245,12 +240,11 @@ function buildChart() {
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
           },
         },
-        // 保留 Chart.js 內建 legend，點擊就能單獨關閉任一條線
         legend: {
           position: 'top' as const,
           labels: {
-            color: 'rgba(190, 205, 195, 0.75)',
-            font: { size: 12 },
+            color: 'rgba(26,40,32,0.85)',  // 從 0.65 → 0.85
+            font: { size: 13 },            // 從 12 → 13
             usePointStyle: true,
             pointStyleWidth: 10,
           },
@@ -325,23 +319,21 @@ function exportChartImage() {
 
 <style scoped>
 .chart-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 28px 32px 36px;
   animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* 摘要統計列 */
 .summary-bar {
   display: flex;
   align-items: center;
@@ -349,103 +341,93 @@ function exportChartImage() {
   flex-wrap: wrap;
   margin-bottom: 28px;
   padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+.stat { display: flex; flex-direction: column; gap: 5px; }
 
 .stat-label {
-  font-size: 10.5px;
-  color: rgba(170, 185, 205, 0.45);
+  font-size: 11px;
+  color: rgba(26,40,32,0.55);   /* 從 text-muted(0.40) → 0.55 */
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .stat-value {
-  font-size: 13px;
-  color: rgba(215, 225, 240, 0.88);
+  font-size: 14px;              /* 從 13px → 14px */
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  font-weight: 600;             /* 加粗 */
 }
 
 .sep {
   width: 1px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--border);
   flex-shrink: 0;
 }
 
-/* 作物標籤 */
-.tag-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .crop-tag {
   font-size: 11px;
   padding: 2px 9px;
   border: 1px solid;
   border-radius: 999px;
-  opacity: 0.82;
+  opacity: 0.85;
   transition: opacity 0.2s;
 }
-
 .crop-tag:hover { opacity: 1; }
 
-.legend-note .stat-label {
-  font-style: italic;
-  font-size: 11px;
-}
+.legend-note .stat-label { font-style: italic; font-size: 11px; }
 
-/* 圖表區域 */
 .canvas-wrap {
   position: relative;
-  height: 500px;         /* ← 從 380px 調高，圖表更大更好看 */
-  width: 100%;           /* ← 加這行 */
+  height: 500px;
+  width: 100%;
 }
 
-/* ── 匯出 圖片（次要行動） ── */
+.chart-header { margin-left: auto; }
+
 .btn-export {
-  padding: 9px 20px;
-  border-radius: 999px;
-  border: 1px solid rgba(100, 170, 220, 0.3);
+  padding: 9px 20px; border-radius: 999px;
+  border: 1px solid #4a148c;
   background: linear-gradient(
     180deg,
-    rgba(100, 170, 220, 0.16) 0%,
-    rgba(100, 170, 220, 0.07) 100%
+    #ab47bc 0%,
+    #7b1fa2 40%,
+    #4a148c 100%
   );
-  color: rgba(140, 195, 235, 0.88);
-  font-size: 13.5px;
-  font-weight: 500;
-  cursor: pointer;
-  letter-spacing: 0.02em;
+  color: white;
+  font-size: 13.5px; font-weight: 700; cursor: pointer;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 3px 10px rgba(0, 0, 0, 0.25);
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    inset 0 -2px 4px rgba(0,0,0,0.25),
+    0 2px 6px rgba(0,0,0,0.18);
+  transition: all 0.15s;
 }
-
 .btn-export:hover {
   background: linear-gradient(
     180deg,
-    rgba(100, 170, 220, 0.25) 0%,
-    rgba(100, 170, 220, 0.12) 100%
+    #ba68c8 0%,
+    #8e24aa 40%,
+    #6a1b9a 100%
   );
-  border-color: rgba(100, 170, 220, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 5px 16px rgba(100, 170, 220, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.28);
-  transform: translateY(-1px);
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    inset 0 -2px 4px rgba(0,0,0,0.20),
+    0 3px 10px rgba(0,0,0,0.22);
 }
-
 .btn-export:active {
-  transform: translateY(0);
-  box-shadow: inset 0 1px 0 rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.2);
+  background: linear-gradient(
+    180deg,
+    #4a148c 0%,
+    #7b1fa2 60%,
+    #8e24aa 100%
+  );
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.35),
+    inset 0 -1px 0 rgba(255,255,255,0.15),
+    0 1px 3px rgba(0,0,0,0.15);
 }
 </style>

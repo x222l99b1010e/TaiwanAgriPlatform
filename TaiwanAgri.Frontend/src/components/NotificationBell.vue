@@ -117,11 +117,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.bell-wrapper {
-  position: relative;
-}
+.bell-wrapper { position: relative; }
 
-/* ── 鈴鐺按鈕 ── */
+/* ── 鈴鐺按鈕（在深色 TopNav 上，保持白色）── */
 .bell-btn {
   position: relative;
   display: flex;
@@ -132,139 +130,101 @@ onMounted(() => {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255,255,255,0.80);
   cursor: pointer;
   transition: background 0.18s, color 0.18s;
 }
-
-.bell-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
+.bell-btn:hover { background: rgba(255,255,255,0.12); color: white; }
 
 .bell-icon { font-size: 20px; }
 
 /* 紅點 badge */
 .badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: #e53935;
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
+  top: 4px; right: 4px;
+  min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 999px;
+  background: #e53935; color: white;
+  font-size: 10px; font-weight: 700;
+  line-height: 16px; text-align: center;
   pointer-events: none;
 }
 
-/* ── Dropdown ── */
+/* ── Dropdown（白底）── */
 .dropdown {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   width: 340px;
-  background: #1a2e1f;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   overflow: hidden;
   z-index: 300;
 }
 
 .dropdown-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border);
 }
 
 .dropdown-title {
-  font-size: 14px;
+  font-size: 16px;              /* 從 14px → 16px */
   font-weight: 700;
-  color: rgba(200, 220, 200, 0.9);
+  color: var(--text-primary);
 }
 
 .btn-mark-all {
-  font-size: 12px;
-  color: rgba(125, 216, 160, 0.75);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
+  font-size: 13px;              /* 從 12px → 13px */
+  color: rgba(26,40,32,0.55);   /* 從 teal → 深灰 */
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-weight: 600;
   transition: color 0.15s;
 }
-.btn-mark-all:hover:not(:disabled) { color: rgba(125, 216, 160, 1); }
-.btn-mark-all:disabled { color: rgba(170, 185, 205, 0.3); cursor: not-allowed; }
+.btn-mark-all:hover:not(:disabled) { color: var(--green); }
+.btn-mark-all:disabled { color: rgba(26,40,32,0.30); cursor: not-allowed; }
 
 /* 捲動區 */
-.dropdown-body {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
+.dropdown-body { max-height: 400px; overflow-y: auto; }
 .dropdown-body::-webkit-scrollbar { width: 4px; }
 .dropdown-body::-webkit-scrollbar-track { background: transparent; }
-.dropdown-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+.dropdown-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
 
 /* 通知項目 */
 .notification-item {
   padding: 14px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  cursor: pointer;
-  transition: background 0.15s;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.15s;
 }
-
 .notification-item:last-child { border-bottom: none; }
-.notification-item:hover { background: rgba(255, 255, 255, 0.04); }
+.notification-item:hover { background: var(--surface-2); }
 
-/* 未讀：左側綠線 + 稍亮背景 */
+/* 未讀 */
 .notification-item.unread {
-  background: rgba(125, 216, 160, 0.04);
-  border-left: 3px solid rgba(125, 216, 160, 0.6);
+  background: #f0faf8;
+  border-left: 3px solid var(--teal);
   padding-left: 15px;
 }
-.notification-item.unread:hover {
-  background: rgba(125, 216, 160, 0.08);
-}
+.notification-item.unread:hover { background: #e6f7f4; }
 
 .item-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 4px;
+  display: flex; justify-content: space-between;
+  align-items: baseline; margin-bottom: 4px;
 }
 
-.rule-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(125, 216, 160, 0.8);
-}
-
-.item-time {
-  font-size: 11px;
-  color: rgba(170, 185, 205, 0.4);
-  white-space: nowrap;
-}
-
-.item-message {
-  font-size: 13px;
-  color: rgba(200, 215, 210, 0.75);
-  line-height: 1.5;
-}
+.rule-name { font-size: 12px; font-weight: 600; color: var(--teal); }
+.item-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.item-message { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 
 /* 提示文字 */
 .hint {
   text-align: center;
   padding: 24px 0;
-  font-size: 13px;
-  color: rgba(170, 185, 205, 0.4);
+  font-size: 14px;              /* 從 13px → 14px */
+  color: rgba(26,40,32,0.50);   /* 從 text-muted(0.40) → 0.50 */
+  font-weight: 500;
 }
-
 .end-hint { padding: 12px 0; font-size: 12px; }
 </style>

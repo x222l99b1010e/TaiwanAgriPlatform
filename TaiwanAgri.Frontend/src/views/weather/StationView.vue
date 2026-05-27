@@ -77,50 +77,65 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.station-view {
-  padding: 36px 56px;
-  min-width: 960px;
-  box-sizing: border-box;
-}
+.station-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
 
-h1 {
-  font-size: 22px;
-  font-weight: 700;
-  color: rgba(200, 220, 200, 0.9);
-  margin-bottom: 24px;
-}
+h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 
-/* ── 篩選區 ── */
 .filter-section {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 14px;
-  padding: 24px;
-  margin-bottom: 28px;
+  display: flex; align-items: flex-end; gap: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; margin-bottom: 28px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 .btn-query {
-  padding: 9px 26px;
-  border-radius: 999px;
-  border: none;
-  background: #2e7d32;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.18s;
+  padding: 9px 26px; border-radius: 999px;
+  border: 1px solid #1a5220;
+  background: linear-gradient(
+    180deg,
+    #4caf50 0%,
+    #2e7d32 40%,
+    #1b5e20 100%
+  );
+  color: white;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    inset 0 -2px 4px rgba(0,0,0,0.25),
+    inset 2px 0 6px rgba(255,255,255,0.08),
+    0 2px 6px rgba(0,0,0,0.20);
+  transition: all 0.15s;
 }
+.btn-query:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    #66bb6a 0%,
+    #388e3c 40%,
+    #2e7d32 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    inset 0 -2px 4px rgba(0,0,0,0.20),
+    inset 2px 0 6px rgba(255,255,255,0.10),
+    0 3px 10px rgba(0,0,0,0.22);
+}
+.btn-query:active:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    #1b5e20 0%,
+    #2e7d32 60%,
+    #388e3c 100%
+  );
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.35),
+    inset 0 -1px 0 rgba(255,255,255,0.15),
+    0 1px 3px rgba(0,0,0,0.15);
+}
+.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
 
-.btn-query:hover:not(:disabled) { background: #388e3c; }
-.btn-query:disabled { background: rgba(80, 120, 80, 0.4); cursor: not-allowed; }
+.error-msg  { font-size: 13px; color: var(--red); margin: 0; }
+.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
 
-.error-msg { font-size: 13px; color: rgba(240, 100, 100, 0.85); margin: 0; }
-.empty-hint { font-size: 14px; color: rgba(170, 185, 205, 0.5); text-align: center; padding: 40px 0; }
-
-/* ── 卡片 Grid ── */
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -128,76 +143,66 @@ h1 {
 }
 
 .station-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  padding: 20px;
-  transition: background 0.2s, border-color 0.2s;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s, border-color 0.2s;
 }
-
-.station-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(125, 216, 160, 0.25);
-}
+.station-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
+.station-name { color: var(--green); }
+.town-name  { color: var(--text-muted); }
+.card-footer { color: var(--text-muted); border-top: 1px solid var(--border); }
+.metric-value { color: var(--text-primary); }
+.metric-label { color: var(--text-muted); }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 16px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
-
+/* 站名也加深 */
 .station-name {
-  font-size: 15px;
+  font-size: 16px;        /* 從 15px → 16px */
   font-weight: 700;
-  color: rgba(125, 216, 160, 0.9);
+  color: var(--green);
 }
 
 .town-name {
-  font-size: 12px;
-  color: rgba(170, 185, 205, 0.45);
+  font-size: 13px;        /* 從 12px → 13px */
+  color: rgba(26,40,32,0.55);  /* 從 text-muted → 深一點 */
 }
 
-/* ── 指標 ── */
 .card-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 14px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px; margin-bottom: 14px;
 }
 
-.metric {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
+.metric { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .metric-icon { font-size: 22px; }
-.temp  { color: rgba(240, 100,  80, 0.85); }
-.humid { color: rgba( 80, 160, 220, 0.85); }
-.wind  { color: rgba(100, 200, 130, 0.85); }
-.rain  { color: rgba( 80, 200, 210, 0.85); }
+.temp  { color: #e53935; }
+.humid { color: #1e88e5; }
+.wind  { color: #43a047; }
+.rain  { color: #00acc1; }
 
+/* 數值加大加深加粗 */
 .metric-value {
-  font-size: 16px;
+  font-size: 20px;        /* 從 16px → 20px */
   font-weight: 700;
-  color: rgba(215, 225, 240, 0.88);
+  color: #1a2820;         /* 直接用最深色，不透明 */
 }
 
 .metric-label {
-  font-size: 11px;
-  color: rgba(170, 185, 205, 0.45);
+  font-size: 13px;        /* 從 11px → 13px */
+  color: rgba(26,40,32,0.60);  /* 從 text-muted(0.40) → 0.60 */
+  font-weight: 600;
 }
 
-/* ── 卡片底部 ── */
+/* 更新時間也深一點 */
 .card-footer {
-  font-size: 11px;
-  color: rgba(170, 185, 205, 0.35);
+  font-size: 12px;        /* 從 11px → 12px */
+  color: rgba(26,40,32,0.50);  /* 從 0.35 → 0.50 */
   text-align: right;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   padding-top: 10px;
 }
 </style>

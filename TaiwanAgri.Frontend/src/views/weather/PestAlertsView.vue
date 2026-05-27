@@ -138,208 +138,156 @@ onMounted(fetchAlerts)
 </script>
 
 <style scoped>
-.pest-alerts-view {
-  padding: 36px 56px;
-  min-width: 960px;
-  box-sizing: border-box;
-}
+.pest-alerts-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
 
-h1 {
-  font-size: 22px;
-  font-weight: 700;
-  color: rgba(200, 220, 200, 0.9);
-  margin-bottom: 24px;
-}
+h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 
-/* ── 篩選區 ── */
 .filter-section {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 14px;
-  padding: 24px;
-  margin-bottom: 28px;
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; margin-bottom: 28px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
+/* 全台按鈕 — 銀色金屬立體 */
 .btn-clear {
-  padding: 8px 20px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(170, 185, 205, 0.75);
-  font-size: 13.5px;
-  cursor: pointer;
+  padding: 9px 24px; border-radius: 999px;
+  border: 1px solid #9e9e9e;
+  background: linear-gradient(
+    180deg,
+    #f5f5f5 0%,
+    #e0e0e0 40%,
+    #bdbdbd 100%
+  );
+  color: #1a2820;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.80),
+    inset 0 -2px 4px rgba(0,0,0,0.15),
+    inset 2px 0 6px rgba(255,255,255,0.40),
+    0 2px 6px rgba(0,0,0,0.18);
   transition: all 0.15s;
 }
 .btn-clear:hover {
-  background: rgba(255, 255, 255, 0.10);
-  color: rgba(210, 225, 230, 0.9);
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #eeeeee 40%,
+    #e0e0e0 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.90),
+    inset 0 -2px 4px rgba(0,0,0,0.12),
+    inset 2px 0 6px rgba(255,255,255,0.50),
+    0 3px 10px rgba(0,0,0,0.20);
+}
+.btn-clear:active {
+  background: linear-gradient(
+    180deg,
+    #bdbdbd 0%,
+    #e0e0e0 60%,
+    #eeeeee 100%
+  );
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.20),
+    inset 0 -1px 0 rgba(255,255,255,0.60),
+    0 1px 3px rgba(0,0,0,0.12);
 }
 
-.error-msg    { font-size: 13px; color: rgba(240, 100, 100, 0.85); margin: 0; }
-.empty-hint   { font-size: 14px; color: rgba(170, 185, 205, 0.5); text-align: center; padding: 40px 0; }
-.loading-hint { font-size: 14px; color: rgba(170, 185, 205, 0.5); text-align: center; padding: 40px 0; }
+.error-msg    { font-size: 13px; color: var(--red); margin: 0; }
+.empty-hint   { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
+.loading-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
 
-/* ── 警報卡片 ── */
-.alert-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
+.alert-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
 
 .alert-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  padding: 20px 24px;
-  cursor: pointer;
-  transition: background 0.18s, border-color 0.18s;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px 24px; cursor: pointer;
+  transition: box-shadow 0.18s, border-color 0.18s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
+.alert-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
+.alert-card.expanded { border-color: var(--green); background: #f6fbf6; }
 
-.alert-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(125, 216, 160, 0.2);
-}
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.card-meta { display: flex; align-items: center; gap: 10px; }
 
-.alert-card.expanded {
-  border-color: rgba(125, 216, 160, 0.35);
-  background: rgba(125, 216, 160, 0.04);
-}
-
-/* 卡片標頭 */
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.card-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
+/* 日期 */
 .pub-date {
-  font-size: 12px;
-  color: rgba(170, 185, 205, 0.45);
+  font-size: 13px;           /* 從 12px → 13px */
+  color: rgba(26,40,32,0.55);
   font-variant-numeric: tabular-nums;
-}
-
-.issue-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(125, 216, 160, 0.12);
-  color: rgba(125, 216, 160, 0.75);
-  border: 1px solid rgba(125, 216, 160, 0.2);
-}
-
-.expand-icon {
-  font-size: 18px;
-  color: rgba(170, 185, 205, 0.35);
-  transition: color 0.15s;
-}
-.alert-card:hover .expand-icon { color: rgba(170, 185, 205, 0.7); }
-
-/* 主旨 */
-.card-subject {
-  font-size: 15px;
   font-weight: 600;
-  color: rgba(215, 230, 220, 0.9);
+}
+/* issue badge */
+.issue-badge {
+  font-size: 12px;           /* 從 11px → 12px */
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e8f5e9; color: var(--green);
+  border: 1px solid rgba(46,125,50,0.25);
+  font-weight: 700;
+}
+
+.expand-icon { font-size: 18px; color: var(--text-muted); transition: color 0.15s; }
+.alert-card:hover .expand-icon { color: var(--text-secondary); }
+
+/* 主旨標題 */
+.card-subject {
+  font-size: 17px;           /* 從 15px → 17px */
+  font-weight: 700;
+  color: #1a2820;            /* 最深色，不透明 */
   margin-bottom: 12px;
   line-height: 1.5;
 }
 
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 /* 標籤 */
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
+.tag { font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid; font-weight: 600; }
+.city-tag { background: #e3f2fd; border-color: rgba(21,101,192,0.30); color: #1565c0; }
+.crop-tag { background: #e8f5e9; border-color: rgba(46,125,50,0.30); color: #2e7d32; }
 
-.tag {
-  font-size: 11.5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid;
-}
 
-.city-tag {
-  background: rgba(100, 170, 220, 0.08);
-  border-color: rgba(100, 170, 220, 0.25);
-  color: rgba(100, 170, 220, 0.8);
-}
+.card-body { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
 
-.crop-tag {
-  background: rgba(110, 190, 140, 0.08);
-  border-color: rgba(110, 190, 140, 0.25);
-  color: rgba(110, 190, 140, 0.8);
-}
-
-/* 展開內文 */
-.card-body {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-}
-
+/* section 標籤 */
 .section-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(125, 216, 160, 0.6);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--green);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid rgba(46,125,50,0.20);  /* 加底線 */
+  display: block;
 }
-
 .section-label.prescription {
-  color: rgba(255, 190, 80, 0.65);
-  margin-top: 16px;
+  color: #bf360c;
+  margin-top: 18px;
+  border-bottom-color: rgba(191,54,12,0.20);
 }
 
+/* 內文 */
 .body-text {
-  font-size: 13.5px;
-  color: rgba(200, 215, 210, 0.75);
-  line-height: 1.8;
+  font-size: 15px;           /* 從 13.5px → 15px */
+  color: rgba(26,40,32,0.82);  /* 從 text-secondary → 深一點 */
+  line-height: 1.9;
   white-space: pre-wrap;
   margin: 0;
 }
 
-/* ── 分頁 ── */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 8px 0 4px;
-}
+.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 0 4px; }
 
+/* 分頁按鈕 */
 .page-btn {
-  padding: 7px 20px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(170, 185, 205, 0.7);
-  font-size: 13.5px;
-  cursor: pointer;
-  transition: all 0.15s;
+  padding: 8px 22px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: rgba(26,40,32,0.65);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
 }
-.page-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
-  color: rgba(210, 225, 230, 0.9);
-}
-.page-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.page-info {
-  font-size: 13px;
-  color: rgba(170, 185, 205, 0.45);
-}
+.page-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text-primary); }
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.page-info { font-size: 14px; color: rgba(26,40,32,0.55); }
 </style>

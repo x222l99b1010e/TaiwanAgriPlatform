@@ -3091,6 +3091,118 @@ API 回傳的雨量資料有四個時距（3h/6h/12h/24h），若只做圖表，
 
 ---
 
+# PR #028 — W19 Market 子模組容器化 + 三子頁面落地 + 全站淺色主題收尾
+
+**標題**：`feat(frontend): W19 MarketView 容器化 + PricesView / DisastersView / RestDaysView 落地 + 全站淺色主題統一`
+
+---
+
+## 背景與動機
+
+這個 PR 是 Market 模組前台架構的收尾工作。在 PR #021 裡，Market 模組的前台是一整塊 `MarketView.vue`，把篩選器、圖表、天災面板全部塞在同一個元件裡。隨著天災查詢、休市日查詢被設計成獨立子路由，這個設計就出現了矛盾——`/market/prices`、`/market/disasters`、`/market/rest-days` 三個子路由全部指向 `PlaceholderView`，而真正的行情查詢邏輯卻跑在 `/market` 這個父路由上。
+
+問題的根本是：**MarketView 同時承擔了「路由容器」和「頁面內容」兩個不相容的角色。**
+
+Weather 模組已經示範了正確的做法——`WeatherView.vue` 只有一行 `<RouterView />`，真正的頁面邏輯分散在 `StationView`、`RainfallView` 等子 View 裡。這個 PR 把 Market 模組對齊這個結構，同時補上淺色主題的全站統一。
+
+---
+
+## 實作內容
+
+### 一、MarketView 容器化
+
+`MarketView.vue` 從一個擁有 300+ 行樣式與邏輯的頁面元件，精簡成只有 `<RouterView />` 的純路由容器。原本的所有內容搬進 `src/views/market/PricesView.vue`，**搬移過程中完整保留了「天災對比」的核心功能**——這是一個設計上的明確決策，因為 PricesView 的定位是「天災與菜價關聯分析」，天災面板是這個頁面的核心價值主張，不是附屬功能。
+
+路由也同步更新，`/` 現在直接跳轉到 `/market/prices`，讓使用者一開啟網站就看到有內容的頁面，而不是空白容器。
+
+### 二、DisastersView — 天災警戒獨立頁
+
+`DisastersView.vue` 是天災記錄的獨立查詢頁，它和 PricesView 裡的天災面板有一個本質差異：PricesView 的天災面板是**輔助工具**（幫你解釋為什麼那段時間的菜價異常），而 DisastersView 是**主角**（讓你直接搜尋某縣市在某段時間有哪些天災記錄）。
+
+設計決策上，DisastersView 加了縣市下拉篩選、總筆數統計卡片、土石流與土石流潛勢的分類計數，以及按事件卡片陳列的結果列表。排列順序是降序（最新的事件在前），而 PricesView 裡的天災面板是升序（配合時間軸方向）——這個不一致是刻意的，因為兩個場景的使用者動機不同。
+
+### 三、RestDaysView — 休市日查詢（月份分組）
+
+`RestDaysView.vue` 有一個值得說明的設計細節：市場下拉選單用的是 `marketApi.getMarkets('Veg')` 來初始化，預設只顯示蔬菜市場。這個選擇是一個已知的妥協——理想做法是讓使用者先選擇 Veg/Fruit/Flower，再根據選擇載入對應市場清單，但這樣會讓篩選區變得複雜。在休市日查詢這個場景下，使用者通常只是想確認某個市場什麼時候沒開，選 Veg 的市場作為預設起點是可接受的近似值。
+
+月份分組是後來補上的需求，做法是一個 `groupedByMonth` computed，把 `restDate` 的前 7 碼（`"2026-01"`）作為分組 Key，再格式化成「2026 年 1 月」的中文標籤。這個 computed 完全在記憶體裡操作，不需要重新打 API。
+
+### 四、全站淺色主題收尾
+
+這次 PR 同時完成了全站的淺色主題統一。受影響的元件包括 `MarketFilter.vue`、`DateRangePicker.vue`、`PriceChart.vue`、`TopNav.vue`、`NotificationBell.vue`、`CitySelector.vue`，以及天氣模組的四個 View（`StationView`、`RainfallView`、`PestAlertsView`、`PestDecadeView`）。
+
+`base.css` 和 `main.css` 是主題的根節點，這裡定義的 CSS 變數（`--surface`、`--border`、`--text-primary` 等）被各個元件引用。這個做法讓主題切換理論上只需要改一個地方——雖然這個專案目前不做深色/淺色切換，但結構是對的。
+
+---
+
+## 關鍵設計決策
+
+### 決策一：天災面板留在 PricesView，不拆走
+
+DisastersView 存在之後，有一個很自然的疑問：「PricesView 裡的天災面板是重複的嗎？應該把它移除，讓使用者去 DisastersView 查嗎？」
+
+答案是不應該。PricesView 的天災面板的核心功能是**視覺疊加**——它不只是列出天災事件，而是讓這些事件出現在折線圖上，變成可以對比的垂直線標記。使用者在 PricesView 上的問題是「這個時間點的菜價為什麼異常高？」，天災面板是回答這個問題的工具。DisastersView 的使用者問題是「這段時間某縣市有哪些天災？」，完全是不同的意圖。
+
+### 決策二：pork 維持 PlaceholderView
+
+`market.ts` 裡沒有任何 pork 相關的 API endpoint，後端 `MarketController` 也沒有對應的路由。`PlaceholderView` 是正確的選擇，而不是硬做一個空殼頁面——空殼頁面會給人「功能壞掉了」的感覺，PlaceholderView 裡的「🚧 開發中...」是誠實的狀態聲明。
+
+### 決策三：路由結構對齊 WeatherView
+
+在這個 PR 之前，Market 和 Weather 的路由結構是不對稱的：Weather 是正確的「容器 + 子 View」結構，Market 是「父路由有內容、子路由是空的」的混亂結構。對齊之後，整個應用程式的路由層有了一致的設計語言，任何新加入專案的開發者都能從 WeatherView 的結構類推 MarketView 應該長什麼樣子。
+
+---
+
+## 驗收標準
+
+進入 `/market/prices`，應看到行情查詢篩選器（含作物 Chip 選擇器）、PriceChart 圖表、右側天災面板。
+
+進入 `/market/disasters`，應看到日期範圍選擇器、縣市下拉、查詢後出現統計卡片與事件卡片列表。
+
+進入 `/market/rest-days`，應看到市場下拉（預載蔬菜市場清單）、日期範圍選擇器，查詢後結果以月份分組呈現。
+
+進入 `/market/pork`，顯示「🚧 開發中...」。
+
+TopNav 的 hover dropdown、鈴鐺通知、天氣模組四個子頁面，外觀皆符合淺色主題。
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `src/views/MarketView.vue` | M | 改為純路由容器，移除所有頁面邏輯 |
+| `src/views/market/PricesView.vue` | A | 原 MarketView 內容搬入，天災對比保留 |
+| `src/views/market/DisastersView.vue` | A | 天災查詢獨立頁，含縣市篩選與統計卡片 |
+| `src/views/market/RestDaysView.vue` | A | 休市日查詢，月份分組顯示 |
+| `src/router/index.ts` | M | 路由更新，/ 跳轉至 /market/prices |
+| `src/assets/base.css` | M | 淺色主題 CSS 變數補齊 |
+| `src/assets/main.css` | M | 主題根節點調整 |
+| `src/components/MarketFilter.vue` | M | 淺色主題樣式統一 |
+| `src/components/DateRangePicker.vue` | M | 淺色主題樣式統一 |
+| `src/components/PriceChart.vue` | M | 淺色主題樣式統一 |
+| `src/components/TopNav.vue` | M | 淺色主題樣式統一 |
+| `src/components/NotificationBell.vue` | M | 淺色主題樣式統一 |
+| `src/components/CitySelector.vue` | M | 淺色主題樣式統一 |
+| `src/views/weather/StationView.vue` | M | 淺色主題樣式統一 |
+| `src/views/weather/RainfallView.vue` | M | 淺色主題樣式統一 |
+| `src/views/weather/PestAlertsView.vue` | M | 淺色主題樣式統一 |
+| `src/views/weather/PestDecadeView.vue` | M | 淺色主題樣式統一 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得深思的地方不是「做了什麼」，而是「怎麼決定邊界在哪裡」。
+
+PricesView 和 DisastersView 之間的天災資料是**共享資料來源、不同呈現目的**。PricesView 用天災資料回答「為什麼」，DisastersView 用天災資料回答「有哪些」。同一份資料，在不同使用者意圖下應該有不同的呈現方式——這個判斷在架構層面的體現，就是「不合併」這兩個頁面。
+
+另一個值得注意的是 RestDaysView 的 `groupedByMonth`。它是一個純 computed，輸入是 `restDays.value`（API 資料），輸出是分組後的陣列，沒有任何副作用。這符合「視圖格式轉換放在 computed，不放在 watch 或 action」的原則——computed 的值由輸入決定，自動重算，不需要手動觸發，也不會有「資料更新了但 computed 忘記更新」的 bug。
+
+整個 Market 模組的前端架構，在這個 PR 之後，和 Weather 模組達到了結構對稱。這種對稱性不只是美學問題，它意味著任何新進開發者只需要理解一套模式，就能在兩個模組裡工作。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
