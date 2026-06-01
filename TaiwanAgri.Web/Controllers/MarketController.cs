@@ -13,6 +13,19 @@ namespace TaiwanAgri.Web.Controllers
 		{
 			_marketService = marketService;
 		}
+		[HttpGet("Pork")]
+		public async Task<IActionResult> GetPork(
+			[FromQuery] string? marketName = null,
+			[FromQuery] string? startDate = null,
+			[FromQuery] string? endDate = null)
+		{
+			var start = DateHelper.ParseIsoDate(startDate);
+			var end = DateHelper.ParseIsoDate(endDate);
+			if (startDate != null && start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
+			if (endDate != null && end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
+			var result = await _marketService.GetPorkAsync(marketName, start, end);
+			return Ok(result);
+		}
 		[HttpGet("restDays")]
 		public async Task<IActionResult> GetRestDays(
 			[FromQuery] string marketCode,
@@ -26,8 +39,8 @@ namespace TaiwanAgri.Web.Controllers
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);
 
-			if (start == null) return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
-			if (end == null) return BadRequest("endDate 格式錯誤，請使用 yyyy-MM-dd");
+			if (start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
+			if (end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
 
 			var result = await _marketService.GetRestDaysAsync(marketCode, start.Value, end.Value);
 			return Ok(result);
@@ -53,8 +66,8 @@ namespace TaiwanAgri.Web.Controllers
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);
 
-			if (start == null) return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
-			if (end == null) return BadRequest("endDate 格式錯誤，請使用 yyyy-MM-dd");
+			if (start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
+			if (end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
 
 			var result = await _marketService.GetDisastersAsync(counties, start.Value, end.Value);
 			return Ok(result);
@@ -81,8 +94,8 @@ namespace TaiwanAgri.Web.Controllers
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);
 
-			if (startDate != null && start == null) return BadRequest("startDate 格式錯誤，請使用 yyyy-MM-dd");
-			if (endDate != null && end == null) return BadRequest("endDate 格式錯誤，請使用 yyyy-MM-dd");
+			if (startDate != null && start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
+			if (endDate != null && end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
 
 			var result = await _marketService.GetPricesAsync(marketType, cropCodes, marketCode, start, end);
 			return Ok(result);

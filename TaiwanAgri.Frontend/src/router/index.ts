@@ -12,6 +12,7 @@ import StationView from '@/views/weather/StationView.vue'
 import RainfallView from '@/views/weather/RainfallView.vue'
 import PestAlertsView from '@/views/weather/PestAlertsView.vue'
 import PestDecadeView from '@/views/weather/PestDecadeView.vue'
+import PorkView from '@/views/market/PorkView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,7 +25,7 @@ const router = createRouter({
         { path: 'prices', component: PricesView },
         { path: 'disasters', component: DisastersView },
         { path: 'rest-days', component: RestDaysView },
-        { path: 'pork', component: PlaceholderView },
+        { path: 'pork', component: PorkView },
       ]
     },
     {

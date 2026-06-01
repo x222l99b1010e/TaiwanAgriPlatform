@@ -42,7 +42,7 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHttpClient("MoaApi", client =>
 			{
 				client.BaseAddress = new Uri("https://data.moa.gov.tw/");
-				client.Timeout = TimeSpan.FromSeconds(60);
+				client.Timeout = TimeSpan.FromSeconds(120);
 				client.DefaultRequestHeaders.Add(
 					"User-Agent",
 					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"

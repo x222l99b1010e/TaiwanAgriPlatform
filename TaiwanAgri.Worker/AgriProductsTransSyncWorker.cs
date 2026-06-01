@@ -29,8 +29,9 @@ namespace TaiwanAgri.Worker
 			{
 				try 
 				{
-					await SyncAgriProductsTransAsync(stoppingToken);
-					await PublishPriceUpdatedEventAsync(); // ← 同步成功才發
+					var success = await SyncAgriProductsTransAsync(stoppingToken);
+					if (success)
+						await PublishPriceUpdatedEventAsync();
 				}
 				catch (Exception ex)
 				{
@@ -62,7 +63,7 @@ namespace TaiwanAgri.Worker
 			_logger.LogInformation("[AgriProductsTransSyncWorker] 已發布 agri.market.priceUpdated 事件");
 		}
 
-		private async Task SyncAgriProductsTransAsync(CancellationToken stoppingToken)
+		private async Task<bool> SyncAgriProductsTransAsync(CancellationToken stoppingToken)
 		{
 			using var scope = _serviceScopeFactory.CreateScope();
 			var dbMarket = scope.ServiceProvider.GetRequiredService<MarketDbContext>();
@@ -99,7 +100,7 @@ namespace TaiwanAgri.Worker
 			var existingCropCodeSet = await dbMarket.CropInfos
 				.Select(x => x.CropCode)
 				.ToHashSetAsync(stoppingToken);
-			var semaphore = new SemaphoreSlim(5); // 控制併發數量，避免過度壓垮 API 或資料庫
+			var semaphore = new SemaphoreSlim(3); // 控制併發數量，避免過度壓垮 API 或資料庫
 			for (DateOnly currentDate = startDate; currentDate <= yesterdayDate; currentDate = currentDate.AddDays(1))
 			{
 				_logger.LogInformation("--- 開始同步日期: {Date} ---", currentDate);
@@ -107,12 +108,15 @@ namespace TaiwanAgri.Worker
 				var rawResults = await Task.WhenAll(marketInfos.Select(async market =>
 				{
 					// 1. 控制併發數量，避免過度壓垮 API 或資料庫
-					await semaphore.WaitAsync(stoppingToken);
+					// 改後：semaphore 等待用 default，不要跟 stoppingToken 綁
+					await semaphore.WaitAsync(CancellationToken.None);
 					// 2. 抓取 API 資料，並捕捉可能的例外（例如網路問題、API 異常等），確保即使某個市場失敗也不會影響整體流程
 					try
 					{
 						var url = $"{MoaApiEndpoints.AgriProductsTrans}?Start_time={DateHelper.FormatRocDate(currentDate)}&End_time={DateHelper.FormatRocDate(currentDate)}&MarketName={market.MarketName}";
-						var json = await _httpClient.GetStringAsync(url, stoppingToken);
+						// 改後：HTTP 請求用獨立的 timeout token，不跟 stoppingToken 綁
+						using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+						var json = await _httpClient.GetStringAsync(url, cts.Token);
 						return (Market: market, Json: json, Success: true);
 					}
 					catch (Exception ex)
@@ -213,28 +217,32 @@ namespace TaiwanAgri.Worker
 						currentDate, failedMarkets.Count, string.Join(", ", failedMarkets));
 					// 成功的那幾筆還是要存
 					await dbMarket.SaveChangesAsync(stoppingToken);
-					// ★ 安全閥：如果這天已經超過 5 天還是有失敗，強制推進並記錄缺口
-					var daysBehind = yesterdayDate.DayNumber - currentDate.DayNumber;
-					if (daysBehind >= 5)
-					{
-						_logger.LogWarning("{Date} 已落後 {Days} 天仍有失敗市場，強制推進 LastSyncedDate，資料存在缺口",
-							currentDate, daysBehind);
-						lastSyncState.LastSyncedDate = currentDate;
-						lastSyncState.UpdatedAt = DateTime.UtcNow;
-						await dbCore.SaveChangesAsync(stoppingToken);
-					}
 
+					//ToDo: 先不強制推進，等未來十座發出警告通知再處理
+					// ★ 安全閥：如果這天已經超過 5 天還是有失敗，強制推進並記錄缺口
+					//var daysBehind = yesterdayDate.DayNumber - currentDate.DayNumber;
+					//if (daysBehind >= 5)
+					//{
+					//	_logger.LogWarning("{Date} 已落後 {Days} 天仍有失敗市場，強制推進 LastSyncedDate，資料存在缺口",
+					//		currentDate, daysBehind);
+					//	lastSyncState.LastSyncedDate = currentDate;
+					//	lastSyncState.UpdatedAt = DateTime.UtcNow;
+					//	await dbCore.SaveChangesAsync(stoppingToken);
+					//}
+
+					// 這裡不推進，先直接 return，停止這輪同步
+					return false; // 有失敗就停，不繼續跑後面的天
 				}
-				else
-				{
-					// 當日所有市場處理完畢，一次性提交資料庫更改 (原子性操作)
-					lastSyncState.LastSyncedDate = currentDate;
-					lastSyncState.UpdatedAt = DateTime.UtcNow;
-					await dbMarket.SaveChangesAsync(stoppingToken); // 先把 AgriProductsTrans 的新增寫入資料庫，確保資料已經存在了
-					await dbCore.SaveChangesAsync(stoppingToken);
-					_logger.LogInformation("{Date} 同步完成", currentDate);
-				}
+
+				// 當日所有市場處理完畢，一次性提交資料庫更改 (原子性操作)
+				lastSyncState.LastSyncedDate = currentDate;
+				lastSyncState.UpdatedAt = DateTime.UtcNow;
+				await dbMarket.SaveChangesAsync(stoppingToken); // 先把 AgriProductsTrans 的新增寫入資料庫，確保資料已經存在了
+				await dbCore.SaveChangesAsync(stoppingToken);
+				_logger.LogInformation("{Date} 同步完成", currentDate);
 			}
+			// for 迴圈正常跑完（全部天都成功）才到這裡
+			return true;
 		}
 		private AgriProductsTrans MapToEntity(AgriProductsTransTypeDto dto)
 		{

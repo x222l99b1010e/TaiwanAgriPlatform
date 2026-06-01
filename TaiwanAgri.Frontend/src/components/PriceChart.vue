@@ -264,9 +264,21 @@ watch(
 )
 
 // 暴露給父元件或直接放在元件內
+// PriceChart.vue 裡的 exportChartImage
 function exportChartImage() {
   if (!canvasRef.value) return
-  const url = canvasRef.value.toDataURL('image/png')
+
+  const canvas = canvasRef.value
+  const exportCanvas = document.createElement('canvas')
+  exportCanvas.width = canvas.width
+  exportCanvas.height = canvas.height
+
+  const ctx = exportCanvas.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
+  ctx.drawImage(canvas, 0, 0)
+
+  const url = exportCanvas.toDataURL('image/png')
   const a = document.createElement('a')
   a.href = url
   a.download = 'chart.png'

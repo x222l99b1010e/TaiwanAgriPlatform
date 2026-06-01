@@ -3203,6 +3203,329 @@ PricesView 和 DisastersView 之間的天災資料是**共享資料來源、不�
 
 ---
 
+# PR #029 — W20 畜禽行情（Pork）後端 API + Vue 3 前端完整實作
+
+**標題**：`feat(market): W20 PorkResponseDto + GetPorkAsync Service + GET /api/market/pork + PorkView.vue 多線折線圖 + CORS 修正 + Worker Token 修正`
+
+---
+
+## 背景與動機
+
+Market 模組在 PR #028 完成了蔬果行情（PricesView）、天災查詢（DisastersView）、休市日查詢（RestDaysView）的完整落地，但 `/market/pork` 路由一直指向 `PlaceholderView`。
+
+本 PR 補完畜禽行情的完整鏈路：
+
+```
+PorkTrans（已有資料）→ PorkResponseDto → GetPorkAsync → GET /api/market/pork → PorkView.vue
+```
+
+同時修正兩個在開發過程中發現的隱性問題：
+
+1. **CORS 問題**：`VITE_API_BASE_URL` 設定為絕對路徑繞過 Vite proxy，Vite dev server port 自動從 5173 跳到 5174 後後端 CORS 不允許，導致所有 API 請求失敗。
+2. **Worker CancellationToken 問題**：`AgriProductsTransSyncWorker` 把 Worker 生命週期的 `stoppingToken` 同時傳給 `SemaphoreSlim.WaitAsync()` 和 `HttpClient.GetStringAsync()`，導致某個請求 timeout 後整批請求被連帶取消。
+
+---
+
+## 實作內容
+
+### 一、後端
+
+#### 1. PorkResponseDto
+
+```csharp
+public class PorkResponseDto
+{
+    public DateOnly TransDate { get; set; }
+    public string MarketName { get; set; } = string.Empty;
+    public decimal ExcludeFreezerAvgPrice { get; set; }
+    public decimal ExcludeFreezerAvgWeight { get; set; }
+    public int ExcludeFreezerCount { get; set; }
+}
+```
+
+只回傳「不含冷凍廠」系列，原因是業界通常以 `ExcludeFreezer` 系列作為「市場真實行情」代表——冷凍廠豬隻的價格波動大且不代表一般市場行情。
+
+#### 2. IMarketService.GetPorkAsync
+
+```csharp
+Task<List<PorkResponseDto>> GetPorkAsync(
+    string? marketName,
+    DateOnly? startDate,
+    DateOnly? endDate);
+```
+
+三個參數全選填。`marketName` 為 null 時回傳全部市場，讓同一支 API 同時服務「全台概覽多線圖」和「單一市場查詢」。
+
+#### 3. MarketService.GetPorkAsync
+
+```csharp
+.Where(pm => marketName == null || pm.MarketName == marketName)
+```
+
+`marketName == null` 時短路求值，`Where` 條件恆為 true，所有市場通過篩選。EF Core 會把這行翻譯成正確的 SQL——有傳值時加 `AND MarketName = 'xxx'`，沒傳時不加條件。
+
+Pork 不需要 JOIN 其他表，因為 `PorkTrans` 本身就直接存著 `MarketName`（沒有對應的 MarketInfos 表），比 AgriProductsTrans 的三表 JOIN 簡單很多。
+
+#### 4. MarketController GET /api/market/pork
+
+三個參數全選填，沿用 `DateHelper.ParseIsoDate` 做格式驗證：
+
+```csharp
+if (startDate != null && start == null)
+    return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
+```
+
+驗證邏輯使用「有傳但解析失敗」才回 400，沒傳（null）讓 Service 套預設值，避免「使用者沒填日期也被告知格式錯誤」的 UX 問題。
+
+#### 5. CORS 問題修正（Program.cs）
+
+```csharp
+policy.WithOrigins(
+    "http://localhost:5173",
+    "http://localhost:5174"   // Vite dev server port 自動 +1 時的備援
+)
+```
+
+Vite dev server 在 5173 被佔用時會自動改用 5174，後端只允許 5173 就會 CORS 失敗。根本解是把 `VITE_API_BASE_URL` 清空，讓所有請求走 Vite proxy——但後端 CORS 同時補上 5174 作為保護層。
+
+---
+
+### 二、前端
+
+#### 1. market.ts — PorkResponseDto interface 與 getPork()
+
+**TypeScript interface 型別對應規則**：
+
+| C# 型別 | TypeScript 型別 |
+|---------|----------------|
+| `DateOnly` | `string` |
+| `decimal` | `number` |
+| `int` | `number` |
+| `string` | `string` |
+
+```typescript
+export interface PorkResponseDto {
+  transDate: string
+  marketName: string
+  excludeFreezerAvgPrice: number
+  excludeFreezerAvgWeight: number
+  excludeFreezerCount: number
+}
+```
+
+ASP.NET Core 預設序列化成 camelCase，所以後端的 `TransDate` 到前端是 `transDate`。
+
+**Axios 的 undefined 自動忽略特性**：
+
+```typescript
+getPork(params: {
+  marketName?: string
+  startDate?: string
+  endDate?: string
+}): Promise<PorkResponseDto[]> {
+  return apiClient
+    .get<PorkResponseDto[]>('/api/market/pork', { params })
+    .then(res => res.data)
+}
+```
+
+Axios 會自動忽略值為 `undefined` 的 params，不會把它加進 URL。`marketName` 未傳時，後端收到 null，觸發回傳全部市場的邏輯。不需要手動過濾，直接把 params 物件傳進去就好。這和 `getPrices` 用 `URLSearchParams` 的原因不同——`getPrices` 需要 `cropCodes` 陣列重複的 key，Axios params 物件對陣列的格式處理不是 ASP.NET Core 期待的，才需要手動建構。
+
+#### 2. PorkView.vue — 設計決策
+
+**市場下拉為何不需要 store？**
+
+Pork 和蔬果市場在架構上有根本的不同：
+
+```
+蔬果：MarketInfos 表（獨立主檔）→ 先撈清單 → 用戶選市場 → 撈交易資料
+豬肉：PorkTrans.MarketName（直接存在交易資料裡）→ 撈交易資料 → 從資料動態萃取市場名稱
+```
+
+豬肉沒有獨立的「市場清單」表，市場名稱只存在於交易資料本身，所以不能提前撈清單。市場下拉的選項由 `computed` 動態產生：
+
+```typescript
+const availableMarkets = computed(() => {
+  const names = rawData.value.map(d => d.marketName)
+  return [...new Set(names)].sort()
+})
+```
+
+`rawData` 一更新，`availableMarkets` 自動重算。下拉選單在「查詢前」是空的（只有「全部市場」），「查詢後」才出現各市場選項。
+
+**Chart.js 多線 groupBy 資料整理**：
+
+API 回傳多個市場、多個日期混在一起的陣列。轉換成 Chart.js 需要的格式分三步：
+
+```
+步驟 1：收集所有不重複日期 → X 軸 labels（升冪排列）
+步驟 2：按 marketName 分組，建立每個市場的 { 日期 → 數值 } map
+步驟 3：每個市場對應一個 dataset，data[] 按 labels 日期順序對齊
+```
+
+日期不存在時填 `null`（不是 `0`），搭配 `spanGaps: true` 讓圖表視覺連續。用 `0` 填補代表「那個時間點的量測值是零」，在農業資料語境下（有交易量是 0 vs 根本沒開市）會造成誤導。
+
+**Vue 3 computed 在資料轉換的用途**：
+
+```typescript
+const filteredData = computed(() => {
+  if (!selectedMarket.value) return rawData.value
+  return rawData.value.filter(d => d.marketName === selectedMarket.value)
+})
+
+const chartData = computed(() => {
+  // 從 filteredData 組 Chart.js datasets
+})
+```
+
+所有衍生資料（市場清單、過濾結果、圖表資料、統計數字）都是 computed，由 `rawData` 單一資料來源推導而來。用戶切換市場選項時，不需要重新打 API，所有 computed 自動更新。
+
+**操作說明設計**：
+
+市場下拉在「查詢前」設為 disabled，並在下方顯示提示框：
+
+```vue
+<!-- 查詢前（藍色框）-->
+<div class="query-hint" v-if="!hasQueried">
+  請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
+</div>
+<!-- 查詢後（綠色框）-->
+<div class="query-hint success" v-else-if="availableMarkets.length > 0">
+  已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
+</div>
+```
+
+視覺設計：查詢前藍色框 + 資訊 icon，查詢後換成綠色框 + 打勾 icon。用戶看到灰色下拉 + 提示，自然知道要先查詢。
+
+#### 3. PriceChart.vue exportChartImage 白底修正
+
+Canvas `toDataURL()` 匯出時，canvas 背景透明，存成 PNG 在某些環境下顯示為黑底。修正方式：另建一個暫存 canvas，先鋪白底再疊上原始圖表：
+
+```typescript
+const exportCanvas = document.createElement('canvas')
+exportCanvas.width = canvas.width
+exportCanvas.height = canvas.height
+const ctx = exportCanvas.getContext('2d')!
+ctx.fillStyle = '#ffffff'
+ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
+ctx.drawImage(canvas, 0, 0)
+```
+
+同樣的問題在 `PorkView.vue` 的 `exportChartImage` 也一並修正。
+
+---
+
+### 三、Worker 修正
+
+#### AgriProductsTransSyncWorker — CancellationToken 問題
+
+**問題根本原因**：
+
+`stoppingToken` 是整個 Worker 的生命週期 token，被同時傳給三件事：
+
+```csharp
+// 問題一：Semaphore 等待
+await semaphore.WaitAsync(stoppingToken);
+
+// 問題二：HTTP 請求
+var json = await _httpClient.GetStringAsync(url, stoppingToken);
+```
+
+當任何一個請求因為網路問題產生例外時，`stoppingToken` 的取消狀態可能傳播，導致其他還在 Semaphore 等待的 lambda 被提早取消，表現為「17 秒就 timeout（遠小於 HttpClient 設定的 60 秒）」。
+
+**修正方式**：
+
+```csharp
+// Semaphore 等待改用 CancellationToken.None，不受任何外部 token 影響
+await semaphore.WaitAsync(CancellationToken.None);
+
+// HTTP 請求改用獨立計時器，和 stoppingToken 解耦
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+var json = await _httpClient.GetStringAsync(url, cts.Token);
+```
+
+**Worker/Program.cs timeout 同步調整**：
+
+HttpClient 的 `Timeout` 設定和 CancellationTokenSource 取「最短的那個」生效，因此 `HttpClient.Timeout` 需要大於 `cts` 的 90 秒，設為 120 秒：
+
+```csharp
+client.Timeout = TimeSpan.FromSeconds(120);
+```
+
+---
+
+## 關鍵設計決策
+
+### 決策一：marketName 選填，一支 API 服務兩種需求
+
+不傳 `marketName` 回傳全部市場，傳入特定市場名稱只回傳該市場。這樣一支 API 同時滿足：
+- 前端初次查詢：不帶市場，取得全部市場資料，讓前端動態產生市場下拉
+- 用戶篩選後：帶入市場名稱，只取該市場資料（或前端直接 filter 記憶體資料也可）
+
+### 決策二：回傳 ExcludeFreezer 系列，不混用 Total 系列
+
+`PorkTrans` 有兩套數字：
+- `TotalTrans` 系列：全部成交，含冷凍廠
+- `ExcludeFreezer` 系列：扣掉冷凍廠的成交
+
+業界使用 `ExcludeFreezer` 作為「市場行情」代表，因為冷凍廠豬隻的定價邏輯與一般批發市場不同。Dto 只回傳 `ExcludeFreezer` 系列，避免混用兩套口徑。
+
+### 決策三：市場下拉「查後才顯示」而非「頁面載入就顯示」
+
+蔬果市場可以提前撈清單（MarketInfos 是獨立表，資料與日期無關）。豬肉市場沒有獨立清單，市場名稱來自交易資料，不同日期範圍可能有不同的市場組合（某些市場只在特定時期有資料），所以必須等查詢結果出來後才能產生選項。「查後才顯示」是正確的設計，不是暫時的妥協。
+
+### 決策四：VITE_API_BASE_URL 清空，全走 Vite proxy
+
+原本直打後端（`http://localhost:5258`）是「昨天剛好 port 對上」的僥倖，不是正確設計。清空後，所有 `/api/...` 請求都走 Vite proxy 轉發到 `https://localhost:7147`，完全不受後端 port 變化影響。
+
+---
+
+## 驗收標準
+
+後端：
+- `GET /api/market/pork` 不帶參數 → 回傳多個不同 `marketName` 的資料
+- `GET /api/market/pork?marketName=南投縣` → 只回傳南投縣的資料
+- `GET /api/market/pork?startDate=2026-05-01&endDate=2026-05-30` → 回傳該區間所有市場
+
+前端：
+- 進入 `/market/pork`，看到篩選區（DateRangePicker + 灰色市場下拉 + 提示框）
+- 按「查詢行情」後，下拉出現各市場選項，多線折線圖顯示
+- 切換指標（均價 / 平均體重 / 成交頭數），圖表自動更新
+- 選擇單一市場，圖表只顯示該市場一條線
+- CSV 匯出正常，圖片匯出為白底 PNG
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Modules.Market/Dtos/ApiResponses/PorkResponseDto.cs` | A | 5 個欄位，ExcludeFreezer 系列 |
+| `TaiwanAgri.Modules.Market/Services/IMarketService.cs` | M | 新增 GetPorkAsync 方法簽名 |
+| `TaiwanAgri.Modules.Market/Services/MarketService.cs` | M | 實作 GetPorkAsync |
+| `TaiwanAgri.Web/Controllers/MarketController.cs` | M | 新增 GET /api/market/pork endpoint |
+| `TaiwanAgri.Web/Program.cs` | M | CORS 補上 localhost:5174 |
+| `TaiwanAgri.Worker/AgriProductsTransSyncWorker.cs` | M | CancellationToken 解耦修正 |
+| `TaiwanAgri.Worker/Program.cs` | M | HttpClient Timeout 改為 120 秒 |
+| `TaiwanAgri.Frontend/src/api/market.ts` | M | 新增 PorkResponseDto interface 及 getPork() |
+| `TaiwanAgri.Frontend/src/views/market/PorkView.vue` | A | 完整畜禽行情頁面 |
+| `TaiwanAgri.Frontend/src/router/index.ts` | M | /market/pork 換成 PorkView |
+| `TaiwanAgri.Frontend/src/components/PriceChart.vue` | M | exportChartImage 補白底 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 有幾個值得深思的技術點。
+
+**Pork 的架構和蔬果的根本差異**，是整個 PR 最值得記錄的設計層次。蔬果有 `MarketInfos` 主檔表，豬肉市場名稱只存在交易資料裡——這個差異不只影響後端的查詢設計，也直接決定了前端「市場下拉」的實作方式：蔬果用 store（提前載入），豬肉用 computed（查詢後動態產生）。同一個「市場下拉」的 UI 元件，背後的資料流向完全不同。
+
+**Vue 3 computed 的聲明式推導**在 PorkView 裡展示了最乾淨的形態：`rawData` 是唯一資料源，`availableMarkets`、`filteredData`、`chartData`、`maxPrice`、`minPrice` 全部是 computed，不需要 watch，不需要在 `handleQuery` 之後手動更新這些值。Vue 自動追蹤依賴，`rawData` 改變時所有 computed 同步更新。
+
+**CancellationToken 的生命週期設計**是 Worker 修正裡最需要理解的細節。`stoppingToken` 的語意是「整個應用程式要關閉了」，不是「這個請求超時了」。把 `stoppingToken` 傳給 HTTP 請求，意味著「應用程式關閉才取消這個請求」，而不是「請求超時就取消」。正確的做法是給每個 HTTP 請求一個獨立的計時器，兩者不互相干擾。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

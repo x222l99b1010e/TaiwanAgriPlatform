@@ -46,6 +46,14 @@ export interface RestDayResponseDto {
   restDate: string
 }
 
+export interface PorkResponseDto{
+  transDate: string,
+  marketName: string,
+  excludeFreezerAvgPrice: number,
+  excludeFreezerAvgWeight: number,
+  excludeFreezerCount: number
+}
+
 // ─── Request 參數型別 ──────────────────────────────────────────────────────
 
 export type MarketType = 'Veg' | 'Fruit' | 'Flower'
@@ -119,4 +127,14 @@ export const marketApi = {
       .get<RestDayResponseDto[]>('/api/market/restdays', { params })
       .then(res => res.data)
   },
+
+  getPork(params: {
+    marketName?: string
+    startDate?: string
+    endDate?: string
+  }): Promise<PorkResponseDto[]>{
+    return apiClient
+    .get<PorkResponseDto[]>('/api/market/pork', {params})
+      .then(res =>res.data)
+  }
 }

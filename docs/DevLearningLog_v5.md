@@ -4892,6 +4892,160 @@ Market 模組的路由結構對齊 Weather 模組（都是「父路由只有 `<R
 
 ---
 
+### 條目 149 — 資料架構的差異決定前端的設計模式
+
+**我做了什麼**
+
+實作畜禽行情（Pork）前端時，發現市場下拉選單的實作方式和蔬果行情完全不同，原因是後端資料的組織方式根本就不一樣。
+
+**我遇到的問題**
+
+蔬果行情有一個 `MarketInfos` 獨立主檔表，可以在頁面載入時就打 `GET /api/market/markets` 拿到市場清單，存進 Pinia store，讓 `MarketFilter.vue` 的下拉選單在查詢前就有選項。
+
+豬肉行情沒有對應的主檔表。`PorkTrans` 的 `MarketName` 直接存在交易資料裡，沒有獨立的「豬肉市場清單」API。如果要照著蔬果的做法先撈清單，根本沒有可以打的 endpoint。
+
+**我怎麼想通的**
+
+豬肉市場的正確流程是倒過來的：
+
+```
+蔬果：先撈市場清單 → 用戶選市場 → 再撈交易資料
+豬肉：先撈交易資料 → 從資料裡 distinct 出市場清單 → 市場下拉才有選項
+```
+
+這不是暫時的設計妥協，而是反映後端資料架構差異的必然結果。不同日期範圍的查詢，可能出現的市場組合也不同（某些市場只在特定時期有資料），所以豬肉的市場清單本來就沒辦法提前決定。
+
+**我學到的原則**
+
+前端元件的設計方式（要不要 store、幾時載入、怎麼觸發）由後端資料的架構決定，不是由 UI 的形狀決定。看起來一樣的「市場下拉」UI，背後的資料流可能完全不同：一個從 store 讀靜態清單，一個從查詢結果動態萃取。設計前端之前，先搞清楚這份資料在後端是「主檔型（提前可知）」還是「從屬型（查詢後才知）」。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到新的「下拉選單」需求，先問：「這份選項清單是靜態的（有獨立的主檔 API）還是動態的（從查詢結果萃取）？」靜態 → store + 頁面載入時初始化。動態 → computed + 等查詢完成後才顯示。
+
+---
+
+### 條目 150 — Vue 3 computed：聲明「資料之間的關係」，而不是「什麼時候計算」
+
+**我做了什麼**
+
+`PorkView.vue` 裡所有的衍生資料（市場清單、過濾結果、圖表資料、統計數字）都用 `computed` 實作，整個元件只有 `rawData` 這一個資料來源。
+
+```typescript
+const rawData = ref<PorkResponseDto[]>([])
+
+const availableMarkets = computed(() =>
+  [...new Set(rawData.value.map(d => d.marketName))].sort()
+)
+
+const filteredData = computed(() =>
+  selectedMarket.value
+    ? rawData.value.filter(d => d.marketName === selectedMarket.value)
+    : rawData.value
+)
+
+const chartData = computed(() => {
+  // 從 filteredData 組 Chart.js datasets
+})
+
+const maxPrice = computed(() =>
+  filteredData.value.length
+    ? Math.max(...filteredData.value.map(d => d.excludeFreezerAvgPrice))
+    : 0
+)
+```
+
+**我遇到的問題**
+
+實作前有個疑問：「同樣的邏輯可以放在 `watch`（監聽 rawData 變化後，手動更新另一個 ref），也可以放在 `handleQuery` 裡（查詢完手動整理）。為什麼一定要 `computed`？」
+
+**我怎麼想通的**
+
+三種選擇的本質不同：
+
+- `watch` 版本：命令式。「你告訴 Vue：當某個資料變化時，執行這段邏輯」。需要多一個 ref 存結果，需要確保 watch 在正確時機觸發。
+- `handleQuery` 版本：把資料轉換耦合進資料取得，職責不分離。如果未來有其他地方修改 `rawData`，轉換邏輯就會遺漏。
+- `computed` 版本：聲明式。「你告訴 Vue：這個值的定義是由某些資料推導而來的」。Vue 自動追蹤依賴，原始資料改變時自動重算，沒有副作用。
+
+判斷標準很清楚：如果一個值的計算規則是「完全由其他響應式資料決定，輸入相同永遠得到相同輸出（純函式）」，就用 `computed`。
+
+**我學到的原則**
+
+`computed` 的語意是「這個值是由其他資料推導出來的」。任何「把 A 格式化成 B 以顯示在畫面上」的轉換都符合這個定義：它是響應式的推導，不是有副作用的操作。看到「watch 某個資料 → 手動寫入另一個 ref」這個模式，先問「這份轉換有副作用嗎？」如果沒有，換成 `computed`，程式碼更簡潔，也不會有「watch 沒觸發導致資料不同步」的 bug。
+
+---
+
+### 條目 151 — CancellationToken 的生命週期不能共用
+
+**我做了什麼**
+
+`AgriProductsTransSyncWorker` 把 Worker 生命週期的 `stoppingToken` 同時傳給了 `SemaphoreSlim.WaitAsync()` 和 `HttpClient.GetStringAsync()`，導致某個請求 timeout 或失敗後，其他還在等待的請求被連帶取消，出現「17 秒就 timeout（明顯小於 HttpClient 設定的 60 秒）」的奇怪行為。
+
+修正方式是把三件事的取消邏輯完全分開：
+
+```csharp
+// Semaphore 等待：不受任何外部 token 影響，就是單純等位子
+await semaphore.WaitAsync(CancellationToken.None);
+
+// HTTP 請求：用獨立的計時器，和 stoppingToken 解耦
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+var json = await _httpClient.GetStringAsync(url, cts.Token);
+
+// Worker 停止邏輯：只在 while loop 的條件判斷用 stoppingToken
+while (!stoppingToken.IsCancellationRequested)
+```
+
+**我怎麼想通的**
+
+每個 token 有它自己的語意，不能混用：
+
+- `stoppingToken`：「整個應用程式要關閉了」。Worker 停止是全局事件，只應該影響 while loop 是否繼續，不應該影響正在進行的單一請求。
+- `CancellationToken.None`：「這個操作不需要被取消」。等 Semaphore 就是純粹的等，不需要外部干預。
+- `cts.Token`：「這個請求超時就取消」。HTTP 請求有自己的超時邏輯，和 Worker 生命週期完全無關。
+
+把 `stoppingToken` 傳給 HTTP 請求，語意是「只有應用程式關閉才取消這個請求」，而不是「請求超時才取消」。當某個請求真的超時，應該只取消那一個請求，而不是影響其他正在 Semaphore 等待的請求。
+
+**我學到的原則**
+
+`CancellationToken` 的設計原則：每個取消 token 對應一個特定的取消理由，不要共用。`stoppingToken` 是 Worker 的，`cts.Token` 是單一請求的，`CancellationToken.None` 是「不需要取消」的。混用會導致取消訊號錯誤傳播，出現難以診斷的「為什麼這個請求這麼快就被取消了」問題。
+
+**下次遇到類似情況，我會先想到什麼**
+
+看到 `stoppingToken` 被傳入 HTTP 請求，先問：「我希望『應用程式關閉』和『這個請求超時』是同一件事嗎？」幾乎所有情況下答案是否定的——這兩件事應該用不同的 token 控制。
+
+---
+
+### 條目 152 — Vite Proxy 的正確用途：讓前端不需要知道後端的 port
+
+**我做了什麼**
+
+排查了一個隱性問題：`VITE_API_BASE_URL` 設定為 `http://localhost:5258`（後端 http 絕對路徑），讓 Axios 的所有請求直接打後端，完全繞過 Vite dev server 的 proxy。後端 port 換掉或前端 port 跳到 5174 時，CORS 立刻報錯。
+
+修正方式：
+
+```
+VITE_API_BASE_URL=
+```
+
+清空之後，Axios 的 `baseURL` 是空字串，請求走相對路徑 `/api/...`，Vite proxy 接管，轉發到 `vite.config.ts` 設定的 `https://localhost:7147`。後端的 port 變化對前端完全透明。
+
+**我怎麼想通的**
+
+之前「沒有 CORS 問題」只是因為後端剛好跑在 5258（http profile）、前端在 5173，三個條件同時成立所以沒報錯：
+1. `VITE_API_BASE_URL` 指向的 port 有後端在監聽
+2. 後端 CORS 允許 5173
+3. 前端 port 恰好是 5173
+
+任何一個條件失效（後端換用 https profile 改跑 7147、前端 port 跳到 5174），CORS 立刻失效。這是「靠巧合運作的代碼」，不是正確設計。
+
+Vite proxy 存在的意義就是讓前端開發時不需要知道後端的確切 URL。前端只知道「API 在 `/api/...`」，具體轉發到哪裡由 `vite.config.ts` 決定，和環境變數無關。
+
+**我學到的原則**
+
+前端開發環境的 API 請求應該走 Vite proxy，不應該直打後端。`baseURL` 在開發時應該是空字串（或省略），讓請求保持相對路徑，由 proxy 負責轉發。「直打後端」雖然在某些條件下能運作，但這意味著前端依賴後端的確切 URL，是隱性的脆弱耦合。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -5066,4 +5220,22 @@ API 函式的分組依據是「修改原因是否相同」，而不是「業務�
 
 **關於時間序列圖表的缺失資料**
 多個資料源的時間點不完全對齊是常態，不是錯誤。正確表達方式是 `null`（不是 `0`），搭配 `spanGaps: true` 讓圖表視覺連續。用 `0` 填補缺失值等同於「聲稱那個時間點的量測值是零」，在農業資料的語境下（雨量 0mm vs. 沒有觀測）會造成誤導。
+
+---
+
+## 跨條目的通用原則整理（v21.0 更新）
+
+以下為 v21.0 新增或強化的原則，和既有原則並列管理：
+
+**關於資料架構與前端設計模式的對應**
+前端元件的設計方式（要不要 store、幾時初始化、如何觸發）由後端資料的組織結構決定。看起來相同的 UI 元件（如市場下拉），背後的資料流可能完全不同：有獨立主檔 API 的用 store 提前載入；市場名稱只存在交易資料裡的，用 computed 從查詢結果動態萃取。設計前先問「這份資料在後端是主檔型還是從屬型」。
+
+**關於 computed 的適用判斷**
+判斷標準是兩個問題：這個計算有副作用嗎？輸入相同，結果是否永遠相同？兩個都是「是」，就用 `computed`。「watch 某個資料 → 手動寫入另一個 ref」這個模式，幾乎所有情況下都可以改成 `computed`，且更安全——不會有「watch 沒觸發導致資料過時」的問題。
+
+**關於 CancellationToken 的生命週期**
+每個 CancellationToken 對應一個特定的取消理由，不要跨越語意邊界共用。Worker 生命週期 token（`stoppingToken`）只控制「是否繼續下一輪」，不應傳入單一 HTTP 請求。HTTP 請求用獨立的 `CancellationTokenSource` 計時，Semaphore 等待用 `CancellationToken.None`。混用會導致取消訊號意外傳播。
+
+**關於 Vite Proxy 的正確用途**
+前端開發環境的 API 請求應走 Vite proxy，`baseURL` 應為空字串，不應直打後端絕對 URL。直打後端讓前端依賴後端的確切 port 和 CORS 設定，是隱性的脆弱耦合，「巧合能跑」不等於「正確設計」。Vite proxy 的存在意義是讓前端對後端的實際部署細節保持透明。
 

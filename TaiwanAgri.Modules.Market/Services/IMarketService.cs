@@ -4,6 +4,10 @@ namespace TaiwanAgri.Modules.Market.Services
 {
 	public interface IMarketService
 	{
+		Task<List<PorkResponseDto>> GetPorkAsync(
+			string? marketName, 
+			DateOnly? startDate, 
+			DateOnly? endDate);
 		Task<List<RestDayResponseDto>> GetRestDaysAsync(
 		string marketCode,
 		DateOnly startDate,

@@ -209,5 +209,27 @@ namespace TaiwanAgri.Modules.Market.Services
 				.Select(d => new RestDayResponseDto { RestDate = d })
 				.ToList();
 		}
+
+		public async Task<List<PorkResponseDto>> GetPorkAsync(string? marketName = null, DateOnly? startDate = null, DateOnly? endDate = null)
+		{
+			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Today);
+			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+
+			var queryPork = await _context.PorkTrans
+				.Where(p => p.TransDate >= finalStart && p.TransDate <= finalEnd)
+				.Where(pm => marketName == null || pm.MarketName == marketName)
+				.Select(pm => new PorkResponseDto
+				{
+					TransDate = pm.TransDate,
+					MarketName = pm.MarketName,
+					ExcludeFreezerAvgPrice = pm.ExcludeFreezerAvgPrice,
+					ExcludeFreezerAvgWeight = pm.ExcludeFreezerAvgWeight,
+					ExcludeFreezerCount = pm.ExcludeFreezerCount
+				})
+				.OrderByDescending(pm => pm.TransDate)
+				.ToListAsync();
+
+			return queryPork;
+		}
 	}
 }
