@@ -17,7 +17,7 @@ namespace TaiwanAgri.Core.Services
 			_context = coreDbContext;
 			_logger = logger;
 		}
-		public async Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleId)
+		public async Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleName)
 		{
 			// 第一段：決定要查哪個 RoleId
 			string targetRoleId;
@@ -31,7 +31,7 @@ namespace TaiwanAgri.Core.Services
 			}
 			else
 			{
-				if (string.IsNullOrWhiteSpace(roleId))
+				if (string.IsNullOrWhiteSpace(roleName))
 				{
 					// 已登入但沒有 Role Claim，回退到 Guest 權限而不是靜默消失
 					var guestRole = await _roleManager.FindByNameAsync("Guest");
@@ -42,7 +42,23 @@ namespace TaiwanAgri.Core.Services
 				}
 				else
 				{
-					targetRoleId = roleId;
+					//targetRoleId = roleId;   // ← 錯誤：roleId 其實是 roleName
+
+					// roleId 參數傳入的實際上是 role name（如 "Admin"），需要透過 RoleManager 解析成真正的 GUID
+					var role = await _roleManager.FindByNameAsync(roleName);
+					if (role == null)
+					{
+						var guestRole = await _roleManager.FindByNameAsync("Guest");
+						if (guestRole == null)
+							throw new InvalidOperationException("Guest role not found");
+						targetRoleId = guestRole.Id;
+						_logger.LogWarning("Role '{RoleName}' 不存在，回退至 Guest 權限顯示", roleName);
+					}
+					else
+					{
+						targetRoleId = role.Id;
+					}
+
 				}
 			}
 			// 第二段：查資料庫，根據 RoleId 查詢 NavModuleDto

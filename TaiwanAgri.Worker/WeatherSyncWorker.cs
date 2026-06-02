@@ -22,32 +22,6 @@ namespace TaiwanAgri.Worker
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
-				// [DEBUG HISTORY] 以下為初版測試寫法，保留作為實作思路對照，非遺留廢碼
-				//try
-				//{
-				//	var json = await _httpClient.GetStringAsync(
-				//		MoaApiEndpoints.AutoWeatherStation,   // 只寫路徑，BaseAddress 自動補前綴
-				//		stoppingToken);
-				//	// 新 API 回傳 {"RS":"OK","Data":[...]}，外層是 {
-				//	if (!json.TrimStart().StartsWith("{"))
-				//	{
-				//		_logger.LogWarning("[WeatherSync] 回傳不是 JSON。前 200 字: {Preview}",
-				//			json[..Math.Min(200, json.Length)]);
-				//		await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
-				//		continue;
-				//	}
-				//	_logger.LogInformation("[Weather] 回傳長度 : {Length} 字元", json.Length);
-				//	_logger.LogInformation("[Weather] 前800字 : {Preview}", json[..Math.Min(800, json.Length)]);
-				//}
-				//catch (TaskCanceledException)
-				//{
-				//	_logger.LogWarning("[WeatherSync] 請求超時");
-				//}
-				//catch (Exception ex)
-				//{
-				//	_logger.LogError(ex, "[WeatherSync] 呼叫失敗");
-				//}
-				//await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);// 測試用
 				try
 				{
 					await SyncWeatherAsync(stoppingToken);

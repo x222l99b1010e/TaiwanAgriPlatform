@@ -3526,6 +3526,326 @@ client.Timeout = TimeSpan.FromSeconds(120);
 
 ---
 
+# PR #030 — W21 Code Review 修正：作物選單污染根因修正 + 效能優化 + Bug 修正 + 清理
+
+**標題**：`fix(market/weather/nav/consumer): GetCropsAsync TcType 篩選 + WeatherService 查詢優化 + NavService roleId 錯位修正 + PriceUpdatedConsumer Queue binding 修正 + 清理`
+
+---
+
+## 背景與動機
+
+PR #029（W20 畜禽行情）完成後，進行了一輪全專案 Code Review。這個 PR 針對 Code Review 報告中「需要修改程式碼」的項目逐一修正，同時清除 scaffold 遺留的死碼。
+
+本輪修正橫跨四個子系統，涵蓋資料污染 Bug、效能瓶頸、執行期 Bug、架構問題四種類型。
+
+---
+
+## 實作內容
+
+### 一、GetCropsAsync 作物選單污染根因修正（最重要）
+
+**問題根因**
+
+Code Review 原本推測是 `MarketCode 514` 對應多筆 `MarketInfo` 造成去重問題，但實際查資料庫後發現：
+
+```
+514  溪湖鎮  Veg     ← 蔬菜市場
+514  彰化市場 Flower  ← 花卉市場
+
+400  台中市   Veg     ← 蔬菜市場
+400  台中市場 Flower  ← 花卉市場
+```
+
+`MarketCode` 跨 `MarketType` 共用，是政府 API 的來源資料設計，不是 Bug。真正的問題在這裡：
+
+`GetCropsAsync` 原本的兩段式查詢邏輯：
+
+```
+Step 1: 查 MarketInfos WHERE MarketType = 'Veg' → 取得 marketCodes 清單（含 400）
+Step 2: 查 AgriProductsTrans WHERE MarketCode IN (..., '400', ...)
+```
+
+Step 2 的 `IN` 條件用的是 `MarketCode`，而 `AgriProductsTrans` 只有 `MarketCode` 欄位、沒有 `MarketType`。`MarketCode 400` 在蔬菜和花卉各有交易記錄，查蔬菜的 `MarketCode` 清單同時把花卉的作物也撈進來了。
+
+**關鍵發現：TcType 才是真正的類別欄位**
+
+查 `AgriProductsTrans` 的實際資料：
+
+```sql
+SELECT DISTINCT TcType FROM market.AgriProductsTrans
+```
+
+結果：`N04`（蔬菜）、`N05`（水果）、`N06`（花卉）、`''`（少數特殊資料，CropName 為空，已由 WHERE CropName != '' 過濾）
+
+`TcType` 才是真正對應交易類別的欄位，`MarketCode` 不能作為類別篩選依據。
+
+**修正方式**
+
+新增 `MarketTypeMapping` 常數類別（`TaiwanAgri.Modules.Market/Constants/MarketTypeMapping.cs`）：
+
+```csharp
+public static class MarketTypeMapping
+{
+    private static readonly Dictionary<string, string> _map = new()
+    {
+        { "Veg",    "N04" },
+        { "Fruit",  "N05" },
+        { "Flower", "N06" },
+    };
+
+    public static string? ToTcType(string marketType)
+        => _map.TryGetValue(marketType, out var tcType) ? tcType : null;
+}
+```
+
+`GetCropsAsync` 改為直接用 `TcType` 過濾：
+
+```csharp
+var tcType = MarketTypeMapping.ToTcType(marketType);
+if (tcType == null) return new List<CropResponseDto>();
+
+var crops = await _context.CropInfos
+    .Where(c => c.CropName != "" &&
+                _context.AgriProductsTrans
+                    .Where(a => a.TcType == tcType)
+                    .Select(a => a.CropCode)
+                    .Contains(c.CropCode))
+    .Select(c => new CropResponseDto { CropCode = c.CropCode, CropName = c.CropName })
+    .Distinct()
+    .ToListAsync();
+```
+
+**為什麼常數類別放在 Constants 資料夾，而不是在 GetCropsAsync 內部**
+
+`MarketType → TcType` 的對應關係是業務知識，不是某個方法的私有邏輯。將來 `GetPricesAsync` 也需要根據 `MarketType` 做 `TcType` 層面的思考，統一放在常數類別確保定義只有一處。
+
+**同步新增 TcType 索引**
+
+原本查詢效能問題的真正根源是 `AgriProductsTrans` 沒有 `TcType` 單欄索引。既有的複合唯一索引 `(TransDate, TcType, CropCode, MarketCode)` 最左前綴是 `TransDate`，`WHERE TcType = 'N05'` 無法走這個索引，導致幾百萬筆全表掃描，水果的查詢因此 30 秒 Timeout。
+
+```csharp
+entity.HasIndex(e => e.TcType)
+      .HasDatabaseName("IX_AgriProductsTrans_TcType");
+```
+
+Migration：`20260602161355_AddAgriProductsTransTcTypeIndex`，`CREATE INDEX` 執行耗時 14 秒，驗證資料量確實不小，也驗證了之前 Timeout 的成因。
+
+---
+
+### 二、WeatherService.GetStationsByCityAsync 全表載入修正（P1 效能）
+
+**問題**
+
+原本寫法把整個城市所有觀測記錄 `ToListAsync()` 全部載入記憶體後，再在 C# 裡 `GroupBy` 取每個站的最新一筆：
+
+```csharp
+var raw = await _context.WeatherObservations
+    .Where(s => s.CityName == cityName)
+    .ToListAsync();  // ← 全城市 30 天 × 幾十個站 × 小時 = 可能幾千筆全進記憶體
+
+var result = raw
+    .GroupBy(s => s.StationId)
+    .Select(g => g.OrderByDescending(w => w.ObservedAt).First())
+    ...
+```
+
+**為什麼 ToListAsync 之後的 GroupBy 無法在 DB 端執行**
+
+`ToListAsync()` 是 EF Core 查詢的 SQL/C# 邊界，之後的操作已脫離 SQL 翻譯模式，在 C# 記憶體中執行。即使 LINQ 語法相同，`ToListAsync()` 之前是 SQL，之後是 C#。
+
+**修正方式：兩段式，但邊界在正確的地方**
+
+```csharp
+// Step 1：只在 DB 端計算每個站的最新時間戳，回傳幾十筆
+var latestTimes = await _context.WeatherObservations
+    .Where(s => s.CityName == cityName)
+    .GroupBy(s => s.StationId)
+    .Select(g => new { StationId = g.Key, LatestAt = g.Max(w => w.ObservedAt) })
+    .ToListAsync();
+
+// Step 2：用 (StationId, ObservedAt) 組合撈完整資料，只撈每站最新一筆
+var stationIds = latestTimes.Select(x => x.StationId).ToList();
+var latestObservedAts = latestTimes.Select(x => x.LatestAt).ToList();
+
+var result = await _context.WeatherObservations
+    .Where(s => stationIds.Contains(s.StationId)
+             && latestObservedAts.Contains(s.ObservedAt)
+             && s.CityName == cityName)
+    .Select(s => new WeatherStationResponseDto { ... })
+    .ToListAsync();
+
+// 記憶體端防護：確保每站只保留一筆（資料量為站台數，幾十筆，開銷可忽略）
+return result
+    .GroupBy(r => r.StationName)
+    .Select(g => g.OrderByDescending(r => r.ObservedAt).First())
+    .ToList();
+```
+
+原本幾千筆 → 現在 Step 1 幾十筆（時間戳）+ Step 2 幾十筆（完整資料）。`GroupBy + Max()` 是 SQL Server 最擅長的操作，有索引時極快。
+
+---
+
+### 三、NavService roleId/roleName 型別錯位修正（B-2 執行期 Bug）
+
+**問題**
+
+`NavController` 從 JWT Claims 取出角色資訊：
+
+```csharp
+var roleId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+```
+
+但 `ClaimTypes.Role` Claim 儲存的是角色**名稱**（`"Admin"`、`"Guest"`），不是 GUID。`NavService.GetNavModulesAsync` 把這個值當 GUID 去查 `RoleModulePermissions.RoleId`，查不到任何結果，靜默 fallback 到 Guest 權限——已登入用戶的導覽列永遠和訪客相同。
+
+**修正方式**
+
+Controller 層變數改名為 `roleName`，語意準確：
+
+```csharp
+var roleName = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleName);
+```
+
+`NavService` 的 else 分支改用 `RoleManager` 解析成真正的 GUID：
+
+```csharp
+else
+{
+    // 傳入的是 role name（"Admin"），需透過 RoleManager 解析成真正的 GUID
+    var role = await _roleManager.FindByNameAsync(roleName);
+    if (role == null)
+    {
+        var guestRole = await _roleManager.FindByNameAsync("Guest");
+        targetRoleId = guestRole?.Id
+            ?? throw new InvalidOperationException("Guest role not found");
+        _logger.LogWarning("Role '{RoleName}' 不存在，回退至 Guest 權限顯示", roleName);
+    }
+    else
+    {
+        targetRoleId = role.Id;
+    }
+}
+```
+
+`INavService` 方法簽名同步更名，讓 interface 語意清楚：
+
+```csharp
+Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleName);
+```
+
+---
+
+### 四、PriceUpdatedConsumer Queue Binding Bug 修正（B-3 執行期 Bug）
+
+**問題**
+
+`StartAsync` 宣告了一個臨時 Queue 並 binding 到 exchange，但 `ExecuteAsync` 裡又呼叫了一次 `QueueDeclareAsync()`，產生**另一個不同的** Queue（`amq.gen-xxx2`），對這個沒有被 binding 的 Queue 呼叫 `BasicConsumeAsync`。Worker publish 的 `agri.market.priceUpdated` 事件從來不會被這個 Consumer 收到，Cache invalidation 機制從一開始就是壞的。
+
+**修正方式**
+
+在類別欄位區加入 `_queueName`，`StartAsync` 存下 Queue name，`ExecuteAsync` 重用它：
+
+```csharp
+// 欄位
+private string _queueName = string.Empty;
+
+// StartAsync：存下宣告好並 binding 過的 Queue name
+var queueResult = await _channel.QueueDeclareAsync(cancellationToken: cancellationToken);
+_queueName = queueResult.QueueName;  // ← 新增這一行
+
+// ExecuteAsync：不再重新宣告，直接重用
+queue: _queueName,  // ← 原本是 (await _channel.QueueDeclareAsync(...)).QueueName
+```
+
+一個 Queue、一次 Binding、一次 Consume，鏈路才真正通。
+
+---
+
+### 五、api/weather.ts 重複 RainfallResponseDto interface 修正（C-5）
+
+`RainfallResponseDto` 在 `weather.ts` 第 28 行和第 35 行各定義一次，內容完全相同。TypeScript 不報錯但是維護陷阱——修改一個時容易忘記另一個。移除第二個定義。
+
+---
+
+### 六、清理（C-1 / C-2 / C-3）
+
+| 項目 | 說明 |
+|------|------|
+| `HomeController.cs` | MVC scaffold 遺留，繼承 ControllerBase 但無任何 Action，刪除 |
+| `stores/counter.ts` | Vue scaffold 預設 store，專案中零 import，刪除 |
+| `src/components/icons/*.vue`（5 個）| Vue scaffold 遺留，全部未使用，刪除整個資料夾 |
+
+---
+
+## 關鍵設計決策
+
+### 決策一：GetCropsAsync 改用 TcType 而非繼續改良 MarketCode 兩段式
+
+兩段式查詢的設計前提是「同一個 MarketCode 只屬於一個 MarketType」，但資料庫驗證這個前提不成立（MarketCode 400 同時屬於 Veg 和 Flower）。修補兩段式查詢只會治標，根本上應該改用真正能區分類別的欄位：`TcType`。
+
+### 決策二：MarketTypeMapping 作為獨立常數類別
+
+`MarketType → TcType` 的對應關係是業務知識，放在 `GetCropsAsync` 內部會讓這份知識在未來 `GetPricesAsync` 也需要時造成重複。常數類別讓定義只有一處，修改時不會遺漏。
+
+### 決策三：WeatherService 改為兩段式但 GroupBy 留在 DB 端
+
+不選擇「EF Core GroupBy + First() 一次翻譯」的寫法，原因是這個 LINQ pattern 在 EF Core 的 SQL 翻譯穩定性有歷史問題，而兩段式（Step 1 取時間戳、Step 2 取完整資料）的每一段都是 SQL Server 擅長的簡單查詢，更可預測。
+
+### 決策四：NavService 在 Service 層做 RoleManager 解析，不在 Controller 層
+
+Controller 不應該知道「roleName 要轉成 GUID 才能查資料庫」這個內部細節，這是 Service 的職責。Controller 只傳它從 Claim 拿到的值（roleName），Service 負責轉換。
+
+---
+
+## 驗收標準
+
+- `GET /api/market/crops?marketType=Veg` → 只回傳有 N04 交易記錄的作物，不含水果、花卉
+- `GET /api/market/crops?marketType=Fruit` → 回傳有 N05 交易記錄的作物，不再 Timeout
+- `GET /api/market/crops?marketType=Flower` → 只回傳有 N06 交易記錄的作物
+- `GET /api/weather/stations?cityName=臺北市` → 回應時間正常，不再全表載入
+- 已登入用戶的導覽列正確顯示 Admin 可見的模組，不再 fallback 到 Guest
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Core/Services/INavService.cs` | M | 方法參數 `roleId` 更名為 `roleName` |
+| `TaiwanAgri.Core/Services/NavService.cs` | M | 新增 RoleManager 解析，roleName → GUID |
+| `TaiwanAgri.Frontend/src/api/weather.ts` | M | 移除重複的 RainfallResponseDto 定義 |
+| `TaiwanAgri.Frontend/src/components/icons/*.vue`（5 個）| D | 刪除未使用 scaffold 元件 |
+| `TaiwanAgri.Frontend/src/stores/counter.ts` | D | 刪除未使用 scaffold store |
+| `TaiwanAgri.Modules.Market/Constants/MarketTypeMapping.cs` | A | 新增 MarketType → TcType 對應常數類別 |
+| `TaiwanAgri.Modules.Market/Data/MarketDbContext.cs` | M | 新增 IX_AgriProductsTrans_TcType 索引定義 |
+| `TaiwanAgri.Modules.Market/Data/Migrations/20260602161355_*` | A | AddAgriProductsTransTcTypeIndex Migration |
+| `TaiwanAgri.Modules.Market/Data/Migrations/MarketDbContextModelSnapshot.cs` | M | Snapshot 同步更新 |
+| `TaiwanAgri.Modules.Market/Services/MarketService.cs` | M | GetCropsAsync 改用 TcType 篩選；GetStationsByCityAsync 改為兩段式 |
+| `TaiwanAgri.Modules.Weather/Services/IPestService.cs` | M | 同步清理（簽名調整） |
+| `TaiwanAgri.Modules.Weather/Services/PestRuleEngine.cs` | M | 補 P2 N+1 TODO 標記 |
+| `TaiwanAgri.Modules.Weather/Services/PestService.cs` | M | 同步清理 |
+| `TaiwanAgri.Modules.Weather/Services/WeatherService.cs` | M | GetStationsByCityAsync 兩段式查詢修正 |
+| `TaiwanAgri.Web/Controllers/HomeController.cs` | D | 刪除 MVC scaffold 空殼 |
+| `TaiwanAgri.Web/Controllers/MarketController.cs` | M | 同步 GetCropsAsync 調整 |
+| `TaiwanAgri.Web/Controllers/NavController.cs` | M | roleId 改名 roleName |
+| `TaiwanAgri.Web/Controllers/PestController.cs` | M | 同步清理 |
+| `TaiwanAgri.Web/Services/PriceUpdatedConsumer.cs` | M | Queue binding bug 修正，ExecuteAsync 重用 _queueName |
+| `TaiwanAgri.Worker/WeatherSyncWorker.cs` | M | 移除大段 debug comment（C-4） |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是**「Code Review 報告需要被驗證，不是直接照做」**這件事。
+
+原本 Code Review 報告把 B-1（MarketCode 514 重複）標為 Bug，建議加 `DistinctBy`。但實際查資料庫後發現：514 對應溪湖鎮（Veg）和彰化市場（Flower），是兩個真實存在的不同市場，不是重複資料。如果照報告直接加 `DistinctBy`，反而會把其中一個市場從選單裡吃掉，製造新的 Bug。
+
+同理，「水果作物查詢 Timeout」原本被推測為 `IN` 查詢效率問題，但真正根因是 `TcType` 缺少索引，加上查詢本身用了錯誤的篩選欄位（`MarketCode` 而非 `TcType`）。兩個問題同時存在，單獨修任何一個都只治標。
+
+**工程師的診斷習慣**：每一個「看起來是 Bug」的報告，都要先問「假設這是真的，背後的機制是什麼？」把資料攤出來驗證，再決定要不要改，改什麼。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

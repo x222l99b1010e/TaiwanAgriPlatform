@@ -19,6 +19,9 @@ namespace TaiwanAgri.Modules.Weather.Services
 			_scopeFactory = scopeFactory;
 		}
 
+		//PestRuleEngine N+1 Query（P2）：文件 §12.7 有記錄規則引擎設計，效能優化屬 W19-20 測試 Sprint 的工作，
+		//v22 在 §12.7 或 §11.1 W19-20 行補一個 TODO 標記即可。
+
 		public async Task EvaluateAsync(CancellationToken cancellationToken)
 		{
 			using var scope = _scopeFactory.CreateScope();

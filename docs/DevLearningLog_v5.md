@@ -5046,6 +5046,210 @@ Vite proxy 存在的意義就是讓前端開發時不需要知道後端的確切
 
 ---
 
+### 條目 153 — Code Review 報告是假設，資料才是證據
+
+**我做了什麼**
+
+Code Review 報告標記 B-1：「MarketCode 514 對應多筆 MarketInfo，下拉選單會出現重複項目，應加 DistinctBy」。我沒有直接照改，而是先去查資料庫確認：
+
+```
+514  溪湖鎮    Veg
+514  彰化市場  Flower
+```
+
+514 確實對應兩筆，但它們是兩個不同的市場，不是重複資料。`GetMarketsAsync` 已有 `.Where(m => m.MarketType == marketType)` 篩選，查蔬菜時拿到溪湖鎮，查花卉時拿到彰化市場，不會混在一起。
+
+**我遇到的問題**
+
+如果照報告直接加 `DistinctBy(m => m.MarketCode)`，反而會把其中一個市場從選單裡吃掉，製造新的 Bug。
+
+**我怎麼想通的**
+
+Code Review 報告的推論有一個隱含前提：「相同 MarketCode 代表重複資料」。但實際上相同 MarketCode 跨不同 MarketType 是政府 API 的資料設計，不是錯誤。查看原始資料之後，前提不成立，結論（需要去重）也就不成立。
+
+**我學到的原則**
+
+Code Review 報告描述的是「看到了什麼現象」，不一定描述「現象的真正原因是什麼」。每一個 Bug 報告都要先問：「假設這是真的，背後的機制是什麼？」把資料攤出來驗證假設，再決定要不要改、改什麼。直接照改有時候比不改更危險。
+
+---
+
+### 條目 154 — 從 MarketCode 到 TcType：找到真正能區分類別的欄位
+
+**我做了什麼**
+
+`GetCropsAsync` 原本用兩段式查詢：Step 1 取特定 `MarketType` 的 `MarketCode` 清單，Step 2 用 `IN` 查 `AgriProductsTrans`。查蔬菜 tab 卻出現花卉作物，水果查詢 30 秒 Timeout。
+
+我去看 `AgriProductsTrans` 的實際欄位，發現有 `TcType`：
+
+```sql
+SELECT DISTINCT TcType FROM market.AgriProductsTrans
+-- 結果：N04、N05、N06、''
+```
+
+再對照業務語意：N04 = 蔬菜、N05 = 水果、N06 = 花卉。
+
+**我遇到的問題**
+
+「污染」和「Timeout」看起來是兩個獨立的問題，但追根究柢是同一個根因：查詢用了錯誤的篩選欄位。`MarketCode` 跨 `MarketType` 共用（MarketCode 400 同時出現在蔬菜和花卉的 MarketInfos），所以用 `MarketCode` 做類別篩選會污染。`TcType` 沒有索引，加上查詢邏輯結構複雜，導致全表掃描 Timeout。
+
+**我怎麼想通的**
+
+`AgriProductsTrans` 只有 `MarketCode`，沒有 `MarketType`。兩段式查詢的設計前提是「同一個 MarketCode 只屬於一個 MarketType」，但這個前提不成立。`TcType` 才是 `AgriProductsTrans` 裡真正代表「這筆交易屬於哪個農產品類別」的欄位，它跟 `MarketType` 的對應關係是 N04↔Veg、N05↔Fruit、N06↔Flower。把篩選改成 `WHERE TcType = 'N04'` 才是語意正確的查詢。
+
+然後發現 `TcType` 沒有索引，`WHERE TcType = 'N05'` 對幾百萬筆全表掃描，這才是 Timeout 的真正原因。兩個問題同一個根，一起修。
+
+**我學到的原則**
+
+「找到能精確代表業務語意的欄位」比「用現有欄位繞路」更重要。如果一個查詢需要兩個表才能確定某個值（先查 MarketInfos 取 MarketType，再用 MarketCode 間接定位 AgriProductsTrans 的類別），就要問：AgriProductsTrans 裡有沒有直接代表這個語意的欄位？有的話直接用，省掉繞路的設計複雜度。
+
+**下次遇到類似情況，我會先想到什麼**
+
+查詢結果「污染」的第一個問題：「我用來篩選的欄位，在目標表裡真的是唯一識別這個維度的欄位嗎？還是它可以映射到多個不同的值？」如果是後者，就要找目標表裡真正代表那個維度的欄位。
+
+---
+
+### 條目 155 — 常數類別的設計動機：業務知識只定義一次
+
+**我做了什麼**
+
+決定把 `MarketType → TcType` 的對應關係放在獨立的 `MarketTypeMapping` 靜態類別，而不是在 `GetCropsAsync` 方法內部用 `switch` 或局部 `Dictionary`。
+
+```csharp
+public static class MarketTypeMapping
+{
+    private static readonly Dictionary<string, string> _map = new()
+    {
+        { "Veg",    "N04" },
+        { "Fruit",  "N05" },
+        { "Flower", "N06" },
+    };
+
+    public static string? ToTcType(string marketType)
+        => _map.TryGetValue(marketType, out var tcType) ? tcType : null;
+}
+```
+
+**我遇到的問題**
+
+實作前的疑問：「這個對應關係只有 `GetCropsAsync` 用，放在方法內部不是更簡潔嗎？」
+
+**我怎麼想通的**
+
+業務知識（N04 = 蔬菜）和方法的私有邏輯（這個方法怎麼查資料庫）是不同層次的東西。前者屬於整個 Market 模組，後者屬於某個方法。如果 `GetPricesAsync` 之後也需要根據 `MarketType` 做對應（例如：只顯示符合 TcType 的統計），就需要再寫一次，而且可能寫出不一致的結果。常數類別讓這份知識只定義一次，修改時也只需要改一個地方。
+
+**我學到的原則**
+
+判斷一個值應該放在哪個作用域：如果這個值的語意屬於某個模組（對整個 Market 模組都有意義），就不應該侷限在某個方法裡。「目前只有一個地方用到」不是把它縮到方法內部的理由，「未來可能有其他地方用到」才是正確的判斷依據。
+
+---
+
+### 條目 156 — EF Core 查詢邊界：ToListAsync 之前的 GroupBy 和之後的 GroupBy
+
+**我做了什麼**
+
+修正 `WeatherService.GetStationsByCityAsync`，把「全城市觀測記錄載入記憶體後在 C# 做 GroupBy」改為「在 DB 端先取每站最新時間戳，再取完整資料」。
+
+```csharp
+// 修正前：全表載入再記憶體 GroupBy
+var raw = await _context.WeatherObservations
+    .Where(s => s.CityName == cityName)
+    .ToListAsync();  // ← 幾千筆全進記憶體
+
+var result = raw
+    .GroupBy(s => s.StationId)  // ← 這裡已經是 C# 執行，不是 SQL
+    .Select(g => g.OrderByDescending(w => w.ObservedAt).First())
+    ...
+```
+
+**我遇到的問題**
+
+理解了問題後，第一反應是「EF Core 應該能把 GroupBy + First() 翻譯成 SQL」。但實際上 EF Core 對這個 pattern 的 SQL 翻譯穩定性有歷史問題（`GroupBy + 取整列` 的 subquery 翻譯不一定能走索引），而 `ToListAsync()` 之後的 GroupBy 根本就已經是 C# 了。
+
+**我怎麼想通的**
+
+`ToListAsync()` 是 EF Core 的「執行邊界」。這個邊界之前，LINQ 操作都會被 EF Core 嘗試翻譯成 SQL；之後，資料已經在記憶體裡，是普通的 C# LINQ，跟資料庫完全無關。
+
+```
+.Where(...)              ← SQL WHERE
+.GroupBy(...)            ← 如果在 ToListAsync 之前，嘗試翻譯為 SQL GROUP BY
+.ToListAsync()           ← ← ← 執行邊界，資料進記憶體
+.GroupBy(...)            ← 這行已經是 C# LINQ，不是 SQL
+```
+
+原本的寫法把 `ToListAsync()` 放在第一行 `.Where()` 之後，後面的 `GroupBy` 和 `Select` 都在 C# 裡執行，但執行的是幾千筆資料。
+
+修正後的兩段式把「找每站最新時間戳」這個聚合操作（`GroupBy + Max`）放在 `ToListAsync()` 之前，讓 SQL Server 用它最擅長的方式處理（GROUP BY + MAX，有索引時極快），只把幾十筆時間戳拉回記憶體，第二段查詢再拿這幾十筆去取完整資料。
+
+**我學到的原則**
+
+遇到「記憶體 GroupBy 取最大/最新值」這個 pattern，先問：「這個 GroupBy 可以在 ToListAsync 之前做嗎？」如果可以，SQL Server 處理 `GROUP BY + MAX()` 遠比 C# 處理幾千筆 GroupBy 有效率。`ToListAsync()` 之後的操作要有意識地問自己：「這裡的資料量是幾筆？是幾十筆還是幾千筆？」
+
+---
+
+### 條目 157 — ClaimTypes.Role 存的是名稱，不是 GUID
+
+**我做了什麼**
+
+修正 `NavController` → `NavService` 的 role 傳遞邏輯。原本 Controller 從 JWT Claim 取到角色名稱（`"Admin"`），命名為 `roleId`，NavService 把它當 GUID 去查 `RoleModulePermissions.RoleId`。結果查不到任何記錄，靜默 fallback 到 Guest，已登入用戶的導覽列永遠和未登入相同。
+
+修正後：
+
+```csharp
+// Controller：變數改名，語意準確
+var roleName = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+// Service：傳入 roleName，用 RoleManager 解析成真正的 GUID
+var role = await _roleManager.FindByNameAsync(roleName);
+targetRoleId = role?.Id ?? guestRole.Id;
+```
+
+**我遇到的問題**
+
+為什麼這個 Bug 不容易被發現？因為它是「靜默失敗」——不拋例外，不回 500，功能「看起來運作」，只是顯示的是 Guest 的導覽，而不是 Admin 的導覽。如果 Guest 和 Admin 的導覽差異不明顯，開發過程中就很容易漏掉。
+
+**我怎麼想通的**
+
+`ClaimTypes.Role` Claim 的值由程式碼在登入時決定。查 `UserManager.AddToRoleAsync` 或 JWT 產生邏輯，就能確認存進 Claim 的是什麼值。Identity 框架的慣例是把角色「名稱」存進 Claim，不是 GUID，因為名稱是人可讀的，GUID 不是。但資料庫裡 `RoleModulePermissions` 用的是 `RoleId`（GUID），這個轉換需要透過 `RoleManager.FindByNameAsync`。
+
+**我學到的原則**
+
+「靜默失敗」是最難抓的 Bug 類型。它不產生錯誤訊號，只是悄悄地走了錯誤的 fallback 路徑。防範方式：在 fallback 路徑加 `LogWarning`，讓「不正常的 fallback」變成可見的信號。這個 PR 的修正裡已經加了：`_logger.LogWarning("Role '{RoleName}' 不存在，回退至 Guest 權限顯示", roleName)`。
+
+---
+
+### 條目 158 — RabbitMQ Consumer 的 Queue：宣告、Binding、Consume 必須是同一個
+
+**我做了什麼**
+
+修正 `PriceUpdatedConsumer` 的 Queue 管理錯誤。原本 `StartAsync` 宣告並 Binding 了一個臨時 Queue，`ExecuteAsync` 裡又呼叫一次 `QueueDeclareAsync()`，產生另一個全新的 Queue，對這個新 Queue（沒有任何 Binding）呼叫 `BasicConsumeAsync`。
+
+```csharp
+// 修正前：ExecuteAsync 裡重新宣告（錯誤）
+queue: (await _channel.QueueDeclareAsync(cancellationToken: stoppingToken)).QueueName,
+
+// 修正後：重用 StartAsync 宣告並 Binding 好的 Queue name
+private string _queueName = string.Empty;
+// StartAsync 裡：_queueName = queueResult.QueueName;
+// ExecuteAsync 裡：
+queue: _queueName,
+```
+
+**我遇到的問題**
+
+這個 Bug 的特徵是：程式能跑、Consumer 也能啟動、不報錯，但就是永遠收不到訊息。因為 `BasicConsumeAsync` 訂閱的 Queue 沒有 Binding，永遠不會有訊息送進來。
+
+**我怎麼想通的**
+
+RabbitMQ 的訊息流向：`Producer → Exchange → (依 routing key) → Queue → Consumer`。Exchange 的 Binding 決定「哪些訊息會進這個 Queue」。`QueueDeclareAsync()` 每次都會產生一個**新的**臨時 Queue，即使名稱格式相同（`amq.gen-xxx`），每次呼叫得到的是不同的 Queue，Binding 不會自動跟過來。
+
+所以 `StartAsync` 做好 Binding 之後，`ExecuteAsync` 必須用**同一個** Queue name 去 `BasicConsumeAsync`，不能重新宣告。把 Queue name 存在類別欄位 `_queueName` 是最直接的解法。
+
+**我學到的原則**
+
+RabbitMQ 的三步驟「宣告 Queue → Binding Exchange → Consume」必須針對**同一個** Queue。臨時 Queue 的名稱由 broker 分配，每次 `QueueDeclareAsync()` 呼叫都可能產生不同的名稱。任何需要在方法之間共享 Queue name 的場景，都應該把 Queue name 存在類別欄位裡，不要重複呼叫宣告。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。

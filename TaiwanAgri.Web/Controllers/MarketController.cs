@@ -4,7 +4,7 @@ using TaiwanAgri.Modules.Market.Services;
 
 namespace TaiwanAgri.Web.Controllers
 {
-	[Route("api/market")]
+	[Route("api/[controller]")]
 	[ApiController]
 	public class MarketController : ControllerBase
 	{		

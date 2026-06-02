@@ -23,13 +23,12 @@ namespace TaiwanAgri.Web.Controllers
 			// 1. 取得 isAuthenticated
 			var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
 
-			// 2. 取得 roleId
+			// 2. 取得 roleName
 			//var roleId = new Claim(ClaimTypes.Role, "Admin");
-			var roleId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-
-
+			var roleName = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
 			// 3. 呼叫 Service
-			var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleId);
+			var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleName);
+			
 			return Ok(modules);
 		}
 	}

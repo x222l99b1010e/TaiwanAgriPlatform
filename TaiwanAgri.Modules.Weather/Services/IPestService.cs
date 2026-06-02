@@ -8,6 +8,6 @@ namespace TaiwanAgri.Modules.Weather.Services
 
 		Task<List<PestDecadeSummaryResponseDto>> GetPestDecadeDensityByPestNameAsync(string pestName);
 
-		Task<List<string>> GetAllPestNameAsync();
+		Task<List<string>> GetAllPestNamesAsync();
 	}
 }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
+using TaiwanAgri.Modules.Market.Constants;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 
@@ -127,36 +128,16 @@ namespace TaiwanAgri.Modules.Market.Services
 		}
 		public async Task<List<CropResponseDto>> GetCropsAsync(string marketType)
 		{
-			// 1. 定義查詢邏輯
-			//var crops = await (from c in _context.CropInfos
-			//				   join t in _context.AgriProductsTrans
-			//					   on c.CropCode equals t.CropCode
-			//				   join m in _context.MarketInfos
-			//					   on t.MarketCode equals m.MarketCode
-			//				   where m.MarketType == marketType
-			//					  && c.CropName != ""
-			//				   // 2. 執行 Distinct 去重，並異步轉換成 List
-			//				   // 注意：Distinct 必須放在 Select 之後，確保是針對 CropCode + CropName 組合進行去重
-			//				   select new CropResponseDto
-			//				   {
-			//					   CropCode = c.CropCode,
-			//					   CropName = c.CropName
-			//				   })
-			//			.Distinct()
-			//			.ToListAsync();
+			//1. MarketType 轉 TcType
+			var tcType = MarketTypeMapping.ToTcType(marketType);
+			if (tcType == null)
+				return new List<CropResponseDto>();
 
-			// Step 1: 先拿 MarketCodes（小表，幾筆）
-			var marketCodes = await _context.MarketInfos
-				.Where(m => m.MarketType == marketType)
-				.Select(m => m.MarketCode)
-				.ToListAsync();
-
-			// Step 2: 用具體的 MarketCode 值查 AgriProductsTrans
-			// EF Core 會產生 IN ('101','102',...) 而不是 JOIN + 參數
+			//2. 查 CropInfos，條件是 CropName 不為空，且 CropCode 在 AgriProductsTrans 的 TcType 對應市場類型中有出現過
 			var crops = await _context.CropInfos
 				.Where(c => c.CropName != "" &&
 							_context.AgriProductsTrans
-								.Where(a => marketCodes.Contains(a.MarketCode))
+								.Where(a => a.TcType == tcType)
 								.Select(a => a.CropCode)
 								.Contains(c.CropCode))
 				.Select(c => new CropResponseDto

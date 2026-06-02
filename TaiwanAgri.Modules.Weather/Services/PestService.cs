@@ -59,7 +59,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 			return pestDecadeSummaries;
 		}
 
-		public async Task<List<string>> GetAllPestNameAsync()
+		public async Task<List<string>> GetAllPestNamesAsync()
 		{
 			var pestNames = await _context.PestDecadeSummaries
 				.Select(pds => pds.PestName)

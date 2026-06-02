@@ -33,15 +33,6 @@ export interface RainfallResponseDto {
   hour12: number | null
   hour24: number | null
 }
-export interface RainfallResponseDto {
-  stationName: string
-  cityName: string
-  observedAt: string
-  hour3: number | null
-  hour6: number | null
-  hour12: number | null
-  hour24: number | null
-}
 
 export interface PestAlertResponseDto {
   id: number

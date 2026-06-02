@@ -43,6 +43,10 @@ namespace TaiwanAgri.Modules.Market.Data
 					  .HasDatabaseName("IX_AgriProductsTrans_CropCode_TransDate");
 				entity.HasIndex(e => new { e.MarketCode, e.TransDate })
 					  .HasDatabaseName("IX_AgriProductsTrans_MarketCode_TransDate");
+				// 新增：讓 GetCropsAsync 的 TcType 篩選可以走索引
+				entity.HasIndex(e => e.TcType)
+					  .HasDatabaseName("IX_AgriProductsTrans_TcType");
+
 				entity.Property(e => e.UpperPrice).HasPrecision(8, 2);
 				entity.Property(e => e.MiddlePrice).HasPrecision(8, 2);
 				entity.Property(e => e.LowerPrice).HasPrecision(8, 2);

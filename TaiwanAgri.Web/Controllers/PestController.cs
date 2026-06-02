@@ -33,7 +33,7 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("pest-names")]
 		public async Task<IActionResult> GetAllPestName()
 		{
-			var pestNames = await _pestService.GetAllPestNameAsync();
+			var pestNames = await _pestService.GetAllPestNamesAsync();
 			return Ok(pestNames);
 		}
 	}

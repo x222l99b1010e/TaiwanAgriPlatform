@@ -4,6 +4,6 @@ namespace TaiwanAgri.Core.Services
 {
 	public interface INavService
 	{
-		Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleId);
+		Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleName);
 	}
 }

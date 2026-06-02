@@ -11,6 +11,7 @@ namespace TaiwanAgri.Web.Services
 		private readonly IDistributedCache _cache;
 		private IConnection? _connection;
 		private IChannel? _channel;
+		private string _queueName = string.Empty;
 
 		public PriceUpdatedConsumer(ILogger<PriceUpdatedConsumer> logger, IDistributedCache cache)
 		{
@@ -34,6 +35,7 @@ namespace TaiwanAgri.Web.Services
 
 			// 宣告 Queue 並綁定到 exchange
 			var queueResult = await _channel.QueueDeclareAsync(cancellationToken: cancellationToken);
+			_queueName = queueResult.QueueName;
 			await _channel.QueueBindAsync(
 				queue: queueResult.QueueName,
 				exchange: "agri.events",
@@ -62,7 +64,7 @@ namespace TaiwanAgri.Web.Services
 			};
 
 			await _channel!.BasicConsumeAsync(
-				queue: (await _channel.QueueDeclareAsync(cancellationToken: stoppingToken)).QueueName,
+				queue: _queueName,
 				autoAck: false,
 				consumer: consumer,
 				cancellationToken: stoppingToken);
