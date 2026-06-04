@@ -4,6 +4,7 @@ using System.Text.Json;
 using TaiwanAgri.Modules.Market.Constants;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
+using TaiwanAgri.Core.Helpers;
 
 namespace TaiwanAgri.Modules.Market.Services
 {
@@ -102,16 +103,17 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			// 先撈出去，再在記憶體 GroupBy 去重
 			// 同一天同一個災害可能有幾百筆（每個村落一筆），前端只需要唯一事件
-			var raw = await query
+			var groupedRaw = await query
 				.Select(d => new {
 					d.DisasterName,
 					d.AlertType,
 					d.County,                                          // ← 補回
 					AlertDate = DateOnly.FromDateTime(d.LastUpdateDate)
 				})
+				.Take(5000)
 				.ToListAsync();
 
-			return raw
+			return groupedRaw
 				.GroupBy(d => new { d.DisasterName, d.AlertDate })
 				.Select(g => new DisasterResponseDto
 				{
@@ -133,13 +135,19 @@ namespace TaiwanAgri.Modules.Market.Services
 			if (tcType == null)
 				return new List<CropResponseDto>();
 
-			//2. 查 CropInfos，條件是 CropName 不為空，且 CropCode 在 AgriProductsTrans 的 TcType 對應市場類型中有出現過
-			var crops = await _context.CropInfos
-				.Where(c => c.CropName != "" &&
-							_context.AgriProductsTrans
-								.Where(a => a.TcType == tcType)
-								.Select(a => a.CropCode)
-								.Contains(c.CropCode))
+			// 兩段式的 SQL 是固定的兩條獨立查詢，不會互相依賴，效能穩定。
+			// Step 1：先從 AgriProductsTrans 撈出該 TcType 下所有出現過的 CropCode
+			//         翻譯為：SELECT DISTINCT CropCode FROM AgriProductsTrans WHERE TcType = 'V'
+			var validCropCodes = await _context.AgriProductsTrans
+				.Where(a => a.TcType == tcType)
+				.Select(a => a.CropCode)
+				.Distinct()
+				.ToListAsync();
+
+			// Step 2：再用 validCropCodes 清單過濾 CropInfos
+			//         翻譯為：SELECT CropCode, CropName FROM CropInfos WHERE CropName != '' AND CropCode IN (...)
+			return await _context.CropInfos
+				.Where(c => c.CropName != "" && validCropCodes.Contains(c.CropCode))
 				.Select(c => new CropResponseDto
 				{
 					CropCode = c.CropCode,
@@ -148,7 +156,22 @@ namespace TaiwanAgri.Modules.Market.Services
 				.Distinct()
 				.ToListAsync();
 
-			return crops;
+			//2. 查 CropInfos，條件是 CropName 不為空，且 CropCode 在 AgriProductsTrans 的 TcType 對應市場類型中有出現過
+			//var crops = await _context.CropInfos
+			//	.Where(c => c.CropName != "" &&
+			//				_context.AgriProductsTrans
+			//					.Where(a => a.TcType == tcType)
+			//					.Select(a => a.CropCode)
+			//					.Contains(c.CropCode))
+			//	.Select(c => new CropResponseDto
+			//	{
+			//		CropCode = c.CropCode,
+			//		CropName = c.CropName
+			//	})
+			//	.Distinct()
+			//	.ToListAsync();
+
+			//return crops;
 		}
 
 		public async Task<List<MarketResponseDto>> GetMarketsAsync(string marketType)
@@ -168,22 +191,18 @@ namespace TaiwanAgri.Modules.Market.Services
 
 		public async Task<List<RestDayResponseDto>> GetRestDaysAsync(string marketCode, DateOnly startDate, DateOnly endDate)
 		{
-			// 先用 MarketCode 在 DB 篩選
-			//第一段：.ToListAsync()   ← 資料從資料庫載入記憶體
-			// ↑ 這條線以上是 SQL 世界
+			// ── Step 1：SQL 階段 ──────────────────────────────────────────
+			// 只用 MarketCode 過濾，其餘條件留到記憶體處理
+			// 原因：MarketRestDays 用民國年/月/日三欄儲存，
+			// EF Core 無法在 SQL 層將三欄組合為 DateOnly 再做範圍比較
 			var records = await _context.MarketRestDays
 				.Where(r => r.MarketCode == marketCode)
 				.ToListAsync();
 
-			//第二段：.Select(r => new DateOnly(...))  ← C# 建構子，合法
-			// 在記憶體組成 DateOnly，再篩日期範圍
+			// ── Step 2：記憶體階段 ────────────────────────────────────────
+			// 民國年三欄 → 西元 DateOnly → 篩日期範圍 → 組 DTO
 			return records
-				 //new DateOnly(r.Year, r.Month, r.RestDay) 是在用三個值計算出一個新的物件，這個邏輯 SQL 沒有對應的語法。
-				 .Select(r =>
-				 {
-					 try { return (DateOnly?)new DateOnly(r.Year + 1911, r.Month, r.RestDay); }
-					 catch { return null; }
-				 })
+				.Select(r => DateHelper.ConvertRocRestDay(r.Year, r.Month, r.RestDay))
 				.Where(d => d.HasValue)
 				.Select(d => d!.Value)
 				.Where(d => d >= startDate && d <= endDate)
@@ -196,7 +215,7 @@ namespace TaiwanAgri.Modules.Market.Services
 			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Today);
 			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
 
-			var queryPork = await _context.PorkTrans
+			var porkList = await _context.PorkTrans
 				.Where(p => p.TransDate >= finalStart && p.TransDate <= finalEnd)
 				.Where(pm => marketName == null || pm.MarketName == marketName)
 				.Select(pm => new PorkResponseDto
@@ -210,7 +229,7 @@ namespace TaiwanAgri.Modules.Market.Services
 				.OrderByDescending(pm => pm.TransDate)
 				.ToListAsync();
 
-			return queryPork;
+			return porkList;
 		}
 	}
 }

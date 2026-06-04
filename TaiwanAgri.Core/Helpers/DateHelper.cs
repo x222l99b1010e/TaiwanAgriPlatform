@@ -4,6 +4,15 @@ namespace TaiwanAgri.Core.Helpers
 {
 	public static class DateHelper
 	{
+		/// <summary>
+		/// 解析「點分隔民國日期字串」，回傳西元 DateOnly。
+		/// 輸入："107.07.15"　→　輸出：DateOnly(2018, 7, 15)
+		/// 輸入："107.7.5"　　→　輸出：DateOnly(2018, 7, 5)
+		/// 輸入格式錯誤（非三段、非數字）→　拋出 FormatException
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
+		/// <exception cref="FormatException"></exception>
 		public static DateOnly ParseRocDate(string input)
 		{
 			// 1. 使用 Split 拆分
@@ -27,13 +36,27 @@ namespace TaiwanAgri.Core.Helpers
 				throw new FormatException("日期數字解析失敗'");
 			}
 		}
-
+		/// <summary>
+		/// 將西元 DateOnly 格式化為「點分隔民國日期字串」。
+		/// 輸入：DateOnly(2018, 7, 15)　→　輸出："107.07.15"
+		/// 輸入：DateOnly(2009, 1, 5)　 →　輸出："098.01.05"
+		/// </summary>
+		/// <param name="date"></param>
+		/// <returns></returns>
 		public static string FormatRocDate(DateOnly date)
 		{
 			int rocYear = date.Year - 1911;
 			return $"{rocYear}.{date.Month:D2}.{date.Day:D2}";
 		}
-
+		/// <summary>
+		/// 解析「七位數字民國日期字串（YYYMMDD）」，回傳西元 DateOnly。
+		/// 輸入："1070715"　→　輸出：DateOnly(2018, 7, 15)
+		/// 輸入："0980105"　→　輸出：DateOnly(2009, 1, 5)
+		/// 輸入格式錯誤（非七位數字、月份超範圍、日期超出當月天數）→　拋出 ArgumentException
+		/// </summary>
+		/// <param name="inputDate"></param>
+		/// <returns></returns>
+		/// <exception cref="ArgumentException"></exception>
 		public static DateOnly ParseRocNumericDate(string inputDate) 
 		{
 			// 1. 基本格式檢查：不可為空、長度必須為 7、必須全為數字
@@ -60,7 +83,13 @@ namespace TaiwanAgri.Core.Helpers
 			// 4. 解析失敗：代表月份 1-12 以外，或日期超出該月天數（含閏年判斷）
 			throw new ArgumentException($"無效的日期內容: '{inputDate}' (轉換後為 {isoDate})。");
 		}
-
+		/// <summary>
+		/// 將西元 DateOnly 格式化為「七位數字民國日期字串（YYYMMDD）」。
+		/// 輸入：DateOnly(2018, 7, 15)　→　輸出："1070715"
+		/// 輸入：DateOnly(2009, 1, 5)　 →　輸出："0980105"
+		/// </summary>
+		/// <param name="inputDate"></param>
+		/// <returns></returns>
 		public static string ToRocNumericDate(this DateOnly inputDate)
 		{
 			// 民國年 = 西元年 - 1911
@@ -71,7 +100,14 @@ namespace TaiwanAgri.Core.Helpers
         // MM 與 dd 確保月日固定兩位
         return $"{rocYear:D3}{inputDate.Month:D2}{inputDate.Day:D2}";
 		}
-
+		/// <summary>
+		/// 解析「ISO 8601 日期字串（yyyy-MM-dd）」，回傳西元 DateOnly；格式不符回傳 null。
+		/// 輸入："2018-07-15"　→　輸出：DateOnly(2018, 7, 15)
+		/// 輸入：null / ""　  →　輸出：null
+		/// 輸入："107.07.15"　→　輸出：null（格式不符，不拋例外）
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
 		public static DateOnly? ParseIsoDate(string? input)
 		{
 			if (string.IsNullOrWhiteSpace(input)) return null;
@@ -85,6 +121,21 @@ namespace TaiwanAgri.Core.Helpers
 			}
 
 			return null;
+		}
+		/// <summary>
+		/// 將民國年、月、日三個整數轉換為西元 DateOnly；日期無效時回傳 null，不拋例外。
+		/// 輸入：(107, 7, 15)　→　輸出：DateOnly(2018, 7, 15)
+		/// 輸入：(107, 2, 30)　→　輸出：null（2 月沒有 30 日）
+		/// 輸入：(107, 13, 1)　→　輸出：null（月份超出範圍）
+		/// </summary>
+		/// <param name="rocYear"></param>
+		/// <param name="month"></param>
+		/// <param name="day"></param>
+		/// <returns></returns>
+		public static DateOnly? ConvertRocRestDay(int rocYear, int month, int day)
+		{
+			try { return new DateOnly(rocYear + 1911, month, day); }
+			catch { return null; }
 		}
 	}
 }

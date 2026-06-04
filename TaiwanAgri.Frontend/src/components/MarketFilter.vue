@@ -43,12 +43,12 @@
         <button class="search-clear" v-if="cropSearch.trim()" @click="cropSearch = ''">✕</button>
       </div>
 
-      <div class="chip-container" v-if="!store.isLoadingCrops">
-        <div class="chip-list">
+      <div class="crop-container" v-if="!store.isLoadingCrops">
+        <div class="crop-list">
           <button
             v-for="crop in filteredCrops"
             :key="crop.cropCode"
-            class="chip"
+            class="crop-btn"
             :class="{
               selected: store.selectedCropCodes.includes(crop.cropCode),
               disabled: store.selectedCropCodes.length >= 5 && !store.selectedCropCodes.includes(crop.cropCode)
@@ -161,11 +161,11 @@ onMounted(() => store.initialize())
   box-shadow: 0 1px 3px rgba(191,54,12,0.35);
 }
 
-/* Chip */
+/* Crop */
 .crop-header { display: flex; align-items: center; justify-content: space-between; }
-.chip-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.crop-list { display: flex; flex-wrap: wrap; gap: 7px; }
 
-.chip {
+.crop-btn {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 5px 12px; border-radius: 999px;
   border: 1px solid var(--border);
@@ -174,28 +174,28 @@ onMounted(() => store.initialize())
   font-size: 13px; cursor: pointer; transition: all 0.16s;
   white-space: nowrap;
 }
-.chip:hover:not(.disabled) {
+.crop-btn:hover:not(.disabled) {
   border-color: var(--green); color: var(--green); background: #f0f7f0;
 }
-.chip.selected {
+.crop-btn.selected {
   background: #e8f5e9; border-color: var(--green); color: var(--green);
 }
-.chip.disabled { opacity: 0.35; cursor: not-allowed; }
+.crop-btn.disabled { opacity: 0.35; cursor: not-allowed; }
 .check-dot { font-size: 11px; font-weight: 700; }
 
 .loading-hint { font-size: 12px; color: var(--text-muted); }
 .limit-hint { font-size: 11.5px; color: var(--orange); }
 .error-msg  { font-size: 13px; color: var(--red); }
 
-.chip-container {
+.crop-container {
   max-height: 200px; overflow-y: auto; overflow-x: hidden;
   border: 1px solid var(--border); border-radius: 10px;
   padding: 12px; background: var(--surface-2);
   scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.15) transparent;
 }
-.chip-container::-webkit-scrollbar { width: 5px; }
-.chip-container::-webkit-scrollbar-track { background: transparent; }
-.chip-container::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
+.crop-container::-webkit-scrollbar { width: 5px; }
+.crop-container::-webkit-scrollbar-track { background: transparent; }
+.crop-container::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
 
 .crop-search-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .crop-search {

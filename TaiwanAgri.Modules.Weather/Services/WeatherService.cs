@@ -39,6 +39,16 @@ namespace TaiwanAgri.Modules.Weather.Services
 
 			return result;
 		}
+		/// <summary>
+		/// 查詢指定縣市下所有氣象站的最新觀測資料。
+		/// 採兩段式查詢策略：
+		/// Step 1：SQL 端 GroupBy 取各站最新 ObservedAt（回傳筆數 = 站台數，通常幾十筆）
+		/// Step 2：用 (StationId, ObservedAt) 撈完整欄位資料
+		/// Step 3：記憶體端 GroupBy 做最後防護，排除極端情況下同一站有多筆相同時間的重複資料
+		/// 末段記憶體 GroupBy 開銷可忽略，因為資料量僅為站台數。
+		/// </summary>
+		/// <param name="cityName"></param>
+		/// <returns></returns>
 
 		public async Task<List<WeatherStationResponseDto>> GetStationsByCityAsync(string cityName)
 		{

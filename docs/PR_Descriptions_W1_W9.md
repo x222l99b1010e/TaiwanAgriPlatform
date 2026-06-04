@@ -3846,6 +3846,272 @@ Controller 不應該知道「roleName 要轉成 GUID 才能查資料庫」這個
 
 ---
 
+# PR #031 — W21 Code Review 修正（第二輪）：命名清理 + 防禦性設計 + 模組化重構 + 前端術語統一
+
+**標題**：`fix(market/weather/web): 命名語意修正 + GetDisastersAsync 防護 + ConvertRocRestDay 職責單一 + Program.cs Modular Extension + CORS 設定外化 + MarketFilter 術語統一`
+
+---
+
+## 背景與動機
+
+PR #030（W21 Code Review 第一輪）完成了作物選單污染根因修正、WeatherService 查詢優化、NavService roleId 錯位修正、RabbitMQ Queue Binding Bug 等執行期問題的修復。本 PR 為第二輪，針對同一份 Code Review 報告中「命名品質」、「防禦性設計」、「架構模組化」、「前端術語一致性」四個維度，逐一完成剩餘修正項目。
+
+本輪修正不涉及任何功能邏輯異動，全部屬於「讓程式碼更容易被讀懂、更容易被維護、更能展示工程師思維」的品質提升。
+
+---
+
+## 實作內容
+
+### 一、MarketService.cs 命名與防禦性設計（M-1 / M-2 / M-3 / M-6）
+
+**M-1：queryPork → porkList**
+
+`GetPorkAsync` 最終結果的變數名稱從 `queryPork` 改為 `porkList`。`query` 前綴在 C# 語境下通常暗示「尚未執行的查詢（IQueryable）」，用在已執行並取回的結果集上會造成閱讀誤解。
+
+**M-2：raw → groupedRaw**
+
+`GetDisastersAsync` 中的 `raw` 變數改名為 `groupedRaw`。此變數的值是已經過 `GroupBy` 聚合的結果，原名稱遺漏了這個關鍵的資料形狀資訊，閱讀者需要追蹤查詢才能理解它不是「原始資料」。
+
+**M-6：GetDisastersAsync 加 .Take(5000) 防護**
+
+`DebrisAlertRecords` 是歷史型資料集，隨時間線性累積，沒有設計上的上限。在 `groupedRaw` 的查詢鏈加入 `.Take(5000)` 防護，確保即使資料持續累積，單次查詢也不會無限制地拉取記憶體。
+
+面試說法：「這是防禦性設計（Defensive Programming）。目前資料量可能還在可接受範圍，但設計一個沒有上限的歷史資料查詢，是把效能風險留給未來的自己。加 `Take()` 的代價是零，不加的代價是不可預測的。」
+
+**M-3：民國年轉換 lambda 抽出為 DateHelper.ConvertRocRestDay()**
+
+`GetRestDaysAsync` 原本的民國年轉換邏輯是內嵌於 LINQ 鏈的匿名 lambda：
+
+```csharp
+.Select(r => {
+    try { return (DateOnly?)new DateOnly(r.Year + 1911, r.Month, r.RestDay); }
+    catch { return null; }
+})
+```
+
+重構後抽出為 `DateHelper` 的靜態方法：
+
+```csharp
+public static DateOnly? ConvertRocRestDay(int rocYear, int month, int day)
+```
+
+`GetRestDaysAsync` 改為：
+
+```csharp
+return records
+    .Select(r => DateHelper.ConvertRocRestDay(r.Year, r.Month, r.RestDay))
+    .Where(d => d.HasValue)
+    .Select(d => d!.Value)
+    .Where(d => d >= startDate && d <= endDate)
+    .Select(d => new RestDayResponseDto { RestDate = d })
+    .ToList();
+```
+
+**設計決策：為何放入 DateHelper 而非 private static**
+
+`ConvertRocRestDay` 是純函式（輸入三整數，輸出可能為 null 的 DateOnly，無副作用）。DateHelper 本來就是民國日期轉換工具類別，將此方法收進去保持了類別的高內聚性，也讓未來其他地方若有相同需求能找到正確的位置，而不是在各 Service 各自散落。
+
+---
+
+### 二、DateHelper.cs 完整 XML Doc Comment（W-1 附帶）
+
+所有現有方法補齊 `/// <summary>`，每個方法的 Summary 包含輸入輸出的具體範例，讓閱讀者不需要追蹤實作即可理解行為：
+
+```csharp
+/// <summary>
+/// 將民國年、月、日三個整數轉換為西元 DateOnly；日期無效時回傳 null，不拋例外。
+/// 輸入：(107, 7, 15)　→　輸出：DateOnly(2018, 7, 15)
+/// 輸入：(107, 2, 30)　→　輸出：null（2 月沒有 30 日）
+/// 輸入：(107, 13, 1)　→　輸出：null（月份超出範圍）
+/// </summary>
+public static DateOnly? ConvertRocRestDay(int rocYear, int month, int day)
+```
+
+---
+
+### 三、WeatherService.cs — GetStationsByCityAsync 加 Doc Comment（W-1）
+
+`GetStationsByCityAsync` 採用兩段式查詢策略，但方法名稱本身無法反映這個設計選擇。加入 `/// <summary>` 說明：
+
+```csharp
+/// <summary>
+/// 查詢指定縣市下所有氣象站的最新觀測資料。
+/// 採兩段式查詢策略：
+/// Step 1：SQL 端 GroupBy 取各站最新 ObservedAt（回傳筆數 = 站台數，通常幾十筆）
+/// Step 2：用 (StationId, ObservedAt) 撈完整欄位資料
+/// Step 3：記憶體端 GroupBy 做最後防護，排除極端情況下同一站有多筆相同時間的重複資料
+/// 末段記憶體 GroupBy 開銷可忽略，因為資料量僅為站台數。
+/// </summary>
+```
+
+面試說法：「方法名稱只能說明『做什麼』，但有時候更重要的是說明『為什麼這樣做』。兩段式查詢的決策動機（EF Core GroupBy + First() 翻譯穩定性問題、SQL Server 擅長 GROUP BY + MAX）屬於設計知識，不應該只存在於 PR 描述或口頭傳遞，應該留在程式碼裡。」
+
+---
+
+### 四、Program.cs 模組化重構（P-1）— 最具架構展示價值
+
+**問題**
+
+原本的 `Program.cs` 將所有 DI 註冊平鋪在同一個方法裡，Identity、Market、Weather、Core、Redis、CORS、Swagger 混在一起，整個 builder 區段超過 60 行，閱讀需要逐行追蹤才能理解哪些服務屬於哪個模組。
+
+**修正方式**
+
+新建 `TaiwanAgri.Web/Extensions/` 資料夾，將 DI 註冊按模組職責拆分為五個 Extension Method 檔案：
+
+| 檔案 | 方法 | 負責內容 |
+|------|------|----------|
+| `IdentityExtensions.cs` | `AddIdentityModule()` | ApplicationDbContext + ASP.NET Core Identity |
+| `MarketModuleExtensions.cs` | `AddMarketModule()` | MarketDbContext + IMarketService |
+| `WeatherModuleExtensions.cs` | `AddWeatherModule()` | WeatherDbContext + IWeatherService + IPestService |
+| `CoreModuleExtensions.cs` | `AddCoreModule()` | CoreDbContext + INavService + INotificationService |
+| `InfrastructureExtensions.cs` | `AddInfrastructure()` | Redis + CORS + PriceUpdatedConsumer + Swagger |
+
+最終 `Program.cs` 的 builder 區段精簡為：
+
+```csharp
+builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddMarketModule(builder.Configuration);
+builder.Services.AddWeatherModule(builder.Configuration);
+builder.Services.AddCoreModule(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration);
+```
+
+**為什麼這個改動有面試價值**
+
+這不只是「讓程式碼更短」。Extension Method 的邊界直接對應 SA/SD 文件裡定義的模組邊界（Market Module / Weather Module / Core Module），讓程式碼的物理結構和架構文件的邏輯結構對齊。面試時可以翻開 Program.cs 說：「你看這五行，對應到文件第 3.3 節描述的五個 DbContext，每一行都是一個模組的入口。」
+
+---
+
+### 五、CORS 設定外化（D-2）
+
+`localhost:5173` / `localhost:5174` 原本硬編碼在 `InfrastructureExtensions.cs` 裡。
+
+**修正方式**
+
+`appsettings.Development.json` 新增：
+
+```json
+"Cors": {
+  "AllowedOrigins": [
+    "http://localhost:5173",
+    "http://localhost:5174"
+  ]
+}
+```
+
+`InfrastructureExtensions.cs` 改為：
+
+```csharp
+var origins = configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+policy.WithOrigins(origins)
+      .AllowAnyMethod()
+      .AllowAnyHeader()
+      .AllowCredentials();
+```
+
+**面試說法**：「開發環境的 port 是環境事實，不應該是程式邏輯的一部分。放在 appsettings 讓設定和程式碼各司其職，也讓未來換 port 不需要改程式碼再重新編譯。」
+
+---
+
+### 六、MarketFilter.vue 術語統一（F-1）
+
+`chip` 是 UI Component Library 的通用術語（Material Design、Vuetify 等框架的 Chip 元件），但本專案的作物多選按鈕並非通用 Chip，而是特定業務元件。統一改為 `crop-btn` / `crop-container` / `crop-list`，讓 CSS class 名稱直接說明業務用途。
+
+template 和 `<style scoped>` 同步更新：
+
+```css
+/* 改前 */
+.chip { ... }
+.chip.selected { ... }
+.chip.disabled { ... }
+
+/* 改後 */
+.crop-btn { ... }
+.crop-btn.selected { ... }
+.crop-btn.disabled { ... }
+```
+
+---
+
+## 關鍵設計決策
+
+### 決策一：ConvertRocRestDay 放 DateHelper 而非 MarketService private static
+
+`private static` 版本在技術上沒有問題，但代表「這個知識只屬於 MarketService」。民國年轉換是跨模組可能共用的領域知識，不是某個 Service 的內部細節，放入 DateHelper 讓這份知識有明確的歸屬位置。
+
+### 決策二：GetCropsAsync 兩段式保留，不改 JOIN
+
+本輪評估三種寫法的取捨：
+
+| 寫法 | 弱點 |
+|------|------|
+| Correlated Subquery（原版） | 外層資料量大時子查詢重複執行 |
+| 兩段式 IN（現行） | Step 1 結果集大時 IN 參數數量爆炸 |
+| JOIN | 效能最穩定，但 EF Core 寫法可讀性最差 |
+
+在台灣農產品作物種類的資料規模下（頂多幾百種），IN 爆炸不會發生，兩段式的可讀性優勢才是真正的決定因素。說得出這個分析過程，比選哪一種寫法更重要。
+
+### 決策三：F-2（7 日均線 computed）不修
+
+`calcMA` 的計算已包裹在 `chartData computed` 內，`prices` 不變時 `chartData` 不重算，`calcMA` 自然也不重算。真正的快取邊界在 `chartData` 這層，已達到 computed 的效果。若要進一步優化，可將 `calcMA` 的結果單獨抽成 `movingAverageMap computed` 讓其他 computed 共用，但此改動的實際效益很低，且 `chartData computed` 的包裹本身已足夠。
+
+---
+
+## 不修項目說明
+
+| 項目 | 不修理由 |
+|------|----------|
+| M-4 try-catch 不改 DateOnly.TryCreate | `TryCreate` 驗證年月日合法性，`try-catch` 處理格式轉換失敗，語意不同，為改而改 |
+| M-7 不加 Repository 介面 | EF Core DbContext + IQueryable 本身已是 Repository 抽象，Side Project 不需額外包裝 |
+| D-1 NotificationController [FromQuery] userId 保留 | JWT 整合是整個認證架構的事，commit 已標 TODO，刻意保留的技術債 |
+| W-2 PestService 分頁參數不封裝 DTO | 只有一個方法有分頁需求，過早封裝只增加間接層 |
+| F-2 7 日均線不另抽 computed | calcMA 已在 chartData computed 內，快取效果已達到 |
+| F-3 exportCsv.ts 單元測試暫緩 | 時間優先序，切入點已知：從純函式開始補最易驗證 |
+
+---
+
+## 驗收標準
+
+- `GET /api/market/disasters` 回應正常，查詢不會無限載入歷史資料（Take(5000) 防護）
+- `GET /api/market/rest-days` 回應正常，ConvertRocRestDay 重構後行為不變
+- Program.cs 可正常啟動，五個 Extension Method 均能正確注入對應服務
+- 前端 MarketFilter 作物按鈕 hover/selected/disabled 樣式正常（CSS class 重命名後無斷裂）
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Core/Helpers/DateHelper.cs` | M | 新增 ConvertRocRestDay 方法；補齊所有方法 XML doc comment |
+| `TaiwanAgri.Frontend/src/components/MarketFilter.vue` | M | chip → crop-btn / crop-container / crop-list 術語統一 |
+| `TaiwanAgri.Modules.Market/Services/MarketService.cs` | M | M-1 queryPork→porkList；M-2 raw→groupedRaw；M-6 加 Take(5000)；GetCropsAsync 改兩段式 |
+| `TaiwanAgri.Modules.Weather/Services/WeatherService.cs` | M | GetStationsByCityAsync 加 /// <summary> |
+| `TaiwanAgri.Web/Extensions/CoreModuleExtensions.cs` | A | AddCoreModule() Extension Method |
+| `TaiwanAgri.Web/Extensions/IdentityExtensions.cs` | A | AddIdentityModule() Extension Method |
+| `TaiwanAgri.Web/Extensions/InfrastructureExtensions.cs` | A | AddInfrastructure() Extension Method（含 CORS 讀設定）|
+| `TaiwanAgri.Web/Extensions/MarketModuleExtensions.cs` | A | AddMarketModule() Extension Method |
+| `TaiwanAgri.Web/Extensions/WeatherModuleExtensions.cs` | A | AddWeatherModule() Extension Method |
+| `TaiwanAgri.Web/Program.cs` | M | 精簡為五行 AddXxxModule() + Seed + HTTP Pipeline |
+| `TaiwanAgri.Web/appsettings.Development.json` | M | 新增 Cors.AllowedOrigins 設定區塊 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是**「Code Review 修正的兩種性質」**。
+
+第一種是「有錯要修」——M-1、M-2 這類命名問題，如果不修，六個月後連自己都不確定 `queryPork` 是尚未執行的查詢還是已取回的結果。這類問題修了就消失，沒有討論空間。
+
+第二種是「有選擇才值得記錄」——M-6 的 `Take(5000)` 不是「一定要加」，而是「加了能展示防禦性設計的思維」。GetCropsAsync 選兩段式而非 JOIN，不是因為兩段式一定更快（在這個資料規模下三種寫法效能相同），而是因為可讀性和可預測性在 Side Project 等級的資料規模下是更重要的決策依據。
+
+**工程師的判斷習慣**：遇到「可改可不改」的項目，先問「改了能說清楚為什麼嗎？不改也能說清楚為什麼嗎？」兩個問題都能說清楚，才是真正的技術決策，而不只是照單全收或全盤拒絕。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
