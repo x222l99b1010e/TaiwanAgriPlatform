@@ -5,6 +5,7 @@ using TaiwanAgri.Modules.Market.Constants;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 using TaiwanAgri.Core.Helpers;
+using Microsoft.Extensions.Configuration;
 
 namespace TaiwanAgri.Modules.Market.Services
 {
@@ -12,10 +13,12 @@ namespace TaiwanAgri.Modules.Market.Services
 	{
 		private readonly MarketDbContext _context;
 		private readonly IDistributedCache _cache;
-		public MarketService(MarketDbContext context, IDistributedCache cache)
+		private readonly IConfiguration _configuration;
+		public MarketService(MarketDbContext context, IDistributedCache cache, IConfiguration configuration)
 		{
 			_context = context;
 			_cache = cache;
+			_configuration = configuration;
 		}
 		public async Task<List<PriceResponseDto>> GetPricesAsync(
 			string marketType,
@@ -28,11 +31,8 @@ namespace TaiwanAgri.Modules.Market.Services
 			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Today);
 			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
 
-			// 2. 組合 Cache Key
-			//    cropCodes 排序後 Join，確保 ["A01","B02"] 和 ["B02","A01"] 命中同一個 cache
-			//    格式：market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}
-			var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
-			var cacheKey = $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+			// 2. 組裝 Cache Key（cropCodes 排序確保任意排列命中同一 slot）
+			var cacheKey = BuildPricesCacheKey(marketType, cropCodes, marketCode, finalStart, finalEnd);
 
 			// 3. Cache-Aside Step 1：查 Redis
 			//    命中（Hit）→ 直接反序列化回傳，跳過 DB 查詢
@@ -98,6 +98,9 @@ namespace TaiwanAgri.Modules.Market.Services
 			var query = _context.DebrisAlertRecords
 				.Where(d => d.LastUpdateDate >= startDateTime && d.LastUpdateDate <= endDateTime);
 
+			// 為了避免一次撈出超過 10 萬筆資料導致 OutOfMemory，先設定一個合理的上限
+			var limit = _configuration.GetValue<int>("MarketQueryLimits:DisasterRecordLimit", 5000);
+
 			if (counties != null && counties.Any())
 				query = query.Where(d => counties.Contains(d.County));
 
@@ -110,7 +113,7 @@ namespace TaiwanAgri.Modules.Market.Services
 					d.County,                                          // ← 補回
 					AlertDate = DateOnly.FromDateTime(d.LastUpdateDate)
 				})
-				.Take(5000)
+				.Take(limit)
 				.ToListAsync();
 
 			return groupedRaw
@@ -230,6 +233,29 @@ namespace TaiwanAgri.Modules.Market.Services
 				.ToListAsync();
 
 			return porkList;
+		}
+
+		/// <summary>
+		/// 組裝 GetPricesAsync 的 Redis Cache Key。
+		/// cropCodes 排序後 Join，確保 ["A01","B02"] 和 ["B02","A01"] 命中同一個 cache。
+		/// 使用 finalStart / finalEnd（已解析的實際日期），防止 null 預設值碰撞到同一個 Key。
+		/// 格式：market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}
+		/// </summary>
+		/// <param name="marketType"></param>
+		/// <param name="cropCodes"></param>
+		/// <param name="marketCode"></param>
+		/// <param name="finalStart"></param>
+		/// <param name="finalEnd"></param>
+		/// <returns></returns>
+		private static string BuildPricesCacheKey(
+				string marketType,
+				string[] cropCodes,
+				string? marketCode,
+				DateOnly finalStart,
+				DateOnly finalEnd)
+		{
+			var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
+			return $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
 		}
 	}
 }

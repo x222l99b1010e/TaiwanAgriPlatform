@@ -48,12 +48,20 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("markets")]
 		public async Task<IActionResult> GetMarkets([FromQuery] string marketType)
 		{
+			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
+			if (!IsValidMarketType(marketType))
+				return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+
 			var result = await _marketService.GetMarketsAsync(marketType);
 			return Ok(result);
 		}
 		[HttpGet("crops")]
 		public async Task<IActionResult> GetCrops([FromQuery] string marketType)
 		{
+			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
+			if (!IsValidMarketType(marketType))
+				return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+
 			var result = await _marketService.GetCropsAsync(marketType);
 			return Ok(result);
 		}
@@ -81,6 +89,10 @@ namespace TaiwanAgri.Web.Controllers
 			[FromQuery] string? startDate = null,
 			[FromQuery] string? endDate = null)
 		{
+			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
+			if (!IsValidMarketType(marketType))
+				return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+
 			if (cropCodes == null || cropCodes.Length == 0)
 			{
 				// 填入 BadRequest
@@ -100,5 +112,8 @@ namespace TaiwanAgri.Web.Controllers
 			var result = await _marketService.GetPricesAsync(marketType, cropCodes, marketCode, start, end);
 			return Ok(result);
 		}
+
+		private static bool IsValidMarketType(string? marketType) =>
+				marketType is "Veg" or "Fruit" or "Flower";
 	}
 }

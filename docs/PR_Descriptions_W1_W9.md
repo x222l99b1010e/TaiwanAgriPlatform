@@ -4112,6 +4112,227 @@ template 和 `<style scoped>` 同步更新：
 
 ---
 
+# PR #032 — W21 Code Review 修正（第三輪）：Cache Key 重構 + 輸入驗證補強 + 設定外化 + 單元測試建立
+
+**標題**：`fix(market/web/tests): BuildPricesCacheKey pure function 抽取 + MarketController 白名單驗證 + DisasterRecordLimit 設定化 + DateHelper xUnit 測試覆蓋`
+
+---
+
+## 背景與動機
+
+PR #031（W21 Code Review 第二輪）完成了命名語意修正、防禦性設計、Program.cs 模組化重構、CORS 設定外化、前端術語統一。本 PR 為第三輪，針對以下四個維度繼續改善：
+
+1. **Cache Key 組裝邏輯的可維護性**：抽取為具名 pure function，讓意圖在閱讀時可見
+2. **輸入驗證的防禦邊界**：補 Controller 層白名單，不依賴 Service 層靜默回傳空清單
+3. **設定與程式碼分離**：將查詢上限從硬編碼移至 appsettings.json
+4. **測試覆蓋**：從「0 測試」升級至「有 xUnit 覆蓋」，補齊 DateHelper 邊界值測試
+
+本輪改動涵蓋 MarketService.cs、MarketController.cs、appsettings.json 與全新的 DateHelperTests.cs，全部屬於品質提升，不涉及任何功能邏輯異動。
+
+---
+
+## 實作內容
+
+### 一、BuildPricesCacheKey() 抽取為 private static（MarketService.cs）
+
+**問題**
+
+原本的 Cache Key 組裝邏輯直接內嵌在 `GetPricesAsync` 方法體內：
+
+```csharp
+var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
+var cacheKey = $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+```
+
+這段邏輯有兩個隱性設計——cropCodes 需要排序確保任意順序命中同一個 slot、使用 finalStart/finalEnd（已解析的實際日期）而非原始 null——但讀者必須閱讀整段程式碼才能理解。
+
+**修正方式**
+
+```csharp
+/// <summary>
+/// 組裝 GetPricesAsync 的 Redis Cache Key。
+/// cropCodes 排序後 Join，確保 ["A01","B02"] 和 ["B02","A01"] 命中同一個 cache。
+/// 使用 finalStart / finalEnd（已解析的實際日期），防止 null 預設值碰撞到同一個 Key。
+/// 格式：market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}
+/// </summary>
+private static string BuildPricesCacheKey(
+    string marketType,
+    string[] cropCodes,
+    string? marketCode,
+    DateOnly finalStart,
+    DateOnly finalEnd)
+{
+    var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
+    return $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+}
+```
+
+`GetPricesAsync` 呼叫點精簡為一行：
+
+```csharp
+// 2. 組裝 Cache Key（cropCodes 排序確保任意排列命中同一 slot）
+var cacheKey = BuildPricesCacheKey(marketType, cropCodes, marketCode, finalStart, finalEnd);
+```
+
+**關鍵設計決策：為何放在 MarketService 內部，而非抽至 Core 層**
+
+目前只有一個呼叫點。W15 的 PriceUpdatedConsumer Cache Invalidation 設計是清除所有 `market:prices:*` 開頭的 Key，不需要組出精確的 Cache Key，因此不存在第二個使用者。在沒有明確跨模組需求的前提下，放在 `private static` 符合 YAGNI 原則，未來真的有第二個呼叫點時搬移才有具體理由。
+
+這個判斷和 PR #031 的 `ConvertRocRestDay` 決策對稱：那個方法因為有潛在的跨模組共用價值而放入 DateHelper；這個方法因為目前唯一服務一個地方而保留在 Service 內部。
+
+---
+
+### 二、MarketController 補 IsValidMarketType 白名單驗證
+
+**問題**
+
+原本的 MarketController 沒有對 marketType 做白名單驗證。繞過前端直接打 API 傳入非法值（例如 `"veg"`、`"蔬菜"`）時，Service 層會靜默回傳空清單——不崩潰、不報錯，但面試現場難以解釋「為什麼回傳空陣列」。
+
+**修正方式**
+
+```csharp
+private static bool IsValidMarketType(string? marketType) =>
+    marketType is "Veg" or "Fruit" or "Flower";
+```
+
+GetMarkets / GetCrops / GetPrices 三個 Action 各自在方法開頭加入：
+
+```csharp
+if (!IsValidMarketType(marketType))
+    return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+```
+
+**關鍵設計決策：白名單而非 enum 重構**
+
+評估 enum 重構的取捨如下：
+
+| 面向 | enum 重構 | Controller 白名單 |
+|------|-----------|-------------------|
+| 型別安全 | 編譯期保證 | 執行期驗證 |
+| EF Core 查詢 | 需手動 `.ToString()` 轉換，易漏 | 無影響 |
+| 改動範圍 | Controller + Service + Mapping 全面修改 | 只動 Controller |
+| 面試解釋成本 | 需額外說明 EF Core 轉換問題 | 直接說明設計邊界 |
+
+在這個專案裡，`marketType` 從頭到尾只是一個 SQL `WHERE` 過濾條件，沒有任何 switch/case 分支行為，enum 的型別安全收益不值得承擔 EF Core 轉換成本與改動範圍的風險。
+
+**面試說法**：「Controller 層是輸入驗證的第一道防線。`IsValidMarketType` 明確列出合法值，讓錯誤路徑和 200 路徑一樣清晰可見——閱讀者看到 BadRequest 就知道這是預期的邊界條件，不需要追蹤進 Service 層才能理解。」
+
+---
+
+### 三、DisasterRecordLimit 設定外化（MarketService.cs + appsettings.json）
+
+**問題**
+
+`GetDisastersAsync` 的 `.Take(5000)` 是硬編碼的魔術數字。設定值藏在 C# 檔案裡，調整時需要修改程式碼並重新編譯。
+
+**修正方式**
+
+`appsettings.json` 新增：
+
+```json
+"MarketQueryLimits": {
+  "DisasterRecordLimit": 5000
+}
+```
+
+`MarketService` 建構子注入 `IConfiguration`，`GetDisastersAsync` 改為：
+
+```csharp
+// 為了避免一次撈出超過 10 萬筆資料導致 OutOfMemory，先設定一個合理的上限
+var limit = _configuration.GetValue<int>("MarketQueryLimits:DisasterRecordLimit", 5000);
+var groupedRaw = await query
+    .Take(limit)
+    .ToListAsync();
+```
+
+`GetValue<int>` 的第二個參數是 fallback 預設值——設定檔讀不到時的保底，確保行為不因設定缺失而中斷。這是讀設定值的好習慣：設定是優化，不是依賴。
+
+**為什麼是 5000**
+
+`DebrisAlertRecords` 是歷史型、線性累積的資料集。估算依據：一次查詢範圍內最多 30 個災害事件 × 每個事件最多 150 個受影響村落 = 4,500 筆，5,000 有合理餘量。這個數字設計的意義是「面試時說得出估算依據」，而非隨意填入。
+
+---
+
+### 四、DateHelper 單元測試建立（TaiwanAgri.Tests）
+
+**這個 PR 面試 CP 值最高的部分**
+
+專案從「0 個測試」升級至「有 xUnit 測試覆蓋」。測試標的選 `DateHelper.ConvertRocRestDay` 的原因：這是純函式（輸入三整數，輸出 `DateOnly?`，無副作用），測試撰寫成本最低，但覆蓋的邊界條件展示了「對民國年日期轉換的設計意圖理解」。
+
+```csharp
+public static DateOnly? ConvertRocRestDay(int rocYear, int month, int day)
+{
+    try { return new DateOnly(rocYear + 1911, month, day); }
+    catch { return null; }
+}
+```
+
+**6 個測試案例**
+
+| 測試名稱 | 輸入 | 預期 | 設計說明 |
+|----------|------|------|----------|
+| NormalDate | (107, 7, 15) | DateOnly(2018, 7, 15) | Happy Path，民國107 = 西元2018 |
+| LeapYearFeb29 | (109, 2, 29) | DateOnly(2020, 2, 29) | 民國109 = 西元2020（閏年），2/29 合法 |
+| Feb30 | (107, 2, 30) | null | 2月沒有30日，任何年份都不合法 |
+| NonLeapYearFeb29 | (94, 2, 29) | null | 民國94 = 西元2005（非閏年），2/29 不存在 |
+| InvalidMonth13 | (107, 13, 1) | null | 月份超出範圍 |
+| InvalidMonth0 | (107, 0, 1) | null | 月份為0，超出範圍 |
+
+**閏年測試的設計說明**
+
+`(94, 2, 29)` 和 `(109, 2, 29)` 這兩個案例一起展示了「同樣的輸入結構（2月29日），但因年份不同結果截然相反」。這正是邊界值測試最有說服力的形式：它告訴讀者「設計者知道閏年的語意，不是碰巧讓它過了」。
+
+**驗收結果**：Test Explorer 顯示 6/6 全綠通過。
+
+---
+
+## 不修項目說明
+
+| 項目 | 決策 | 理由 |
+|------|------|------|
+| MarketTypeMapping → enum | 不改，Controller 補白名單 | enum 在 EF Core 查詢需手動 `.ToString()`，改動範圍大，面試解釋成本高 |
+| porkList → porkRecords | 跳過 | 命名反映當前語意，改名反而製造疑惑 |
+| _queueName 補 readonly | 跳過 | StartAsync 動態寫入，技術上不能是 readonly |
+| rocYear 語意前綴 | 不改 | `rocYear` 比 `year` 更能區分民國年/西元年，反而更清楚 |
+| AddInfrastructure() 拆分 | 跳過 | Infrastructure 是合理聚合，拆了只增加行數無架構收益 |
+| IN 清單過長風險 | 跳過 | 台灣測站約 700 站，IN 清單不會超過 1000，此風險不成立 |
+| Take(5000) 設定化 | **已完成**（本 PR） | 練習設定外化，GetValue fallback 保留防護底線 |
+
+---
+
+## 驗收標準
+
+- `GET /api/market/prices?marketType=xxx`（非法值）回傳 400 BadRequest，訊息含合法選項
+- `GET /api/market/markets?marketType=Veg` 正常回傳（白名單通過）
+- `Test Explorer` 顯示 `DateHelperTests` 6/6 全綠
+- `appsettings.json` 含 `MarketQueryLimits:DisasterRecordLimit`，`GetDisastersAsync` 讀取設定值
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Modules.Market/Services/MarketService.cs` | M | 抽取 `BuildPricesCacheKey()` private static；注入 `IConfiguration`；`Take(limit)` 取代硬編碼 5000 |
+| `TaiwanAgri.Web/Controllers/MarketController.cs` | M | 新增 `IsValidMarketType()` private static；三個 Action 各自加入白名單驗證 |
+| `TaiwanAgri.Web/appsettings.json` | M | 新增 `MarketQueryLimits:DisasterRecordLimit = 5000` |
+| `TaiwanAgri.Tests/Helpers/DateHelperTests.cs` | A | 新增 6 個 xUnit 測試（2 Happy Path + 4 Null Path） |
+| `TaiwanAgri.Tests/UnitTest1.cs` | D | 刪除空殼樣板 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是**「同一個問題，有多種解法，哪一種的整體代價最小」**。
+
+`marketType` 的型別安全問題，有兩條路：enum 重構（設計層面解決）和 Controller 白名單（防禦層面解決）。這個 PR 選了後者，不是因為 enum 不好，而是因為 enum 在這個具體情境下有額外的轉換成本——而且那個成本在面試現場是額外的解釋負擔，不是工程收益。
+
+`BuildPricesCacheKey` 的歸屬決策則是另一個維度的判斷：「這個知識現在有幾個使用者？」一個使用者 → `private static`；多個使用者 → 搬入共用層。這個判斷和 PR #031 的 `ConvertRocRestDay` 形成對照——兩個都是純函式，但歸屬位置不同，因為它們的共用潛力不同。
+
+這些判斷不是隨機的，也不是「感覺哪個比較好」，而是從具體的設計問題出發，逐步推導出改動範圍最小、面試說明最清楚的那個選項。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：
