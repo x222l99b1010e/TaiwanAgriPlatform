@@ -4333,6 +4333,285 @@ public static DateOnly? ConvertRocRestDay(int rocYear, int month, int day)
 
 ---
 
+# PR #033 — W15 JWT 身分驗證完整實作
+
+**標題**：`feat(auth): JWT 發行基礎設施 + Login/Register API + Vue 3 登入頁 + NotificationController 還原 [Authorize]`
+
+---
+
+## 背景與動機
+
+W15 目標是實作完整的 JWT 身分驗證流程。在此之前，NotificationController 以 `[FromQuery] string userId` 作為暫時替代方案（技術債，已記錄於 PR #027），整個系統沒有任何真實的身分驗證機制，前端的「登入按鈕」只是未接通的 UI 佔位。
+
+本 PR 將三件事一次完成：
+
+1. **後端 JWT 發行基礎設施**：讓後端能夠產生、驗證 JWT token
+2. **後端 Login / Register API**：讓使用者能夠建立帳號並取得 token
+3. **前端登入頁與狀態管理**：讓 token 能夠被儲存、使用、登出清除，並讓 NotificationController 正式還原為 JWT 驗證
+
+---
+
+## 實作內容
+
+### 一、後端 JWT 發行基礎設施
+
+**`IdentityExtensions.cs` — JWT Middleware 設定**
+
+在 `AddIdentityModule()` 內新增：
+
+```csharp
+services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = configuration["Jwt:Issuer"],
+        ValidAudience = configuration["Jwt:Issuer"],
+        IssuerSigningKey = key
+    };
+});
+```
+
+四個 `Validate*` 全部 `true`：最嚴格的驗證，缺一不可。
+
+| 設定 | 驗證內容 |
+|------|----------|
+| `ValidateIssuer` | token 是否由本伺服器發行 |
+| `ValidateAudience` | token 是否給本服務用 |
+| `ValidateLifetime` | token 是否已過期 |
+| `ValidateIssuerSigningKey` | 簽章印章是否正確 |
+
+**`appsettings.json` — JWT 設定區塊**
+
+```json
+"Jwt": {
+  "SecretKey": "x7Kp2mQr9vLnT4wY8jZcA3bFhD6sEuN0iWoG1yRqP5tXmJkV2",
+  "Issuer": "TaiwanAgriPlatform",
+  "ExpiresInDays": 7
+}
+```
+
+密鑰要求：最少 32 字元（HMAC-SHA256），實際生產環境應替換為環境變數注入。
+
+---
+
+### 二、後端 Auth 功能模組
+
+**DTO 設計**
+
+| DTO | 方向 | 欄位 |
+|-----|------|------|
+| `LoginRequestDto` | 前端 → 後端 | `Email`、`Password` |
+| `RegisterRequestDto` | 前端 → 後端 | `Email`、`Password`、`DisplayName?`、`UserType?` |
+| `AuthResponseDto` | 後端 → 前端 | `Token`、`Email`、`DisplayName?`、`Role` |
+
+**`AuthService.cs` — 核心邏輯**
+
+登入流程（`LoginAsync`）：
+
+```
+UserManager.FindByEmailAsync        → 確認帳號存在
+SignInManager.CheckPasswordSignInAsync → 驗密碼（lockoutOnFailure: true）
+UserManager.GetRolesAsync           → 取得角色
+GenerateJwtToken()                  → 用密鑰產生 JWT
+```
+
+`lockoutOnFailure: true`：密碼連續輸錯後自動鎖定帳號，一個參數啟用 Identity 內建防暴力破解機制，不需要自行實作計數邏輯。
+
+`GenerateJwtToken()` — JWT 組裝：
+
+```csharp
+var claims = new[]
+{
+    new Claim(ClaimTypes.NameIdentifier, user.Id),
+    new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
+    new Claim(ClaimTypes.Role, role)
+};
+```
+
+Claims 是「手環上印的資料」，後端之後驗 token 時直接從 Claims 讀取 `userId` 和 `Role`，完全不需要再查 DB。
+
+**`RequireConfirmedAccount = false`**
+
+專案目前無 Email 驗證基礎設施，若設為 `true` 所有新帳號都無法登入（等待 Email 確認），開發期間設為 `false`。
+
+**`AuthController.cs` — HTTP 層**
+
+| 端點 | 例外 → HTTP 狀態 |
+|------|-----------------|
+| `POST /api/auth/login` | `UnauthorizedAccessException` → 401 |
+| `POST /api/auth/register` | `InvalidOperationException` → 400（密碼規則不符、Email 重複） |
+
+---
+
+### 三、NotificationController 還原 [Authorize]
+
+W15 的核心技術債結清。移除所有 `[FromQuery] string userId` 暫時方案，改為：
+
+```csharp
+[Authorize]
+// ...
+var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+if (userId == null) return Unauthorized();
+```
+
+Service 層簽名完全不需要改，因為設計之初就預留了此路徑（PR #027 設計決策）。
+
+---
+
+### 四、前端三層架構
+
+前端同樣遵循「api 層 → Pinia Store → Vue 元件」的三層架構。
+
+**第一層：`src/api/auth.ts`**
+
+封裝 `POST /api/auth/login` 和 `POST /api/auth/register`，定義對應的 TypeScript 介面（`LoginRequestDto`、`RegisterRequestDto`、`AuthResponseDto`）。
+
+**第一層（並列）：`src/api/authClient.ts`**
+
+帶 JWT 的獨立 axios instance，interceptor 自動從 `localStorage` 取 token：
+
+```typescript
+authClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+```
+
+**為何從 `localStorage` 取而非 import `authStore`**
+
+`useAuthStore()` 必須在 Vue 元件的 `setup()` 內呼叫（Pinia 需要 Vue 響應式環境）。API 層是普通 TypeScript 模組，直接呼叫 `useAuthStore()` 會觸發 `getActivePinia() was called with no active Pinia` 錯誤。`localStorage` 是瀏覽器原生全域存儲，無此限制，且與 `authStore` 存的是同一份資料，兩者完全一致。
+
+這也是一個架構邊界原則的體現：**api 層不得向上依賴 store 層**（違反三層架構的單向依賴方向）。
+
+**第二層：`src/stores/authStore.ts`**
+
+```typescript
+const token = ref<string | null>(localStorage.getItem('token'))
+const user = ref<...>(JSON.parse(localStorage.getItem('user') ?? 'null'))
+
+const isLoggedIn = computed(() => !!token.value)
+const displayName = computed(() => user.value?.displayName ?? user.value?.email ?? '')
+const role = computed(() => user.value?.role ?? 'Guest')
+```
+
+`token` 和 `user` 同時存 `localStorage`，確保頁面重新整理後不會登出。
+
+**第三層：`src/views/auth/LoginView.vue`**
+
+- 登入 / 註冊 Tab 切換（單一頁面處理兩種模式）
+- `translateIdentityError()`：9 條規則將 ASP.NET Core Identity 英文錯誤翻譯為中文
+
+| Identity 英文 | 翻譯 |
+|--------------|------|
+| `already taken` | 此 Email 已被註冊，請直接登入或使用其他信箱 |
+| `at least one non alphanumeric` | 密碼需包含至少一個特殊符號（如 !@#$） |
+| `Invalid login attempt` | 帳號或密碼錯誤，請重新確認 |
+| `locked out` | 帳號已被鎖定，請稍後再試 |
+
+- 成功後 `router.push('/')` 導回首頁
+
+**`TopNav.vue` 登入狀態切換**
+
+```vue
+<template v-if="authStore.isLoggedIn">
+  <span class="user-name">{{ authStore.displayName }}</span>
+  <button class="login-btn" @click="handleLogout">登出</button>
+</template>
+<button v-else class="login-btn" @click="router.push('/login')">登入</button>
+```
+
+**通知系統對齊 JWT**
+
+`notificationApi` 改用 `authClient`（自動帶 token），移除所有 `userId` 參數。`notification.ts` store 移除 `TEMP_USER_ID`，呼叫點全面清乾淨。
+
+---
+
+## 關鍵設計決策
+
+| 決策 | 內容 |
+|------|------|
+| `authClient` 從 `localStorage` 取 token | API 層不得 import Pinia Store（違反三層架構單向依賴），`localStorage` 是瀏覽器原生全域存儲，無依賴問題，且與 `authStore` 存的是同一份資料 |
+| `lockoutOnFailure: true` | 使用 Identity 內建帳號鎖定機制防暴力破解，一個參數啟用，不需自行實作計數邏輯 |
+| 註冊成功直接發行 token | 使用者體驗：註冊完直接進入首頁，不需要再手動登入一次，與現代網站（GitHub、Notion 等）慣例一致 |
+| `RequireConfirmedAccount = false` | 專案目前無 Email 驗證基礎設施，若設為 true 會導致所有新帳號無法登入 |
+| `translateIdentityError` 放在元件內 | 翻譯邏輯與登入 UI 強耦合（只有這個表單需要），不值得抽到共用層 |
+| JWT 不存 DB | 無狀態設計（Stateless），靠 `exp` claim 管理過期，後端驗印章純運算，不需要查 DB |
+| Claims 三個即可 | `NameIdentifier`（userId）、`Email`、`Role` 三個 Claim 足以支撐現有所有授權邏輯，不過度打包 token |
+
+---
+
+## 不修項目說明
+
+| 項目 | 不修理由 |
+|------|----------|
+| NavController `[AllowAnonymous]` 保留不變 | 設計本身正確——訪客（未登入）仍需取得 Guest 可見的導覽清單，否則前端 Navbar 在未登入時完全失效。JWT middleware 到位後，已登入使用者的 `ClaimsPrincipal` 自動注入，`[AllowAnonymous]` 不需異動 |
+| UserFarmProfiles CRUD | W15 原始範圍包含此功能，但優先完成核心 JWT 流程，CRUD 排入後續 Sprint |
+| UserWatchlist 管理 | 同上 |
+| NuGet `Microsoft.AspNetCore.Authentication.JwtBearer` | 需手動安裝（`dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer`），提供 `JwtSecurityToken`、`SymmetricSecurityKey` 等類別 |
+
+---
+
+## 驗收標準
+
+- [x] `POST /api/auth/register` 回傳 JWT token + 使用者基本資訊
+- [x] `POST /api/auth/login` 驗證帳密後回傳 JWT token
+- [x] 密碼規則不符時回傳 400 + 中文錯誤訊息
+- [x] Email 重複註冊時回傳 400 + 中文錯誤訊息
+- [x] 帳密錯誤時回傳 401
+- [x] JWT token 可在 jwt.io 解碼，Payload 含 `NameIdentifier`、`Email`、`Role`、`exp`、`iss`
+- [x] 登入後 TopNav 顯示 `displayName` + 登出按鈕
+- [x] 登出後清除 `localStorage`，TopNav 還原登入按鈕
+- [x] `GET /api/Notification/unread-count` 未帶 token 時回傳 401
+- [x] 帶有效 token 時通知 API 正常運作
+
+---
+
+## 檔案異動總表
+
+| 檔案 | 異動類型 | 說明 |
+|------|----------|------|
+| `TaiwanAgri.Web/Extensions/IdentityExtensions.cs` | 修改 | 加入 JWT Middleware（`AddAuthentication` + `AddJwtBearer`）；`RequireConfirmedAccount = false`；`IAuthService` 注入 |
+| `TaiwanAgri.Web/appsettings.json` | 修改 | 新增 `Jwt` 設定區塊 |
+| `TaiwanAgri.Web/Dtos/LoginRequestDto.cs` | 新增 | |
+| `TaiwanAgri.Web/Dtos/RegisterRequestDto.cs` | 新增 | |
+| `TaiwanAgri.Web/Dtos/AuthResponseDto.cs` | 新增 | |
+| `TaiwanAgri.Web/Services/IAuthService.cs` | 新增 | |
+| `TaiwanAgri.Web/Services/AuthService.cs` | 新增 | `SignInManager` + `UserManager` + `JwtSecurityTokenHandler` |
+| `TaiwanAgri.Web/Controllers/AuthController.cs` | 新增 | `[FromBody]` 接收 DTO；例外對應 HTTP 狀態碼 |
+| `TaiwanAgri.Web/Controllers/NotificationController.cs` | 修改 | 還原 `[Authorize]`；移除 `[FromQuery] string userId` |
+| `TaiwanAgri.Frontend/src/api/auth.ts` | 新增 | |
+| `TaiwanAgri.Frontend/src/api/authClient.ts` | 新增 | axios interceptor + `localStorage` token |
+| `TaiwanAgri.Frontend/src/stores/authStore.ts` | 新增 | `login / register / logout` + `localStorage` 持久化 |
+| `TaiwanAgri.Frontend/src/views/auth/LoginView.vue` | 新增 | Tab 切換 + `translateIdentityError` |
+| `TaiwanAgri.Frontend/src/router/index.ts` | 修改 | 加入 `/login` 路由 |
+| `TaiwanAgri.Frontend/src/components/TopNav.vue` | 修改 | 登入狀態切換 + 登出 |
+| `TaiwanAgri.Frontend/src/api/weather.ts` | 修改 | `notificationApi` 改用 `authClient`，移除 `userId` 參數 |
+| `TaiwanAgri.Frontend/src/stores/notification.ts` | 修改 | 移除 `TEMP_USER_ID` |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是 **「架構邊界的語意」**。
+
+`authClient` 為什麼不能直接 `import { useAuthStore }`？表面上是「技術限制」（Pinia 需要 Vue 上下文），但背後是一個更根本的設計原則：api 層的職責是「發 HTTP 請求、接回應」，它不應該知道應用程式的狀態長什麼樣子。如果讓 api 層知道 store 的存在，就等於讓「食材供應商」打電話問「廚房今天要做幾道菜」——職責邊界壞掉了。用 `localStorage` 繞過這個問題，不只是技術上的 workaround，而是恰好符合架構語意：api 層從「系統環境」（瀏覽器儲存）取 token，而非依賴「應用程式狀態」（Pinia store）。
+
+另一個值得注意的是 **JWT 的無狀態性**。和固定 token（存 DB）的設計相比，JWT 最重要的收益不是效能（不查 DB），而是**部署彈性**：任何持有密鑰的伺服器實例都能獨立驗證 token，水平擴展時不需要共享 Session 狀態。這個設計選擇在 Side Project 規模感受不明顯，但在面試現場說得出這個理由，才是真正掌握了 JWT 存在的意義。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

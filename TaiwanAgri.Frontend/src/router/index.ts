@@ -13,10 +13,13 @@ import RainfallView from '@/views/weather/RainfallView.vue'
 import PestAlertsView from '@/views/weather/PestAlertsView.vue'
 import PestDecadeView from '@/views/weather/PestDecadeView.vue'
 import PorkView from '@/views/market/PorkView.vue'
+import LoginView from '@/views/auth/LoginView.vue'
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    { path: '/login', component: LoginView },
     { path: '/', redirect: '/market/prices' },
     {
       path: '/market',

@@ -1,7 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using TaiwanAgri.Core.Entities;
 using TaiwanAgri.Web.Data;
+using TaiwanAgri.Web.Services;
 
 namespace TaiwanAgri.Web.Extensions
 {
@@ -16,9 +20,35 @@ namespace TaiwanAgri.Web.Extensions
 				options.UseSqlServer(connectionString));
 
 			services.AddDefaultIdentity<ApplicationUser>(options =>
-					options.SignIn.RequireConfirmedAccount = true)
+			// 先不驗證信箱帳號
+					options.SignIn.RequireConfirmedAccount = false)
 				.AddRoles<IdentityRole>()
 				.AddEntityFrameworkStores<ApplicationDbContext>();
+
+			services.AddScoped<IAuthService, AuthService>();
+
+			// JWT Middleware 設定
+			var secretKey = configuration["Jwt:SecretKey"]!;
+			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+
+			services.AddAuthentication(options =>
+			{
+				options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+				options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+			})
+			.AddJwtBearer(options =>
+			{
+				options.TokenValidationParameters = new TokenValidationParameters
+				{
+					ValidateIssuer = true,
+					ValidateAudience = true,
+					ValidateLifetime = true,
+					ValidateIssuerSigningKey = true,
+					ValidIssuer = configuration["Jwt:Issuer"],
+					ValidAudience = configuration["Jwt:Issuer"],
+					IssuerSigningKey = key
+				};
+			});
 
 			return services;
 		}

@@ -38,7 +38,15 @@
 
     <div class="top-right">
       <NotificationBell />
-      <button class="login-btn">登入</button>
+
+      <!-- 已登入：顯示名稱 + 登出 -->
+      <template v-if="authStore.isLoggedIn">
+        <span class="user-name">{{ authStore.displayName }}</span>
+        <button class="login-btn" @click="handleLogout">登出</button>
+      </template>
+
+      <!-- 未登入：登入按鈕 -->
+      <button v-else class="login-btn" @click="router.push('/login')">登入</button>
     </div>
   </header>
 </template>
@@ -46,15 +54,24 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useNavStore } from '@/stores/nav'
+import { useAuthStore } from '@/stores/authStore'
 import NotificationBell from '@/components/NotificationBell.vue'
 
+const router = useRouter()
 const route = useRoute()
 const navStore = useNavStore()
+const authStore = useAuthStore()
 const hoveredRoute = ref<string | null>(null)
 
 function isActive(moduleRoute: string) {
   return route.path === moduleRoute || route.path.startsWith(moduleRoute + '/')
+}
+
+function handleLogout() {
+  authStore.logout()
+  router.push('/login')
 }
 </script>
 
@@ -122,4 +139,10 @@ function isActive(moduleRoute: string) {
   transition: background 0.15s;
 }
 .login-btn:hover { background: rgba(255,255,255,0.12); }
+
+.user-name {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
 </style>

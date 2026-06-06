@@ -1,4 +1,5 @@
 import axios from 'axios'
+import authClient from '@/api/authClient'
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -120,23 +121,23 @@ export const weatherApi = {
 
 export const notificationApi = {
   /** GET /api/Notification/list?userId=...&page=1 */
-  getList(userId: string, page = 1): Promise<UserNotificationDto[]> {
-    return apiClient
-      .get<UserNotificationDto[]>('/api/Notification/list', { params: { userId, page } })
+  getList(page = 1): Promise<UserNotificationDto[]> {
+    return authClient
+      .get<UserNotificationDto[]>('/api/Notification/list', { params: { page } })
       .then(res => res.data)
   },
 
   /** GET /api/Notification/unread-count?userId=... */
-  getUnreadCount(userId: string): Promise<UnreadCountDto> {
-    return apiClient
-      .get<UnreadCountDto>('/api/Notification/unread-count', { params: { userId } })
-      .then(res => res.data)
-  },
+  getUnreadCount(): Promise<UnreadCountDto> {
+      return authClient
+        .get<UnreadCountDto>('/api/Notification/unread-count')
+        .then(res => res.data)
+    },
 
   /** PATCH /api/Notification/{id}/read?userId=... */
-  markAsRead(id: number, userId: string): Promise<void> {
-    return apiClient
-      .patch(`/api/Notification/${id}/read`, null, { params: { userId } })
+  markAsRead(id: number): Promise<void> {
+    return authClient
+      .patch(`/api/Notification/${id}/read`)
       .then(() => undefined)
   },
 }
