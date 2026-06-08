@@ -31,6 +31,7 @@
     <ProjectReference Include="..\TaiwanAgri.Modules.FoodSafety\TaiwanAgri.Modules.FoodSafety.csproj" />
     <ProjectReference Include="..\TaiwanAgri.Modules.Market\TaiwanAgri.Modules.Market.csproj" />
     <ProjectReference Include="..\TaiwanAgri.Modules.Pet\TaiwanAgri.Modules.Pet.csproj" />
+    <ProjectReference Include="..\TaiwanAgri.Modules.User\TaiwanAgri.Modules.User.csproj" />
     <ProjectReference Include="..\TaiwanAgri.Modules.Weather\TaiwanAgri.Modules.Weather.csproj" />
   </ItemGroup>
 

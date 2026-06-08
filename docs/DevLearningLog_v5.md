@@ -5865,6 +5865,247 @@ HTTP 的設計本意是：URL 是公開可快取、可收藏的資源識別符�
 
 ---
 
+### 條目 180 — DbContext 歸屬的判斷依據：問「消費者是誰」
+
+**我做了什麼**
+
+在設計 UserFarmProfiles 的資料庫歸屬時，需要選擇放進哪個 DbContext：ApplicationDbContext（Identity）、CoreDbContext（跨模組基礎設施）、或新建 UserDbContext。
+
+**我遇到的問題**
+
+直覺上覺得 UserFarmProfiles 和 Identity 有關（都跟使用者有關），所以差點放進 ApplicationDbContext。另一個選項 CoreDbContext 也感覺合理，因為「Core 是共用的」。
+
+**我怎麼想通的**
+
+問了一個問題：「這份資料的消費者是誰？」
+
+| 資料 | 消費者 | 歸屬 |
+|------|--------|------|
+| SyncStates | 所有 SyncWorker 都需要 | CoreDbContext |
+| NavModules | 整個導覽系統 | CoreDbContext |
+| RoleModulePermissions | 所有模組的存取控制 | CoreDbContext |
+| UserFarmProfiles | 只有使用者農場設定功能 | UserDbContext |
+
+ApplicationDbContext 的職責是管 Identity 六張表，不是業務資料的容器。CoreDbContext 是「消費者是所有模組」的東西的家，不是「只有特定業務用到」的東西的家。UserFarmProfiles 的消費者只有一個業務領域，所以應該新建 UserDbContext。
+
+**我學到的原則**
+
+判斷資料應該放在哪個 DbContext，先問「消費者是誰」。消費者是所有模組 → Core；消費者是特定業務 → 那個業務的模組；消費者是 Identity 本身 → ApplicationDbContext。不是看「感覺上屬於誰」，是看「誰真的需要這份資料」。
+
+---
+
+### 條目 181 — UserId 當 PK 與 int Id 當 PK 的本質差異
+
+**我做了什麼**
+
+設計 UserFarmProfile 的主鍵時，需要在「UserId（string）當 PK」和「int Id 當 PK + UserId 加 Unique Index」之間做選擇。
+
+**我遇到的問題**
+
+一開始覺得 int 自增 PK 是「標準做法」，不確定為什麼這裡要用 string PK。
+
+**我怎麼想通的**
+
+關鍵不是技術問題，是業務問題：「一個使用者應該有幾份農場偏好設定？」
+
+| PK 設計 | 業務語意 | API 設計影響 |
+|---------|---------|------------|
+| int Id | 一個使用者可以有多份設定 | `GET /api/profile/farms/{id}` 需要帶 id |
+| UserId | 一個使用者只能有一份設定 | `GET /api/profile/farm` 不需要任何參數 |
+
+農場偏好設定是「個人化的閱讀偏好」，語意上一個人只有一份。選 UserId 當 PK，資料庫層面就強制了這個業務規則，不需要另加 Unique Index，也讓 API 設計更乾淨。
+
+**我學到的原則**
+
+PK 的選擇是業務決策，不是技術決策。選 UserId 當 PK 是在說「這是一對一的關係，資料庫保證它」；選 int Id 是在說「可以有多份」。這個選擇決定了後續 API 的形狀、前端的邏輯、以及整個功能的使用者心智模型。
+
+---
+
+### 條目 182 — HasPrincipalKey：EF Core 的關聯推導邏輯與 shadow property
+
+**我做了什麼**
+
+Migration 跑完後，第一次呼叫 `GET /api/profile/farm` 回傳 500，錯誤訊息是：
+
+```
+Invalid column name 'UserFarmProfileUserId'
+```
+
+資料庫裡根本沒有這個欄位，但 EF Core 產生的 SQL 在找它。
+
+**我遇到的問題**
+
+UserFarmCrop 有 `UserId` 欄位當 FK，也有 `UserFarmProfile` 導覽屬性。UserFarmProfile 有 `Crops` 集合。DbContext 已經設定了 `HasOne/WithMany/HasForeignKey`，但還是出錯。
+
+**我怎麼想通的**
+
+EF Core 命名 shadow property 的規則是：「導覽屬性名稱 + 主表 PK 屬性名稱」。
+
+`UserFarmCrop.UserFarmProfile`（導覽屬性名稱）+ `UserFarmProfile.UserId`（主表 PK 名稱）
+→ `UserFarmProfileUserId`（EF Core 自己推導出的欄位名）
+
+問題在於：`WithMany()` 沒有指定集合（應該是 `WithMany(p => p.Crops)`），EF Core 不知道該用哪個集合對應，所以建立了 shadow property。加上 `HasPrincipalKey(p => p.UserId)` 明確告知主表端的 Key 是 `UserId`，而不是 EF Core 假設的 `Id`。
+
+```csharp
+entity.HasOne(c => c.UserFarmProfile)
+      .WithMany(p => p.Crops)          // 明確指定集合
+      .HasForeignKey(c => c.UserId)    // FK 欄位
+      .HasPrincipalKey(p => p.UserId)  // 主表 Key（必要！因為不是 int Id）
+      .OnDelete(DeleteBehavior.Cascade);
+```
+
+**我學到的原則**
+
+EF Core 的關聯設定有三個要素：FK 是哪個欄位（HasForeignKey）、主表 Key 是哪個欄位（HasPrincipalKey）、兩端的導覽屬性是什麼（HasOne/WithMany 的 lambda）。當任何一個要素沒有明確指定，EF Core 就會用命名慣例去猜，猜錯了就產生 shadow property。主表 PK 是非常規型別（string）時，HasPrincipalKey 是必要的。
+
+---
+
+### 條目 183 — Upsert 模式：為什麼一個使用者的設定只需要一支 PUT
+
+**我做了什麼**
+
+設計 ProfileController 時，需要決定要不要分開實作 `POST /api/profile/farm`（新增）和 `PUT /api/profile/farm`（更新）。
+
+**我遇到的問題**
+
+REST 語意上，POST 是新增、PUT 是更新，但這個場景下分開實作感覺有點奇怪——前端怎麼知道使用者「是第一次設定」還是「要更新已有的設定」？
+
+**我怎麼想通的**
+
+因為 UserId 是 PK，同一個 UserId 永遠只會有一筆資料。「新增」和「更新」對前端來說都是同一個動作：「我要把這份設定存起來」。
+
+前端不應該需要知道「資料庫裡現在有沒有這筆資料」，那是後端的細節。後端用 Upsert 語意（先查、再決定 INSERT 還是 UPDATE）統一處理。
+
+HTTP 語意上：PUT 的定義是「把指定資源覆蓋成這個狀態」，資源的識別是 UserId（從 JWT 取，不是 URL 參數），這完全符合 PUT 的語意。POST 的定義是「建立新資源，伺服器決定 ID」，但這裡 ID 是已知的（UserId），不適合 PUT。
+
+**我學到的原則**
+
+Upsert 適合的場景：資源的識別已知（不需要伺服器分配 ID），且業務規則是「一個識別只有一筆資料」。這種場景下，分開 POST + PUT 是讓前端承擔了不該承擔的狀態判斷職責。
+
+---
+
+### 條目 184 — GET 回傳 200+null vs 404：HTTP 狀態碼的語意精確性
+
+**我做了什麼**
+
+設計 `GET /api/profile/farm` 的回傳，當使用者還沒有設定過農場資料時，需要決定回傳 200+null 還是 404。
+
+**我遇到的問題**
+
+一開始直覺是「找不到資料就回 404」，這是常見的 REST API 做法。
+
+**我怎麼想通的**
+
+404 的語意是「你要找的資源不存在，這是錯誤狀態」。但「使用者還沒有設定農場偏好」不是錯誤，是正常的初始狀態。
+
+| 狀態碼 | 語意 | 前端反應 |
+|--------|------|---------|
+| 404 | 「應該存在但找不到」→ 錯誤 | 顯示錯誤訊息 |
+| 200 + null | 「查詢了，結果是空的」→ 正常 | 顯示空白表單讓使用者填寫 |
+
+設計 API 時，要區分「業務上的空值」和「技術上的錯誤」。前者用 200+null，後者才用 4xx 或 5xx。
+
+**我學到的原則**
+
+HTTP 狀態碼傳遞的是「這個請求在業務語意上成功了嗎」，不只是「有沒有找到資料」。「沒有設定過」是業務上的合法狀態，不是技術錯誤，應該回 200。有了這個原則，任何「空」都需要先判斷：是「不應該空，空了代表出錯」還是「可以空，空是一個合法值」。
+
+---
+
+### 條目 185 — 前端 store 邊界：為什麼作物清單不共用 marketStore
+
+**我做了什麼**
+
+ProfileView 需要顯示作物 Autocomplete 下拉，作物資料來自 `marketApi.getCrops()`，需要決定是透過 `marketStore` 取還是直接呼叫 API。
+
+**我遇到的問題**
+
+`marketStore` 已經有 `fetchCrops()` 方法，感覺可以直接重用。但 `marketStore.crops` 只有當前 `marketType` 的作物（Veg 或 Fruit 或 Flower，三選一），ProfileView 需要全部三種合併的結果。
+
+**我怎麼想通的**
+
+`marketStore.crops` 的語意是「使用者在行情頁目前選擇的類型對應的作物清單」，它是有狀態的（隨使用者在行情頁切換類別而改變）。ProfileView 需要的是「一個靜態的、完整的作物搜尋池」，兩個需求的語意完全不同。
+
+如果透過 marketStore 取，需要把 marketStore 改成存三份清單（vegCrops、fruitCrops、flowerCrops），這會讓 marketStore 同時服務兩種語意不同的需求，職責變模糊。
+
+正確做法是 ProfileView 自己在 onMounted 打三次 API，在本地狀態合併，不影響 marketStore 的設計。
+
+```typescript
+const [veg, fruit, flower] = await Promise.all([
+  marketApi.getCrops('Veg'),
+  marketApi.getCrops('Fruit'),
+  marketApi.getCrops('Flower'),
+])
+allCrops.value = [...veg, ...fruit, ...flower]
+```
+
+**我學到的原則**
+
+重用 store 的判斷標準是：「這兩個地方的需求語意相同嗎？」語意相同才重用，語意不同就各自管自己的資料。看起來是「同一份資料」，但如果用途不同（一個是有狀態的篩選器、一個是靜態搜尋池），就不應該強行共用。共用帶來的是隱性耦合，讓兩個不相關的功能互相影響。
+
+---
+
+### 條目 186 — onBlur 延遲關閉下拉：事件順序與 UI 競態問題
+
+**我做了什麼**
+
+實作 Autocomplete 下拉時，點選下拉選項後發現作物沒有被加入，debug 後發現 blur 事件比 click 先觸發，導致下拉在 click 執行前就消失了。
+
+**我遇到的問題**
+
+`@blur` 關閉下拉 → `@click` 選取作物，但實際執行順序是：blur 發生 → 下拉消失 → click 的目標（下拉選項的 DOM）不見了 → click 無法觸發。
+
+**我怎麼想通的**
+
+瀏覽器的事件觸發順序：`mousedown` → `blur` → `mouseup` → `click`。
+
+解法是把 `@click` 換成 `@mousedown`（在 blur 之前觸發），或在 `@blur` 加延遲讓 click 先跑完：
+
+```typescript
+function onBlur() {
+  setTimeout(() => {
+    showDropdown.value = false
+  }, 150) // 延遲 150ms，讓 mousedown/click 先觸發
+}
+```
+
+搭配下拉選項用 `@mousedown` 而非 `@click`，確保在 blur 觸發之前就選中了目標。
+
+**我學到的原則**
+
+任何「點選某個東西同時會觸發 blur」的 UI 模式都有這個競態問題。瀏覽器事件順序：mousedown → blur → mouseup → click。解法是改用 mousedown（比 blur 早），或 onBlur 加延遲。這是 Dropdown/Select/Combobox 元件的常見實作細節。
+
+---
+
+### 條目 187 — .gitignore glob pattern 的意外陷阱
+
+**我做了什麼**
+
+建立 TaiwanAgri.Modules.User 後執行 `git add TaiwanAgri.Modules.User/`，Git 說這個路徑被 .gitignore 忽略。
+
+**我遇到的問題**
+
+.gitignore 裡有 `*.user`，原意是忽略 Visual Studio 的 `*.csproj.user` 使用者設定檔，但 `*.user` 這個 glob pattern 也會匹配「名稱以 `.User` 結尾的資料夾」，導致整個 `TaiwanAgri.Modules.User/` 被忽略。
+
+**我怎麼想通的**
+
+`*` 在 glob 裡可以匹配任何字元，包括大小寫。`*.user` 匹配「任何以 `.user` 或 `.User` 結尾的名稱」，資料夾名稱也在匹配範圍內。
+
+正確做法是改為 `*.csproj.user`，精確描述要忽略的副檔名：
+
+```gitignore
+# 改前（會誤匹配資料夾名稱）
+*.user
+
+# 改後（精確描述 VS 使用者設定檔）
+*.csproj.user
+```
+
+**我學到的原則**
+
+.gitignore 的 glob pattern 同時匹配檔案和資料夾名稱。當 pattern 過於寬泛（如 `*.user`），可能意外忽略與 pattern 名稱相符的資料夾。規則：pattern 應該精確描述「你真正想忽略的東西」，不要用過於寬泛的模式，避免意外副作用。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -6126,3 +6367,42 @@ JWT 的無狀態性讓後端無需查 DB 驗證 token，代價是無法即時廢
 
 **關於 HTTP 語意與敏感資料**
 URL（Query String）是公開、可記錄、可快取的資源識別符；Request Body 是不應被快取的操作內容。敏感資料（密碼、個資、token）放 Body（`[FromBody]`），查詢條件（篩選參數、分頁、日期範圍）放 Query（`[FromQuery]`）。這不只是 HTTP 規範的要求，也是 Server log 安全性的基本防線。
+
+---
+
+## 跨條目的通用原則整理（v23.0 更新）
+
+以下為 v23.0 新增或強化的原則，和既有原則並列管理：
+
+**關於身分驗證的層次劃分**
+JWT 是 token 格式（規格），OAuth 是授權協議（流程），兩者不在同一個抽象層次，不能拿來二選一比較。使用 JWT 不代表使用 OAuth；使用 OAuth 的 token 可以是也可以不是 JWT 格式。碰到新的技術詞彙時，先問「它在哪個層次解決哪個問題」，再和已知的詞彙比較。
+
+**關於 Claims 的最小必要原則**
+Claims 的設計依據是「授權決策所需的最小資訊」，不是「前端所有可能有用的資訊」。判斷標準：這個 Claim 會影響「後端決定放不放行」嗎？不影響的資料由 API response 或 Store 管理，不應打包進 token 增加每次請求的 payload 大小。
+
+**關於無狀態設計的已知取捨**
+JWT 的無狀態性讓後端無需查 DB 驗證 token，代價是無法即時廢止已發行的 token。「無法立即廢止」不是 bug，是設計選擇的代價。需要即時廢止能力時，搭配 Redis 黑名單（儲存廢止的 token jti）是標準補救方案。在 Portfolio 規模的短過期時間（7 天）下，這個代價通常可接受。
+
+**關於 Pinia Store 的使用邊界**
+`useAuthStore()` 只能在 Vue 的 Composition API 環境（`setup()`、`<script setup>`）下呼叫。純 TypeScript 模組（api 層、工具函式）需要跨越這個邊界時，應從環境取資料（`localStorage`、`sessionStorage`、`window` 等瀏覽器原生 API），而非嘗試 import store。這不只是技術限制，更是架構邊界的正確體現：api 層依賴環境，不依賴應用狀態。
+
+**關於 HTTP 語意與敏感資料**
+URL（Query String）是公開、可記錄、可快取的資源識別符；Request Body 是不應被快取的操作內容。敏感資料（密碼、個資、token）放 Body（`[FromBody]`），查詢條件（篩選參數、分頁、日期範圍）放 Query（`[FromQuery]`）。這不只是 HTTP 規範的要求，也是 Server log 安全性的基本防線。
+
+**關於 DbContext 歸屬的判斷依據**
+問「這份資料的消費者是誰」。消費者是所有模組 → CoreDbContext；消費者是 Identity 本身 → ApplicationDbContext；消費者是特定業務領域 → 那個業務的獨立 DbContext。不是看資料「感覺上屬於誰」，是看「誰真的需要這份資料」。
+
+**關於 EF Core 關聯設定的完整性**
+EF Core 的關聯設定需要三個要素都明確：HasForeignKey（FK 是哪個欄位）、HasPrincipalKey（主表 Key 是哪個欄位）、HasOne/WithMany 的 lambda（導覽屬性是什麼）。任何一個缺失，EF Core 用命名慣例推導，推導錯了就產生 shadow property，症狀是 SQL 找不到自動推導出的欄位名稱（格式：導覽屬性名 + 主表 PK 名）。主表 PK 是 string 等非 int 型別時，HasPrincipalKey 是必要的。
+
+**關於 HTTP 狀態碼的語意精確性**
+區分「業務上的空值」和「技術上的錯誤」。空值是業務合法狀態時用 200+null；找不到資源是技術錯誤時用 404。「使用者還沒有設定過」是初始狀態，不是錯誤，應回 200。設計 API 時，先問「這個空是應該存在但找不到，還是合法的初始狀態」。
+
+**關於 Upsert 的適用條件**
+Upsert（合併新增和更新為一個操作）適合的條件：資源的識別已知（不需要伺服器分配 ID），且業務規則是「一個識別只有一筆資料」。這種場景下，分開 POST + PUT 是讓呼叫方承擔了不該承擔的狀態判斷職責（「現在有沒有這筆資料？」屬於資料層的事，不屬於呼叫方的事）。
+
+**關於前端 Store 的共用邊界**
+重用 store 的判斷標準是「需求語意相同嗎」，而不是「資料來源相同嗎」。來自同一個 API、但在不同頁面的用途和語意不同時，各自管自己的資料，不強行共用。共用帶來隱性耦合：一個地方的行為改變可能意外影響另一個地方。
+
+**關於瀏覽器事件順序的競態問題**
+`mousedown → blur → mouseup → click` 是瀏覽器的標準事件順序。任何「點選某個元素同時會觸發目前聚焦元素的 blur」的 UI 模式都會遇到這個問題（典型場景：Dropdown 的選項點選）。解法：改用 mousedown（比 blur 早），或在 onBlur 加 setTimeout 延遲讓 click 先完成。

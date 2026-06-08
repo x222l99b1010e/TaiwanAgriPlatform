@@ -20,5 +20,7 @@ namespace TaiwanAgri.Modules.User.Entities
 		// 每次儲存都更新
 		public DateTime UpdatedAt { get; set; }
 
+		public ICollection<UserFarmCrop> Crops { get; set; } = new List<UserFarmCrop>();
+
 	}
 }

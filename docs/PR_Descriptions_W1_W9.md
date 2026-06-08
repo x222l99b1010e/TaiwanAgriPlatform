@@ -4612,6 +4612,293 @@ const role = computed(() => user.value?.role ?? 'Guest')
 
 ---
 
+# PR #034 — W16 UserFarmProfiles CRUD：新模組建立 + 農場偏好設定完整實作
+
+**標題**：`feat(user): TaiwanAgri.Modules.User 新 Project + UserDbContext + ProfileController + Vue 3 農場設定頁（Autocomplete 作物搜尋）`
+
+---
+
+## 背景與動機
+
+W16 目標是實作使用者農場偏好設定（UserFarmProfiles CRUD），讓登入後的農民能夠記錄自己的農場基本資訊（縣市、類型）與主要作物清單，作為未來個人化功能（通知推送、行情過濾）的資料基礎。
+
+本 PR 同時完成三件事：
+
+1. **新業務模組建立**：TaiwanAgri.Modules.User 作為獨立 Class Library Project，建立清晰的使用者業務邊界
+2. **後端 CRUD API**：Entity 設計 + DbContext + Migration + Service + Controller 完整鏈路
+3. **前端農場設定頁**：包含作物 Autocomplete 搜尋的完整 CRUD 頁面
+
+---
+
+## 架構決策：為什麼是 TaiwanAgri.Modules.User，而不是放進既有 DbContext？
+
+本次實作的核心設計問題是：UserFarmProfiles 屬於哪個 DbContext？
+
+### 選項分析
+
+| 選項 | 說明 | 問題 |
+|------|------|------|
+| ApplicationDbContext | 放進 Identity 所在的入口層 | Web 入口層不應承載業務資料，架構邊界崩潰 |
+| CoreDbContext | 放進跨模組基礎設施層 | Core 是工具箱（SyncStates、NavModules），不是業務層 |
+| **新建 UserDbContext（本 PR 選擇）** | 獨立的使用者業務模組 | 無；邊界最清晰，擴充性最好 |
+
+**判斷依據**：UserFarmProfiles 的消費者是「使用者農場設定功能」，不是「所有模組都要依賴的基礎設施」。CoreDbContext 的定義是「消費者是所有模組的共用機制」，放 UserFarmProfiles 進去會讓 Core 的職責模糊。
+
+**面試說法**：「我問了一個問題：『這份資料的消費者是誰？』如果答案是某個特定業務領域，它就屬於那個業務的模組。如果答案是所有模組，它才屬於 Core。UserFarmProfiles 的消費者只有使用者個人化功能，所以單獨開一個 User 模組是正確的邊界設計。」
+
+---
+
+## 實作內容
+
+### 一、UserFarmProfile / UserFarmCrop Entity 設計
+
+**關鍵決策一：UserId 當 PK（不是 int Id）**
+
+```csharp
+[Key]
+[MaxLength(450)]
+public string UserId { get; set; } = string.Empty;
+// PK = 邏輯 FK → AspNetUsers.Id
+// 一個 UserId 只能有一筆農場設定，PK 本身保證唯一性
+```
+
+選擇 UserId 當 PK 的理由：
+- 業務語意清晰：「一個使用者只有一份農場偏好設定」，PK 直接強制此約束
+- API 設計最簡單：`GET /api/profile/farm` 不需要帶任何 id 參數，後端從 JWT Claims 取 UserId 即可
+- 如果未來需要「多農場管理」，那是另一個功能（UserFarms 子表），不是修改這張表
+
+**關鍵決策二：CropName 儲存快照**
+
+UserFarmCrop.CropName 存的是快照值，不是 JOIN 到 CropInfos 取的即時值。原因是 CropInfos 在 MarketDbContext，跨 DbContext 無法做 EF Core JOIN，快照讓查詢不需要跨界。
+
+**關鍵決策三：UserId 是邏輯 FK（無物理 FK constraint）**
+
+UserId 對應 AspNetUsers.Id，但 ApplicationDbContext 和 UserDbContext 是兩個獨立的 DbContext，EF Core 無法建立跨 DbContext 的物理 FK。這和 PestRuleConfig、UserNotification 的設計模式完全一致：跨 DbContext 邊界只能是邏輯關聯，完整性由應用程式層負責。
+
+---
+
+### 二、UserDbContext 關聯設定的陷阱與解法
+
+Migration 跑完後第一次測試 GET /api/profile/farm 回傳 500，錯誤訊息是：
+
+```
+Invalid column name 'UserFarmProfileUserId'
+```
+
+**根本原因**：UserFarmCrop 有導覽屬性 `UserFarmProfile`，UserFarmProfile 也有集合 `Crops`，EF Core 看到兩端導覽屬性，但 `WithMany()` 沒有明確指定對應的集合，EF Core 自己建立了一個 shadow property `UserFarmProfileUserId`。
+
+**解法**：明確指定雙向導覽屬性關聯，同時告知 EF Core 主表端的 Key：
+
+```csharp
+entity.HasOne(c => c.UserFarmProfile)
+      .WithMany(p => p.Crops)          // 明確指定集合導覽屬性
+      .HasForeignKey(c => c.UserId)    // FK 欄位是 UserFarmCrop.UserId
+      .HasPrincipalKey(p => p.UserId)  // 主表 Key 是 string UserId，不是 int
+      .OnDelete(DeleteBehavior.Cascade);
+```
+
+`HasPrincipalKey` 在 PK 是非常規型別（string）的場景下是必要的，缺少它 EF Core 會試圖自己推導關聯，產生錯誤的 shadow property。
+
+**面試說法**：「這個 bug 讓我搞清楚了 EF Core 建立關聯時的推導邏輯：EF Core 看到兩端導覽屬性，如果你不明確告訴它用哪個欄位關聯、主表的 Key 是什麼，它就自己發明一個欄位名。`HasPrincipalKey` 是在說：主表這端，請用 UserId 而不是你猜測的 Id。」
+
+---
+
+### 三、Upsert 設計：為什麼用一支 PUT 而不是 POST + PUT
+
+```csharp
+[HttpPut("farm")]
+public async Task<IActionResult> UpsertFarmProfile([FromBody] UpsertFarmProfileRequestDto request)
+```
+
+**原因**：UserId 是 PK，同一個 UserId 永遠只會有一筆資料。前端儲存時不需要知道「這是第一次存還是更新」，後端統一處理：
+
+```csharp
+var existing = await context.UserFarmProfiles
+    .Include(p => p.Crops)
+    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+if (existing is null)
+{
+    // 新增：設定 CreatedAt 和 UpdatedAt
+}
+else
+{
+    // 更新：只改欄位，CreatedAt 不動
+    // 作物清單：全刪全插
+    context.UserFarmCrops.RemoveRange(existing.Crops);
+    // foreach 新增
+}
+
+await context.SaveChangesAsync();
+```
+
+**作物清單為何全刪全插（不做 diff）**：農民通常種 3-10 種作物，數量少，全刪全插比「比對新舊清單找出新增/刪除」的邏輯更簡單可靠。diff 邏輯適合「清單有幾千筆、每次只改幾筆」的情境，這裡不符合。
+
+---
+
+### 四、GET 回傳 200 + null 而非 404
+
+```csharp
+if (profile is null)
+{
+    return Ok(null); // 不回 404
+}
+```
+
+**語意區別**：
+- `404 Not Found`：「你要找的資源不存在，這是錯誤」
+- `200 + null`：「你查詢了，結果是你還沒有設定過，這是正常狀態」
+
+第一次進個人設定頁，使用者還沒填過資料，前端應該顯示空白表單讓使用者填寫，而不是看到錯誤。回 404 會讓前端誤判「API 出錯了」，設計語意不正確。
+
+---
+
+### 五、Extension Method 對齊模組化模式
+
+```csharp
+// TaiwanAgri.Web/Extensions/UserModuleExtensions.cs
+public static IServiceCollection AddUserModule(
+    this IServiceCollection services,
+    IConfiguration configuration)
+{
+    services.AddDbContext<UserDbContext>(...);
+    services.AddScoped<IUserProfileService, UserProfileService>();
+    return services;
+}
+```
+
+Program.cs 維持五行格式，對齊現有 Market / Weather / Core / Identity 的模組化模式：
+
+```csharp
+builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddMarketModule(builder.Configuration);
+builder.Services.AddWeatherModule(builder.Configuration);
+builder.Services.AddCoreModule(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddUserModule(builder.Configuration);  // ← 新增
+```
+
+---
+
+### 六、前端三層架構
+
+前端同樣遵循「api 層 → Pinia Store → Vue 元件」三層架構。
+
+**第一層：src/api/profile.ts**
+
+使用 `authClient`（帶 JWT 的 axios instance），與 notificationApi 一致。GET 後端回 200+null 時，`res.data` 即為 null，前端用 null 判斷「顯示空白表單」。
+
+**第二層：src/stores/profile.ts**
+
+`saveFarmProfile()` 成功後主動重新呼叫 `fetchFarmProfile()`，確保畫面顯示的是資料庫裡實際存的資料，不只是「前端剛送出去的資料」。
+
+**第三層：src/views/ProfileView.vue — 作物 Autocomplete**
+
+作物下拉採 Autocomplete（而非靜態清單），因為台灣農產品作物種類多，使用者用關鍵字搜尋比翻選單更快。
+
+```typescript
+// 直接呼叫 API，不依賴 marketStore
+const [veg, fruit, flower] = await Promise.all([
+  marketApi.getCrops('Veg'),
+  marketApi.getCrops('Fruit'),
+  marketApi.getCrops('Flower'),
+])
+allCrops.value = [...veg, ...fruit, ...flower]
+```
+
+**為什麼不透過 marketStore 取作物清單？**
+
+`marketStore.crops` 的語意是「目前使用者在行情頁選擇的類型所對應的作物清單」，它是有狀態的（隨使用者切換 Veg/Fruit/Flower 而變化）。ProfileView 需要的是「三種類型全部合併的搜尋池」，這是不同的需求，不應該共用同一份狀態，以免 Profile 頁的操作影響行情頁的篩選器狀態。
+
+`onBlur` 延遲 150ms 關閉下拉，讓 `mousedown` 先觸發（否則點選下拉選項時，blur 先發生，下拉消失，click 就抓不到選中的項目）。
+
+---
+
+## 關鍵設計決策彙整
+
+| 決策 | 選擇 | 理由 |
+|------|------|------|
+| DbContext 歸屬 | 新建 UserDbContext | 消費者只有使用者業務，不屬於 Core 或 ApplicationDbContext |
+| 主鍵設計 | UserId（string）當 PK | 一人一份偏好設定，PK 保證唯一性，API 不需要帶 id 參數 |
+| 作物更新策略 | 全刪全插 | 作物數量少（3-10 種），全刪全插比 diff 更簡單可靠 |
+| HTTP 方法 | PUT（Upsert） | 資源識別（UserId）已知，前端無需區分新增或更新 |
+| 空資料回傳 | 200 + null | 「沒有設定過」是正常狀態，不是錯誤；前端顯示空白表單 |
+| 前端作物資料 | 直接打 API，不共用 marketStore | marketStore.crops 是有狀態的篩選器，語意不同 |
+| EF Core 關聯設定 | HasPrincipalKey(p => p.UserId) | 主表 PK 是 string，EF Core 需要明確告知才不會推導錯誤 |
+
+---
+
+## .gitignore 修正
+
+原本 `*.user` pattern 誤匹配到 `TaiwanAgri.Modules.User/` 資料夾（因資料夾名稱以 `.User` 結尾），導致新 Project 的所有檔案被 Git 忽略。
+
+修正方式：將 `*.user` 改為 `*.csproj.user`，精確描述要忽略的 Visual Studio 使用者設定檔，不再誤傷資料夾名稱。
+
+---
+
+## 不修項目說明
+
+| 項目 | 說明 |
+|------|------|
+| UserWatchlist | 下一個 PR 的功能，目前 UserFarmProfiles 先做偏好設定 |
+| 作物清單下拉來源 API | 目前直接呼叫 marketApi.getCrops()，未來可以考慮增加 GET /api/profile/crops 端點讓前端統一走 profile API，但目前直打沒有問題 |
+| YAGNI | UserFarmProfiles 設計為「偏好設定」而非「多農場管理」；若未來需要多農場功能，另開 UserFarms 表，不修改現有設計 |
+
+---
+
+## 驗收標準
+
+- [x] `GET /api/profile/farm`（未登入）回傳 401
+- [x] `GET /api/profile/farm`（登入、第一次）回傳 200 + `null`
+- [x] `PUT /api/profile/farm` 儲存後，重新整理頁面資料保留
+- [x] Autocomplete 輸入關鍵字後出現下拉選單，點選作物後加入清單
+- [x] 移除作物後再儲存，重新整理確認作物清單已更新
+- [x] Migration InitialUserSchema 建立 UserFarmProfiles + UserFarmCrops 兩張表
+- [x] TaiwanAgri.Modules.User 正確加入 Git 追蹤（.gitignore 修正）
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `.gitignore` | M | `*.user` → `*.csproj.user`，修正誤匹配資料夾名稱 |
+| `TaiwanAgri.Modules.User/TaiwanAgri.Modules.User.csproj` | A | 新 Class Library Project，相依 TaiwanAgri.Core + EF Core SqlServer |
+| `TaiwanAgri.Modules.User/Entities/UserFarmProfile.cs` | A | UserId PK + FarmCity + FarmType + CreatedAt/UpdatedAt + Crops 集合 |
+| `TaiwanAgri.Modules.User/Entities/UserFarmCrop.cs` | A | int Id PK + UserId FK + CropCode + CropName 快照 + 導覽屬性 |
+| `TaiwanAgri.Modules.User/Data/UserDbContext.cs` | A | HasOne/WithMany/HasForeignKey/HasPrincipalKey 完整關聯設定 |
+| `TaiwanAgri.Modules.User/Data/Migrations/20260607154349_InitialUserSchema.cs` | A | 建立兩張表 + FK + Index |
+| `TaiwanAgri.Modules.User/Data/Migrations/UserDbContextModelSnapshot.cs` | A | EF Core 模型快照 |
+| `TaiwanAgri.Modules.User/Dtos/ApiRequests/UpsertFarmProfileRequestDto.cs` | A | PUT 請求 DTO |
+| `TaiwanAgri.Modules.User/Dtos/ApiRequests/CropItemDto.cs` | A | 作物項目 DTO |
+| `TaiwanAgri.Modules.User/Services/IUserProfileService.cs` | A | 介面定義 |
+| `TaiwanAgri.Modules.User/Services/UserProfileService.cs` | A | Upsert 邏輯；作物全刪全插；一次 SaveChangesAsync |
+| `TaiwanAgri.Web/Extensions/UserModuleExtensions.cs` | A | AddUserModule() Extension Method |
+| `TaiwanAgri.Web/Controllers/ProfileController.cs` | A | [Authorize]；從 JWT Claims 取 userId；GET/PUT 各一個 Action |
+| `TaiwanAgri.Web/Program.cs` | M | 加入 AddUserModule() |
+| `TaiwanAgri.Web.csproj` | M | 加入 TaiwanAgri.Modules.User Project Reference |
+| `TaiwanAgri.Worker/Program.cs` | M | 確認 Worker 不需要 UserDbContext（已移除，僅後端 Web 需要） |
+| `TaiwanAgriPlatform.sln` | M | 加入 TaiwanAgri.Modules.User Project |
+| `TaiwanAgri.Frontend/src/api/profile.ts` | A | profileApi + TypeScript 介面 |
+| `TaiwanAgri.Frontend/src/stores/profile.ts` | A | Pinia profile store |
+| `TaiwanAgri.Frontend/src/views/ProfileView.vue` | A | 農場設定表單 + Autocomplete 作物搜尋 |
+| `TaiwanAgri.Frontend/src/router/index.ts` | M | 加入 /profile 路由 |
+| `TaiwanAgri.Frontend/src/components/TopNav.vue` | M | 已登入狀態加入「農場設定」連結 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是**「主鍵設計如何影響 API 設計」**。
+
+選擇 UserId 當 PK，帶來的不只是「資料庫保證唯一性」這一個好處，它讓整個 API 變得更簡單：沒有 `POST /api/profile/farm`（因為沒有「建立」這個動作的概念）；PUT 的語意從「更新一個你已知 id 的資源」變成「把這份設定存起來」；GET 不需要任何參數，後端自己知道要查誰的資料。
+
+PK 的選擇是業務模型的決策，不是資料庫技術的決策。選了 `int Id` 就是說「一個使用者可以有多份設定」；選了 `UserId` 就是說「這是一對一的關係」。這個選擇決定了後續所有 API、前端、邏輯的形狀。
+
+另一個值得注意的是 **EF Core 的 HasPrincipalKey**。大多數時候，EF Core 的約定設定可以自動推導出正確的關聯，但當 PK 是非常規型別（string）且兩端都有導覽屬性時，自動推導會產生錯誤的 shadow property。這個 bug 的症狀（「Invalid column name 'UserFarmProfileUserId'」）讓我理解了 EF Core 的命名慣例：它用「導覽屬性名稱 + 主表 PK 名稱」組合出外鍵欄位名。明確指定 `HasPrincipalKey` 是告訴 EF Core「不要猜了，主表的 Key 就是 UserId」。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

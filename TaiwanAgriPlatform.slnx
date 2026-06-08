@@ -6,6 +6,7 @@
   <Project Path="TaiwanAgri.Modules.FoodSafety/TaiwanAgri.Modules.FoodSafety.csproj" />
   <Project Path="TaiwanAgri.Modules.Market/TaiwanAgri.Modules.Market.csproj" />
   <Project Path="TaiwanAgri.Modules.Pet/TaiwanAgri.Modules.Pet.csproj" />
+  <Project Path="TaiwanAgri.Modules.User/TaiwanAgri.Modules.User.csproj" Id="f775c7f6-a19b-4fa4-870f-f939f01ff7b6" />
   <Project Path="TaiwanAgri.Modules.Weather/TaiwanAgri.Modules.Weather.csproj" />
   <Project Path="TaiwanAgri.Tests/TaiwanAgri.Tests.csproj" />
   <Project Path="TaiwanAgri.Web/TaiwanAgri.Web.csproj" />

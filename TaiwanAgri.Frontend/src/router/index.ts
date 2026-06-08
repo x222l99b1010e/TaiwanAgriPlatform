@@ -14,6 +14,7 @@ import PestAlertsView from '@/views/weather/PestAlertsView.vue'
 import PestDecadeView from '@/views/weather/PestDecadeView.vue'
 import PorkView from '@/views/market/PorkView.vue'
 import LoginView from '@/views/auth/LoginView.vue'
+import ProfileView from '@/views/ProfileView.vue'
 
 
 const router = createRouter({
@@ -44,6 +45,8 @@ const router = createRouter({
     },
     { path: '/food-safety', component: PlaceholderView },
     { path: '/pet', component: PlaceholderView },
+
+    { path: '/profile', component: ProfileView },
   ]
 })
 
