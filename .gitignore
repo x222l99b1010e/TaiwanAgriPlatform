@@ -1,6 +1,6 @@
 # Visual Studio
 .vs/
-*.user
+*.csproj.user
 *.suo
 *.userosscache
 *.sln.docstates

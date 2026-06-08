@@ -3,6 +3,7 @@ using Polly;
 using Serilog;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.Market.Data;
+using TaiwanAgri.Modules.User.Data;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
 
@@ -36,6 +37,10 @@ namespace TaiwanAgri.Worker
 					builder.Configuration.GetConnectionString("DefaultConnection")));
 
 			builder.Services.AddDbContext<MarketDbContext>(options =>
+				options.UseSqlServer(
+					builder.Configuration.GetConnectionString("DefaultConnection")));
+			
+			builder.Services.AddDbContext<UserDbContext>(options =>
 				options.UseSqlServer(
 					builder.Configuration.GetConnectionString("DefaultConnection")));
 
