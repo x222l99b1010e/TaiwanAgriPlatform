@@ -96,11 +96,14 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+const route = useRoute()
+const redirect = (route.query.redirect as string) || '/'
 
 function translateIdentityError(msg: string): string {
       if (msg.includes('already taken')) return '此 Email 已被註冊，請直接登入或使用其他信箱'
@@ -140,7 +143,7 @@ async function handleSubmit() {
         userType: userType.value,
       })
     }
-    router.push('/')
+    router.push(redirect)
   } catch (err: unknown) {
     // axios 錯誤：嘗試取出後端回傳的文字
     if (

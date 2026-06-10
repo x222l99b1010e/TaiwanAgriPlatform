@@ -16,6 +16,7 @@ namespace TaiwanAgri.Web.Extensions
 			// Scoped：每個 HTTP Request 建立一個實例，Request 結束就釋放
 			// 和其他 Service（IMarketService、IWeatherService）一致
 			services.AddScoped<IUserProfileService, UserProfileService>();
+			services.AddScoped<IUserWatchlistService, UserWatchlistService>();
 
 			return services;
 		}

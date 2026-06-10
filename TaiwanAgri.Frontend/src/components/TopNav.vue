@@ -43,6 +43,7 @@
       <template v-if="authStore.isLoggedIn">
         <span class="user-name">{{ authStore.displayName }}</span>
         <router-link to="/profile" class="login-btn">農場設定</router-link>
+        <router-link to="/watchlist" class="login-btn">監看清單</router-link>
         <button class="login-btn" @click="handleLogout">登出</button>
       </template>
 

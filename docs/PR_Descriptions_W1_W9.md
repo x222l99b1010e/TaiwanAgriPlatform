@@ -4899,6 +4899,332 @@ PK 的選擇是業務模型的決策，不是資料庫技術的決策。選了 `
 
 ---
 
+# PR #035 — W17 UserWatchlist 完整實作：Entity + Service + Controller + 前端三層 + 路由守衛強化
+
+**標題**：`feat(user): UserWatchlist Entity + Migration + Service（去重/防越權）+ WatchlistController（Pattern C）+ Vue 3 監看清單頁 + beforeEach return 語法升級`
+
+---
+
+## 背景與動機
+
+W17 目標是實作使用者監看清單（UserWatchlist）功能，讓農民能夠保存「我想持續追蹤哪些作物在哪個市場的行情」這份偏好設定，作為個人化儀表板的資料基礎。
+
+本 PR 同時完成四件事：
+
+1. **後端資料層**：UserWatchlist Entity + UserDbContext Fluent API（無導覽屬性關聯寫法）+ Migration
+2. **後端服務層**：IUserWatchlistService + UserWatchlistService，包含去重防護與越權刪除防護
+3. **後端控制層**：WatchlistController，採用 Controller 層組合架構（Pattern C）
+4. **前端三層**：api / Pinia Store / WatchlistView.vue，完整 CRUD 體驗，含 409 衝突處理與 redirect 登入流程
+
+---
+
+## 架構決策：UserWatchlist 的跨模組資料問題
+
+### 問題背景
+
+監看清單的靜態偏好（UserId、CropCode、MarketCode）存在 UserDbContext，但使用者最終想看的是「最新價格」——這份資料在 MarketDbContext。如何組合這兩份資料？
+
+### 三個方案的取捨
+
+| 方案 | 說明 | 問題 |
+|------|------|------|
+| 方案 A：直接注入跨模組 DbContext | UserWatchlistService 同時注入 UserDbContext + MarketDbContext | 模組邊界崩潰，User 模組直接依賴 Market 模組 |
+| 方案 B：HTTP 呼叫 | UserWatchlistService 呼叫 /api/market/prices 取得價格 | 同一個 process 內繞一圈 HTTP，無謂開銷 |
+| **方案 C：Controller 層組合（本 PR 選擇）** | WatchlistController 分別注入 IUserWatchlistService + IMarketService，各自取資料後在 Controller 組合 | 無；邊界清楚，IMarketService 已實作可直接重用 |
+
+**面試說法**：「我的判斷依據是『誰的職責是什麼』。Service 層的職責是業務邏輯，不是跨模組協調。Controller 層本來就是組合資料、回應請求的位置，讓 Controller 分別拿兩個 Service 的資料再組合，比讓 Service 知道另一個模組更符合職責分離。」
+
+---
+
+## 實作內容
+
+### 一、UserWatchlist Entity 設計
+
+**欄位設計決策：快照而非 FK**
+
+```csharp
+public class UserWatchlist
+{
+    [Key]
+    public int Id { get; set; }
+
+    [Required, StringLength(450)]
+    public string UserId { get; set; } = string.Empty;
+
+    [Required, StringLength(10)]
+    public string CropCode { get; set; } = string.Empty;
+
+    [Required, StringLength(50)]
+    public string CropName { get; set; } = string.Empty;   // 快照
+
+    [StringLength(10)]
+    public string? MarketCode { get; set; }
+
+    [StringLength(100)]
+    public string? MarketName { get; set; }               // 快照，nullable
+}
+```
+
+CropName 和 MarketName 存快照的原因：CropInfos 在 MarketDbContext，MarketInfos 同樣在 MarketDbContext，跨 DbContext 無法 EF Core JOIN。快照讓查詢不需要跨界，顯示名稱不需要額外 API 呼叫。
+
+MarketCode/MarketName nullable 的語意：null 代表「全台均價」，是合法的業務狀態，不是資料缺失。
+
+---
+
+### 二、UserDbContext Fluent API：無導覽屬性的 HasOne<T>() 寫法
+
+UserWatchlist 故意不加導覽屬性，原因是使用場景只需要「給我某個 UserId 的所有 Watchlist」，永遠不需要從一筆 Watchlist 反查 UserFarmProfile。
+
+沒有導覽屬性時，EF Core 的關聯設定寫法：
+
+```csharp
+// PR #034 UserFarmCrop：有導覽屬性
+entity.HasOne(c => c.UserFarmProfile)
+      .WithMany(p => p.Crops)
+      ...
+
+// PR #035 UserWatchlist：無導覽屬性，改用泛型
+entity.HasOne<UserFarmProfile>()   // ← 泛型，不是 lambda
+      .WithMany()                   // ← 空括號，主表無對應集合屬性
+      .HasForeignKey(c => c.UserId)
+      .HasPrincipalKey(p => p.UserId)
+      .OnDelete(DeleteBehavior.Cascade);
+
+entity.HasIndex(c => c.UserId);
+```
+
+`HasOne<T>()` 泛型寫法是「我知道這個關聯指向哪個 Entity，但我不需要導覽屬性」的標準 EF Core 表達方式。
+
+---
+
+### 三、Service 層安全設計：userId 參數的兩個理由
+
+```csharp
+public interface IUserWatchlistService
+{
+    Task<IEnumerable<WatchlistItemDto>> GetUserWatchlistItemsAsync(string userId);
+    Task<bool> AddWatchlistItemAsync(string userId, AddWatchlistRequestDto request);
+    Task RemoveWatchlistItemsAsync(string userId, IEnumerable<int> ids);
+}
+```
+
+異動方法都帶 `userId` 參數，有兩個獨立的理由：
+
+**理由一（架構）**：Service 層沒有 HTTP Context，無法存取 JWT Claims。`User.FindFirstValue(ClaimTypes.NameIdentifier)` 只能在 Controller 層呼叫，Controller 取出後向下傳遞給 Service。
+
+**理由二（安全）**：刪除時同時比對 id 和 userId，確保使用者只能刪自己的資料：
+
+```csharp
+var targetItems = context.UserWatchlists
+    .Where(w => w.UserId == userId && ids.Contains(w.Id));
+context.UserWatchlists.RemoveRange(targetItems);
+```
+
+如果只傳 ids，惡意使用者猜到別人的 Watchlist Id 後可以直接刪除他人資料。雙重條件讓越權刪除在 Service 層被攔截。
+
+---
+
+### 四、AddWatchlistItemAsync 的去重邏輯與 HTTP 語意
+
+**去重防護：AnyAsync 而非 Distinct**
+
+兩者語意完全不同：
+- `Distinct`：「回傳時過濾重複」，重複資料已存入 DB
+- `AnyAsync`：「存入前先確認是否已存在」，攔截在 SaveChanges 之前
+
+```csharp
+var exists = await context.UserWatchlists
+    .AnyAsync(w => w.UserId == userId
+                && w.CropCode == request.CropCode
+                && w.MarketCode == request.MarketCode);
+
+if (exists) return false;
+// 繼續新增 ...
+return true;
+```
+
+**回傳 bool 而非拋例外**
+
+Service 回傳 bool，Controller 決定 HTTP 狀態碼，職責分離的正確體現：
+
+```csharp
+var success = await userWatchlistService.AddWatchlistItemAsync(userId, request);
+if (!success) return Conflict("此作物與市場組合已在監看清單中");
+return NoContent();
+```
+
+409 Conflict 是語意正確的狀態碼：「請求本身合法，但因資源狀態衝突無法完成」。
+
+---
+
+### 五、DELETE 的 [FromQuery] 設計
+
+```csharp
+[HttpDelete]
+public async Task<IActionResult> RemoveWatchlistItems([FromQuery] IEnumerable<int> ids)
+```
+
+DELETE 請求帶 Request Body 在部分 Proxy 和早期 HTTP Client 實作上有相容性問題。使用 Query String 是更安全的選擇。
+
+前端對應：axios 預設陣列展開格式（`ids[0]=1`）與 ASP.NET Core 的 `[FromQuery]` 不相容，需要用 `URLSearchParams` 手動控制：
+
+```typescript
+removeItems(ids: number[]): Promise<void> {
+  const params = new URLSearchParams()
+  ids.forEach(id => params.append('ids', String(id)))
+  return authClient.delete('/api/watchlist', { params }).then(() => undefined)
+}
+```
+
+---
+
+### 六、Vue Router beforeEach：return 取代 next()
+
+Vue Router v4 將 `next()` callback 標記為 deprecated，改用 return 值：
+
+```typescript
+// ❌ 舊寫法（deprecated warning）
+router.beforeEach((to, _from, next) => {
+  if (condition) next({ name: 'login', query: { redirect: to.fullPath } })
+  else next()
+})
+
+// ✅ 新寫法（v4 原生）
+router.beforeEach((to, _from) => {
+  if (condition) return { name: 'login', query: { redirect: to.fullPath } }
+  return true
+})
+```
+
+語意完全一致：return 物件 = 導向，return true = 放行，return false = 取消導航。
+
+---
+
+### 七、登入後 redirect 跳轉
+
+路由守衛把原始目標路徑存進 query string：
+
+```typescript
+return { name: 'login', query: { redirect: to.fullPath } }
+```
+
+LoginView 登入成功後讀取並跳轉：
+
+```typescript
+const route = useRoute()
+const redirect = (route.query.redirect as string) || '/'
+router.push(redirect)
+```
+
+使用者原本要去 `/watchlist`，被踢到 `/login`，登入成功後自動跳回 `/watchlist`。
+
+---
+
+### 八、前端 Store 錯誤狀態管理與表單重置邏輯
+
+```typescript
+// Store：操作開始前清除舊訊息，捕捉 409 vs 其他錯誤
+async function addItem(request: AddWatchlistRequest) {
+  errorMessage.value = null
+  try {
+    await watchlistApi.addItem(request)
+    await fetchItems()
+  } catch (err: any) {
+    if (err?.response?.status === 409) {
+      errorMessage.value = '此作物與市場組合已在監看清單中'
+    } else {
+      errorMessage.value = '新增失敗，請稍後再試'
+    }
+  }
+}
+
+// View：只有成功（沒有 errorMessage）才重置表單
+await store.addItem({ ... })
+if (!store.errorMessage) {
+  selectedCrop.value = null
+  selectedMarketCode.value = null
+}
+```
+
+重新選作物時清除錯誤訊息（`selectCrop` / `clearCrop` 各加一行 `store.errorMessage = null`），確保舊錯誤不會殘留到下次送出。
+
+---
+
+## 關鍵設計決策彙整
+
+| 決策 | 選擇 | 理由 |
+|------|------|------|
+| 跨模組資料組合 | Controller 層組合（Pattern C） | Service 層不應跨模組依賴；Controller 本就是組合層 |
+| 無導覽屬性關聯 | HasOne<UserFarmProfile>() 泛型寫法 | 查詢場景不需要反向導航，不加導覽屬性是有意為之 |
+| userId 在 Service 方法簽名 | 必須傳入 | 架構（Service 無 HTTP Context）+ 安全（防越權刪除）兩個獨立理由 |
+| 去重防護 | AnyAsync + 回傳 bool | 攔截在寫入前；bool 讓 Controller 決定 HTTP 語意 |
+| 重複衝突 HTTP 狀態碼 | 409 Conflict | 語意精確：資源狀態衝突，非格式錯誤 |
+| DELETE 參數傳遞 | [FromQuery] + URLSearchParams | Body 在 DELETE 的跨實作相容性問題 |
+| beforeEach 語法 | return 取代 next() | Vue Router v4 官方推薦，消除 deprecated warning |
+| 勾選狀態 | View 層 ref，不進 Store | 瞬間 UI 狀態，無跨元件/跨頁面需求 |
+| 新增/刪除後重新 fetch | fetchItems() | 資料集小，保證 UI 與 DB 完全一致 |
+
+---
+
+## 不修項目說明
+
+| 項目 | 說明 |
+|------|------|
+| WatchlistController 的 IMarketService 注入 | 已注入但本 PR 未使用，為後續「顯示即時價格」功能預留入口 |
+| 市場下拉只載入蔬菜市場 | onMounted 只呼叫 getMarkets('Veg')，後續 PR 可擴充 |
+| Watchlist 即時價格組合 | Pattern C 架構已就位，Controller 層補呼叫 IMarketService 即可 |
+
+---
+
+## 驗收標準
+
+- [x] 未登入直接訪問 `/watchlist` → 被導向 `/login?redirect=/watchlist`
+- [x] 登入成功後 → 自動跳回 `/watchlist`
+- [x] `GET /api/watchlist`（未帶 token）→ 401
+- [x] 新增監看項目 → 清單出現新增資料
+- [x] 重複新增同一作物+市場組合 → 顯示「已存在」提示，表單保留
+- [x] 勾選多筆後刪除 → 清單移除對應項目
+- [x] Console 無 `[Vue Router warn]: The next() callback is deprecated` 警告
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Modules.User/Entities/UserWatchlist.cs` | A | Entity 定義 |
+| `TaiwanAgri.Modules.User/Data/UserDbContext.cs` | M | DbSet + Fluent API |
+| `TaiwanAgri.Modules.User/Migrations/20260609164901_AddNewTableUserWatchList.cs` | A | Migration |
+| `TaiwanAgri.Modules.User/Migrations/20260609164901_AddNewTableUserWatchList.Designer.cs` | A | 設計器快照 |
+| `TaiwanAgri.Modules.User/Migrations/UserDbContextModelSnapshot.cs` | M | 模型快照更新 |
+| `TaiwanAgri.Modules.User/Dtos/ApiRequests/AddWatchlistRequestDto.cs` | A | 新增請求 DTO |
+| `TaiwanAgri.Modules.User/Dtos/ApiResponses/WatchlistItemDto.cs` | A | 回應 DTO |
+| `TaiwanAgri.Modules.User/Services/IUserWatchlistService.cs` | A | 介面定義 |
+| `TaiwanAgri.Modules.User/Services/UserWatchlistService.cs` | A | 實作：去重 + 防越權 |
+| `TaiwanAgri.Web/Controllers/WatchlistController.cs` | A | [Authorize] + Pattern C + [FromQuery] DELETE |
+| `TaiwanAgri.Web/Controllers/ProfileController.cs` | M | 無邏輯異動 |
+| `TaiwanAgri.Web/Extensions/UserModuleExtensions.cs` | M | 新增 Scoped 註冊 |
+| `TaiwanAgri.Frontend/src/api/watchlist.ts` | A | watchlistApi + URLSearchParams |
+| `TaiwanAgri.Frontend/src/stores/watchlist.ts` | A | Pinia store + 409 分流 |
+| `TaiwanAgri.Frontend/src/views/WatchlistView.vue` | A | Autocomplete + 勾選多刪 |
+| `TaiwanAgri.Frontend/src/router/index.ts` | M | /watchlist 路由 + return 語法 |
+| `TaiwanAgri.Frontend/src/views/auth/LoginView.vue` | M | redirect query 跳轉 |
+| `TaiwanAgri.Frontend/src/components/TopNav.vue` | M | 監看清單連結 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是**「同一個 userId 參數，有兩個完全獨立的存在理由」**。
+
+架構理由和安全理由剛好都指向同一個設計，這不是巧合，而是「好的架構邊界往往也帶來安全性」的體現。Service 層不知道 HTTP Context（架構邊界），所以只能接受呼叫方傳入的 userId；傳入的 userId 用於 WHERE 條件（安全邊界），越權操作在資料層就被攔截。兩個理由互相補強。
+
+另一個值得注意的是 **HasOne<T>() vs HasOne(lambda) 的選擇依據**。選哪種取決於查詢需求，不是哪種寫起來更簡單。沒有導覽屬性是一個有意識的設計決策：「我不需要從 Watchlist 反查 Profile，所以不加這個屬性，讓 Entity 更輕。」
+
+最後，**勾選狀態不進 Store** 展示了一個重要習慣：Store 是成本，不是免費的工具。每次問「這個狀態需要進 Store 嗎」，等同於在問「有跨元件/跨頁面的需求嗎」。沒有的話，留在 View 層更輕量。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

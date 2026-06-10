@@ -7,6 +7,7 @@ namespace TaiwanAgri.Modules.User.Data
 	{
 		public DbSet<UserFarmProfile> UserFarmProfiles => Set<UserFarmProfile>();
 		public DbSet<UserFarmCrop> UserFarmCrops => Set<UserFarmCrop>();
+		public DbSet<UserWatchlist> UserWatchlists => Set<UserWatchlist>();
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
@@ -44,6 +45,19 @@ namespace TaiwanAgri.Modules.User.Data
 				// 查詢某使用者的所有作物走索引
 				entity.HasIndex(c => c.UserId);
 				
+			});
+
+			modelBuilder.Entity<UserWatchlist>(entity =>
+			{
+				entity.ToTable("UserWatchlists");
+				// 查詢某使用者的所有追蹤作物走索引
+				entity.HasOne<UserFarmProfile>()  // ← 用泛型指定關聯的 Entity 型別
+				.WithMany()
+				.HasForeignKey(c => c.UserId)
+				.HasPrincipalKey(p => p.UserId)
+				.OnDelete(DeleteBehavior.Cascade);
+
+				entity.HasIndex(c => c.UserId);
 			});
 		}
 	}

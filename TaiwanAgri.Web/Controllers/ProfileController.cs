@@ -16,10 +16,11 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("farm")]
 		public async Task<IActionResult> GetFarmProfile()
 		{
-			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-			if (userId is null) return Unauthorized();
 			// User.FindFirstValue：從 JWT Claims 裡找 NameIdentifier（就是 UserId）
 			// JWT 驗證通過但 Claim 不存在是異常情況，回 401
+			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			if (userId is null) return Unauthorized();
+			
 
 			var profile = await userProfileService.GetUsersFarmProfileAsync(userId);
 

@@ -6106,6 +6106,355 @@ function onBlur() {
 
 ---
 
+### 條目 188 — EF Core HasOne<T>() 泛型寫法：無導覽屬性的關聯設定
+
+**我做了什麼**
+
+UserWatchlist Entity 沒有加導覽屬性（沒有 `public UserFarmProfile UserFarmProfile { get; set; }`），但在 UserDbContext 的 Fluent API 裡仍然需要設定它和 UserFarmProfile 的外鍵關聯。
+
+**我遇到的問題**
+
+用 `entity.HasOne(c => c.UserId)` 寫法報錯——`HasOne` 的 lambda 裡應該放**導覽屬性**，不是欄位值。但 UserWatchlist 根本沒有導覽屬性，lambda 裡放不了任何屬性。
+
+**我怎麼想通的**
+
+EF Core 提供了兩種 HasOne 寫法，對應兩種場景：
+
+```csharp
+// 有導覽屬性時：lambda 裡放屬性名稱
+entity.HasOne(c => c.UserFarmProfile)
+      .WithMany(p => p.Crops)
+      ...
+
+// 沒有導覽屬性時：用泛型指定關聯的 Entity 型別
+entity.HasOne<UserFarmProfile>()
+      .WithMany()               // 主表也沒有對應集合屬性，留空
+      .HasForeignKey(c => c.UserId)
+      .HasPrincipalKey(p => p.UserId)
+      .OnDelete(DeleteBehavior.Cascade);
+```
+
+`HasOne<UserFarmProfile>()` 的意思是「這個 Entity 和 UserFarmProfile 有 Has-One 關係，但我不需要在程式碼裡透過導覽屬性存取它」。
+
+**我學到的原則**
+
+導覽屬性是 EF Core 在物件層面表達關聯的方式，但它不是必須的。導覽屬性是否加入，應該由「查詢時需不需要從這個 Entity 導航到另一個 Entity」來決定，不是因為「有 FK 就一定要加」。
+
+沒有導覽屬性讓 Entity 更輕，不用維護雙向關聯的一致性。這是有意識的設計決策，不是遺漏。
+
+---
+
+### 條目 189 — Service 層 userId 參數的雙重理由：架構 + 安全
+
+**我做了什麼**
+
+設計 IUserWatchlistService 時，把 userId 加進新增和刪除方法的參數清單裡：
+
+```csharp
+Task<bool> AddWatchlistItemAsync(string userId, AddWatchlistRequestDto request);
+Task RemoveWatchlistItemsAsync(string userId, IEnumerable<int> ids);
+```
+
+**我一開始的疑問**
+
+「JWT token 裡不是已經有 userId 了嗎？為什麼還要傳進來？」
+
+**我怎麼想通的**
+
+這個問題實際上有兩個獨立的答案：
+
+**架構面**：JWT token 在 HTTP Request Header 裡，只有 Controller 層能讀取（透過 `User.FindFirstValue(ClaimTypes.NameIdentifier)`）。Service 層的職責是業務邏輯，它不知道也不應該知道 HTTP Context 的存在。所以 userId 必須從 Controller 傳進來。
+
+**安全面**：刪除時用 `WHERE UserId == userId AND Id IN (ids)` 兩個條件同時過濾，確保使用者只能刪自己的資料。如果只有 `Id IN (ids)`，惡意使用者猜到別人的 Watchlist Id 後就能直接刪除他人資料。
+
+兩個理由互相獨立，各自成立。好的架構邊界設計往往也順帶帶來安全性。
+
+**我學到的原則**
+
+「這個參數到底有沒有必要」這個問題，要從「誰有責任提供這份資訊」和「這份資訊在哪一層才能被可信地取得」兩個角度回答，不是單純看「資料在哪裡已經有了」。
+
+---
+
+### 條目 190 — AnyAsync vs Distinct：去重的時機和語意完全不同
+
+**我做了什麼**
+
+新增 Watchlist 項目前，需要防止使用者重複監看同一個作物+市場組合。
+
+**我的第一個想法**
+
+「去重用 Distinct？」
+
+**我怎麼想通的**
+
+`Distinct` 和 `AnyAsync` 解決的是完全不同的問題：
+
+- **Distinct**：「我已經查出了一堆資料，把重複的過濾掉再回傳」——重複的資料已經在 DB 裡了
+- **AnyAsync**：「我要寫入之前，先確認這筆資料是否已存在」——攔截在 SaveChanges 之前
+
+去重的正確時機是「存入前先確認」，而不是「存入後查詢時過濾」：
+
+```csharp
+var exists = await context.UserWatchlists
+    .AnyAsync(w => w.UserId == userId
+                && w.CropCode == request.CropCode
+                && w.MarketCode == request.MarketCode);
+
+if (exists) return false;
+// 確認不重複後才 Add + SaveChanges
+```
+
+三個條件都要對上才算重複：同一個使用者、同一個作物代碼、同一個市場代碼（包括 null = 全台）。
+
+**我學到的原則**
+
+遇到「去重」這個詞，先問「我要防止的是什麼」：防止髒資料進 DB（寫入前），還是顯示時過濾（查詢後）。兩種情境對應完全不同的技術手段。
+
+---
+
+### 條目 191 — Service 回傳 bool 讓 Controller 決定 HTTP 狀態碼：職責分離
+
+**我做了什麼**
+
+AddWatchlistItemAsync 在資料已存在時，設計成回傳 `false` 而不是拋例外。Controller 收到 `false` 後回傳 409 Conflict。
+
+**為什麼不直接在 Service 層拋例外**
+
+Service 層的職責是業務邏輯——「這筆資料是否已存在」是業務判斷，結果是「是/否」。把它翻譯成 HTTP 狀態碼（409、200、201）是 Controller 的職責。
+
+如果 Service 直接拋 `ConflictException`，就等於 Service 層開始依賴 HTTP 語意，邊界開始模糊。
+
+```csharp
+// Service：回傳業務結果
+public async Task<bool> AddWatchlistItemAsync(...) {
+    if (exists) return false;  // 業務判斷：已存在
+    // ...
+    return true;               // 業務判斷：新增成功
+}
+
+// Controller：翻譯成 HTTP 語意
+var success = await userWatchlistService.AddWatchlistItemAsync(userId, request);
+if (!success) return Conflict("此作物與市場組合已在監看清單中");
+return NoContent();
+```
+
+**我學到的原則**
+
+Service 說「發生了什麼」（業務語意），Controller 說「對 HTTP 客戶端這意味著什麼」（HTTP 語意）。兩者語意不同，不應該混在一起。回傳 bool 是最輕量的業務結果表達方式，不帶任何 HTTP 假設。
+
+---
+
+### 條目 192 — DELETE 的 [FromQuery] 與 axios URLSearchParams：陣列參數的跨層傳遞
+
+**我做了什麼**
+
+刪除多筆 Watchlist 項目，後端用 `[FromQuery] IEnumerable<int> ids`，前端用 axios 的 `delete` 方法傳陣列。
+
+**我遇到的問題**
+
+刪除功能一直無法正常運作。後來發現 axios 預設把陣列 `ids=[1,2,3]` 展開成 `ids[0]=1&ids[1]=2&ids[2]=3`，但 ASP.NET Core 的 `[FromQuery]` 期望的格式是 `ids=1&ids=2&ids=3`（重複的同名參數）。
+
+**解法**
+
+用 `URLSearchParams` 手動控制展開格式：
+
+```typescript
+removeItems(ids: number[]): Promise<void> {
+  const params = new URLSearchParams()
+  ids.forEach(id => params.append('ids', String(id)))
+  return authClient.delete('/api/watchlist', { params }).then(() => undefined)
+}
+```
+
+`params.append('ids', '1')` 反覆呼叫同一個 key，就會產生 `ids=1&ids=2&ids=3` 的格式，對應後端的 `IEnumerable<int>`。
+
+**我學到的原則**
+
+前後端傳遞陣列參數時，Query String 的「同名多值」格式因框架而異，不能假設兩端預設行為一致。遇到陣列參數傳遞問題，先確認前端送出的實際 Query String 格式，和後端期望的格式是否吻合。
+
+同理，之前在市場頁面的 cropCodes 陣列也有相同問題，解法也是 URLSearchParams。
+
+---
+
+### 條目 193 — Vue Router v4 beforeEach：return 取代 next()
+
+**我做了什麼**
+
+實作路由守衛 `beforeEach` 時，先用了 `next()` callback 寫法，執行後 console 出現：
+
+```
+[Vue Router warn]: The next() callback in navigation guards is deprecated. Return the value instead of calling next(value).
+```
+
+**我怎麼修正的**
+
+Vue Router v4 新的寫法是直接 return，不再需要 `next` 參數：
+
+```typescript
+// ❌ 舊寫法（v3 相容，v4 deprecated）
+router.beforeEach((to, _from, next) => {
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next({ name: 'login', query: { redirect: to.fullPath } })
+  } else if (to.name === 'login' && isAuthenticated) {
+    next({ name: 'home' })
+  } else {
+    next()
+  }
+})
+
+// ✅ 新寫法（v4 原生）
+router.beforeEach((to, _from) => {
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.name === 'login' && isAuthenticated) {
+    return { name: 'home' }
+  }
+  return true
+})
+```
+
+return 值的語意：
+- return 路由物件 → 導向該路由
+- return true → 放行
+- return false → 取消導航
+
+**我學到的原則**
+
+return 寫法去掉了 `next` 這個 callback 參數後，邏輯更直觀：每個 `if` 分支直接說「我的結果是什麼」，不需要在函式末尾記得呼叫 `next()`。早期的 `next()` 寫法容易因為忘記呼叫或重複呼叫而出現 bug，return 寫法完全規避了這個問題。
+
+---
+
+### 條目 194 — 路由守衛 redirect query：讓「被踢到登入頁」的使用者登入後回到原目標
+
+**我做了什麼**
+
+路由守衛在使用者未登入時把目標路徑存進 query，讓登入頁能在登入成功後跳回原目標：
+
+```typescript
+// router/index.ts：守衛把目標路徑存進 query
+return { name: 'login', query: { redirect: to.fullPath } }
+// URL 變成：/login?redirect=%2Fwatchlist
+
+// LoginView.vue：登入成功後讀取並跳轉
+const route = useRoute()
+const redirect = (route.query.redirect as string) || '/'
+router.push(redirect)
+```
+
+**為什麼用 to.fullPath 而非 to.path**
+
+`to.path` 只有路徑（`/watchlist`），`to.fullPath` 包含完整路徑加 query string（`/watchlist?filter=xxx`）。保留完整的 fullPath 讓使用者跳轉後不會遺失原本帶的查詢條件。
+
+**為什麼 useRoute 要在元件內呼叫**
+
+`useRoute()` 是 Vue Composition API，必須在 `<script setup>` 或 `setup()` 函式內呼叫，不能在模組頂層。這和 `useAuthStore()` 必須在函式內呼叫的理由相同——它們依賴 Vue 的響應式系統，需要有活躍的 Vue instance。
+
+**我學到的原則**
+
+「Return URL」（登入後跳回原目標）是標準的 UX 模式，實作方式是把目標路徑存在 URL query string 裡，讓資訊跟著導航一起傳遞，不需要額外的狀態管理。
+
+---
+
+### 條目 195 — 前端錯誤狀態的清除時機：重新選擇 vs 重新送出
+
+**我做了什麼**
+
+在 WatchlistView 裡，使用者選了作物 A → 新增 → 409（已存在）→ 再選一次作物 A（或換選作物 B）→ 下方還殘留著上次的「已存在」錯誤訊息。
+
+**我的判斷**
+
+清除 errorMessage 的正確時機是「使用者重新做選擇」，不是「使用者按送出」：
+
+```typescript
+// 重新選作物時清除
+function selectCrop(crop: CropResponseDto) {
+  selectedCrop.value = crop
+  cropSearchText.value = ''
+  showCropDropdown.value = false
+  store.errorMessage = null  // 重新選擇 = 舊錯誤不再適用
+}
+
+// 清掉作物時也清除
+function clearCrop() {
+  selectedCrop.value = null
+  cropSearchText.value = ''
+  store.errorMessage = null
+}
+```
+
+如果在 `handleAdd`（送出時）清除，會有一個問題：送出 → 清除錯誤 → API 回傳 409 → Store 重新設定錯誤。這樣沒問題，但如果使用者不送出，只是重新選了一個作物，舊的錯誤訊息會繼續殘留，顯示出一條「對當前選擇不適用」的訊息，造成混淆。
+
+**我學到的原則**
+
+錯誤訊息的語意是「你上一個操作的結果」。當使用者換了「操作的對象」（選了不同的作物），上一次的錯誤就不再描述當前狀態，應該清除。「使用者改變了選擇」是「狀態已過時」的信號。
+
+---
+
+### 條目 196 — 成功才重置表單：保留失敗時的使用者輸入
+
+**我做了什麼**
+
+新增 Watchlist 項目後，表單重置的邏輯：
+
+```typescript
+await store.addItem({ ... })
+// 用 errorMessage 判斷是否成功
+if (!store.errorMessage) {
+  selectedCrop.value = null
+  selectedMarketCode.value = null
+}
+```
+
+**為什麼不直接在 addItem 後面無條件重置**
+
+如果新增失敗（409 重複），使用者會看到：
+1. 表單清空了
+2. 同時下方出現「此作物已存在」的錯誤訊息
+
+這兩件事同時發生會讓使用者困惑——表單清空了，但我看到了一個錯誤，我是應該重新填一遍還是怎樣？
+
+保留表單讓使用者能清楚看到「剛才選的是什麼」加上「為什麼不能新增」，下一步要換選不同作物或確認自己已經有在監看了，判斷成本低很多。
+
+**我學到的原則**
+
+表單重置不是「操作完成的清理動作」，而是「成功完成後的 UX 反饋」。失敗不是完成，所以不應該觸發重置。判斷依據：「如果重置了，使用者的下一步是什麼？重新填回同樣的資料？這是在幫他還是在添麻煩？」
+
+---
+
+### 條目 197 — 勾選狀態不進 Store：UI 狀態 vs 應用狀態的分界
+
+**我做了什麼**
+
+WatchlistView 裡的 checkbox 勾選狀態用 View 層的 `ref<number[]>` 管理，而非放進 Pinia Store：
+
+```typescript
+// ← 直接在 View 內宣告
+const selectedIds = ref<number[]>([])
+
+function toggleSelect(id: number) {
+  const idx = selectedIds.value.indexOf(id)
+  if (idx >= 0) selectedIds.value.splice(idx, 1)
+  else selectedIds.value.push(id)
+}
+```
+
+**判斷依據**
+
+問兩個問題：
+1. 這個狀態需要被其他元件讀取嗎？→ 不，勾選狀態只在這個 View 裡有意義
+2. 這個狀態需要跨頁面保留嗎？→ 不，離開監看清單頁後勾選就沒意義了
+
+兩個問題都是「否」，就應該留在 View 層，不進 Store。
+
+Store 管理是有成本的：需要定義 state、action，所有使用它的地方都耦合到這個 Store。如果一個狀態不需要跨層共享，這個成本完全是浪費。
+
+**我學到的原則**
+
+判斷狀態應不應該進 Store，不是看「這個狀態重不重要」，而是看「這個狀態有沒有跨元件/跨頁面的生命週期需求」。有 → Store；沒有 → View 層 ref。Pinia Store 是通訊工具，不是「把所有狀態都集中管理」的筒倉。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -6406,3 +6755,33 @@ Upsert（合併新增和更新為一個操作）適合的條件：資源的識�
 
 **關於瀏覽器事件順序的競態問題**
 `mousedown → blur → mouseup → click` 是瀏覽器的標準事件順序。任何「點選某個元素同時會觸發目前聚焦元素的 blur」的 UI 模式都會遇到這個問題（典型場景：Dropdown 的選項點選）。解法：改用 mousedown（比 blur 早），或在 onBlur 加 setTimeout 延遲讓 click 先完成。
+
+---
+
+## 跨條目的通用原則整理（v24.0 更新）
+
+以下為 v24.0 新增或強化的原則，和既有原則並列管理：
+
+**關於 EF Core 導覽屬性的選擇性**
+導覽屬性是否加入 Entity，應由「查詢時是否需要從這個方向導航」決定，不是「有 FK 就一定要加」。不加導覽屬性讓 Entity 更輕，查詢不需要 Include，也不用維護雙向一致性。EF Core 的 `HasOne<T>()` 泛型寫法支援「知道關聯但不需要導覽屬性」的場景，是有意識的設計選項，不是退而求其次。
+
+**關於 Service 層與 Controller 層的職責邊界**
+Service 說「業務上發生了什麼」（存在/不存在、成功/失敗），Controller 說「對 HTTP 客戶端這意味著什麼」（200/409/204）。Service 回傳 bool 或業務結果物件，不回傳 HTTP 物件，是職責邊界正確落點的體現。讓 Service 拋帶 HTTP 語意的 Exception 是邊界模糊的症狀。
+
+**關於 userId 在 Service 方法簽名的必要性**
+Service 層必須透過參數接收 userId，有架構和安全兩個獨立理由：架構面，Service 層沒有 HTTP Context，JWT Claims 只能在 Controller 層讀取；安全面，刪除等異動操作應同時比對資源歸屬（userId）和資源識別（id），防止越權操作。兩個理由互相獨立，各自成立。好的架構邊界設計往往順帶提升安全性。
+
+**關於前端陣列參數的跨框架格式差異**
+axios 預設把陣列展開成 `key[0]=v1&key[1]=v2` 格式，但 ASP.NET Core 的 `[FromQuery] IEnumerable<T>` 期望 `key=v1&key=v2`（重複同名參數）。需要用 `URLSearchParams.append()` 手動控制格式。遇到陣列參數傳遞問題，先確認實際送出的 Query String 格式，再比對後端期望格式。
+
+**關於 Vue Router v4 beforeEach 語法**
+Vue Router v4 建議用 return 值取代 next() callback。return 路由物件 = 導向，return true = 放行，return false = 取消。return 寫法消除了「忘記呼叫 next()」和「重複呼叫 next()」兩類 bug，也讓每個分支的意圖更直觀可見。
+
+**關於 UI 狀態 vs 應用狀態的分界**
+判斷狀態是否進 Store：「有跨元件/跨頁面的生命週期需求嗎？」有 → Store；沒有 → View 層 ref。Store 管理是成本，不是免費工具。瞬間性的操作狀態（當前勾選項、下拉展開狀態）屬於 UI 狀態，不應該推進 Store。過度使用 Store 會讓狀態管理複雜度無謂上升。
+
+**關於錯誤訊息的清除時機**
+錯誤訊息描述的是「上一個操作的結果」。當使用者改變了操作對象（重新選擇），舊的錯誤描述不再對應當前狀態，應清除。清除時機是「使用者重新做選擇」，不是「使用者按送出」。後者會導致「送出→清除錯誤→API回傳新錯誤」的閃爍感，且如果使用者不送出而只是換選，舊錯誤會持續殘留造成混淆。
+
+**關於表單重置的語意**
+表單重置是「成功完成後的 UX 清理」，不是「操作完成的自動行為」。失敗不是完成，所以失敗時保留表單內容，讓使用者能看清楚「剛才的選擇是什麼」加上「為什麼失敗」，降低下一步的判斷成本。
