@@ -5225,6 +5225,342 @@ if (!store.errorMessage) {
 
 ---
 
+# PR #036 — W17 Code Review 修正：必修項目 + 命名/文件建議改善 + 跨模組耦合消除
+
+**標題**：`fix(code-review): RabbitMQ hostname 設定外化 + AuthService Fail-Fast + 命名一致性 + 跨模組耦合消除`
+
+---
+
+## 背景與動機
+
+本 PR 是針對 Code Review 回饋的集中修正，不包含新功能。所有修正項目分為三個層次：
+
+1. **必修**：部署正確性問題，在 Docker 環境下會直接導致服務啟動失敗或設定讀取錯誤
+2. **建議修正**：命名一致性、magic number 抽取、文件補強，提升可維護性與面試可讀性
+3. **額外處理**：Code Review 過程中發現但原始清單未列的問題
+
+---
+
+## 一、RabbitMQ hostname 設定外化
+
+### 問題
+
+`PriceUpdatedConsumer.cs` 和 `AgriProductsTransSyncWorker.cs` 裡的 `ConnectionFactory` 均 hardcode `HostName = "localhost"`。
+
+在本機開發時沒有問題，因為所有服務跑在同一台機器上，`localhost` 連得到。但在 Docker Compose 環境下，每個服務跑在獨立容器，容器內的 `localhost` 指的是「自己這個容器」，不是 RabbitMQ 容器。Docker Compose 會自動為同一個 compose 裡的服務建立 DNS，service name 就是 hostname，連 RabbitMQ 應該用 `rabbitmq`。
+
+### 修正方式
+
+**兩個 .cs 檔案**：建構子注入 `IConfiguration`，改用：
+
+```csharp
+var factory = new ConnectionFactory
+{
+    HostName = _configuration["RabbitMQ:HostName"] ?? "localhost"
+};
+```
+
+`?? "localhost"` 是最後的安全網，確保本機開發在 appsettings 沒有此 key 時也能跑。
+
+**appsettings.json（Web + Worker 各一份）**：
+
+```json
+"RabbitMQ": {
+  "HostName": "localhost"
+}
+```
+
+本機開發讀到 `localhost`，Docker 環境由環境變數覆蓋。
+
+**docker-compose.yml**：web 和 worker 服務各自加入：
+
+```yaml
+environment:
+  - RabbitMQ__HostName=rabbitmq
+```
+
+.NET 的設定系統會自動用環境變數的值覆蓋 appsettings.json 裡的對應 key（`__` 對應 `:` 分隔符）。這樣兩個環境各自讀到正確的 hostname，不需要維護兩份設定檔。
+
+---
+
+## 二、AuthService + IdentityExtensions Fail-Fast
+
+### 問題
+
+`AuthService.GenerateJwtToken` 裡兩處使用 `!` 強制解 null：
+
+```csharp
+var secretKey = _configuration["Jwt:SecretKey"]!;
+var expiresInDays = int.Parse(_configuration["Jwt:ExpiresInDays"]!);
+```
+
+`!` 的語意是「我向編譯器保證這不是 null」，但這個保證沒有執行期的保障。如果 appsettings 缺少對應 key，會在有人登入的瞬間炸掉，而不是在應用程式啟動時就報錯，增加了排查難度。
+
+同樣的問題出現在 `IdentityExtensions.cs` 的 JWT middleware 設定：
+
+```csharp
+var secretKey = configuration["Jwt:SecretKey"]!;   // 同樣的 !
+ValidAudience = configuration["Jwt:Issuer"],        // 錯用 Issuer 當 Audience
+```
+
+### 修正方式
+
+**建構子加 Fail-Fast**（應用程式啟動時 DI 容器建立 `AuthService` 就檢查）：
+
+```csharp
+public AuthService(...)
+{
+    // ...
+    _ = configuration["Jwt:SecretKey"]
+        ?? throw new InvalidOperationException("Jwt:SecretKey 未設定");
+    _ = configuration["Jwt:ExpiresInDays"]
+        ?? throw new InvalidOperationException("Jwt:ExpiresInDays 未設定");
+    _ = configuration["Jwt:Audience"]
+        ?? throw new InvalidOperationException("Jwt:Audience 未設定");
+}
+```
+
+**`GenerateJwtToken` 裡改用 `int.TryParse`**：
+
+```csharp
+var expiresInDaysStr = _configuration["Jwt:ExpiresInDays"]
+    ?? throw new InvalidOperationException("Jwt:ExpiresInDays 未設定");
+
+if (!int.TryParse(expiresInDaysStr, out var expiresInDays))
+    throw new InvalidOperationException("Jwt:ExpiresInDays 必須是整數");
+```
+
+**appsettings.json 新增 `Jwt:Audience`**，issuer 與 audience 語意正確分開：
+
+```json
+"Jwt": {
+  "Issuer": "TaiwanAgriPlatform",
+  "Audience": "TaiwanAgriPlatform-Frontend",
+  "ExpiresInDays": 7
+}
+```
+
+### Issuer vs Audience 的語意
+
+| 欄位 | 語意 | 比喻 |
+|------|------|------|
+| `Issuer` | 這個 token 是誰發的（後端） | 票務公司（KKTIX） |
+| `Audience` | 這個 token 是發給誰用的（前端） | 場地（台北小巨蛋） |
+
+現在的系統是單體架構，`Issuer == Audience` 技術上完全可行。拆開的價值在未來：若加入管理後台（audience = `TaiwanAgriPlatform-Admin`），用戶 token 拿去打管理後台，audience 不符合，直接 401 擋掉。語意上的正確性是後續擴充的基礎。
+
+---
+
+## 三、方法命名複數錯誤修正
+
+### 問題
+
+`IUserProfileService` 和 `UserProfileService` 的方法名稱：
+
+```csharp
+// 修正前（錯誤）
+Task<UserFarmProfile?> GetUsersFarmProfileAsync(string userId);
+Task UpsertUsersFarmProfileAsync(string userId, ...);
+
+// 修正後（正確）
+Task<UserFarmProfile?> GetUserFarmProfileAsync(string userId);
+Task UpsertUserFarmProfileAsync(string userId, ...);
+```
+
+`Users` 複數在這裡語意是錯的。這兩個方法的語意是「取得/更新某個指定 userId 的農場資料」，是單用戶操作，不是批次操作。複數形式會讓閱讀者誤以為這是回傳多個用戶資料的方法，語意誤導。
+
+---
+
+## 四、建議修正清單
+
+### rest-days endpoint 命名
+
+```csharp
+// 修正前
+[HttpGet("restDays")]
+
+// 修正後
+[HttpGet("rest-days")]
+```
+
+統一與其他 endpoint 的 kebab-case 風格（`markets`、`crops`、`disasters`、`prices`）。
+
+### cropCodes 上限抽成設定值
+
+```csharp
+// 修正前
+if (cropCodes.Length > 5) return BadRequest("cropCodes 最多只能傳入 5 個");
+
+// 修正後
+if (cropCodes.Length > _cropCodesMaxCount)
+    return BadRequest($"cropCodes 最多只能傳入 {_cropCodesMaxCount} 個");
+```
+
+`5` 是業務規則，不是程式邏輯。抽到 appsettings 的 `MarketQueryLimits:CropCodesMaxCount` 後，調整上限不需要改程式碼。錯誤訊息也動態帶入，保持一致。
+
+### MarketController 重複驗證字串抽成 const
+
+```csharp
+private const string InvalidMarketTypeMessage = "marketType 必須為 Veg、Fruit 或 Flower";
+```
+
+同一條業務規則在 `GetMarkets` 和 `GetCrops` 各出現一次。抽成 const 之後，改訊息只需改一處。
+
+### allCrops → cropSearchPool
+
+`ProfileView.vue` 中 `allCrops` 更名為 `cropSearchPool`，語意更精確——這個 ref 存放的是作物搜尋候選池，不是「所有作物的完整清單」。
+
+### UserFarmCrop.CropName 快照設計說明
+
+```csharp
+// Snapshot: intentionally denormalized, not a FK join
+// 快照欄位：CropName 來自 MarketDbContext 的 CropInfos
+// 跨 DbContext 無法 JOIN，故在寫入時複製一份到 UserDbContext
+// 代價是資料可能與來源略有落差，但農產品名稱極少變動，可接受
+[MaxLength(50)]
+public string? CropName { get; set; }
+```
+
+說明了「為什麼」，而不只是「怎麼做」。
+
+### UserProfileService 全刪全插上限假設說明
+
+```csharp
+// 作物清單：全刪全插（選 A）
+// 理由：農民種 3-10 種作物，數量少，全刪全插比 diff 比對簡單可靠
+// 前提假設：單一用戶作物數量有上限（API 層限制最多 5 個 cropCode）
+// 若未來開放大量作物，應改為 diff 比對策略
+```
+
+補充了前提假設和未來改策略的觸發條件，讓維護者知道這個設計的邊界在哪。
+
+### cts → httpTimeoutCts
+
+```csharp
+// 修正前
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+
+// 修正後
+using var httpTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+```
+
+名稱說明這個 token 的用途是 HTTP 請求超時控制。
+
+---
+
+## 五、額外處理
+
+### PriceUpdatedConsumer TODO tag + LogWarning
+
+```csharp
+// TODO(W15): implement cache invalidation
+// 骨架階段：清除所有 market:prices 開頭的 key，目前尚未實作
+_logger.LogWarning("[PriceUpdatedConsumer] Cache invalidation 尚未實作，跳過");
+```
+
+骨架行為的 log 等級從 `Information` 改為 `Warning`，清楚標示這是一個不完整的行為。加上 `// TODO(W15):` tag 方便日後 grep 找到所有待辦項目。
+
+### ProfileView 跨模組耦合消除
+
+**修正前**：`ProfileView.vue` 直接 import `marketApi`（Market 模組的 API 層），Profile 模組對 Market 模組產生直接依賴。
+
+```typescript
+// 問題
+import { marketApi } from '../api/market'
+```
+
+如果 `market.ts` 的 `getCrops` 介面改動（改名、改參數），`ProfileView.vue` 就要跟著改，但改 Market 模組時通常不會想到要去找 Profile 的 View 檔。
+
+**修正後**：新增 `cropApi.ts` 作為封裝層。
+
+```typescript
+// cropApi.ts（新增）
+export async function getAllCrops(): Promise<CropItem[]> {
+  const [veg, fruit, flower] = await Promise.all([
+    marketApi.getCrops('Veg'),
+    marketApi.getCrops('Fruit'),
+    marketApi.getCrops('Flower'),
+  ])
+  return [...veg, ...fruit, ...flower]
+}
+
+// ProfileView.vue（修正後）
+import { getAllCrops } from '../api/cropApi'
+cropSearchPool.value = await getAllCrops()
+```
+
+`ProfileView` 不再知道背後打的是哪個 API，Market 模組的介面變動只需要修改 `cropApi.ts` 一個地方。
+
+---
+
+## 關鍵設計決策彙整
+
+| 決策 | 選擇 | 理由 |
+|------|------|------|
+| RabbitMQ hostname 讀取 | IConfiguration + 環境變數覆蓋 | 本機 / Docker 兩個環境共用同一份 .cs，行為由設定決定 |
+| Fail-Fast 驗證位置 | 建構子（DI 建立時） | 啟動即報錯，不等到第一個請求進來才炸 |
+| `int.TryParse` 取代 `int.Parse(!)` | TryParse + 明確例外 | 格式錯誤有清楚的錯誤訊息，不是 FormatException |
+| Issuer / Audience 分開 | 各自獨立 key | 語意正確，為未來多 audience 場景奠定基礎 |
+| cropCodes 上限 | appsettings 設定值 | 業務規則不應 hardcode 在程式碼，調整不需重新編譯 |
+| 重複字串抽 const | 同一方法簽名 class 頂部 | 業務規則只寫一次，修改成本最低 |
+| 跨模組 API 呼叫 | 封裝到 cropApi.ts | Profile 模組不直接依賴 Market 模組實作 |
+
+---
+
+## 不修項目說明
+
+| 項目 | 理由 |
+|------|------|
+| IJwtTokenGenerator / ICurrentUserProvider 等介面抽象 | 測試基礎設施，推遲到 W19-20 測試 sprint |
+| GlobalExceptionMiddleware | 同上，和測試覆蓋一起規劃 |
+| 日期格式錯誤字串（4 處） | 兩個 const，各自語意獨立，改動機率極低，抽取收益低於閱讀成本 |
+
+---
+
+## 驗收標準
+
+- [x] 本機 `dotnet run` — RabbitMQ 連線正常（appsettings 讀到 localhost）
+- [x] `appsettings.json` 缺少 `Jwt:SecretKey` 時，應用程式啟動立刻報錯，而非等到登入才炸
+- [x] `GET /api/market/rest-days` 回應正常（endpoint 路徑改動後仍可 reach）
+- [x] `GET /api/market/prices?cropCodes=A&cropCodes=B&cropCodes=C&cropCodes=D&cropCodes=E&cropCodes=F` → 400 BadRequest（6 個超過上限 5 個）
+- [x] ProfileView 農場設定頁作物搜尋正常運作（cropApi.ts 封裝後功能不變）
+- [x] Console 無新的 warning 或 error
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `docker-compose.yml` | M | 移除 sqlserver 誤植行；web / worker 加入 RabbitMQ__HostName |
+| `TaiwanAgri.Frontend/src/api/cropApi.ts` | A | 封裝三市場作物查詢，消除 ProfileView 跨模組依賴 |
+| `TaiwanAgri.Frontend/src/views/ProfileView.vue` | M | 改用 cropApi.getAllCrops()；allCrops → cropSearchPool |
+| `TaiwanAgri.Modules.User/Entities/UserFarmCrop.cs` | M | CropName 加快照設計說明 comment |
+| `TaiwanAgri.Modules.User/Services/IUserProfileService.cs` | M | 方法命名複數 → 單數 |
+| `TaiwanAgri.Modules.User/Services/UserProfileService.cs` | M | 方法命名同步修正；全刪全插加上限假設 comment |
+| `TaiwanAgri.Web/Controllers/MarketController.cs` | M | rest-days kebab-case；InvalidMarketTypeMessage const；cropCodesMaxCount 設定化 |
+| `TaiwanAgri.Web/Controllers/ProfileController.cs` | M | 方法呼叫端更新為單數命名 |
+| `TaiwanAgri.Web/Extensions/IdentityExtensions.cs` | M | Jwt:SecretKey ! 改 Fail-Fast；ValidAudience 改讀 Jwt:Audience |
+| `TaiwanAgri.Web/Services/AuthService.cs` | M | 建構子 Fail-Fast；int.TryParse；audience 改讀 Jwt:Audience |
+| `TaiwanAgri.Web/Services/PriceUpdatedConsumer.cs` | M | LogWarning；TODO(W15) tag |
+| `TaiwanAgri.Worker/Services/AgriProductsTransSyncWorker.cs` | M | RabbitMQ hostname 設定化；cts → httpTimeoutCts |
+| `TaiwanAgri.Web/appsettings.json` | M | 新增 RabbitMQ 區段；Jwt:Audience |
+| `TaiwanAgri.Worker/appsettings.json` | M | 新增 RabbitMQ 區段 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是**「同一個問題，本機測試永遠是好的，部署才炸」**的類型。
+
+RabbitMQ hostname hardcode 就是這種問題的典型。本機跑完全正常，開發期間不會感覺到任何問題，一進 Docker 就連線失敗，而且錯誤訊息是 RabbitMQ 連線失敗，不是「hostname 寫錯了」。把設定值外化到 `appsettings.json` + 環境變數覆蓋，是讓「本機正常 / 部署正常」這兩件事能同時成立的標準做法。
+
+**Fail-Fast 的價值不只是錯誤訊息更清楚。** 更根本的價值是讓問題在最早的時間點暴露——應用程式啟動時，而不是「剛好有人登入的那一刻」。一個啟動就炸的服務，比一個平時正常、偶爾炸的服務更容易診斷。
+
+**跨模組耦合的問題不是現在會炸，而是未來你不知道改了什麼東西。** `ProfileView` 直接 import `marketApi`，在功能上完全沒問題。問題在於：改 `market.ts` 的時候，沒有任何工具或規範會提示你「ProfileView 也用了這個」。`cropApi.ts` 的存在讓模組邊界在程式碼結構上可見，不只存在於文件描述裡。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

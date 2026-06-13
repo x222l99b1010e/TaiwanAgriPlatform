@@ -7,11 +7,14 @@ namespace TaiwanAgri.Web.Controllers
 	[Route("api/[controller]")]
 	[ApiController]
 	public class MarketController : ControllerBase
-	{		
+	{
+		private const string InvalidMarketTypeMessage = "marketType 必須為 Veg、Fruit 或 Flower";
 		private readonly IMarketService _marketService;
-		public MarketController(IMarketService marketService)
+		private readonly int _cropCodesMaxCount;
+		public MarketController(IMarketService marketService, IConfiguration configuration)
 		{
 			_marketService = marketService;
+			_cropCodesMaxCount = configuration.GetValue<int>("MarketQueryLimits:CropCodesMaxCount", 5);
 		}
 		[HttpGet("Pork")]
 		public async Task<IActionResult> GetPork(
@@ -26,7 +29,7 @@ namespace TaiwanAgri.Web.Controllers
 			var result = await _marketService.GetPorkAsync(marketName, start, end);
 			return Ok(result);
 		}
-		[HttpGet("restDays")]
+		[HttpGet("rest-days")]
 		public async Task<IActionResult> GetRestDays(
 			[FromQuery] string marketCode,
 			[FromQuery] string startDate,
@@ -50,7 +53,7 @@ namespace TaiwanAgri.Web.Controllers
 		{
 			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
 			if (!IsValidMarketType(marketType))
-				return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+				return BadRequest(InvalidMarketTypeMessage);
 
 			var result = await _marketService.GetMarketsAsync(marketType);
 			return Ok(result);
@@ -60,7 +63,7 @@ namespace TaiwanAgri.Web.Controllers
 		{
 			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
 			if (!IsValidMarketType(marketType))
-				return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+				return BadRequest(InvalidMarketTypeMessage);
 
 			var result = await _marketService.GetCropsAsync(marketType);
 			return Ok(result);
@@ -91,17 +94,17 @@ namespace TaiwanAgri.Web.Controllers
 		{
 			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
 			if (!IsValidMarketType(marketType))
-				return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+				return BadRequest(InvalidMarketTypeMessage);
 
 			if (cropCodes == null || cropCodes.Length == 0)
 			{
 				// 填入 BadRequest
 				return BadRequest("cropCodes 為必填，至少需傳入一個作物代碼");
 			}
-			else if (cropCodes.Length > 5)
+			else if (cropCodes.Length > _cropCodesMaxCount)
 			{
 				// 填入 BadRequest
-				return BadRequest("cropCodes 最多只能傳入 5 個");
+				return BadRequest($"cropCodes 最多只能傳入 {_cropCodesMaxCount} 個");
 			}
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);

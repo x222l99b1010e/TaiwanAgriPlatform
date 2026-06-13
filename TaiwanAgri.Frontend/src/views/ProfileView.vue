@@ -90,8 +90,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useProfileStore } from '../stores/profile'
 import type { CropItem } from '../api/profile'
-import { marketApi } from '../api/market'
-import type { CropResponseDto } from '../api/market'
+import { getAllCrops } from '../api/cropApi'
 
 const profileStore = useProfileStore()
 
@@ -118,12 +117,12 @@ const cityOptions = [
 const farmTypeOptions = ['蔬菜', '果樹', '花卉', '雜糧', '特用作物']
 
 // ProfileView 自己存三份作物清單
-const allCrops = ref<CropItem[]>([])
+const cropSearchPool = ref<CropItem[]>([])
 
 // 依搜尋文字過濾，排除已選的
 const filteredCrops = computed(() => {
   if (!cropSearchText.value.trim()) return []
-  return allCrops.value
+  return cropSearchPool.value
     .filter(c =>
       c.cropName.includes(cropSearchText.value.trim()) &&
       !selectedCrops.value.some(s => s.cropCode === c.cropCode)
@@ -133,12 +132,7 @@ const filteredCrops = computed(() => {
 
 onMounted(async () => {
   // 直接呼叫 API，不透過 store
-  const [veg, fruit, flower] = await Promise.all([
-    marketApi.getCrops('Veg'),
-    marketApi.getCrops('Fruit'),
-    marketApi.getCrops('Flower'),
-  ])
-  allCrops.value = [...veg, ...fruit, ...flower]
+  cropSearchPool.value = await getAllCrops()
 
   // 載入農場設定
   await profileStore.fetchFarmProfile()

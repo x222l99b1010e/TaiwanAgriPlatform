@@ -13,7 +13,10 @@ namespace TaiwanAgri.Modules.User.Entities
 		// 邏輯 FK → CropInfos.CropCode（跨 DbContext，純字串）
 		[Required, MaxLength(10)]
 		public string CropCode { get; set; } = string.Empty;
-		// 快照：同步時存下來，避免跨 DbContext JOIN
+		 //Snapshot: intentionally denormalized, not a FK join。
+		// 快照欄位：CropName 來自 MarketDbContext 的 CropInfos
+		// 跨 DbContext 無法 JOIN，故在寫入時複製一份到 UserDbContext
+		// 代價是資料可能與來源略有落差，但農產品名稱極少變動，可接受
 		[MaxLength(50)]
 		public string? CropName { get; set; }
 		

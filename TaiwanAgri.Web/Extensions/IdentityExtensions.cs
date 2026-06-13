@@ -28,7 +28,8 @@ namespace TaiwanAgri.Web.Extensions
 			services.AddScoped<IAuthService, AuthService>();
 
 			// JWT Middleware 設定
-			var secretKey = configuration["Jwt:SecretKey"]!;
+			var secretKey = configuration["Jwt:SecretKey"]
+				?? throw new InvalidOperationException("Jwt:SecretKey 未設定");
 			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
 
 			services.AddAuthentication(options =>
@@ -45,7 +46,7 @@ namespace TaiwanAgri.Web.Extensions
 					ValidateLifetime = true,
 					ValidateIssuerSigningKey = true,
 					ValidIssuer = configuration["Jwt:Issuer"],
-					ValidAudience = configuration["Jwt:Issuer"],
+					ValidAudience = configuration["Jwt:Audience"],
 					IssuerSigningKey = key
 				};
 			});

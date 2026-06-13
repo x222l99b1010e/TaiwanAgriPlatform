@@ -23,5 +23,26 @@ services:
     ports:
       - "5672:5672"     # AMQP 協議（應用程式連線用）
       - "15672:15672"   # Management UI（瀏覽器管理介面）
+  web:
+    build:
+      context: .
+      dockerfile: TaiwanAgri.Web/Dockerfile
+    environment:
+      - RabbitMQ__HostName=rabbitmq
+    depends_on:
+      - rabbitmq
+      - sqlserver
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: TaiwanAgri.Worker/Dockerfile
+    environment:
+      - RabbitMQ__HostName=rabbitmq
+    depends_on:
+      - rabbitmq
+      - sqlserver
+
 volumes:
   sqlserver_data:

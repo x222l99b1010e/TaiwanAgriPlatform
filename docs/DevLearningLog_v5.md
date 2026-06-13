@@ -6454,6 +6454,302 @@ Store 管理是有成本的：需要定義 state、action，所有使用它的�
 判斷狀態應不應該進 Store，不是看「這個狀態重不重要」，而是看「這個狀態有沒有跨元件/跨頁面的生命週期需求」。有 → Store；沒有 → View 層 ref。Pinia Store 是通訊工具，不是「把所有狀態都集中管理」的筒倉。
 
 ---
+ 
+### 條目 198 — Docker 網路的 localhost 陷阱：為什麼 hostname hardcode 是部署炸彈
+ 
+**我做了什麼**
+ 
+`PriceUpdatedConsumer.cs` 和 `AgriProductsTransSyncWorker.cs` 裡的 `ConnectionFactory` 原本寫死 `HostName = "localhost"`。我把它改成從 `IConfiguration` 讀取，並在 `appsettings.json` 加入 `RabbitMQ:HostName` 區段，在 `docker-compose.yml` 的 web / worker 服務用環境變數覆蓋成 `rabbitmq`。
+ 
+**為什麼 localhost 在 Docker 裡是錯的**
+ 
+本機開發時，所有服務（SQL Server、Redis、RabbitMQ）都跑在同一台電腦上，`localhost` 是「這台電腦」，所以能連到任何東西。
+ 
+Docker Compose 啟動後，每個服務跑在獨立容器裡。容器有自己的網路空間，`localhost` 在容器內指的是「這個容器自己」，不是宿主機，也不是其他容器。RabbitMQ 跑在另一個叫 `rabbitmq` 的容器，Docker Compose 會自動為 service name 建立 DNS，所以 web 容器要連 RabbitMQ，正確的 hostname 是 `rabbitmq`。
+ 
+這種問題的特徵是：本機測試永遠是好的，部署才炸，而且炸的訊息是「RabbitMQ 連線失敗」，看不出是 hostname 寫錯了。
+ 
+**正確的解法：appsettings + 環境變數覆蓋**
+ 
+```csharp
+var factory = new ConnectionFactory
+{
+    HostName = _configuration["RabbitMQ:HostName"] ?? "localhost"
+};
+```
+ 
+```json
+// appsettings.json（本機開發預設值）
+"RabbitMQ": { "HostName": "localhost" }
+```
+ 
+```yaml
+# docker-compose.yml（Docker 環境覆蓋）
+environment:
+  - RabbitMQ__HostName=rabbitmq
+```
+ 
+.NET 設定系統的優先順序：環境變數 > appsettings.json。`__` 雙底線對應設定 key 裡的 `:` 分隔符，所以 `RabbitMQ__HostName` 覆蓋的是 `RabbitMQ:HostName`。兩個環境各自讀到正確的值，不需要維護兩份 appsettings。
+ 
+**我學到的原則**
+ 
+「本機正常、部署才炸」是一類特別難追的 bug，因為開發期間完全看不到症狀。所有和環境相關的值（hostname、port、連線字串、feature flag）都應該外化到設定檔，程式碼裡只保留讀取邏輯。
+ 
+---
+ 
+### 條目 199 — ?? null 合併運算子：「先抓設定，讀不到才用預設值」
+ 
+**我做了什麼**
+ 
+把 `_configuration["RabbitMQ:HostName"]` 的讀取改成：
+ 
+```csharp
+HostName = _configuration["RabbitMQ:HostName"] ?? "localhost"
+```
+ 
+**?? 是什麼**
+ 
+`??` 叫做 null 合併運算子（null-coalescing operator）。語意是：左邊如果是 null，就用右邊的值。
+ 
+```csharp
+var result = 可能是null的值 ?? 預設值;
+```
+ 
+這裡的流程是：
+1. 去 appsettings.json（或環境變數）找 `RabbitMQ:HostName`
+2. 找到了 → 用那個值
+3. 找不到（key 不存在或值是 null）→ 用 `"localhost"`
+本機開發時 appsettings.json 有 `"HostName": "localhost"` → 讀到 `"localhost"`。Docker 環境有環境變數 `RabbitMQ__HostName=rabbitmq` → 讀到 `"rabbitmq"`。
+ 
+`"localhost"` 的 `??` 後面是最後的安全網，在兩個環境都有設定的前提下實際上不會走到它。
+ 
+**和 ! 的差別**
+ 
+`!` 是告訴編譯器「我保證這不是 null，不要警告我」。如果真的是 null，執行期才炸。`??` 是「如果是 null，就做這個」，是真正的防禦，不是保證。
+ 
+---
+ 
+### 條目 200 — Fail-Fast：讓問題在最早的時間點暴露
+ 
+**我做了什麼**
+ 
+`AuthService.GenerateJwtToken` 原本：
+ 
+```csharp
+var secretKey = _configuration["Jwt:SecretKey"]!;
+var expiresInDays = int.Parse(_configuration["Jwt:ExpiresInDays"]!);
+```
+ 
+改為在建構子加 Fail-Fast 驗證：
+ 
+```csharp
+public AuthService(...)
+{
+    _ = configuration["Jwt:SecretKey"]
+        ?? throw new InvalidOperationException("Jwt:SecretKey 未設定");
+    _ = configuration["Jwt:ExpiresInDays"]
+        ?? throw new InvalidOperationException("Jwt:ExpiresInDays 未設定");
+}
+```
+ 
+並在 `GenerateJwtToken` 裡改用 `int.TryParse`：
+ 
+```csharp
+var expiresInDaysStr = _configuration["Jwt:ExpiresInDays"]
+    ?? throw new InvalidOperationException("Jwt:ExpiresInDays 未設定");
+ 
+if (!int.TryParse(expiresInDaysStr, out var expiresInDays))
+    throw new InvalidOperationException("Jwt:ExpiresInDays 必須是整數");
+```
+ 
+**! 的問題**
+ 
+`!` 只是跟編譯器的承諾，執行期沒有保護。`_configuration["Jwt:SecretKey"]` 在 key 不存在時回傳 null，加了 `!` 之後 null 繼續往下傳，在 `Encoding.UTF8.GetBytes(null)` 那行才炸，錯誤訊息是一堆 stack trace，完全看不出是 appsettings 少了一個 key。
+ 
+**Fail-Fast 的核心價值**
+ 
+不只是「錯誤訊息更清楚」。更重要的是**時機**。
+ 
+- 原本：有人登入的瞬間才炸。服務可能已經跑了幾個小時，甚至被當成健康的服務對外服務。
+- Fail-Fast：應用程式啟動時 DI 容器建立 AuthService 就炸。立刻知道設定有問題，不會讓壞掉的服務默默跑著。
+一個啟動就炸的服務比一個平時正常偶爾炸的服務更容易診斷。
+ 
+**`int.Parse` vs `int.TryParse`**
+ 
+`int.Parse(null)` → `ArgumentNullException`，訊息看不出是哪個設定的問題。
+`int.Parse("abc")` → `FormatException`，同樣看不出根本原因。
+ 
+`int.TryParse(str, out var n)` 回傳 `bool`，失敗時不拋例外，`out` 參數是 0。自己決定失敗時做什麼：
+ 
+```csharp
+if (!int.TryParse(expiresInDaysStr, out var expiresInDays))
+    throw new InvalidOperationException("Jwt:ExpiresInDays 必須是整數");
+```
+ 
+這樣的例外訊息精確指出是哪個設定、錯在哪裡。
+ 
+---
+ 
+### 條目 201 — JWT 的 Issuer vs Audience：演唱會票上印的兩件事
+ 
+**我做了什麼**
+ 
+`AuthService` 裡 `audience` 原本錯用 `Jwt:Issuer` 的值：
+ 
+```csharp
+audience: _configuration["Jwt:Issuer"],   // 兩個都一樣，語意錯誤
+```
+ 
+改為獨立讀取 `Jwt:Audience`，並在 appsettings.json 加入：
+ 
+```json
+"Audience": "TaiwanAgriPlatform-Frontend"
+```
+ 
+**Issuer 和 Audience 是什麼**
+ 
+JWT token 就像演唱會票。票上印了兩個資訊：
+ 
+- **Issuer（發行者）**：這張票是誰印的？→ 票務公司（KKTIX）→ 你的後端（`TaiwanAgriPlatform`）
+- **Audience（受眾）**：這張票能進哪個場地？→ 台北小巨蛋 → 前端（`TaiwanAgriPlatform-Frontend`）
+**驗證的流程**
+ 
+```csharp
+// IdentityExtensions.cs（TokenValidationParameters）
+ValidIssuer = configuration["Jwt:Issuer"],
+ValidAudience = configuration["Jwt:Audience"],
+```
+ 
+前端每次請求帶著 JWT，.NET middleware 解開 token，讀出裡面的 `iss` 和 `aud` 欄位，跟 `ValidIssuer` / `ValidAudience` 比對。不符合 → 401 Unauthorized。
+ 
+**值本身填什麼不重要，重要的是兩邊一致**
+ 
+發 token 時（AuthService）寫 `issuer = "TaiwanAgriPlatform"`，驗證時（IdentityExtensions）設 `ValidIssuer = "TaiwanAgriPlatform"`，兩邊一致就過。填 123 兩邊都填 123 也能跑，但語意毫無意義。
+ 
+**為什麼要分開**
+ 
+現在的系統只有一個前端一個後端，`Issuer == Audience` 技術上完全可行。但拆開的語意價值在未來：若加入管理後台（`audience = "TaiwanAgriPlatform-Admin"`），用戶的 token `aud` 是 Frontend，拿去打管理後台，`audience` 不符合，直接 401 擋掉。不用改任何程式碼，只是設定的差異就能在兩個 audience 之間做出隔離。
+ 
+---
+ 
+### 條目 202 — const string 的正確位置與抽取判斷標準
+ 
+**我做了什麼**
+ 
+`MarketController` 裡 `"marketType 必須為 Veg、Fruit 或 Flower"` 在 `GetMarkets` 和 `GetCrops` 各出現一次，抽成：
+ 
+```csharp
+public class MarketController : ControllerBase
+{
+    private const string InvalidMarketTypeMessage = "marketType 必須為 Veg、Fruit 或 Flower";
+ 
+    private readonly IMarketService _marketService;
+    // ...
+}
+```
+ 
+**為什麼放在 class 頂部**
+ 
+C# 慣例是把常數宣告放在 class 內最上面的欄位宣告區，在建構子之前。這樣打開檔案很快就能看到這個 class 定義了哪些常數，不需要捲到處找。
+ 
+**什麼情況下值得抽成 const**
+ 
+判斷標準：同一條業務規則在同一個 class 裡重複出現。
+ 
+`"marketType 必須為 Veg、Fruit 或 Flower"` 值得抽，因為它是同一條業務規則被寫了兩遍——改訊息要改兩個地方，很容易漏掉一個。
+ 
+日期格式錯誤字串（`"開始日期 格式錯誤，請使用 yyyy-MM-dd"`、`"結束日期 格式錯誤..."`）不抽，因為：
+1. 語意獨立：「開始日期」和「結束日期」是兩個不同的錯誤情境，抽成同一個 const 反而讓人以為是同一件事
+2. 改動機率極低：`yyyy-MM-dd` 是 ISO 標準，幾乎不會變
+3. 兩個 const 換掉幾行字串，閱讀者還要往上跳看定義，閱讀成本高於維護收益
+**核心原則**：抽 const 不是「字串看起來很像」就抽，是「改了一個地方，另一個地方理所當然也要改」才抽。
+ 
+---
+ 
+### 條目 203 — 跨模組耦合：不是現在會炸，是未來改東西不知道影響範圍
+ 
+**我做了什麼**
+ 
+`ProfileView.vue` 原本直接 import Market 模組的 `marketApi`：
+ 
+```typescript
+import { marketApi } from '../api/market'
+// onMounted 裡
+const [veg, fruit, flower] = await Promise.all([
+  marketApi.getCrops('Veg'),
+  marketApi.getCrops('Fruit'),
+  marketApi.getCrops('Flower'),
+])
+```
+ 
+新增 `cropApi.ts` 封裝這三次呼叫，`ProfileView` 改 import `cropApi`：
+ 
+```typescript
+// cropApi.ts
+import { marketApi } from './market'
+ 
+export async function getAllCrops(): Promise<CropItem[]> {
+  const [veg, fruit, flower] = await Promise.all([
+    marketApi.getCrops('Veg'),
+    marketApi.getCrops('Fruit'),
+    marketApi.getCrops('Flower'),
+  ])
+  return [...veg, ...fruit, ...flower]
+}
+ 
+// ProfileView.vue
+import { getAllCrops } from '../api/cropApi'
+cropSearchPool.value = await getAllCrops()
+```
+ 
+**耦合的問題不是現在**
+ 
+功能上，改之前和改之後完全一樣，使用者感受不到任何差異。
+ 
+問題在維護期。假設某天 `market.ts` 的 `getCrops` 改了介面（改名、改參數格式）：
+ 
+- 改之前：要去改 `market.ts` 本身 + `ProfileView.vue`。但改 Market 模組時，完全不會想到要去找 Profile 的 View 檔。漏改了就是執行期錯誤。
+- 改之後：只需要改 `market.ts` + `cropApi.ts`。`ProfileView` 完全不知道背後打的是哪個 API，`market.ts` 的介面怎麼變都和它無關。
+**為什麼加一個中間層能解決這個問題**
+ 
+`cropApi.ts` 讓 Profile 模組和 Market 模組之間有一個明確的邊界。`ProfileView` 只依賴 `cropApi`，`cropApi` 依賴 `marketApi`，依賴方向清楚，沒有跨模組的直接連線。
+ 
+這不是過度設計——封裝三次 API 呼叫成一個函式本身就有意義，名字 `getAllCrops` 說清楚了這個函式在做什麼，不需要讀 `ProfileView` 裡那段 `Promise.all` 才能理解。
+ 
+---
+ 
+### 條目 204 — Log 等級的語意：Information 和 Warning 不是裝飾，是信號
+ 
+**我做了什麼**
+ 
+`PriceUpdatedConsumer.cs` 的骨架行為原本記 `LogInformation`：
+ 
+```csharp
+_logger.LogInformation("[PriceUpdatedConsumer] Cache invalidation 預留位置（W15 實作）");
+```
+ 
+改成：
+ 
+```csharp
+// TODO(W15): implement cache invalidation
+_logger.LogWarning("[PriceUpdatedConsumer] Cache invalidation 尚未實作，跳過");
+```
+ 
+**Log 等級的判斷依據**
+ 
+| 等級 | 語意 | 使用時機 |
+|------|------|---------|
+| `LogInformation` | 系統正常運作中，這是預期發生的事情 | 請求進來、資料寫入成功、連線建立 |
+| `LogWarning` | 系統還能繼續跑，但有一件事不完整或不理想 | 骨架未實作、降級處理、重試成功 |
+| `LogError` | 發生了預期外的錯誤，需要關注 | 例外、連線失敗、資料格式異常 |
+ 
+Cache invalidation 尚未實作是「不完整的行為」，不是正常的商業流程。記 `Information` 等於說「這完全正常」，會讓未來看 log 的人誤以為 cache 有被正確清除。記 `Warning` 說「這個地方跳過了，需要注意」，語意正確。
+ 
+**`// TODO(W15)` tag 的價值**
+ 
+`TODO` 是開發工具和 IDE 能 grep 的標記。未來要查「還有哪些地方沒做完」，搜尋 `TODO` 就能找到所有待辦位置，不需要靠記憶。加上期號（W15）讓你知道這個 TODO 預計在哪個 sprint 解決。
+ 
+---
 
 ## 跨條目的通用原則整理
 
@@ -6785,3 +7081,28 @@ Vue Router v4 建議用 return 值取代 next() callback。return 路由物件 =
 
 **關於表單重置的語意**
 表單重置是「成功完成後的 UX 清理」，不是「操作完成的自動行為」。失敗不是完成，所以失敗時保留表單內容，讓使用者能看清楚「剛才的選擇是什麼」加上「為什麼失敗」，降低下一步的判斷成本。
+
+---
+ 
+## 跨條目的通用原則整理（v24.1 更新）
+ 
+以下為 v24.1 新增或強化的原則，和既有原則並列管理：
+ 
+**關於環境相關設定的外化**
+所有和執行環境相關的值（hostname、port、連線字串、feature flag、業務規則上限）都應該外化到設定檔，程式碼只保留讀取邏輯。「本機正常、部署才炸」是 hardcode 環境值的典型症狀。.NET 設定系統的優先順序（環境變數 > appsettings.json）讓同一份 .cs 在不同環境讀到不同的值，是標準的多環境設定模式。
+ 
+**關於 Fail-Fast 的定位**
+Fail-Fast 的核心價值不只是錯誤訊息更清楚，而是讓問題在最早的時間點暴露。設定驗證放在建構子（DI 容器建立時），讓設定錯誤在應用程式啟動時就報錯，而不是在第一個請求進來才炸。一個啟動就炸的服務比一個平時正常偶爾炸的服務更容易診斷和修復。
+ 
+**關於 JWT issuer / audience 的語意分離**
+`Issuer` 描述「token 的發行者」，`Audience` 描述「token 的預期使用者」。兩者相同在單一服務架構下技術可行，但語意上是不同的概念，應各自獨立設定。Audience 的設計價值在未來有多個 audience（多個前端、管理後台）時才充分發揮：不同 audience 的 token 天然無法跨越邊界使用，不需要額外的授權邏輯。
+ 
+**關於 Log 等級的語意精確性（強化）**
+Log 等級是給運維人員看的信號，不是給程式碼看的裝飾。骨架行為（功能預留但未實作）屬於 Warning，因為它是不完整的行為；記 Information 等於宣稱「一切正常」，會誤導未來看 log 的人。`// TODO(week)` tag 讓 grep 找到所有待辦位置，不靠記憶。
+ 
+**關於 const 抽取的判斷依據（強化）**
+「字串看起來很像」不是抽 const 的理由。正確判斷標準是「同一條業務規則在同一個 class 裡出現多次，改一個理所當然要改另一個」。語意獨立的字串即使結構相似也不應強行合併，否則閱讀者會誤以為它們是同一件事。const 的位置：class 頂部欄位宣告區，在建構子之前。
+ 
+**關於前端 API 層的模組邊界**
+前端的 api/ 層要和後端的模組邊界對應：Profile 頁面的資料需求應透過 profileApi 或獨立的 cropApi 滿足，不直接呼叫 marketApi。這不是過度設計，而是「改 Market 模組的時候不需要去找 Profile 的 View 檔」這個維護需求的最小成本實現。中間層（cropApi.ts）讓依賴方向清楚，也讓函式有一個說清楚自己在做什麼的名字。
+ 

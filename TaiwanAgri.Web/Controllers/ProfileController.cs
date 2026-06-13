@@ -22,7 +22,7 @@ namespace TaiwanAgri.Web.Controllers
 			if (userId is null) return Unauthorized();
 			
 
-			var profile = await userProfileService.GetUsersFarmProfileAsync(userId);
+			var profile = await userProfileService.GetUserFarmProfileAsync(userId);
 
 			if (profile is null)
 			{
@@ -52,7 +52,7 @@ namespace TaiwanAgri.Web.Controllers
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId is null) return Unauthorized();
 
-			await userProfileService.UpsertUsersFarmProfileAsync(
+			await userProfileService.UpsertUserFarmProfileAsync(
 				userId,
 				request.FarmCity,
 				request.FarmType,

@@ -17,11 +17,13 @@ namespace TaiwanAgri.Worker
 		private readonly ILogger<AgriProductsTransSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _serviceScopeFactory;
-		public AgriProductsTransSyncWorker(ILogger<AgriProductsTransSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory serviceScopeFactory)
+		private readonly IConfiguration _configuration;
+		public AgriProductsTransSyncWorker(ILogger<AgriProductsTransSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory serviceScopeFactory, IConfiguration configuration)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_serviceScopeFactory = serviceScopeFactory;
+			_configuration = configuration;
 		}
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
@@ -43,7 +45,10 @@ namespace TaiwanAgri.Worker
 
 		private async Task PublishPriceUpdatedEventAsync()
 		{
-			var factory = new ConnectionFactory { HostName = "localhost" };
+			var factory = new ConnectionFactory
+			{
+				HostName = _configuration["RabbitMQ:HostName"] ?? "localhost"
+			};
 			await using var connection = await factory.CreateConnectionAsync();
 			await using var channel = await connection.CreateChannelAsync();
 
@@ -115,8 +120,8 @@ namespace TaiwanAgri.Worker
 					{
 						var url = $"{MoaApiEndpoints.AgriProductsTrans}?Start_time={DateHelper.FormatRocDate(currentDate)}&End_time={DateHelper.FormatRocDate(currentDate)}&MarketName={market.MarketName}";
 						// 改後：HTTP 請求用獨立的 timeout token，不跟 stoppingToken 綁
-						using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
-						var json = await _httpClient.GetStringAsync(url, cts.Token);
+						using var httpTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+						var json = await _httpClient.GetStringAsync(url, httpTimeoutCts.Token);
 						return (Market: market, Json: json, Success: true);
 					}
 					catch (Exception ex)

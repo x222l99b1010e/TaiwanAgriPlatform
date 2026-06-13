@@ -4,8 +4,8 @@ namespace TaiwanAgri.Modules.User.Services
 {
 	public interface IUserProfileService
 	{
-		Task <UserFarmProfile?> GetUsersFarmProfileAsync(string userId);
-		Task UpsertUsersFarmProfileAsync(
+		Task <UserFarmProfile?> GetUserFarmProfileAsync(string userId);
+		Task UpsertUserFarmProfileAsync(
 				string userId,
 				string? farmCity,
 				string? farmType,

@@ -6,7 +6,7 @@ namespace TaiwanAgri.Modules.User.Services
 {
 	public class UserProfileService(UserDbContext context) : IUserProfileService
 	{
-		public async Task<UserFarmProfile?> GetUsersFarmProfileAsync(string userId)
+		public async Task<UserFarmProfile?> GetUserFarmProfileAsync(string userId)
 		{
 			// Include(p => p.Crops)：一次查詢同時載入作物清單
 			// FirstOrDefaultAsync：找不到回傳 null，不拋例外
@@ -15,7 +15,7 @@ namespace TaiwanAgri.Modules.User.Services
 				.FirstOrDefaultAsync(p => p.UserId == userId);
 		}
 
-		public async Task UpsertUsersFarmProfileAsync(string userId, string? farmCity, string? farmType, List<(string CropCode, string CropName)> crops)
+		public async Task UpsertUserFarmProfileAsync(string userId, string? farmCity, string? farmType, List<(string CropCode, string CropName)> crops)
 		{
 			var existing = await context.UserFarmProfiles
 				.Include(p => p.Crops)
@@ -51,10 +51,12 @@ namespace TaiwanAgri.Modules.User.Services
 				// CreatedAt 不動，只有第一次建立時設定
 				existing.FarmCity = farmCity;
 				existing.FarmType = farmType;
-				existing.UpdatedAt = DateTime.UtcNow;				
+				existing.UpdatedAt = DateTime.UtcNow;
 
 				// 作物清單：全刪全插（選 A）
 				// 理由：農民種 3-10 種作物，數量少，全刪全插比 diff 比對簡單可靠
+				// 前提假設：單一用戶作物數量有上限（API 層限制最多 5 個 cropCode）
+				// 若未來開放大量作物，應改為 diff 比對策略
 				context.UserFarmCrops.RemoveRange(existing.Crops);
 
 				foreach (var (cropCode, cropName) in crops)

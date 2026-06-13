@@ -12,17 +12,22 @@ namespace TaiwanAgri.Web.Services
 		private IConnection? _connection;
 		private IChannel? _channel;
 		private string _queueName = string.Empty;
+		private IConfiguration _configuration;
 
-		public PriceUpdatedConsumer(ILogger<PriceUpdatedConsumer> logger, IDistributedCache cache)
+		public PriceUpdatedConsumer(ILogger<PriceUpdatedConsumer> logger, IDistributedCache cache, IConfiguration configuration)
 		{
 			_logger = logger;
 			_cache = cache;
+			_configuration = configuration;
 		}
 
 		public override async Task StartAsync(CancellationToken cancellationToken)
 		{
 			// 建立連線（應用程式啟動時執行一次）
-			var factory = new ConnectionFactory { HostName = "localhost" };
+			var factory = new ConnectionFactory
+			{
+				HostName = _configuration["RabbitMQ:HostName"] ?? "localhost"
+			};
 			_connection = await factory.CreateConnectionAsync(cancellationToken);
 			_channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
 
@@ -56,9 +61,9 @@ namespace TaiwanAgri.Web.Services
 				var body = Encoding.UTF8.GetString(ea.Body.ToArray());
 				_logger.LogInformation("[PriceUpdatedConsumer] 收到事件：{Body}，開始清除 Redis cache", body);
 
-				// 骨架階段：清除所有 market:prices 開頭的 key
-				// W15 之後會改為精確 invalidation
-				_logger.LogInformation("[PriceUpdatedConsumer] Cache invalidation 預留位置（W15 實作）");
+				// TODO(W15): implement cache invalidation
+				// 骨架階段：清除所有 market:prices 開頭的 key，目前尚未實作
+				_logger.LogWarning("[PriceUpdatedConsumer] Cache invalidation 尚未實作，跳過");
 
 				await _channel!.BasicAckAsync(ea.DeliveryTag, multiple: false);
 			};

@@ -22,6 +22,14 @@ namespace TaiwanAgri.Web.Services
 			_userManager = userManager;
 			_signInManager = signInManager;
 			_configuration = configuration;
+
+			// Fail-Fast：啟動時就檢查，而不是等到有人登入
+			_ = configuration["Jwt:SecretKey"]
+				?? throw new InvalidOperationException("Jwt:SecretKey 未設定");
+			_ = configuration["Jwt:ExpiresInDays"]
+				?? throw new InvalidOperationException("Jwt:ExpiresInDays 未設定");
+			_ = configuration["Jwt:Audience"]
+				?? throw new InvalidOperationException("Jwt:Audience 未設定");
 		}
 
 		public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
@@ -89,7 +97,15 @@ namespace TaiwanAgri.Web.Services
 		private string GenerateJwtToken(ApplicationUser user, string role)
 		{
 			// 1. 準備密鑰
-			var secretKey = _configuration["Jwt:SecretKey"]!;
+			var secretKey = _configuration["Jwt:SecretKey"]
+					?? throw new InvalidOperationException("Jwt:SecretKey 未設定");
+
+			var expiresInDaysStr = _configuration["Jwt:ExpiresInDays"]
+					?? throw new InvalidOperationException("Jwt:ExpiresInDays 未設定");
+
+			if (!int.TryParse(expiresInDaysStr, out var expiresInDays))
+				throw new InvalidOperationException("Jwt:ExpiresInDays 必須是整數");
+
 			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
 			var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -102,10 +118,9 @@ namespace TaiwanAgri.Web.Services
 			};
 
 			// 3. 組合 token
-			var expiresInDays = int.Parse(_configuration["Jwt:ExpiresInDays"]!);
 			var token = new JwtSecurityToken(
 				issuer: _configuration["Jwt:Issuer"],
-				audience: _configuration["Jwt:Issuer"],
+				audience: _configuration["Jwt:Audience"],
 				claims: claims,
 				expires: DateTime.UtcNow.AddDays(expiresInDays),
 				signingCredentials: credentials
