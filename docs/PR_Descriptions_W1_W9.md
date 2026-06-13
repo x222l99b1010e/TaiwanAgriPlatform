@@ -5561,6 +5561,272 @@ RabbitMQ hostname hardcode 就是這種問題的典型。本機跑完全正常�
 
 ---
 
+# PR #037 — W17 Code Review 修正（第二批）：介面語意文件 + 單一真相來源 + 防禦上限 + CacheKey 抽象 + 設定外化
+
+**標題**：`fix(code-review): 介面 Upsert 語意文件 + MarketTypeMapping 單一真相來源 + RemoveWatchlistItems Take(50) 防禦 + CacheKeys.cs 抽象 + httpTimeoutSeconds 設定外化`
+
+---
+
+## 背景與動機
+
+本 PR 是針對 W17 Code Review 回饋的第二批修正，不包含新功能。所有項目均為可維護性、可讀性或架構一致性的改善。
+
+PR #036 處理了部署正確性問題（RabbitMQ hostname、Fail-Fast、命名複數），本 PR 處理同一輪 Code Review 剩餘的五項建議：介面語意文件、驗證邏輯集中、後端防禦上限、Cache Key 常數化、Worker 設定一致性。
+
+---
+
+## 實作內容
+
+### 一、IUserProfileService — Upsert 語意合約 XML doc
+
+```csharp
+/// <summary>
+/// 以 Upsert 語意更新農場設定檔：
+/// 若該 userId 已有設定檔則更新欄位；若無則新增一筆。
+/// <para>
+/// ⚠️ 注意：crops 欄位採全量取代（先刪後寫），
+/// 呼叫端必須每次傳入完整的作物清單，不可只傳差異。
+/// </para>
+/// </summary>
+Task UpsertUserFarmProfileAsync(
+    string userId,
+    string? farmCity,
+    string? farmType,
+    List<(string CropCode, string CropName)> crops);
+```
+
+**為什麼這個 ⚠️ 值得特別標注**
+
+`UpsertUserFarmProfileAsync` 的 `crops` 欄位是全量取代（先刪後寫），不是 merge。光看方法簽名無法看出這個行為——只傳想新增的作物，其他作物會被清空。這是一個在功能正確的情況下，維護者最容易踩到的語意陷阱，一行 doc comment 在設計階段就能攔截。
+
+---
+
+### 二、MarketTypeMapping — 合法類型驗證的單一真相來源
+
+**問題根源**
+
+合法 marketType 的定義分散在兩個獨立的地方：
+
+```csharp
+// MarketController.cs（舊）
+marketType is "Veg" or "Fruit" or "Flower"
+
+// MarketTypeMapping.cs（一直以來的真相）
+private static readonly Dictionary<string, string> _map = new()
+{
+    { "Veg",    "N04" },
+    { "Fruit",  "N05" },
+    { "Flower", "N06" },
+};
+```
+
+`_map` 的 Key 本身就是所有合法的 marketType，MarketController 卻另外維護了一份 pattern matching。兩份定義沒有連動，新增類型時 Controller 側容易遺漏。
+
+**修正：在 MarketTypeMapping 加 IsValidMarketType()**
+
+```csharp
+public static bool IsValidMarketType(string? marketType)
+    => marketType is not null && _map.ContainsKey(marketType);
+```
+
+**MarketController 改呼叫，移除自維護清單：**
+
+```csharp
+// 修正前
+private static readonly HashSet<string> ValidMarketTypes =
+    new(StringComparer.Ordinal) { "Veg", "Fruit", "Flower" };
+
+private static bool IsValidMarketType(string? marketType) =>
+    marketType is not null && ValidMarketTypes.Contains(marketType);
+
+// 修正後
+if (!MarketTypeMapping.IsValidMarketType(marketType))
+    return BadRequest(InvalidMarketTypeMessage);
+```
+
+**核心收益**：`_map` 是唯一真相來源。新增類型只改 `_map`，`ToTcType()` 和 `IsValidMarketType()` 都自動跟上，Controller 側不需要同步修改。
+
+**關於耦合的判斷**
+
+MarketTypeMapping 是 Market 模組自己的 Constants，MarketController 是 Market 模組自己的 Controller，同一模組內共用一份定義是正確的設計，不是耦合過重。耦合過重是「WeatherController 知道 MarketTypeMapping」，而不是「同一模組的 Controller 知道同一模組的 Constants」。
+
+---
+
+### 三、RemoveWatchlistItemsAsync — 後端防禦上限 + 前端勾選限制
+
+**後端：.Take(50)**
+
+```csharp
+public async Task RemoveWatchlistItemsAsync(string userId, IEnumerable<int> ids)
+{
+    var targetWatchListItems = context.UserWatchlists
+        .Where(w => w.UserId == userId && ids.Contains(w.Id))
+        .Take(50);   // 後端防禦：單次刪除上限
+    context.UserWatchlists.RemoveRange(targetWatchListItems);
+    await context.SaveChangesAsync();
+}
+```
+
+`50` 不需要抽成設定值的判斷依據：這是純技術上限，不是業務規則，不同環境不需要不同值，只在這一個地方使用。對比 `CropCodesMaxCount`（業務規則，可能隨需求調整），判斷依據明確不同。
+
+**前端：勾選上限 + 提示**
+
+```typescript
+function toggleSelect(id: number) {
+  const idx = selectedIds.value.indexOf(id)
+  if (idx >= 0) {
+    selectedIds.value.splice(idx, 1)  // 取消勾選永遠允許
+  } else {
+    if (selectedIds.value.length >= 50) return  // 已達上限，靜默攔截
+    selectedIds.value.push(id)
+  }
+}
+```
+
+刪除按鈕在達到上限時顯示提示：
+
+```html
+刪除已選 ({{ selectedIds.length }}{{ selectedIds.length >= 50 ? '，已達上限' : '' }})
+```
+
+**前後端數字必須一致的理由**：前端上限比後端嚴格（如前端 10 後端 50）會讓前端比後端更保守，限制使用者體驗但沒有對應的安全收益。兩邊都用 50，前端的提示反映後端的真實限制。
+
+---
+
+### 四、CacheKeys.cs — Cache Key 前綴抽成常數
+
+**問題：字串字面值散落**
+
+```csharp
+// MarketService.cs（舊）
+return $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+```
+
+`"market:prices:"` 直接寫在方法裡。未來實作 Cache Invalidation 時（Worker 同步完資料後清掉對應 Redis key），需要用這個前綴做 pattern scan。如果另一個地方也手寫 `"market:prices:"`，兩個字串各自獨立維護，一旦拼錯或其中一個改了，Invalidation 就會靜默失效——快取永遠不清，使用者看到舊資料，且不會有任何編譯錯誤。
+
+**修正：新建 CacheKeys.cs**
+
+```csharp
+namespace TaiwanAgri.Modules.Market.Constants
+{
+    /// <summary>
+    /// 集中管理所有 Redis Cache Key 前綴。
+    /// Cache Set 與 Cache Invalidation 必須使用相同的前綴，禁止在 Service 內散落字串字面值。
+    /// </summary>
+    public static class CacheKeys
+    {
+        /// <summary>
+        /// 農產品交易價格查詢結果。
+        /// 完整格式：market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}
+        /// </summary>
+        public const string MarketPricesPrefix = "market:prices:";
+    }
+}
+```
+
+**MarketService 改用常數：**
+
+```csharp
+return $"{CacheKeys.MarketPricesPrefix}{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+```
+
+這個修改為 TODO(W15) 的 Cache Invalidation 鋪路：實作時直接用 `CacheKeys.MarketPricesPrefix` 做 Redis pattern scan，無需記憶字串格式，也不可能拼錯。
+
+---
+
+### 五、AgriProductsTransSyncWorker — httpTimeoutSeconds 外化
+
+**問題**
+
+```csharp
+// 修正前
+using var httpTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+```
+
+PR #036 已把 RabbitMQ HostName 外化到設定檔，同一個 Worker 的 HTTP timeout 卻仍然 hardcode，設定外化原則不一致。農委會 API 回應時間若發生變化，調整 timeout 需要改程式碼、重新編譯、重新部署。
+
+**修正**
+
+```csharp
+var httpTimeoutSeconds = _configuration.GetValue<int>(
+    "AgriProductsSyncWorker:HttpTimeoutSeconds", 90);
+using var httpTimeoutCts = new CancellationTokenSource(
+    TimeSpan.FromSeconds(httpTimeoutSeconds));
+```
+
+`GetValue<int>(key, 90)` 的第二個參數是 fallback 預設值，確保設定缺失時行為與修改前完全一致，不會讓部署時忘記加 key 的環境炸掉。
+
+**appsettings.json 補上對應 key：**
+
+```json
+"AgriProductsSyncWorker": {
+  "HttpTimeoutSeconds": 90
+}
+```
+
+---
+
+## 關鍵設計決策彙整
+
+| 決策 | 選擇 | 理由 |
+|------|------|------|
+| Upsert 語意說明位置 | 介面方法的 XML doc | 合約應在介面宣告，不在實作；實作可能有多個 |
+| IsValidMarketType 歸屬 | MarketTypeMapping.cs | `_map` 是合法類型的唯一真相，驗證應從 Key 派生 |
+| 後端刪除上限 | .Take(50) | 技術防禦，不是業務規則，50 不需要設定化 |
+| 前後端上限一致 | 均為 50 | 前端比後端嚴格沒有安全收益，只限制使用者體驗 |
+| CacheKeys 位置 | Market 模組的 Constants/ | 和 MarketTypeMapping 同層，模組邊界清楚 |
+| fallback 預設值 | GetValue(key, 90) | 設定外化不應改變行為，fallback = 原本的硬編碼值 |
+
+---
+
+## 不修項目說明
+
+| 項目 | 理由 |
+|------|------|
+| InfrastructureExtensions.cs 拆分 | 純重構，W19-20 sprint 一起處理 |
+| 監看清單總數上限 | 刪除有 Take(50) 防禦，新增場景另行評估 |
+| 第 12-17 項測試相關 | W19-20 testing sprint 按計畫執行 |
+
+---
+
+## 驗收標準
+
+- [x] `POST /api/market/prices?marketType=Pork` → 400 BadRequest（新類型未加入 _map 時正確攔截）
+- [x] 監看清單勾選超過 50 筆後，繼續點選無反應；刪除按鈕顯示「已達上限」
+- [x] `DELETE /api/watchlist?ids=...`（傳入 > 50 個 id）→ 後端只刪前 50 筆
+- [x] Worker 啟動後讀取 appsettings.json 的 HttpTimeoutSeconds（log 確認 timeout 生效）
+- [x] 編譯無 warning；`BuildPricesCacheKey` 回傳的 Key 格式與修改前一致
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Modules.Market/Constants/CacheKeys.cs` | A | 新建，集中管理 Redis Key 前綴 |
+| `TaiwanAgri.Modules.Market/Constants/MarketTypeMapping.cs` | M | 新增 `IsValidMarketType()` |
+| `TaiwanAgri.Modules.Market/Services/MarketService.cs` | M | `BuildPricesCacheKey` 改用 `CacheKeys.MarketPricesPrefix` |
+| `TaiwanAgri.Modules.User/Services/IUserProfileService.cs` | M | 兩個方法加 XML doc；Upsert 全量取代 ⚠️ 標注 |
+| `TaiwanAgri.Modules.User/Services/UserWatchlistService.cs` | M | `RemoveWatchlistItemsAsync` 加 `.Take(50)` |
+| `TaiwanAgri.Web/Controllers/MarketController.cs` | M | 移除自維護 HashSet；改呼叫 `MarketTypeMapping.IsValidMarketType()` |
+| `TaiwanAgri.Worker/Services/AgriProductsTransSyncWorker.cs` | M | `httpTimeoutSeconds` 外化到設定 |
+| `TaiwanAgri.Worker/appsettings.json` | M | 新增 `AgriProductsSyncWorker:HttpTimeoutSeconds` |
+| `TaiwanAgri.Frontend/src/views/WatchlistView.vue` | M | `toggleSelect` 加 50 筆上限 + 刪除按鈕提示 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的是**「真相來源的位置，決定了未來改動的成本」**。
+
+`MarketTypeMapping._map` 一直以來都是 marketType 合法性的定義，但 Controller 自己又維護了一份。這兩份定義在功能上完全相同，問題只有一個：未來新增類型時，必須記得兩個地方都要改。把 `IsValidMarketType()` 放進 `MarketTypeMapping` 之後，Controller 不再自己知道「哪些是合法類型」，它只知道「問 MarketTypeMapping」。知識集中了，改動的入口就集中了。
+
+**CacheKeys.cs 的存在理由不是現在，是未來。** 現在只有一個地方用到 `"market:prices:"`，抽成常數的直接收益很小。但 Cache Invalidation（TODO W15）一定需要用這個前綴，到時候如果是手寫字串，兩個字串沒有任何編譯層面的連結。CacheKeys.cs 讓 Set 和 Invalidate 之間的連結變成程式碼可見的依賴，而不是工程師記憶裡的「我記得這個 prefix 是...」。
+
+**前後端上限一致是重要的 UX 原則，不只是對稱。** 後端 50、前端 10 在安全上沒有差別（前端限制完全可被繞過），但在使用者體驗上讓人困惑：UI 攔截了但 API 其實允許更多。兩邊一致讓前端的限制成為「對後端真實限制的準確反映」，而不是憑空多出來的規則。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

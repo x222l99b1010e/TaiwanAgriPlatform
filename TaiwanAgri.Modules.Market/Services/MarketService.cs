@@ -255,7 +255,8 @@ namespace TaiwanAgri.Modules.Market.Services
 				DateOnly finalEnd)
 		{
 			var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
-			return $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+			//return $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+			return $"{CacheKeys.MarketPricesPrefix}{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
 		}
 	}
 }

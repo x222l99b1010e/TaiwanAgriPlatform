@@ -6751,6 +6751,207 @@ Cache invalidation 尚未實作是「不完整的行為」，不是正常的商�
  
 ---
 
+### 條目 205 — XML doc comment：介面才是合約的正確位置
+ 
+**我做了什麼**
+ 
+在 `IUserProfileService` 的 `UpsertUserFarmProfileAsync` 上加了 XML `<summary>`：
+ 
+```csharp
+/// <summary>
+/// 以 Upsert 語意更新農場設定檔：
+/// 若該 userId 已有設定檔則更新欄位；若無則新增一筆。
+/// <para>
+/// ⚠️ 注意：crops 欄位採全量取代（先刪後寫），
+/// 呼叫端必須每次傳入完整的作物清單，不可只傳差異。
+/// </para>
+/// </summary>
+```
+ 
+**為什麼加在介面，不加在實作**
+ 
+`UserProfileService.cs`（實作）和 `IUserProfileService.cs`（介面）技術上都能加 doc comment。但合約說明應該在介面——呼叫端只看介面，如果合約說明只存在於實作，呼叫端永遠看不到。未來如果有第二個實作（測試用的 fake、Mock 等），介面上的 doc comment 仍然適用，實作上的則會漂移。
+ 
+**為什麼 crops 全量取代特別需要標注**
+ 
+Upsert 語意本身很直觀（有則改、無則建），但 crops 全量取代（先刪後寫，非 merge）不是從方法簽名能推導出來的行為。一個拿到這個介面的人，最自然的假設是「我只要傳我想新增的作物就好」，結果傳進去把現有作物都刪了。⚠️ 警告不是裝飾，是告訴維護者「這裡有一個反直覺的行為，你需要特別注意」。
+ 
+**doc comment 的 `<para>` 標籤是什麼**
+ 
+`<para>` 在 XML doc comment 裡是段落（paragraph）。加了 `<para>` 的內容在 IDE hover 時會換行顯示，讓警告視覺上更突出，不會和主說明擠在同一段。
+ 
+---
+ 
+### 條目 206 — 單一真相來源：驗證邏輯應從定義派生，不應各自維護
+ 
+**我做了什麼**
+ 
+把 `MarketController` 裡的 `ValidMarketTypes HashSet` 移除，改在 `MarketTypeMapping.cs` 加入：
+ 
+```csharp
+public static bool IsValidMarketType(string? marketType)
+    => marketType is not null && _map.ContainsKey(marketType);
+```
+ 
+`MarketController` 改呼叫：
+ 
+```csharp
+if (!MarketTypeMapping.IsValidMarketType(marketType))
+    return BadRequest(InvalidMarketTypeMessage);
+```
+ 
+**問題的本質**
+ 
+`_map` 的 Key 集合（`"Veg"`, `"Fruit"`, `"Flower"`）本身就已經定義了「什麼是合法的 marketType」。Controller 另外維護一份 HashSet，等於把同一份知識寫了兩遍。改動的時候必須兩處同步，漏掉一處就出現「API 實際支援但 Controller 擋掉」的 bug。
+ 
+**這樣改還是有兩件事要改**
+ 
+新增類型還是要改 `_map` 和 `InvalidMarketTypeMessage`（錯誤提示文字）。但改之前是三處（`_map`、Controller HashSet、Controller pattern matching），改之後是兩處，而且這兩處的距離更近——`_map` 和 `IsValidMarketType()` 在同一個檔案裡，改完 `_map` 立刻能看到驗證方法，不需要跨檔案跳轉。
+ 
+**什麼是同一模組內部耦合（正常）vs 跨模組耦合（問題）**
+ 
+`MarketController` 知道 `MarketTypeMapping`，兩者都屬於 Market 模組。這是正常的模組內部依賴，Market 模組自己的 Controller 用 Market 模組自己的常數，職責清楚。
+ 
+如果是 `WeatherController` 知道 `MarketTypeMapping`，那才是問題——Weather 模組對 Market 模組的內部實作產生了隱性依賴，Market 的改動可能意外破壞 Weather 的邏輯。
+ 
+**判斷一個常數/定義應該放在哪裡**
+ 
+問：「這個知識屬於哪個概念？誰是它的自然擁有者？」
+ 
+合法的 marketType 清單，是 Market 類型映射關係的一部分，自然擁有者是 `MarketTypeMapping`，放這裡最合理。這個問題的答案通常比較直觀，不需要複雜的分析。
+ 
+---
+ 
+### 條目 207 — 後端防禦上限的判斷依據：何時 hardcode、何時設定化
+ 
+**我做了什麼**
+ 
+在 `RemoveWatchlistItemsAsync` 加了 `.Take(50)`：
+ 
+```csharp
+var targetWatchListItems = context.UserWatchlists
+    .Where(w => w.UserId == userId && ids.Contains(w.Id))
+    .Take(50);
+```
+ 
+**為什麼需要後端防禦**
+ 
+前端 UI 是使用者手動勾選，正常使用下不會送出幾千個 id。但這是後端 API，任何持有有效 JWT 的人可以直接打 API 傳任意數量的 id 進來。後端不做限制的話，`WHERE Id IN (id1, id2, ... id10000)` 的 SQL 和一次刪除一萬筆的 transaction 都會正常執行，輕則資料庫壓力大，重則形成 DoS 攻擊面。
+ 
+**50 要不要設定化（不需要）**
+ 
+判斷一個數字是否需要設定化的三個問題：
+ 
+1. 這個值在不同環境（dev / staging / prod）需要不同值嗎？→ 不，防禦上限跟環境無關
+2. 這個值可能隨業務需求調整嗎？→ 不，這是技術上限，不是業務規則
+3. 這個值有多個地方需要保持一致嗎？→ 不，只在這一個地方使用
+三個都是否，維持 hardcode 比設定化更合適。設定化帶來的代價是「啟動時多讀一個設定 key」，但收益幾乎是零，只增加複雜度。
+ 
+對比 `CropCodesMaxCount`：業務規則（查詢上限可能隨 API 性能調整）、多處涉及（驗證邏輯 + 錯誤訊息）→ 設定化有意義。
+ 
+**前後端上限必須一致的理由**
+ 
+前端 50 後端 50，是因為：
+- 前端限制是「對後端真實限制的準確反映」
+- 前端限制 < 後端：UI 比後端更保守，使用者少刪了但後端其實可以更多，沒有安全意義
+- 前端限制 > 後端：UI 允許但後端靜默截斷，使用者以為刪了 60 個，實際只刪了 50 個
+靜默截斷是最壞的情況——使用者的意圖和系統的行為不一致，且沒有任何提示。
+ 
+---
+ 
+### 條目 208 — Cache Key 管理：常數化不是現在，是為未來的 Invalidation
+ 
+**我做了什麼**
+ 
+新建 `CacheKeys.cs`：
+ 
+```csharp
+public static class CacheKeys
+{
+    /// <summary>
+    /// 農產品交易價格查詢結果。
+    /// 完整格式：market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}
+    /// </summary>
+    public const string MarketPricesPrefix = "market:prices:";
+}
+```
+ 
+`MarketService.BuildPricesCacheKey` 改用：
+ 
+```csharp
+return $"{CacheKeys.MarketPricesPrefix}{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
+```
+ 
+**現在只有一個用途，為什麼還要抽**
+ 
+現在只有 `BuildPricesCacheKey` 用到 `"market:prices:"`，抽成常數的直接收益確實很小。但 Cache Invalidation（PriceUpdatedConsumer 的 TODO W15）必然需要這個前綴做 Redis pattern scan：
+ 
+```csharp
+// 未來 Cache Invalidation 的用法（W15 實作時）
+await _cache.KeyDeleteByPatternAsync($"{CacheKeys.MarketPricesPrefix}*");
+```
+ 
+如果現在不抽，W15 的工程師（或未來的自己）會在 Consumer 裡手寫 `"market:prices:"`。兩個字串完全獨立，一旦有人改了 `BuildPricesCacheKey` 裡的 prefix，Invalidation 的 pattern 不會跟著改，快取永遠不清，使用者看到舊資料。這個 bug 沒有任何編譯錯誤，只能靠 Redis 手動查才能發現。
+ 
+**這是 Cache 設計的通用原則**
+ 
+Cache Set 和 Cache Invalidation 必須使用相同的 Key 結構，否則 Invalidation 無效。把 prefix 抽成常數是最低成本的方式，確保兩個操作始終指向同一個 Key 空間。
+ 
+**doc comment 裡記錄完整 Key 格式**
+ 
+```csharp
+/// 完整格式：market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}
+```
+ 
+這一行的價值：W15 工程師不需要去讀 `BuildPricesCacheKey` 才能知道 Key 的格式是什麼，文件就說清楚了。
+ 
+---
+ 
+### 條目 209 — GetValue fallback：設定外化不應改變行為
+ 
+**我做了什麼**
+ 
+`AgriProductsTransSyncWorker.cs` 把 hardcode 的 90 秒改成讀設定：
+ 
+```csharp
+var httpTimeoutSeconds = _configuration.GetValue<int>(
+    "AgriProductsSyncWorker:HttpTimeoutSeconds", 90);
+using var httpTimeoutCts = new CancellationTokenSource(
+    TimeSpan.FromSeconds(httpTimeoutSeconds));
+```
+ 
+**GetValue<T>(key, defaultValue) 的語意**
+ 
+```csharp
+_configuration.GetValue<int>("AgriProductsSyncWorker:HttpTimeoutSeconds", 90)
+```
+ 
+行為：
+1. 去設定系統（appsettings.json + 環境變數等）找 `AgriProductsSyncWorker:HttpTimeoutSeconds`
+2. 找到了 → 用那個值
+3. 找不到（key 不存在）→ 用 `90` 當預設值，不拋例外
+第二個參數 `90` 不是隨便選的，必須等於原本 hardcode 的值。理由：設定外化這個動作本身不應該改變系統行為。如果 fallback 是 `0`，所有沒有加設定的環境 timeout 會變成 0 秒（立刻超時），造成部署後才發現的 bug。
+ 
+**和 Fail-Fast（條目 200）的對比**
+ 
+兩種讀取設定的模式語意不同：
+ 
+| 模式 | 使用時機 | 設定缺失時的行為 |
+|------|----------|-----------------|
+| `GetValue(key, defaultValue)` | 有合理預設值的技術參數 | 用預設值繼續跑 |
+| `?? throw new InvalidOperationException` | 必要的安全相關設定 | 啟動時報錯 |
+ 
+`HttpTimeoutSeconds` 有合理預設值（90 秒），缺失時用預設值繼續跑是合理的。`Jwt:SecretKey` 沒有合理預設值，缺失代表設定錯誤，應該 Fail-Fast。
+ 
+**設定外化的真正收益是什麼**
+ 
+不是「改起來更方便」（每次改都要重新部署），而是：
+- 不同環境可以有不同值（測試環境可能要更短的 timeout 讓測試跑快一點）
+- 修改不需要改程式碼 → 不需要重新編譯 → 不需要重新測試整個 build
+- 設定統一在設定檔管理，不散落在程式碼各處
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -7105,4 +7306,29 @@ Log 等級是給運維人員看的信號，不是給程式碼看的裝飾。骨�
  
 **關於前端 API 層的模組邊界**
 前端的 api/ 層要和後端的模組邊界對應：Profile 頁面的資料需求應透過 profileApi 或獨立的 cropApi 滿足，不直接呼叫 marketApi。這不是過度設計，而是「改 Market 模組的時候不需要去找 Profile 的 View 檔」這個維護需求的最小成本實現。中間層（cropApi.ts）讓依賴方向清楚，也讓函式有一個說清楚自己在做什麼的名字。
+
+---
+ 
+## 跨條目的通用原則整理（v24.2 更新）
+ 
+以下為 v24.2 新增或強化的原則，和既有原則並列管理：
+ 
+**關於介面 doc comment 的歸屬**
+合約說明應在介面，不在實作。呼叫端只看介面，合約說明寫在實作等於讓呼叫端永遠看不到。介面可能有多個實作（正式、測試 fake、Mock），doc comment 寫在介面對所有實作都適用，寫在實作只對那一個實作適用。
+ 
+**關於驗證邏輯的單一真相來源**
+「什麼是合法輸入」的定義應從資料定義派生，不應在驗證邏輯裡另外維護一份。已有 Dictionary、HashSet、Enum 定義了一組合法值時，驗證方法應查它，不應手動列舉相同的值集合。兩份清單沒有連動，新增成員時容易漏改一處。
+ 
+**關於防禦上限的設定化判斷**
+純技術防禦上限（後端 Take(N)、request body size limit）通常不需要設定化。判斷標準：不同環境需要不同值嗎？可能隨業務需求調整嗎？有多個地方需要保持一致嗎？三個問題都是否，維持 hardcode 比設定化更合適，後者只增加複雜度而沒有對應收益。業務規則上限（查詢最多幾個作物、單次批次最多幾筆）才需要設定化。
+ 
+**關於 Cache Key 常數的架構意義**
+Cache Set 和 Cache Invalidation 必須使用相同的 Key 結構。把 prefix 抽成常數讓兩個操作的依賴關係在程式碼層面可見，而不只存在於工程師記憶裡。改了 prefix 的常數，所有用到它的地方（Set、Invalidate、scan）都能被 IDE 的「找所有參考」功能找到，不會有遺漏。
+ 
+**關於 GetValue fallback 的選擇原則**
+設定外化不應改變行為，fallback 值必須等於原本的 hardcode 值。選 `0` 或型別預設值作為 fallback 是危險的——設定缺失時行為改變，且通常沒有任何錯誤訊息，只能從結果倒推原因。Fail-Fast（沒有 fallback，缺失即報錯）適合沒有合理預設值的必要設定；帶 fallback 的 GetValue 適合有合理預設值的技術參數。
+ 
+**關於前後端限制的對稱性**
+前端的輸入限制應反映後端的真實限制，不應比後端更嚴格（無安全收益，只限制使用者）或更寬鬆（靜默截斷，使用者意圖和實際行為不一致）。靜默截斷是最壞的 UX 情況：使用者以為操作成功，系統實際只做了一部分。
+ 
  

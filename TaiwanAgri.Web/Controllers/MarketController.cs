@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TaiwanAgri.Core.Helpers;
+using TaiwanAgri.Modules.Market.Constants;
 using TaiwanAgri.Modules.Market.Services;
 
 namespace TaiwanAgri.Web.Controllers
@@ -52,7 +53,7 @@ namespace TaiwanAgri.Web.Controllers
 		public async Task<IActionResult> GetMarkets([FromQuery] string marketType)
 		{
 			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
-			if (!IsValidMarketType(marketType))
+			if (!MarketTypeMapping.IsValidMarketType(marketType))
 				return BadRequest(InvalidMarketTypeMessage);
 
 			var result = await _marketService.GetMarketsAsync(marketType);
@@ -62,7 +63,7 @@ namespace TaiwanAgri.Web.Controllers
 		public async Task<IActionResult> GetCrops([FromQuery] string marketType)
 		{
 			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
-			if (!IsValidMarketType(marketType))
+			if (!MarketTypeMapping.IsValidMarketType(marketType))
 				return BadRequest(InvalidMarketTypeMessage);
 
 			var result = await _marketService.GetCropsAsync(marketType);
@@ -93,7 +94,7 @@ namespace TaiwanAgri.Web.Controllers
 			[FromQuery] string? endDate = null)
 		{
 			// 驗證 marketType 是否為 "Veg"、"Fruit" 或 "Flower"
-			if (!IsValidMarketType(marketType))
+			if (!MarketTypeMapping.IsValidMarketType(marketType))
 				return BadRequest(InvalidMarketTypeMessage);
 
 			if (cropCodes == null || cropCodes.Length == 0)
@@ -115,8 +116,5 @@ namespace TaiwanAgri.Web.Controllers
 			var result = await _marketService.GetPricesAsync(marketType, cropCodes, marketCode, start, end);
 			return Ok(result);
 		}
-
-		private static bool IsValidMarketType(string? marketType) =>
-				marketType is "Veg" or "Fruit" or "Flower";
 	}
 }

@@ -73,7 +73,7 @@
           :disabled="store.isSaving"
           @click="handleRemove"
         >
-          刪除已選 ({{ selectedIds.length }})
+          刪除已選 ({{ selectedIds.length }}{{ selectedIds.length >= 50 ? '，已達上限' : '' }})
         </button>
       </div>
 
@@ -150,8 +150,12 @@ const selectedIds = ref<number[]>([])
 
 function toggleSelect(id: number) {
   const idx = selectedIds.value.indexOf(id)
-  if (idx >= 0) selectedIds.value.splice(idx, 1)
-  else selectedIds.value.push(id)
+  if (idx >= 0) {
+    selectedIds.value.splice(idx, 1)  // 取消勾選永遠允許
+  } else {
+    if (selectedIds.value.length >= 50) return  // 已達上限，不讓繼續勾
+    selectedIds.value.push(id)
+  }
 }
 
 // ─── 新增 ────────────────────────────────────────────────────────────────

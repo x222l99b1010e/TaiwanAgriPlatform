@@ -16,5 +16,8 @@ namespace TaiwanAgri.Modules.Market.Constants
 
 		public static string? ToTcType(string marketType)
 			=> _map.TryGetValue(marketType, out var tcType) ? tcType : null;
+
+		public static bool IsValidMarketType(string? marketType)
+			=> marketType is not null && _map.ContainsKey(marketType);
 	}
 }

@@ -48,7 +48,8 @@ namespace TaiwanAgri.Modules.User.Services
 		public async Task RemoveWatchlistItemsAsync(string userId, IEnumerable<int> ids)
 		{
 			var targetWatchListItems = context.UserWatchlists
-				.Where(w => w.UserId == userId && ids.Contains(w.Id));
+				.Where(w => w.UserId == userId && ids.Contains(w.Id))
+				.Take(50);
 			context.UserWatchlists.RemoveRange(targetWatchListItems);
 			await context.SaveChangesAsync();
 		}
