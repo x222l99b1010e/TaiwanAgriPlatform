@@ -7,6 +7,20 @@
       <h2 class="section-title">新增監看</h2>
 
       <div class="add-form">
+        <!-- MarketType Tab -->
+        <div class="field-group">
+          <label class="field-label">作物類別</label>
+          <div class="tab-group">
+            <button
+              v-for="tab in marketTypeTabs"
+              :key="tab.value"
+              class="tab-btn"
+              :class="{ active: selectedMarketType === tab.value }"
+              @click="handleTabChange(tab.value)"
+            >{{ tab.label }}</button>
+          </div>
+        </div>
+
         <!-- 作物搜尋 Autocomplete -->
         <div class="field-group">
           <label class="field-label">作物</label>
@@ -18,12 +32,10 @@
               class="field-input"
               placeholder="輸入作物名稱，例如：番茄"
             />
-            <!-- 已選作物顯示 -->
             <div v-if="selectedCrop" class="selected-crop-tag">
               {{ selectedCrop.cropName }}
               <button @click="clearCrop">✕</button>
             </div>
-            <!-- 下拉選單 -->
             <div class="autocomplete-dropdown" v-if="showCropDropdown">
               <div
                 v-for="crop in filteredCrops"
@@ -95,10 +107,20 @@
             @change="toggleSelect(item.id)"
           />
           <div class="item-info">
-            <span class="item-crop">{{ item.cropName }}</span>
+            <div class="item-top-row">
+              <span class="item-crop">{{ item.cropName }}</span>
+              <span class="market-type-badge">{{ marketTypeLabel(item.marketType) }}</span>
+            </div>
             <span class="item-market">{{ item.marketName ?? '全台均價' }}</span>
           </div>
-          <span class="item-code">{{ item.cropCode }}</span>
+          <!-- 動態價格區 -->
+          <div class="item-price">
+            <span class="price-value" v-if="item.avgPrice !== null">
+              ${{ item.avgPrice?.toFixed(1) }}
+            </span>
+            <span class="price-value no-data" v-else>--</span>
+            <span class="price-date" v-if="item.transDate">{{ item.transDate }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -110,21 +132,52 @@ import { ref, computed, onMounted } from 'vue'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { marketApi } from '@/api/market'
 import type { CropResponseDto, MarketResponseDto } from '@/api/market'
+import type { MarketType } from '@/api/watchlist'
 
 const store = useWatchlistStore()
 
-// ─── 作物 Autocomplete 狀態 ─────────────────────────────────────────────
-const allCrops = ref<CropResponseDto[]>([])
+// ─── MarketType Tab ──────────────────────────────────────────────────────────
+const marketTypeTabs: { label: string; value: MarketType }[] = [
+  { label: '蔬菜', value: 'Veg' },
+  { label: '水果', value: 'Fruit' },
+  { label: '花卉', value: 'Flower' },
+]
+const selectedMarketType = ref<MarketType>('Veg')
+
+function marketTypeLabel(type: MarketType): string {
+  return marketTypeTabs.find(t => t.value === type)?.label ?? type
+}
+
+// ─── 作物 Autocomplete 狀態 ─────────────────────────────────────────────────
+const cropsByType = ref<Record<MarketType, CropResponseDto[]>>({
+  Veg: [], Fruit: [], Flower: []
+})
 const cropSearchText = ref('')
 const showCropDropdown = ref(false)
 const selectedCrop = ref<CropResponseDto | null>(null)
 
+// 目前類別的作物清單
+const currentCrops = computed(() => cropsByType.value[selectedMarketType.value])
+
 const filteredCrops = computed(() => {
   if (!cropSearchText.value.trim()) return []
-  return allCrops.value
+  return currentCrops.value
     .filter(c => c.cropName.includes(cropSearchText.value.trim()))
     .slice(0, 10)
 })
+
+async function handleTabChange(type: MarketType) {
+  selectedMarketType.value = type
+  selectedCrop.value = null
+  cropSearchText.value = ''
+  // 若該類別尚未載入才去 fetch
+  if (cropsByType.value[type].length === 0) {
+    cropsByType.value[type] = await marketApi.getCrops(type)
+  }
+  // 市場清單也跟著換
+  markets.value = await marketApi.getMarkets(type)
+  selectedMarketCode.value = null
+}
 
 function onCropInput() {
   showCropDropdown.value = filteredCrops.value.length > 0
@@ -138,74 +191,65 @@ function selectCrop(crop: CropResponseDto) {
   selectedCrop.value = crop
   cropSearchText.value = ''
   showCropDropdown.value = false
-  store.errorMessage = null  // 重新選作物時清除上一次的錯誤
+  store.errorMessage = null
 }
 
-// ─── 市場狀態 ────────────────────────────────────────────────────────────
+function clearCrop() {
+  selectedCrop.value = null
+  cropSearchText.value = ''
+  store.errorMessage = null
+}
+
+// ─── 市場狀態 ────────────────────────────────────────────────────────────────
 const markets = ref<MarketResponseDto[]>([])
 const selectedMarketCode = ref<string | null>(null)
 
-// ─── 勾選狀態（純 UI，不進 Store）──────────────────────────────────────
+// ─── 勾選狀態 ────────────────────────────────────────────────────────────────
 const selectedIds = ref<number[]>([])
 
 function toggleSelect(id: number) {
   const idx = selectedIds.value.indexOf(id)
   if (idx >= 0) {
-    selectedIds.value.splice(idx, 1)  // 取消勾選永遠允許
+    selectedIds.value.splice(idx, 1)
   } else {
-    if (selectedIds.value.length >= 50) return  // 已達上限，不讓繼續勾
+    if (selectedIds.value.length >= 50) return
     selectedIds.value.push(id)
   }
 }
 
-// ─── 新增 ────────────────────────────────────────────────────────────────
+// ─── 新增 ────────────────────────────────────────────────────────────────────
 async function handleAdd() {
   if (!selectedCrop.value) return
 
   const marketName = markets.value.find(m => m.marketCode === selectedMarketCode.value)?.marketName ?? null
 
-    await store.addItem({
+  await store.addItem({
     cropCode: selectedCrop.value.cropCode,
     cropName: selectedCrop.value.cropName,
     marketCode: selectedMarketCode.value,
     marketName: marketName,
-    })
+    marketType: selectedMarketType.value,
+  })
 
-    // 只有成功（沒有 errorMessage）才重置表單
-    if (!store.errorMessage) {
+  if (!store.errorMessage) {
     selectedCrop.value = null
     selectedMarketCode.value = null
-    }
+  }
 }
 
-// ─── 刪除 ────────────────────────────────────────────────────────────────
+// ─── 刪除 ────────────────────────────────────────────────────────────────────
 async function handleRemove() {
   await store.removeItems(selectedIds.value)
-  selectedIds.value = []  // 刪除成功後清空勾選
+  selectedIds.value = []
 }
 
-// ─── 初始化 ──────────────────────────────────────────────────────────────
+// ─── 初始化 ──────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  // 載入所有作物（三類合併）
-  const [veg, fruit, flower] = await Promise.all([
-    marketApi.getCrops('Veg'),
-    marketApi.getCrops('Fruit'),
-    marketApi.getCrops('Flower'),
-  ])
-  allCrops.value = [...veg, ...fruit, ...flower]
-
-  // 載入蔬菜市場清單（Watchlist 以蔬菜市場為主，後續可擴充）
+  // 預設載入蔬菜類別
+  cropsByType.value['Veg'] = await marketApi.getCrops('Veg')
   markets.value = await marketApi.getMarkets('Veg')
-
-  // 載入使用者的監看清單
   await store.fetchItems()
 })
-
-function clearCrop() {
-  selectedCrop.value = null
-  cropSearchText.value = ''
-  store.errorMessage = null // 重新選作物時清除上一次的錯誤
-}
 </script>
 
 <style scoped>
@@ -235,6 +279,17 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
   font-size: 12px; color: var(--text-muted); font-weight: 600;
   letter-spacing: 0.05em; text-transform: uppercase;
 }
+
+/* Tab */
+.tab-group { display: flex; gap: 6px; }
+.tab-btn {
+  padding: 7px 16px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-secondary);
+  font-size: 13px; cursor: pointer; transition: all 0.18s;
+}
+.tab-btn:hover { border-color: var(--green); color: var(--green); background: #f0f7f0; }
+.tab-btn.active { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: 600; }
 
 .field-input {
   padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
@@ -331,8 +386,28 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
 .item-card input[type="checkbox"] { accent-color: var(--green); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
 
 .item-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+
+.item-top-row { display: flex; align-items: center; gap: 8px; }
+
 .item-crop { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+
+.market-type-badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: #e8f5e9; color: var(--green);
+  border: 1px solid rgba(46,125,50,0.25); font-weight: 600;
+}
+
 .item-market { font-size: 12px; color: var(--text-muted); }
 
-.item-code { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* 價格區 */
+.item-price {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  min-width: 80px;
+}
+.price-value {
+  font-size: 16px; font-weight: 700; color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.price-value.no-data { color: var(--text-muted); font-weight: 400; }
+.price-date { font-size: 11px; color: var(--text-muted); }
 </style>

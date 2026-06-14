@@ -5827,6 +5827,298 @@ using var httpTimeoutCts = new CancellationTokenSource(
 
 ---
 
+# PR #038 — W18 監看清單行情整合：Controller 層組合 + MarketType 資料模型補全
+
+**標題**：`feat(watchlist): WatchlistEnrichedItemDto + Controller 層組合（Pattern C）+ UserWatchlist MarketType Migration`
+
+---
+
+## 背景與動機
+
+本 PR 實作 W18 的核心需求：讓監看清單的每一筆項目，除了靜態的作物偏好（CropCode、CropName、MarketCode、MarketName）之外，額外附帶**該作物最新一日的均價與交易日期**，使監看清單成為真正可用的即時行情追蹤工具。
+
+實作過程中發現原始資料模型存在設計缺漏：`UserWatchlist` Entity 自建立以來從未記錄 `MarketType`，導致 Controller 查詢均價時只能寫死 `"Veg"`，非蔬菜作物的行情資料永遠無法正確取得。本 PR 同步修正此根本問題，改由前端在使用者新增監看項目時一併傳入 `MarketType`，後端持久化儲存，查詢時直接使用。
+
+---
+
+## 架構決策：為什麼組合邏輯放在 Controller，而不是 Service
+
+本 PR 採用 **SA/SD 方案 C（Controller 層組合）**。
+
+在 Modular Monolith 架構中，模組邊界的核心原則是：**模組內部的 Service 不應注入其他模組的 Service**。`UserWatchlistService` 只負責操作 `UserDbContext`（User 模組自己的資料庫），若要在 Service 層取得均價，必須注入 `IMarketService`——這會造成 User 模組對 Market 模組的直接依賴（緊耦合）。
+
+Controller 層則不同：它站在所有模組「上面」，扮演協調者角色，可以同時注入多個模組的 Service，而不破壞模組邊界。`WatchlistController` 同時持有 `IUserWatchlistService` 和 `IMarketService`，在 Action 層級完成組合，兩個 Service 各自維持單一模組職責。
+
+```
+┌─────────────────────────────────────────────┐
+│           WatchlistController（協調者）       │  ← 跨模組組合發生在此
+├──────────────────┬──────────────────────────┤
+│    User 模組     │       Market 模組          │  ← 互不知道對方存在
+│  UserWatchlistSvc│     MarketService         │
+│  UserDbContext   │     MarketDbContext        │
+└──────────────────┴──────────────────────────┘
+```
+
+**面試觀點**：這是 Modular Monolith 架構中處理跨模組資料聚合的標準做法，權衡點在於 Controller 的職責略微加重，但換取了模組之間的 Loose Coupling 與各自可獨立演進的彈性。
+
+---
+
+## 實作內容
+
+### 一、資料模型補全：UserWatchlist 加入 MarketType
+
+**問題根源分析**
+
+`GetPricesAsync` 的第一個參數要求傳入 `marketType`（`"Veg"` / `"Fruit"` / `"Flower"`），這是底層 SQL 查詢的分類條件：
+
+```sql
+WHERE m.MarketType = @marketType
+  AND t.CropCode IN (@cropCodes)
+```
+
+然而 `UserWatchlist` Entity 自始未記錄 `MarketType`，且原始前端設計是三類作物合併後讓使用者選擇——選完之後，系統無從得知該作物屬於哪個類別：
+
+| 作物   | 實際類別 | Controller 寫死的值 | 結果               |
+|--------|----------|---------------------|--------------------|
+| 高麗菜 | Veg      | `"Veg"`             | ✅ 偶然正確         |
+| 西瓜   | Fruit    | `"Veg"`             | ❌ 查不到，顯示 `--` |
+| 菊花   | Flower   | `"Veg"`             | ❌ 查不到，顯示 `--` |
+
+**修正：在新增時就記錄 MarketType**
+
+```csharp
+// UserWatchlist.cs — 加入必填欄位
+[Required, MaxLength(20)]
+public string MarketType { get; set; } = string.Empty;
+```
+
+```bash
+# Migration
+Add-Migration AddUserWatchlistMarketType -Context UserDbContext \
+  -Project TaiwanAgri.Modules.User -StartupProject TaiwanAgri.Web
+
+Update-Database -Context UserDbContext \
+  -Project TaiwanAgri.Modules.User -StartupProject TaiwanAgri.Web
+```
+
+生成的 Migration：
+
+```csharp
+migrationBuilder.AddColumn<string>(
+    name: "MarketType",
+    table: "UserWatchlists",
+    type: "nvarchar(20)",
+    maxLength: 20,
+    nullable: false,
+    defaultValue: "");
+```
+
+---
+
+### 二、WatchlistEnrichedItemDto — 跨模組資料聚合的 DTO 設計
+
+**為什麼需要一個新的 DTO，而不是讓前端自己呼叫兩支 API**
+
+若前端分別呼叫 `GET /api/watchlist` 和多次 `GET /api/market/prices`，會造成：
+- 網路請求數 × N（監看清單有幾筆就打幾次）
+- Partial Failure 問題（部分請求成功、部分失敗時，UI 狀態難以管理）
+- 前端業務邏輯過重，違反「前端只負責顯示」的原則
+
+後端組合後一次回傳，前端只需一次 API 呼叫，錯誤處理集中在後端。
+
+```csharp
+// WatchlistEnrichedItemDto.cs
+public class WatchlistEnrichedItemDto
+{
+    // 來自 WatchlistItemDto（靜態偏好）
+    public int Id { get; set; }
+    public string CropCode { get; set; } = string.Empty;
+    public string CropName { get; set; } = string.Empty;
+    public string? MarketCode { get; set; }
+    public string? MarketName { get; set; }
+    public string MarketType { get; set; } = string.Empty;
+
+    // 來自 PriceResponseDto（動態價格，查不到時為 null）
+    public decimal? AvgPrice { get; set; }
+    public DateOnly? TransDate { get; set; }
+}
+```
+
+**AvgPrice 和 TransDate 為何是 nullable**
+
+某些作物可能近期無交易紀錄（例如季節性作物），此時 `GetPricesAsync` 回傳空集合。用 `null` 表達「無資料」比用 `0` 更準確——`0` 是有效的價格（雖然不太可能），而 `null` 明確表達「這個資訊不存在」。前端接收到 `null` 時顯示 `--`，語意清晰。
+
+**TransDate 為何需要帶給前端**
+
+市場有休市日（週末、節日），最新交易日可能是數天前的資料。使用者看到價格數字而不知道是幾天前的資料，無法判斷資料新鮮度。帶 `TransDate` 讓使用者能自行判斷資料是否仍具參考性。
+
+---
+
+### 三、WatchlistController — Controller 層組合邏輯
+
+```csharp
+[HttpGet]
+public async Task<IActionResult> GetWatchlistItems()
+{
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (userId is null) return Unauthorized();
+
+    var watchlistItems = await userWatchlistService.GetUserWatchlistItemsAsync(userId);
+    if (!watchlistItems.Any())
+        return Ok(Enumerable.Empty<WatchlistEnrichedItemDto>());
+
+    var result = new List<WatchlistEnrichedItemDto>();
+
+    foreach (var item in watchlistItems)
+    {
+        var prices = await marketService.GetPricesAsync(
+            marketType: item.MarketType,    // 直接使用，不再猜測
+            cropCodes: new[] { item.CropCode },
+            marketCode: item.MarketCode     // null = 全台均價；非 null = 指定市場
+        );
+
+        var latestPrice = prices
+            .OrderByDescending(p => p.TransDate)
+            .FirstOrDefault();
+
+        result.Add(new WatchlistEnrichedItemDto
+        {
+            Id = item.Id,
+            CropCode = item.CropCode,
+            CropName = item.CropName,
+            MarketCode = item.MarketCode,
+            MarketName = item.MarketName,
+            MarketType = item.MarketType,
+            AvgPrice = latestPrice?.AvgPrice,
+            TransDate = latestPrice?.TransDate
+        });
+    }
+
+    return Ok(result);
+}
+```
+
+**查詢策略的演變：為什麼最終採用 foreach 逐筆查**
+
+這個決策經歷了三個階段，值得完整記錄。
+
+**階段一：原始設計（兩組分法 + `allPrices` 共用清單）**
+
+第一版的思路是「優化效率」：把 watchlist 分成全市場組和指定市場組，全市場合併查一次，最後用 `allPrices` 共用清單統一組合。這個設計有兩個致命問題：
+
+_問題一：`marketType` 寫死 `"Veg"`_ — 水果和花卉作物查詢條件錯誤，均價永遠查不到，顯示 `--`。
+
+_問題二：`p.MarketCode` 不存在 → 編譯錯誤（CS1061）_ — `PriceResponseDto` 的設計語意是跨市場均價，底層 SQL `GroupBy(TransDate, CropCode)` 後 `MarketCode` 欄位就消失了，DTO 根本沒有這個屬性。即使移除這個條件，`allPrices` 混合了不同市場的查詢結果，相同 CropCode 來自不同市場的兩筆資料根本無從區分，組合時必然拿錯。
+
+**階段二：發現根本原因**
+
+試圖修補問題一時，發現 `UserWatchlist` Entity 從來就沒有儲存 `MarketType`——新增監看項目時這個資訊就已遺失。整個兩組分法的前提因此崩潰：不管查詢邏輯設計得多精巧，`marketType` 永遠只能猜測。問題不在查詢邏輯，而在資料模型本身缺少必要欄位。
+
+**階段三：最終設計**
+
+修正 Entity 並補 Migration 之後，查詢策略反而大幅簡化——每筆 item 各自查，查詢結果天然對應到那筆 item，不需要 `allPrices` 共用清單，也不需要事後比對 MarketCode。代價是查詢次數增加（N 筆 = N 次 `GetPricesAsync`），但 Redis Cache 提供緩衝，實際效能影響有限。
+
+---
+
+### 四、前端：WatchlistView 重構
+
+**MarketType Tab 驅動的先選類別流程**
+
+原本前端一次載入三類作物混合顯示，改為先選類別（蔬菜 / 水果 / 花卉），再從該類別的作物清單中搜尋。這不只是 UI 優化，而是確保 `MarketType` 資訊在使用者選擇作物時就已確定：
+
+```typescript
+// 按需載入 + 快取：切換 Tab 時只載入尚未載入的類別
+const cropsByType = ref<Record<MarketType, CropResponseDto[]>>({
+  Veg: [], Fruit: [], Flower: []
+})
+
+async function handleTabChange(type: MarketType) {
+  selectedMarketType.value = type
+  if (cropsByType.value[type].length === 0) {
+    cropsByType.value[type] = await marketApi.getCrops(type)  // 只在首次切換時打 API
+  }
+}
+```
+
+**Autocomplete 搜尋體驗**
+
+作物數量多，不適合直接 `<select>`。Autocomplete 讓使用者輸入關鍵字即時篩選，`filteredCrops` 用 `computed` 實作，依賴的 `cropSearchText` 改變時自動重算：
+
+```typescript
+const filteredCrops = computed(() =>
+  currentCrops.value
+    .filter(c => c.cropName.includes(cropSearchText.value.trim()))
+    .slice(0, 10)
+)
+```
+
+**AvgPrice null 判斷的精確性**
+
+```typescript
+// ✅ 正確：嚴格 null 判斷
+v-if="item.avgPrice !== null"
+
+// ❌ 錯誤：falsy 判斷，AvgPrice = 0 會被誤判為無資料
+v-if="item.avgPrice"
+```
+
+---
+
+## 關鍵設計決策彙整
+
+| 決策 | 選擇 | 理由 |
+|------|------|------|
+| 跨模組組合位置 | Controller 層 | 維持 Service 層的模組邊界，Controller 作為協調者 |
+| MarketType 儲存時機 | 新增監看時即存入 | 查詢時無法從 CropCode 反推類別，必須在資訊已知時記錄 |
+| 價格查詢策略 | 每筆 item 各自查詢 | 合併批次會造成相同 CropCode 不同市場的結果混淆 |
+| AvgPrice / TransDate 型別 | nullable | 無交易資料時用 null 表達「資訊不存在」，而非 0 或空字串 |
+| 前端先選類別再選作物 | 必要流程 | 確保 MarketType 在使用者選擇的當下就已確定 |
+| 作物清單快取策略 | `cropsByType` Record | 按需載入 + 快取，避免切換 Tab 重複打 API |
+
+---
+
+## 驗收標準
+
+- [x] 監看清單中，蔬菜類作物顯示正確均價與日期
+- [x] 監看清單中，水果 / 花卉類作物顯示正確均價（不再固定顯示 `--`）
+- [x] 無交易資料的作物顯示 `--`，不顯示 `0`
+- [x] 新增監看時，MarketType 正確儲存至資料庫
+- [x] 前端先選類別後，作物搜尋 Autocomplete 正確篩選該類別作物
+- [x] Build 無 warning，Migration 成功套用（`UserWatchlists` 資料表含 `MarketType` 欄位）
+
+---
+
+## 檔案異動清單
+
+| 檔案 | 異動 | 說明 |
+|------|------|------|
+| `TaiwanAgri.Modules.User/Dtos/ApiResponses/WatchlistEnrichedItemDto.cs` | A | 新建，跨模組聚合 DTO |
+| `TaiwanAgri.Modules.User/Dtos/ApiResponses/WatchlistItemDto.cs` | M | 加 `MarketType` 欄位 |
+| `TaiwanAgri.Modules.User/Dtos/ApiRequests/AddWatchlistRequestDto.cs` | M | 加 `MarketType` 欄位 |
+| `TaiwanAgri.Modules.User/Entities/UserWatchlist.cs` | M | 加 `[Required, MaxLength(20)] MarketType` |
+| `TaiwanAgri.Modules.User/Migrations/20260614153938_AddUserWatchlistMarketType.cs` | A | AddColumn MarketType nvarchar(20) NOT NULL |
+| `TaiwanAgri.Modules.User/Migrations/20260614153938_AddUserWatchlistMarketType.Designer.cs` | A | Migration Designer 快照 |
+| `TaiwanAgri.Modules.User/Migrations/UserDbContextModelSnapshot.cs` | M | Model Snapshot 更新 |
+| `TaiwanAgri.Modules.User/Services/UserWatchlistService.cs` | M | Add / Get 時讀寫 `MarketType` |
+| `TaiwanAgri.Web/Controllers/WatchlistController.cs` | M | Controller 層組合邏輯；加 `WatchlistEnrichedItemDto` |
+| `TaiwanAgri.Frontend/src/api/watchlist.ts` | M | 新增 `WatchlistEnrichedItemDto` 型別；`MarketType` union type |
+| `TaiwanAgri.Frontend/src/stores/watchlist.ts` | M | `items` 型別升級為 `WatchlistEnrichedItemDto[]` |
+| `TaiwanAgri.Frontend/src/views/WatchlistView.vue` | M | MarketType Tab + Autocomplete + 均價 / 日期顯示 |
+
+---
+
+## 閱讀之後：給你的觀察指南
+
+這個 PR 最值得思考的核心是**「資訊應在它被確知的那一刻記錄，而非事後推斷」**。
+
+`MarketType` 這個欄位一開始「沒必要存」的假設，背後隱含了一個未被驗證的前提：「事後可以從 CropCode 推算出 MarketType」。事實上 CropCode 只是作物代號，本身不攜帶類別資訊——不同市場體系的作物代號可能重疊，`"A001"` 可能是蔬菜也可能是水果，端看哪個市場的資料。這類「看起來可以推算，其實推算不了」的假設，是資料模型設計中常見的隱性缺漏，通常要到跨模組整合時才會浮現。
+
+**查詢策略的演變過程本身就是一個值得追蹤的思路**。第一版嘗試用「兩組分法 + 合併清單」優化效率，卻踩到兩個問題：`marketType` 寫死只能猜測，以及 `PriceResponseDto` 根本沒有 `MarketCode` 欄位（CS1061 編譯錯誤）。追查問題一的根本原因，才發現真正的缺漏在資料模型——Entity 從來沒有存 `MarketType`，查詢層的所有優化都是在錯誤的前提上疊加。修正資料模型之後，查詢策略反而自然簡化成 foreach 逐筆查，複雜的兩組分法完全不再需要。這個演變過程說明了一個重要原則：**在資料模型缺少必要欄位的情況下，試圖在查詢層優化效率，只會讓錯誤更難被發現。正確的順序是先確保資料完整，再考慮效能。**
+
+**WatchlistView 的 `cropsByType` 設計**體現了前端快取的最簡形式：用 `Record<MarketType, CropResponseDto[]>` 作為 in-memory cache，首次切換 Tab 時才打 API，之後直接讀記憶體。這個模式在實際產品中很常用，不需要引入額外的 cache library，適合 portfolio 規模的專案展示設計思維。
+
+---
+
 ## 閱讀之後：給你的觀察指南
 
 讀完PR_DESCRIPTION，你會發現每一篇都有固定的段落結構：

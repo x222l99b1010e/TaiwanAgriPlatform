@@ -6,12 +6,26 @@ import authClient from './authClient'
 
 // ─── DTO 型別 ──────────────────────────────────────────────────────────────
 
+export type MarketType = 'Veg' | 'Fruit' | 'Flower'
+
 export interface WatchlistItemDto {
   id: number
   cropCode: string
   cropName: string
   marketCode: string | null
   marketName: string | null
+  marketType: MarketType
+}
+
+export interface WatchlistEnrichedItemDto {
+  id: number
+  cropCode: string
+  cropName: string
+  marketCode: string | null
+  marketName: string | null
+  marketType: MarketType
+  avgPrice: number | null
+  transDate: string | null   // DateOnly → JSON 序列化後是字串
 }
 
 export interface AddWatchlistRequest {
@@ -19,15 +33,16 @@ export interface AddWatchlistRequest {
   cropName: string
   marketCode?: string | null
   marketName?: string | null
+  marketType: MarketType
 }
 
 // ─── API 呼叫函式 ──────────────────────────────────────────────────────────
 
 export const watchlistApi = {
   /** GET /api/watchlist */
-  getItems(): Promise<WatchlistItemDto[]> {
+  getItems(): Promise<WatchlistEnrichedItemDto[]> {
     return authClient
-      .get<WatchlistItemDto[]>('/api/watchlist')
+      .get<WatchlistEnrichedItemDto[]>('/api/watchlist')
       .then(res => res.data)
   },
 
@@ -39,11 +54,11 @@ export const watchlistApi = {
   },
 
   /** DELETE /api/watchlist?ids=1&ids=2&ids=3 */
-    removeItems(ids: number[]): Promise<void> {
+  removeItems(ids: number[]): Promise<void> {
     const params = new URLSearchParams()
     ids.forEach(id => params.append('ids', String(id)))
     return authClient
-        .delete('/api/watchlist', { params })
-        .then(() => undefined)
-    },
+      .delete('/api/watchlist', { params })
+      .then(() => undefined)
+  },
 }

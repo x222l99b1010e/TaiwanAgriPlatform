@@ -4,6 +4,8 @@ using System.Security.Claims;
 using TaiwanAgri.Modules.Market.Services;
 using TaiwanAgri.Modules.User.Services;
 using TaiwanAgri.Modules.User.Dtos.ApiRequests;
+using TaiwanAgri.Modules.User.Dtos.ApiResponses;
+using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 
 namespace TaiwanAgri.Web.Controllers
 {
@@ -19,8 +21,35 @@ namespace TaiwanAgri.Web.Controllers
 			if (userId is null) return Unauthorized();
 
 			var watchlistItems = await userWatchlistService.GetUserWatchlistItemsAsync(userId);
-			return Ok(watchlistItems);
+			if (!watchlistItems.Any())
+				return Ok(Enumerable.Empty<WatchlistEnrichedItemDto>());
 
+			var result = new List<WatchlistEnrichedItemDto>();
+
+			foreach (var item in watchlistItems) 
+			{
+				var prices = await marketService.GetPricesAsync(
+					marketType: item.MarketType,
+					cropCodes: new[] { item.CropCode },
+					marketCode: item.MarketCode
+				);
+				var latestPrice = prices
+						.OrderByDescending(p => p.TransDate)
+						.FirstOrDefault();
+
+				result.Add(new WatchlistEnrichedItemDto
+				{
+					Id = item.Id,
+					CropCode = item.CropCode,
+					CropName = item.CropName,
+					MarketCode = item.MarketCode,
+					MarketName = item.MarketName,
+					MarketType = item.MarketType,
+					AvgPrice = latestPrice?.AvgPrice,
+					TransDate = latestPrice?.TransDate
+				});
+			}
+			return Ok(result);
 		}
 		[HttpPost]
 		public async Task<IActionResult> AddWatchlistItem([FromBody] AddWatchlistRequestDto request)

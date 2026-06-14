@@ -13,6 +13,8 @@ namespace TaiwanAgri.Modules.User.Entities
 
 		[Required, StringLength(50)]
 		public string CropName { get; set; } = string.Empty;
+		[Required, MaxLength(20)]
+		public string MarketType { get; set; } = string.Empty;
 
 		[StringLength(10)]
 		public string? MarketCode { get; set; }

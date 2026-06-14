@@ -19,7 +19,8 @@ namespace TaiwanAgri.Modules.User.Services
 				CropCode = w.CropCode,
 				CropName = w.CropName,
 				MarketCode = w.MarketCode,
-				MarketName = w.MarketName
+				MarketName = w.MarketName,
+				MarketType = w.MarketType
 			});
 		}
 
@@ -38,7 +39,8 @@ namespace TaiwanAgri.Modules.User.Services
 				CropCode = request.CropCode,
 				CropName = request.CropName,
 				MarketCode = request.MarketCode,
-				MarketName = request.MarketName
+				MarketName = request.MarketName,
+				MarketType = request.MarketType
 			};
 			context.UserWatchlists.Add(watchlistItem);
 			await context.SaveChangesAsync();

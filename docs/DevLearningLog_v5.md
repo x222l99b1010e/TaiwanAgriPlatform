@@ -6952,6 +6952,392 @@ _configuration.GetValue<int>("AgriProductsSyncWorker:HttpTimeoutSeconds", 90)
 
 ---
 
+### 條目 210 — Modular Monolith 的跨模組資料聚合：為什麼放在 Controller，而不是 Service
+
+**我做了什麼**
+
+W18 的需求是讓監看清單每筆項目顯示最新均價。取得均價需要呼叫 `IMarketService`（Market 模組），但監看清單的資料來自 `IUserWatchlistService`（User 模組）。
+
+我選擇在 `WatchlistController` 同時注入兩個 Service，在 Action 層級組合結果，而不是讓其中一個 Service 注入另一個。
+
+**為什麼不能在 Service 層組合**
+
+在 Modular Monolith 架構中，模組邊界的核心規則是：**模組內部的 Service 不應注入其他模組的 Service**。
+
+若把組合邏輯放在 `UserWatchlistService`，就需要注入 `IMarketService`——這讓 User 模組對 Market 模組產生直接依賴（Tight Coupling）。後果是：
+
+- 改動 `IMarketService` 的介面可能意外破壞 `UserWatchlistService`
+- User 模組無法單獨測試，必須帶著 Market 模組一起
+- 模組之間「互相知道對方存在」，日後拆分成微服務時成本高
+
+Controller 層則不同：它是整個請求處理流程的協調者，站在所有模組「上面」，可以同時注入多個模組的 Service 而不破壞邊界。
+
+```
+禁止：UserWatchlistService → 注入 → IMarketService（模組對模組）
+允許：WatchlistController  → 同時注入兩個 Service（協調者對模組）
+```
+
+**一句話總結**
+
+模組之間應該「彼此不知道彼此」，跨模組的資料組合應上移到不屬於任何模組的協調層（Controller）。
+
+---
+
+### 條目 211 — 資料模型的隱性缺漏：MarketType 必須在「資訊確知時」記錄
+
+**我做了什麼**
+
+實作 Controller 層組合邏輯時，發現 `GetPricesAsync` 的第一個參數要求傳入 `marketType`，但 `UserWatchlist` Entity 從未記錄這個欄位。原始設計的隱含假設是「可以從 CropCode 推算出類別」——但這個假設是錯的。
+
+**為什麼推算不了**
+
+CropCode 只是作物代號，本身不攜帶任何類別資訊。農業部資料中 `"A001"` 到底是蔬菜還是水果，取決於它出現在哪張市場資料表裡，而不是代碼本身。
+
+原始程式碼的「解法」是把 `marketType` 寫死為 `"Veg"`：
+
+```csharp
+var prices = await marketService.GetPricesAsync(
+    marketType: "Veg",  // ← 寫死，完全猜測
+    cropCodes: new[] { item.CropCode }
+);
+```
+
+結果：
+
+| 作物   | 實際類別 | 傳入值  | 結果             |
+|--------|----------|---------|------------------|
+| 高麗菜 | Veg      | `"Veg"` | ✅ 偶然正確      |
+| 西瓜   | Fruit    | `"Veg"` | ❌ 查不到 → `--` |
+| 菊花   | Flower   | `"Veg"` | ❌ 查不到 → `--` |
+
+**正確做法：儲存時就記錄**
+
+使用者新增監看項目時，已經知道要選哪個類別（前端讓使用者先選類別再選作物）。這個資訊在被確知的當下就應該記錄到資料庫，而不是等查詢時再想辦法推算。
+
+修正範圍：Entity → Migration → 所有 DTO → Service → Controller → 前端 UI 流程。
+
+**設計原則**
+
+「資訊應在它被確知的那一刻記錄，而非事後推斷。」這類「看起來可以推算，其實推算不了」的假設，是資料模型設計中常見的隱性缺漏，通常要到跨模組整合時才會浮現。
+
+---
+
+### 條目 212 — Entity Migration 的實作流程與 Build 順序
+
+**我做了什麼**
+
+在 `UserWatchlist.cs` 加入 `MarketType` 欄位後，透過 EF Core Migration 將變更同步到資料庫。
+
+**完整流程**
+
+1. 先修改 Entity：
+
+```csharp
+[Required, MaxLength(20)]
+public string MarketType { get; set; } = string.Empty;
+```
+
+2. 確認 Build 成功（Migration 會先 Build，Build 失敗則 Migration 不會執行）：
+
+```
+Ctrl + Shift + B → 確認 0 errors
+```
+
+3. 在 Package Manager Console 執行：
+
+```powershell
+Add-Migration AddUserWatchlistMarketType `
+  -Context UserDbContext `
+  -Project TaiwanAgri.Modules.User `
+  -StartupProject TaiwanAgri.Web
+
+Update-Database `
+  -Context UserDbContext `
+  -Project TaiwanAgri.Modules.User `
+  -StartupProject TaiwanAgri.Web
+```
+
+4. 確認 Migration 檔案內容正確：
+
+```csharp
+migrationBuilder.AddColumn<string>(
+    name: "MarketType",
+    table: "UserWatchlists",
+    type: "nvarchar(20)",
+    maxLength: 20,
+    nullable: false,
+    defaultValue: "");
+```
+
+**關於 `-StartupProject` 參數**
+
+EF Core Migration 需要知道如何啟動應用程式（讀取 DI 設定、連線字串）。`TaiwanAgri.Web` 是進入點，包含 `Program.cs` 和 DI 設定，因此 `-StartupProject` 必須指向它。若未指定，EF Core 可能找不到 DbContext 的設定。
+
+**Migration 的 `defaultValue: ""`**
+
+已存在的舊資料（加入 MarketType 欄位前的記錄）在 Migration 執行後會帶空字串。這是正常的——舊資料的 MarketType 資訊已無從得知，使用者重新新增時前端會帶入正確值。
+
+---
+
+### 條目 213 — DTO 設計思考：什麼欄位需要帶、型別如何選擇
+
+**背景**
+
+設計 `WatchlistEnrichedItemDto` 時，需要決定從 `PriceResponseDto` 中挑哪些欄位、各欄位應用什麼型別。
+
+**欄位選取的原則：從使用情境出發**
+
+不是「有什麼就帶什麼」，而是問「前端需要這個欄位做什麼？」：
+
+- `CropCode` / `MarketCode` → 給程式用（刪除、查詢 API 請求）
+- `CropName` / `MarketName` → 給使用者看
+- `AvgPrice` → 核心顯示資料
+- `TransDate` → 讓使用者判斷資料新鮮度（市場有休市日，最新資料可能是數天前的）
+
+**nullable vs non-nullable 的語意差異**
+
+`AvgPrice` 和 `TransDate` 用 `decimal?` 和 `DateOnly?` 而非 `decimal` 和 `DateOnly`：
+
+- `null` 表達「這個資訊不存在」（該作物近期無交易紀錄）
+- `0` 表達「這個資訊存在，值是 0」（雖然很少見，但是有效的價格）
+
+用 `null` 才能在前端正確區分「無資料顯示 `--`」和「成交均價確實為 0」。
+
+**為什麼不把整個 PriceResponseDto 塞進去**
+
+`PriceResponseDto` 包含 `UpperPrice`、`MiddlePrice`、`LowerPrice`、`TransQuantity` 等欄位，監看清單的設計目標是「快速一覽」，不需要這些詳細欄位。DTO 的職責是**為特定前端視圖提供剛好需要的資料**，過度攜帶欄位增加 payload 大小，也讓 DTO 的用途變得模糊。
+
+---
+
+### 條目 214 — 查詢策略的三階段演變：從「合併批次」到「逐筆各自查」
+
+**完整的思路演變過程（這是面試最好的素材）**
+
+這個功能的查詢設計經歷了三個明顯的階段，每個階段都暴露出前一個階段的假設有問題。
+
+---
+
+**階段一：原始設計（兩組分法 + allPrices 共用清單）**
+
+第一版的思路是「優化效率」：把 watchlist 分成「全市場」和「指定市場」兩組，全市場的合併查一次，指定市場的各自查，最後統一用 `allPrices` 共用清單組合結果：
+
+```csharp
+// 分成兩組
+var globalItems  = watchlistItems.Where(i => i.MarketCode is null).ToList();
+var specificItems = watchlistItems.Where(i => i.MarketCode is not null).ToList();
+
+var allPrices = new List<PriceResponseDto>();
+
+// 全市場項目 → 合併一次查詢
+var cropCodes = globalItems.Select(i => i.CropCode).Distinct().ToArray();
+var prices = await marketService.GetPricesAsync(
+    marketType: "Veg",      // ← 問題一：寫死
+    cropCodes: cropCodes
+);
+allPrices.AddRange(prices);
+
+// 指定市場項目 → 各自查
+foreach (var item in specificItems)
+{
+    var prices = await marketService.GetPricesAsync(
+        marketType: "Veg",  // ← 問題一：寫死
+        cropCodes: new[] { item.CropCode },
+        marketCode: item.MarketCode
+    );
+    allPrices.AddRange(prices);
+}
+
+// 最後統一組合
+var result = watchlistItems.Select(item =>
+{
+    var latestPrice = allPrices
+        .Where(p => p.CropCode == item.CropCode
+            && (item.MarketCode is null || p.MarketCode == item.MarketCode))  // ← 問題二
+        .OrderByDescending(p => p.TransDate)
+        .FirstOrDefault();
+    // ...
+});
+```
+
+這個設計有兩個明確的問題：
+
+**問題一：`marketType` 寫死 `"Veg"`**
+
+水果類（西瓜）和花卉類（菊花）作物因為查詢打到蔬菜市場資料，永遠查不到，均價永遠顯示 `--`。
+
+**問題二：`p.MarketCode` 根本不存在 → 編譯錯誤**
+
+`PriceResponseDto` 的設計語意是跨市場均價，底層 SQL 在 `GroupBy(TransDate, CropCode)` 後，`MarketCode` 就消失了——`PriceResponseDto` 根本沒有這個欄位。結果 `p.MarketCode == item.MarketCode` 這行造成編譯錯誤：
+
+```
+CS1061: 'PriceResponseDto' 未包含 'MarketCode' 的定義
+```
+
+即使把編譯錯誤拿掉（只比對 CropCode），`allPrices` 共用清單還是有問題：若使用者同時監看「高麗菜 + 台北市場」和「高麗菜 + 台中市場」，兩次查詢回傳的都是 `CropCode = "A001"`，合併後無法區分哪筆來自哪個市場，`FirstOrDefault()` 必然拿錯一筆。
+
+---
+
+**階段二：發現根本原因**
+
+試圖修補問題一（`marketType` 寫死）時，發現：`UserWatchlist` Entity 從來就沒有儲存 `MarketType`。新增監看項目時，這個資訊根本沒有被記錄進資料庫。
+
+這讓階段一的整個設計前提崩潰了——兩組分法嘗試優化查詢效率，但連最基本的「這個作物屬於哪個類別」都不知道，任何查詢設計都無法正確運作。問題不是查詢邏輯，而是**資料模型從一開始就缺少必要資訊**。
+
+```
+原始設計的假設鏈：
+「可以從 CropCode 推算出 MarketType」← 這個假設是錯的
+    ↓
+導致新增時沒有存 MarketType
+    ↓
+導致查詢時只能猜測（寫死 "Veg"）
+    ↓
+導致非蔬菜作物均價永遠顯示 --
+```
+
+---
+
+**階段三：最終設計（Entity 補欄位 + foreach 逐筆查）**
+
+修正根本原因後，查詢策略也大幅簡化：
+
+```csharp
+foreach (var item in watchlistItems)
+{
+    var prices = await marketService.GetPricesAsync(
+        marketType: item.MarketType,      // ← 從資料庫讀，不猜測
+        cropCodes: new[] { item.CropCode },
+        marketCode: item.MarketCode       // null = 全台均價；非 null = 指定市場
+    );
+
+    var latestPrice = prices
+        .OrderByDescending(p => p.TransDate)
+        .FirstOrDefault();
+
+    result.Add(new WatchlistEnrichedItemDto
+    {
+        // ...
+        AvgPrice = latestPrice?.AvgPrice,
+        TransDate = latestPrice?.TransDate
+    });
+}
+```
+
+為什麼這樣對：
+- `item.MarketType` 是新增時就存入的正確值，不猜測、不推算
+- 每筆各自查、各自組合，查詢結果天然對應到那筆 item，不需要 MarketCode 比對
+- `PriceResponseDto` 沒有 MarketCode 也不影響——對應關係在查詢發起時就已確定
+
+代價是查詢次數增加（N 筆 watchlist = N 次 `GetPricesAsync`），但有 Redis Cache 緩衝，實際效能影響有限。
+
+---
+
+**結論**
+
+這個演變過程展示了一個常見的設計陷阱：**在資料模型缺少必要欄位的情況下，試圖在查詢層優化效率，結果只是讓錯誤更難被發現**。正確的順序是先確保資料模型完整，再考慮查詢優化。批次查詢的前提是「查詢結果可以被正確對應回原始請求」，當 DTO 不攜帶足夠的識別資訊時，「少打幾次 API」帶來的是正確性問題，而非真正的效能提升。
+
+---
+
+### 條目 215 — Vue 3 Computed 的核心機制：依賴追蹤與自動重算
+
+**背景**
+
+`WatchlistView` 的 `filteredCrops` 用 `computed` 實作作物 Autocomplete 篩選：
+
+```typescript
+const filteredCrops = computed(() => {
+  if (!cropSearchText.value.trim()) return []
+  return currentCrops.value
+    .filter(c => c.cropName.includes(cropSearchText.value.trim()))
+    .slice(0, 10)
+})
+```
+
+**computed 和 function 的差異**
+
+同樣的邏輯可以寫成普通 function：
+
+```typescript
+// 普通 function
+function getFilteredCrops() {
+  return currentCrops.value.filter(...)
+}
+```
+
+差異在於：
+
+| | computed | function |
+|--|----------|----------|
+| 執行時機 | 依賴的 ref 變動時自動重算 | 每次呼叫都重新執行 |
+| 快取 | 有（依賴未變動時回傳上一次結果） | 無 |
+| Template 使用 | 像 ref 一樣讀取（`.value` 或直接用） | 需要加括號呼叫 |
+
+`filteredCrops` 依賴 `cropSearchText` 和 `currentCrops`（`currentCrops` 又依賴 `selectedMarketType`）。使用者打字時 `cropSearchText` 變動，`filteredCrops` 自動重算；切換 Tab 時 `selectedMarketType` 變動，`currentCrops` 變動，`filteredCrops` 也自動重算。這個「連鎖追蹤」不需要手動管理。
+
+**analogy（比喻）**
+
+computed 像是 Excel 的公式 cell：你在 A1 輸入數字，B1 的公式 `=A1*2` 自動更新。普通 function 像是計算機：你每次按按鍵才得到結果，不會自動更新。
+
+---
+
+### 條目 216 — 前端按需載入 + in-memory 快取的最簡實現
+
+**我做了什麼**
+
+WatchlistView 需要載入蔬菜 / 水果 / 花卉三類作物清單。原始設計一次載入全部三類，改為「切換到哪個 Tab 才載入那個類別」：
+
+```typescript
+const cropsByType = ref<Record<MarketType, CropResponseDto[]>>({
+  Veg: [], Fruit: [], Flower: []
+})
+
+async function handleTabChange(type: MarketType) {
+  selectedMarketType.value = type
+  if (cropsByType.value[type].length === 0) {  // 尚未載入才打 API
+    cropsByType.value[type] = await marketApi.getCrops(type)
+  }
+  markets.value = await marketApi.getMarkets(type)
+  selectedMarketCode.value = null
+}
+```
+
+**這個模式解決了什麼**
+
+如果使用者只使用「蔬菜」類別，就不需要載入水果和花卉的資料。更重要的是，載入過一次的資料存在 `cropsByType` ref 裡，切換回同一個 Tab 時直接讀記憶體，不重複打 API。
+
+**`Record<MarketType, CropResponseDto[]>` 的 TypeScript 意義**
+
+`Record<K, V>` 是 TypeScript 的工具型別，等同於「以 K 的所有可能值為 key、V 為 value 的物件」。`Record<MarketType, CropResponseDto[]>` 確保物件一定有 `Veg`、`Fruit`、`Flower` 三個 key，不能有其他 key，TypeScript 編譯時就能檢查存取是否合法。
+
+---
+
+### 條目 217 — null 判斷的精確性：`!== null` vs falsy 判斷
+
+**問題**
+
+Template 中判斷是否顯示均價：
+
+```typescript
+// ❌ 錯誤：falsy 判斷
+v-if="item.avgPrice"
+
+// ✅ 正確：嚴格 null 判斷
+v-if="item.avgPrice !== null"
+```
+
+**為什麼 falsy 判斷是錯的**
+
+`item.avgPrice` 的型別是 `number | null`：
+- `null` → 無資料 → 應顯示 `--`
+- `0` → 成交均價為 0（雖然罕見，但是有效資料）→ 應顯示 `$0.0`
+
+用 `!item.avgPrice` 或 `v-if="item.avgPrice"` 時，`0` 和 `null` 都會被視為 falsy，`0` 會被誤判為「無資料」而顯示 `--`。
+
+**適用場景的記憶方法**
+
+當一個值的型別允許 `0`、`false`、空字串 等有意義的「空」值時，必須用嚴格比較（`=== null`、`=== undefined`、`!== null`）而非 falsy 判斷。
+
+---
+
 ## 跨條目的通用原則整理
 
 這個區塊隨著條目增加而更新。每次發現某個原則在不只一個條目裡出現，就把它移到這裡，代表它已經從「這次的經驗」升級成「我的習慣」。
@@ -7330,5 +7716,29 @@ Cache Set 和 Cache Invalidation 必須使用相同的 Key 結構。把 prefix �
  
 **關於前後端限制的對稱性**
 前端的輸入限制應反映後端的真實限制，不應比後端更嚴格（無安全收益，只限制使用者）或更寬鬆（靜默截斷，使用者意圖和實際行為不一致）。靜默截斷是最壞的 UX 情況：使用者以為操作成功，系統實際只做了一部分。
+
+---
+
+## 跨條目的通用原則整理（v25 更新）
+
+以下為 v25 新增或強化的原則，和既有原則並列管理：
+
+**關於跨模組資料聚合的層次選擇**
+在 Modular Monolith 架構中，需要聚合多個模組資料時，組合邏輯應放在 Controller 層（協調者），而非下放到任何一個模組的 Service 層。Service 層的職責是操作本模組的 DbContext，不應注入其他模組的 Service。這個規則的核心是「模組之間彼此不知道對方存在」（Loose Coupling）。
+
+**關於資料模型設計：資訊應在確知時記錄**
+設計 Entity 時，若某個資訊在業務流程中有明確的「被確知時刻」，就應在該時刻記錄，而非依賴事後推算。依賴推算的假設通常在跨模組整合時才會暴露缺漏，且修正成本更高（涉及所有相關層次的修改）。
+
+**關於批次查詢與正確性的權衡**
+批次查詢的前提是「查詢結果可以被正確對應回原始請求」。當不同查詢的結果在 DTO 層面無法區分時（例如相同 CropCode 對應不同市場，但 DTO 不攜帶市場資訊），各自查詢、各自組合是保證正確性的唯一做法，即使犧牲部分效能。
+
+**關於 nullable DTO 欄位的語意**
+`null` 表達「資訊不存在」，`0` 或空字串表達「資訊存在，值是 0 / 空」。當這兩種狀態語意上有區別時，必須用 nullable 型別，不可用預設值代替 null。前端對應的判斷必須用嚴格 null 比較（`!== null`），而非 falsy 判斷。
+
+**關於 Vue 3 computed 的適用場景**
+當一個值「需要從其他 ref 衍生計算，且希望在依賴變動時自動更新」時，使用 computed 而非普通 function 或手動 watch。computed 有快取機制，依賴未變動時不重新計算；連鎖依賴（A 依賴 B，B 依賴 C）會自動傳遞追蹤，不需要手動串接。
+
+**關於前端 in-memory 快取的最簡模式**
+用 `Record<Key, Data[]>` 搭配「長度為 0 才打 API」的條件，可以在不引入額外 cache library 的情況下實現按需載入 + 快取。適合資料量小、更新頻率低、且需要快速切換的下拉選單或分類篩選場景。
  
  

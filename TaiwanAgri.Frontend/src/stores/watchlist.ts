@@ -4,12 +4,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { watchlistApi } from '@/api/watchlist'
-import type { WatchlistItemDto, AddWatchlistRequest } from '@/api/watchlist'
+import type { WatchlistEnrichedItemDto, AddWatchlistRequest } from '@/api/watchlist'
 
 export const useWatchlistStore = defineStore('watchlist', () => {
   // ─── 狀態 ──────────────────────────────────────────────────────────────
 
-  const items = ref<WatchlistItemDto[]>([])
+  const items = ref<WatchlistEnrichedItemDto[]>([])
   const isLoading = ref(false)
   const isSaving = ref(false)
   const errorMessage = ref<string | null>(null)
@@ -30,22 +30,22 @@ export const useWatchlistStore = defineStore('watchlist', () => {
   }
 
   /** 新增一筆監看 */
-    async function addItem(request: AddWatchlistRequest) {
+  async function addItem(request: AddWatchlistRequest) {
     isSaving.value = true
     errorMessage.value = null
     try {
-        await watchlistApi.addItem(request)
-        await fetchItems()
+      await watchlistApi.addItem(request)
+      await fetchItems()
     } catch (err: any) {
-        if (err?.response?.status === 409) {
+      if (err?.response?.status === 409) {
         errorMessage.value = '此作物與市場組合已在監看清單中'
-        } else {
+      } else {
         errorMessage.value = '新增失敗，請稍後再試'
-        }
+      }
     } finally {
-        isSaving.value = false
+      isSaving.value = false
     }
-    }
+  }
 
   /** 刪除多筆監看 */
   async function removeItems(ids: number[]) {
@@ -53,7 +53,7 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     errorMessage.value = null
     try {
       await watchlistApi.removeItems(ids)
-      await fetchItems()  // 刪除後重新 fetch
+      await fetchItems()
     } catch {
       errorMessage.value = '刪除失敗，請稍後再試'
     } finally {
