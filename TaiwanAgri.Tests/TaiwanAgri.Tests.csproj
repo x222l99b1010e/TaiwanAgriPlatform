@@ -12,7 +12,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.9" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
@@ -25,7 +28,9 @@
     <ProjectReference Include="..\TaiwanAgri.Modules.FoodSafety\TaiwanAgri.Modules.FoodSafety.csproj" />
     <ProjectReference Include="..\TaiwanAgri.Modules.Market\TaiwanAgri.Modules.Market.csproj" />
     <ProjectReference Include="..\TaiwanAgri.Modules.Pet\TaiwanAgri.Modules.Pet.csproj" />
+    <ProjectReference Include="..\TaiwanAgri.Modules.User\TaiwanAgri.Modules.User.csproj" />
     <ProjectReference Include="..\TaiwanAgri.Modules.Weather\TaiwanAgri.Modules.Weather.csproj" />
+    <ProjectReference Include="..\TaiwanAgri.Web\TaiwanAgri.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
