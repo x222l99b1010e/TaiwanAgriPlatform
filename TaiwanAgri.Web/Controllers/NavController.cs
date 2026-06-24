@@ -28,7 +28,9 @@ namespace TaiwanAgri.Web.Controllers
 			var roleName = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
 			// 3. 呼叫 Service
 			var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleName);
-			
+
+			//throw new Exception("測試 GlobalExceptionMiddleware");  // 測試 GlobalExceptionMiddleware
+
 			return Ok(modules);
 		}
 	}
