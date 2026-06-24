@@ -4,6 +4,7 @@ using TaiwanAgri.Core.Infrastructure;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.User.Data;
 using TaiwanAgri.Web.Extensions;
+using TaiwanAgri.Web.Middlewares;
 
 namespace TaiwanAgri.Web
 {
@@ -34,7 +35,8 @@ namespace TaiwanAgri.Web
 			if (app.Environment.IsDevelopment())
 			{
 				// 開發者模式：看到詳細的報錯
-				app.UseDeveloperExceptionPage();
+				//app.UseDeveloperExceptionPage();
+
 				// Swagger UI 只在開發環境啟用，正式環境不暴露 API 文件
 				app.UseSwagger();
 				app.UseSwaggerUI(); // 預設路徑：/swagger
@@ -44,7 +46,8 @@ namespace TaiwanAgri.Web
 			{
 				// 正式環境：
 				// 1. 回傳不含敏感資訊的標準錯誤 JSON (Problem Details)
-				app.UseExceptionHandler();
+				//app.UseExceptionHandler();
+
 				app.UseStatusCodePages(); // 自動處理 400-599 的狀態碼
 
 				// 2. 強制 HTTPS 安全傳輸
@@ -56,6 +59,7 @@ namespace TaiwanAgri.Web
 				app.UseHttpsRedirection();
 			}
 
+			app.UseMiddleware<GlobalExceptionMiddleware>();
 			app.UseRouting();
 			app.UseCors("MyPolicy");
 			app.UseAuthentication(); // 既然有 Identity，這行通常要加在 Authorization 之前
