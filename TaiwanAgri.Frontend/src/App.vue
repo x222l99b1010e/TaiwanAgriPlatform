@@ -1,6 +1,7 @@
 <template>
   <div class="app-layout">
     <TopNav />
+    <VegPriceTicker />   <!-- ← 新增這行 -->
     <main class="main-content">
       <RouterView />
     </main>
@@ -10,6 +11,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import TopNav from '@/components/TopNav.vue'
+import VegPriceTicker from '@/components/VegPriceTicker.vue'
 import { useNavStore } from '@/stores/nav'
 
 const navStore = useNavStore()

@@ -21,6 +21,9 @@ import ProfileView     from '@/views/ProfileView.vue'
 import WatchlistView from '@/views/WatchlistView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 
+import FoodSafetyView  from '@/views/FoodSafetyView.vue'
+import TodayVegView    from '@/views/food-safety/TodayVegView.vue'
+
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -34,6 +37,7 @@ const router = createRouter({
       path: '/market',
       component: MarketView,
       children: [
+        { path: '',          redirect: '/market/prices' },
         { path: 'prices',    component: PricesView },
         { path: 'disasters', component: DisastersView },
         { path: 'rest-days', component: RestDaysView },
@@ -46,6 +50,7 @@ const router = createRouter({
       path: '/weather',
       component: WeatherView,
       children: [
+        { path: '',            redirect: '/weather/station' },
         { path: 'station',     component: StationView },
         { path: 'rainfall',    component: RainfallView },
         { path: 'pest-alerts', component: PestAlertsView },
@@ -54,7 +59,14 @@ const router = createRouter({
     },
 
     // 其他公開頁（佔位）
-    { path: '/food-safety', component: PlaceholderView },
+    {
+      path: '/food-safety',
+      component: FoodSafetyView,
+      children: [
+        { path: '',          redirect: '/food-safety/today-veg' },
+        { path: 'today-veg', component: TodayVegView },
+      ]
+    },
     { path: '/pet',         component: PlaceholderView },
 
     // ✅ 受保護路由：需登入才能訪問

@@ -30,5 +30,7 @@ namespace TaiwanAgri.Modules.Market.Services
 			string? marketCode = null,
 			DateOnly? startDate = null,
 			DateOnly? endDate = null);
+
+		Task<DateOnly?> GetLatestTransDateAsync(string marketCode);
 	}
 }
