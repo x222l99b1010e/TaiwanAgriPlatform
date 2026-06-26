@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Infrastructure;
 using TaiwanAgri.Core.Infrastructure.Data;
-using TaiwanAgri.Modules.User.Data;
 using TaiwanAgri.Web.Extensions;
 using TaiwanAgri.Web.Middlewares;
 
@@ -20,6 +18,7 @@ namespace TaiwanAgri.Web
 			builder.Services.AddCoreModule(builder.Configuration);
 			builder.Services.AddInfrastructure(builder.Configuration);
 			builder.Services.AddUserModule(builder.Configuration);
+			builder.Services.AddFoodSafetyModule(builder.Configuration);
 
 			var app = builder.Build();
 

@@ -20,6 +20,16 @@ namespace TaiwanAgri.Modules.Market.Services
 			_cache = cache;
 			_configuration = configuration;
 		}
+		public async Task<DateOnly?> GetLatestTransDateAsync(string marketCode)
+		{
+			var latest = await _context.AgriProductsTrans
+				.Where(t => t.MarketCode == marketCode)
+				.OrderByDescending(t => t.TransDate)
+				.Select(t => (DateOnly?)t.TransDate)
+				.FirstOrDefaultAsync();
+
+			return latest;
+		}
 		public async Task<List<PriceResponseDto>> GetPricesAsync(
 			string marketType,
 			string[] cropCodes,
