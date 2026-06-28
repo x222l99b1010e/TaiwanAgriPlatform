@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TaiwanAgri.Modules.FoodSafety.Services;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 using TaiwanAgri.Modules.Market.Services;
 
@@ -9,14 +10,16 @@ namespace TaiwanAgri.Web.Controllers
 	public class FoodSafetyController : ControllerBase
 	{
 		private readonly IMarketService _marketService;
+		private readonly IFoodSafetyService _foodSafetyService;
 		private static readonly string[] DefaultVegCropCodes = new[]
 		{
 			"LA2", "SE1", "SB1", "LH1", "FJ1",
 			"FI1", "FB1", "LF1", "LD1", "SP1"
 		};
-		public FoodSafetyController(IMarketService marketService)
+		public FoodSafetyController(IMarketService marketService, IFoodSafetyService foodSafetyService)
 		{
 			_marketService = marketService;
+			_foodSafetyService = foodSafetyService;
 		}
 
 		[HttpGet("today-veg-prices")]
@@ -30,6 +33,16 @@ namespace TaiwanAgri.Web.Controllers
 			var result = await _marketService.GetPricesAsync("Veg", DefaultVegCropCodes, "109", latestDate.Value, latestDate.Value);
 			return Ok(result);
 
+		}
+
+		[HttpGet("traceability")]
+		public async Task<IActionResult> SearchTraceability([FromQuery] string traceCode)
+		{
+			if (string.IsNullOrWhiteSpace(traceCode))
+				return BadRequest("追溯碼為必填");
+
+			var result = await _foodSafetyService.SearchTraceabilityAsync(traceCode.Trim());
+			return Ok(result);
 		}
 	}
 }

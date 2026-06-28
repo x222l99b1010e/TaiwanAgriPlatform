@@ -5,6 +5,58 @@
 import axios from 'axios'
 import type { PriceResponseDto } from './market'
 
+// 補充型別定義
+export interface AgriProductResult {
+  product: string
+  place: string
+  mark: string
+}
+
+export interface AgriProducerResult {
+  producer: string
+  address: string
+  mark: string
+  status: string
+  description: string
+}
+
+export interface WashedEggResult {
+  tracenoStart: string
+  tracenoEnd: string
+  selName: string
+  selAddr: string
+  selBoss: string
+  eggName1: string
+  farTownName1: string
+  eggName2: string
+  farTownName2: string
+  eggName3: string
+  farTownName3: string
+}
+
+export interface PoultryResult {
+  tracenoStart: string
+  tracenoEnd: string
+  kilName: string
+  kilAddr: string
+  kilBoss: string
+  farmersName1: string
+  farmersType1: string
+  farmersplace1: string
+  farmersName2: string
+  farmersType2: string
+  farmersplace2: string
+  cdate: string
+}
+
+export interface TraceabilityResponseDto {
+  traceCode: string
+  agriProducts: AgriProductResult[] | null
+  producer: AgriProducerResult | null
+  washedEgg: WashedEggResult | null
+  poultry: PoultryResult | null
+}
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -20,6 +72,14 @@ export const foodSafetyApi = {
   getTodayVegPrices(): Promise<PriceResponseDto[]> {
     return apiClient
       .get<PriceResponseDto[]>('/api/foodsafety/today-veg-prices')
+      .then(res => res.data)
+  },
+
+  searchTraceability(traceCode: string): Promise<TraceabilityResponseDto> {
+    return apiClient
+      .get<TraceabilityResponseDto>('/api/foodsafety/traceability', {
+        params: { traceCode }
+      })
       .then(res => res.data)
   },
 }
