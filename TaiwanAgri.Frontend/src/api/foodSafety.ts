@@ -57,6 +57,24 @@ export interface TraceabilityResponseDto {
   poultry: PoultryResult | null
 }
 
+export interface ViolationResult {
+  number: string
+  samplingDate: string       // DateOnly 在 JSON 序列化後是 "2026-04-03" 這種字串
+  productName: string
+  producerName: string
+  samplingLocation: string
+  inspectResult: string
+  note: string
+}
+
+export interface PagedResult<T> {
+  items: T[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -79,6 +97,19 @@ export const foodSafetyApi = {
     return apiClient
       .get<TraceabilityResponseDto>('/api/foodsafety/traceability', {
         params: { traceCode }
+      })
+      .then(res => res.data)
+  },
+
+  getViolations(
+    days: number,
+    inspectResult: string | undefined,
+    page: number,
+    pageSize: number
+  ): Promise<PagedResult<ViolationResult>> {
+    return apiClient
+      .get<PagedResult<ViolationResult>>('/api/foodsafety/violations', {
+        params: { days, inspectResult, page, pageSize }
       })
       .then(res => res.data)
   },
