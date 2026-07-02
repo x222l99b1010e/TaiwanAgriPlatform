@@ -1,17 +1,60 @@
 ﻿using System.Net.Http.Json;
 using TaiwanAgri.Core.Constants;
+using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.FoodSafety.Dtos.ApiResponses;
 using TaiwanAgri.Modules.FoodSafety.Dtos.ExternalResponses;
+using Microsoft.EntityFrameworkCore;
+using TaiwanAgri.Core.Dtos;
 
 namespace TaiwanAgri.Modules.FoodSafety.Services
 {
 	public class FoodSafetyService : IFoodSafetyService
 	{
 		private readonly HttpClient _httpClient;
+		private readonly FoodSafetyDbContext _context;
 
-		public FoodSafetyService(IHttpClientFactory httpClientFactory)
+		public FoodSafetyService(IHttpClientFactory httpClientFactory, FoodSafetyDbContext context)
 		{
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
+			_context = context;
+		}
+
+		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(int days, string? inspectResult = null, int page = 1, int pageSize = 20)
+		{
+			var fromDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-days);
+
+			var targetDate = _context.PesticideViolations
+				.Where(v => v.SamplingDate >= fromDate);
+
+			if (inspectResult != null)
+			{
+				targetDate = targetDate.Where(v => v.InspectResult == inspectResult);
+			}
+
+			var totalCount = await targetDate.CountAsync();
+			var items = await targetDate
+				.Skip((page - 1) * pageSize)
+				.Take(pageSize)
+				.Select(v => new ViolationResponseDto
+				{
+					Number = v.Number,
+					SamplingDate = v.SamplingDate,
+					ProductName = v.ProductName,
+					ProducerName = v.ProducerName,
+					SamplingLocation = v.SamplingLocation,
+					InspectResult = v.InspectResult,
+					Note = v.Note
+				})
+				.ToListAsync();
+
+			return new PagedResult<ViolationResponseDto>
+			{
+				Items = items,
+				TotalCount = totalCount,
+				Page = page,
+				PageSize = pageSize,
+				TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+			};
 		}
 
 		public async Task<TraceabilityResponseDto> SearchTraceabilityAsync(string traceCode)

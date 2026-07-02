@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Polly;
 using Serilog;
 using TaiwanAgri.Core.Infrastructure.Data;
+using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
@@ -38,6 +39,9 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddDbContext<MarketDbContext>(options =>
 				options.UseSqlServer(
 					builder.Configuration.GetConnectionString("DefaultConnection")));
+			builder.Services.AddDbContext<FoodSafetyDbContext>(options =>
+				options.UseSqlServer(
+					builder.Configuration.GetConnectionString("DefaultConnection")));
 
 			builder.Services.AddHttpClient("MoaApi", client =>
 			{
@@ -65,6 +69,8 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<AgriProductsTransSyncWorker>();
 			builder.Services.AddHostedService<DebrisAlertRecordSyncWorker>();
 			builder.Services.AddHostedService<PorkTransSyncWorker>();
+			//FoodSafety 註冊
+			builder.Services.AddHostedService<PesticideViolationSyncWorker>();
 
 			var host = builder.Build();
 			host.Run();

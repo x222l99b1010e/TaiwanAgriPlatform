@@ -6,7 +6,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { foodSafetyApi } from '@/api/foodSafety'
 import type { PriceResponseDto } from '@/api/market'
-import type { TraceabilityResponseDto } from '@/api/foodSafety'
+import type { TraceabilityResponseDto, ViolationResult, PagedResult } from '@/api/foodSafety'
+
 
 export const useFoodSafetyStore = defineStore('foodSafety', () => {
   // ─── 狀態（State） ────────────────────────────────────────────────────────
@@ -31,6 +32,10 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
 
   // 追溯查詢錯誤訊息
   const searchError = ref<string | null>(null)
+
+const violationsPage = ref<PagedResult<ViolationResult> | null>(null)
+const isLoadingViolations = ref(false)
+const violationsError = ref<string | null>(null)
 
   // ─── 動作（Actions） ──────────────────────────────────────────────────────
 
@@ -66,6 +71,24 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
     }
   }
 
+  async function fetchViolations(
+    days: number,
+    inspectResult: string | undefined,
+    page: number,
+    pageSize: number
+  ) {
+    isLoadingViolations.value = true
+    violationsError.value = null
+    try {
+      violationsPage.value = await foodSafetyApi.getViolations(days, inspectResult, page, pageSize)
+    } catch (e) {
+      violationsError.value = '載入農藥違規資料失敗，請稍後再試'
+      console.error(e)
+    } finally {
+      isLoadingViolations.value = false
+    }
+  }
+
   return {
     // State
     todayVegPrices,
@@ -78,5 +101,10 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
     // Actions
     fetchTodayVegPrices,
     searchTraceability,
+    //pesticide-violations
+    violationsPage,
+    isLoadingViolations,
+    violationsError,
+    fetchViolations,
   }
 })

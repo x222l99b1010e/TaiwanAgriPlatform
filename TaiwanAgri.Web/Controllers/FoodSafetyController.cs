@@ -44,5 +44,18 @@ namespace TaiwanAgri.Web.Controllers
 			var result = await _foodSafetyService.SearchTraceabilityAsync(traceCode.Trim());
 			return Ok(result);
 		}
+
+		[HttpGet("violations")]
+		public async Task<IActionResult> GetViolations([FromQuery] int days = 90, [FromQuery] string? inspectResult = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+		{
+			if (days <= 0)
+				return BadRequest("天數必須大於 0");
+			if (page <= 0)
+				return BadRequest("頁碼必須大於 0");
+			if (pageSize <= 0 || pageSize > 100)
+				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
+			var result = await _foodSafetyService.GetViolationsAsync(days, inspectResult, page, pageSize);
+			return Ok(result);
+		}
 	}
 }

@@ -24,6 +24,7 @@ import PlaceholderView from '@/views/PlaceholderView.vue'
 import FoodSafetyView    from '@/views/FoodSafetyView.vue'
 import TodayVegView      from '@/views/food-safety/TodayVegView.vue'
 import TraceabilityView  from '@/views/food-safety/TraceabilityView.vue'
+import ViolationWallView from '@/views/food-safety/ViolationWallView.vue'
 
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -67,6 +68,7 @@ const router = createRouter({
         { path: '',              redirect: '/food-safety/traceability' },
         { path: 'today-veg',    component: TodayVegView },
         { path: 'traceability', component: TraceabilityView },
+        { path: 'pest-violation', component: ViolationWallView },
       ]
     },
 
