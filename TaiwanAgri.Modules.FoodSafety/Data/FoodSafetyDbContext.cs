@@ -15,6 +15,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Data
 		}
 
 		public DbSet<PesticideViolation> PesticideViolations => Set<PesticideViolation>();
+		public DbSet<OrganicCertification> OrganicCertifications => Set<OrganicCertification>();
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
@@ -27,6 +28,14 @@ namespace TaiwanAgri.Modules.FoodSafety.Data
 					  .IsUnique();
 				entity.HasIndex(e => e.SamplingDate)
 					  .HasDatabaseName("IX_PesticideViolations_SamplingDate");
+			});
+
+			modelBuilder.Entity<OrganicCertification>(entity =>
+			{
+				entity.ToTable("OrganicCertifications", schema: "foodsafety");
+				entity.HasIndex(e => e.CertOrganicSn)
+					  .HasDatabaseName("IX_OrganicCertifications_CertOrganicSn")
+					  .IsUnique();
 			});
 		}
 	}

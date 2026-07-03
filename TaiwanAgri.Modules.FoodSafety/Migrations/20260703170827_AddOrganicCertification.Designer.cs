@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaiwanAgri.Modules.FoodSafety.Data;
 
@@ -11,9 +12,11 @@ using TaiwanAgri.Modules.FoodSafety.Data;
 namespace TaiwanAgri.Modules.FoodSafety.Migrations
 {
     [DbContext(typeof(FoodSafetyDbContext))]
-    partial class FoodSafetyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260703170827_AddOrganicCertification")]
+    partial class AddOrganicCertification
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
