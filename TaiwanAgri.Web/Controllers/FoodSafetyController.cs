@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TaiwanAgri.Modules.FoodSafety.Dtos.Queries;
 using TaiwanAgri.Modules.FoodSafety.Services;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 using TaiwanAgri.Modules.Market.Services;
@@ -55,6 +56,18 @@ namespace TaiwanAgri.Web.Controllers
 			if (pageSize <= 0 || pageSize > 100)
 				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
 			var result = await _foodSafetyService.GetViolationsAsync(days, inspectResult, page, pageSize);
+			return Ok(result);
+		}
+
+		[HttpGet("organic-certifications")]
+		public async Task<IActionResult> GetOrganicCertifications([FromQuery] OrganicCertificationQueryDto queryDto)
+		{
+			if (queryDto.Page <= 0)
+				return BadRequest("頁碼必須大於 0");
+			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
+				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
+
+			var result = await _foodSafetyService.GetOrganicCertificationsAsync(queryDto);
 			return Ok(result);
 		}
 	}

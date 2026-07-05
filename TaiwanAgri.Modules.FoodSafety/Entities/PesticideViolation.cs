@@ -12,10 +12,11 @@ namespace TaiwanAgri.Modules.FoodSafety.Entities
 		public DateOnly SamplingDate { get; set; }
 		[MaxLength(100)]
 		public string ProductName { get; set; } = string.Empty;
+		[Column(TypeName = "nvarchar(max)")]
 		public string ProductId { get; set; } = string.Empty;
 		[MaxLength(200)]
 		public string ProducerName { get; set; } = string.Empty;
-		[MaxLength(300)]
+		[Column(TypeName = "nvarchar(max)")]
 		public string SamplingLocation { get; set; } = string.Empty;
 		[MaxLength(50)]
 		public string InspectResult { get; set; } = string.Empty;

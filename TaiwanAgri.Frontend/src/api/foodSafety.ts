@@ -75,6 +75,33 @@ export interface PagedResult<T> {
   totalPages: number
 }
 
+// ─── 有機農產品驗證查詢：新增型別 ──────────────────────────────────────────
+
+export interface OrganicCertificationQueryParams {
+  operatorName?: string
+  verificationBodyName?: string
+  productKeyword?: string
+  page: number
+  pageSize: number
+}
+
+export interface OrganicCertificationResult {
+  id: number
+  certOrganicSn: string
+  operatorName: string
+  address: string
+  tel: string
+  products: string
+  behaviorType: string
+  verificationBodyName: string
+  effectiveDate: string | null   // DateOnly? 序列化後是 "2026-04-03" 或 null
+  status: string
+  productScope: string
+  mailingAddress: string
+  legacyCertNumber: string
+  hasAmbiguousProductMapping: boolean
+}
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -110,6 +137,16 @@ export const foodSafetyApi = {
     return apiClient
       .get<PagedResult<ViolationResult>>('/api/foodsafety/violations', {
         params: { days, inspectResult, page, pageSize }
+      })
+      .then(res => res.data)
+  },
+
+  getOrganicCertifications(
+    params: OrganicCertificationQueryParams
+  ): Promise<PagedResult<OrganicCertificationResult>> {
+    return apiClient
+      .get<PagedResult<OrganicCertificationResult>>('/api/foodsafety/organic-certifications', {
+        params
       })
       .then(res => res.data)
   },

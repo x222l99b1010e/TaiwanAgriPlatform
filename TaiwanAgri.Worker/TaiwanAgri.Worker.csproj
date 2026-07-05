@@ -33,4 +33,7 @@
     <ProjectReference Include="..\TaiwanAgri.Modules.Pet\TaiwanAgri.Modules.Pet.csproj" />
     <ProjectReference Include="..\TaiwanAgri.Modules.Weather\TaiwanAgri.Modules.Weather.csproj" />
   </ItemGroup>
+    <ItemGroup>
+	    <InternalsVisibleTo Include="TaiwanAgri.Tests" />
+    </ItemGroup>
 </Project>
