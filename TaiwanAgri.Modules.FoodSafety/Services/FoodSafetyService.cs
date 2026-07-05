@@ -5,6 +5,7 @@ using TaiwanAgri.Modules.FoodSafety.Dtos.ApiResponses;
 using TaiwanAgri.Modules.FoodSafety.Dtos.ExternalResponses;
 using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Dtos;
+using TaiwanAgri.Modules.FoodSafety.Dtos.Queries;
 
 namespace TaiwanAgri.Modules.FoodSafety.Services
 {
@@ -17,6 +18,56 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 		{
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_context = context;
+		}
+
+		public async Task<PagedResult<OrganicCertificationResponseDto>> GetOrganicCertificationsAsync(OrganicCertificationQueryDto queryDto)
+		{
+			//Console.WriteLine($"[偵測] Page={queryDto.Page}, PageSize={queryDto.PageSize}, OperatorName={queryDto.OperatorName}");
+
+			var query = _context.OrganicCertifications.AsQueryable();
+
+			if (!string.IsNullOrWhiteSpace(queryDto.OperatorName))
+				query = query.Where(x => x.Name.Contains(queryDto.OperatorName));
+
+			if (!string.IsNullOrWhiteSpace(queryDto.VerificationBodyName))
+				query = query.Where(x => x.CompanyName.Contains(queryDto.VerificationBodyName));
+
+			if (!string.IsNullOrWhiteSpace(queryDto.ProductKeyword))
+				query = query.Where(x => x.Products.Contains(queryDto.ProductKeyword) || x.ContainCrops.Contains(queryDto.ProductKeyword));
+			
+			var totalCount = await query.CountAsync();
+
+			var items = await query
+				.OrderByDescending(x => x.Id) //依照 Id 排序，確保分頁結果一致
+				.Skip((queryDto.Page - 1) * queryDto.PageSize) //跳過幾頁
+				.Take(queryDto.PageSize)
+				.Select(x => new OrganicCertificationResponseDto
+				{
+					Id = x.Id,
+					CertOrganicSn = x.CertOrganicSn,
+					OperatorName = x.Name,
+					Address = x.Address,
+					Tel = x.Tel,
+					Products = x.Products,
+					BehaviorType = x.BehaviorType,
+					VerificationBodyName = x.CompanyName,
+					EffectiveDate = x.EffectiveDate,
+					Status = x.Status,
+					ProductScope = x.ContainCrops,
+					MailingAddress = x.MailingAddress,
+					LegacyCertNumber = x.OldCertOrganicSN,
+					HasAmbiguousProductMapping = x.IsMultiCertSource
+				})
+				.ToListAsync();
+
+			return new PagedResult<OrganicCertificationResponseDto>
+			{
+				Items = items,
+				TotalCount = totalCount,
+				Page = queryDto.Page,
+				PageSize = queryDto.PageSize,
+				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
+			};
 		}
 
 		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(int days, string? inspectResult = null, int page = 1, int pageSize = 20)

@@ -71,6 +71,7 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<PorkTransSyncWorker>();
 			//FoodSafety 註冊
 			builder.Services.AddHostedService<PesticideViolationSyncWorker>();
+			builder.Services.AddHostedService<OrganicCertificationSyncWorker>();
 
 			var host = builder.Build();
 			host.Run();

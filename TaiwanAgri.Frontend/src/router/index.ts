@@ -25,6 +25,7 @@ import FoodSafetyView    from '@/views/FoodSafetyView.vue'
 import TodayVegView      from '@/views/food-safety/TodayVegView.vue'
 import TraceabilityView  from '@/views/food-safety/TraceabilityView.vue'
 import ViolationWallView from '@/views/food-safety/ViolationWallView.vue'
+import OrganicCertView from '@/views/food-safety/OrganicCertView.vue'
 
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -69,6 +70,7 @@ const router = createRouter({
         { path: 'today-veg',    component: TodayVegView },
         { path: 'traceability', component: TraceabilityView },
         { path: 'pest-violation', component: ViolationWallView },
+        { path: 'organic-certifications', component: OrganicCertView },
       ]
     },
 
