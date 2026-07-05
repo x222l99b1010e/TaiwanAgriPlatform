@@ -22,6 +22,10 @@ namespace TaiwanAgri.Core.Constants
 
 		// 模組 1：食安
 		public const string Traceability = "api/v1/TraceabilityType/";
+		public const string AgriProductInfo = "api/v1/TWAgriProductsTraceabilityType_ProductInfo/";
+		public const string AgriProducerInfo = "api/v1/TWAgriProductsTraceabilityType_ProducerInfo/";
+		public const string WashedEggs = "api/v1/WashedEggsTraceabilityType/";
+		public const string DomesticPoultry = "api/v1/DomesticPoultryTraceabilityType/";
 		public const string OrganicVerification = "api/v1/TWOrganicAgricultureVerificationInformationType/";
 		public const string PesticideViolation = "api/v1/SalesResumeAgriproductsResultsType/";
 

@@ -124,7 +124,7 @@ export const marketApi = {
   /** GET /api/market/restdays?marketCode=101&startDate=...&endDate=... */
   getRestDays(params: GetRestDaysParams): Promise<RestDayResponseDto[]> {
     return apiClient
-      .get<RestDayResponseDto[]>('/api/market/restdays', { params })
+      .get<RestDayResponseDto[]>('/api/market/rest-days', { params })
       .then(res => res.data)
   },
 

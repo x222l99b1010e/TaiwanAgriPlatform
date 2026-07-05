@@ -18,8 +18,14 @@ import PestDecadeView  from '@/views/weather/PestDecadeView.vue'
 
 import LoginView       from '@/views/auth/LoginView.vue'
 import ProfileView     from '@/views/ProfileView.vue'
-import WatchlistView from '@/views/WatchlistView.vue'
+import WatchlistView   from '@/views/WatchlistView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
+
+import FoodSafetyView    from '@/views/FoodSafetyView.vue'
+import TodayVegView      from '@/views/food-safety/TodayVegView.vue'
+import TraceabilityView  from '@/views/food-safety/TraceabilityView.vue'
+import ViolationWallView from '@/views/food-safety/ViolationWallView.vue'
+import OrganicCertView from '@/views/food-safety/OrganicCertView.vue'
 
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -34,6 +40,7 @@ const router = createRouter({
       path: '/market',
       component: MarketView,
       children: [
+        { path: '',          redirect: '/market/prices' },
         { path: 'prices',    component: PricesView },
         { path: 'disasters', component: DisastersView },
         { path: 'rest-days', component: RestDaysView },
@@ -46,6 +53,7 @@ const router = createRouter({
       path: '/weather',
       component: WeatherView,
       children: [
+        { path: '',            redirect: '/weather/station' },
         { path: 'station',     component: StationView },
         { path: 'rainfall',    component: RainfallView },
         { path: 'pest-alerts', component: PestAlertsView },
@@ -53,13 +61,24 @@ const router = createRouter({
       ]
     },
 
-    // 其他公開頁（佔位）
-    { path: '/food-safety', component: PlaceholderView },
-    { path: '/pet',         component: PlaceholderView },
+    // 食安（公開，巢狀）
+    {
+      path: '/food-safety',
+      component: FoodSafetyView,
+      children: [
+        { path: '',              redirect: '/food-safety/traceability' },
+        { path: 'today-veg',    component: TodayVegView },
+        { path: 'traceability', component: TraceabilityView },
+        { path: 'pest-violation', component: ViolationWallView },
+        { path: 'organic-certifications', component: OrganicCertView },
+      ]
+    },
+
+    { path: '/pet', component: PlaceholderView },
 
     // ✅ 受保護路由：需登入才能訪問
-    { path: '/profile', name: 'profile', component: ProfileView, meta: { requiresAuth: true } },
-    { path: '/watchlist', name: 'watchlist', component: WatchlistView, meta: {requiresAuth: true}},
+    { path: '/profile',   name: 'profile',   component: ProfileView,   meta: { requiresAuth: true } },
+    { path: '/watchlist', name: 'watchlist', component: WatchlistView, meta: { requiresAuth: true } },
   ]
 })
 
@@ -74,7 +93,7 @@ router.beforeEach((to, _from) => {
     // 目標路由需要登入，但尚未登入 → 導向登入頁，並記錄原目標路徑
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  
+
   if (to.name === 'login' && isAuthenticated) {
     // 已登入卻試圖訪問登入頁 → 導回首頁
     return { name: 'home' }
