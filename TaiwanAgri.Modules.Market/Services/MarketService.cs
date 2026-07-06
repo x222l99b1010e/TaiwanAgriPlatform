@@ -252,6 +252,40 @@ namespace TaiwanAgri.Modules.Market.Services
 			return porkList;
 		}
 
+		public async Task<List<LatestPriceDto>> GetLatestPricesAsync(
+			IEnumerable<(string CropCode, string MarketCode)> keys)
+		{
+			var keyList = keys.Distinct().ToList();
+			if (keyList.Count == 0)
+				return new List<LatestPriceDto>();
+
+			var cropCodes = keyList.Select(k => k.CropCode).Distinct().ToList();
+			var marketCodes = keyList.Select(k => k.MarketCode).Distinct().ToList();
+
+			// SQL 端先用兩個 IN 縮小範圍（可能多撈到交叉組合，最後再精準過濾），
+			// GroupBy + 每組取最新一筆，一次查詢取代逐組查詢
+			var latest = await _context.AgriProductsTrans
+				.Where(t => cropCodes.Contains(t.CropCode) && marketCodes.Contains(t.MarketCode))
+				.GroupBy(t => new { t.CropCode, t.MarketCode })
+				.Select(g => g
+					.OrderByDescending(t => t.TransDate)
+					.Select(t => new LatestPriceDto
+					{
+						CropCode = t.CropCode,
+						MarketCode = t.MarketCode,
+						TransDate = t.TransDate,
+						AvgPrice = t.AvgPrice
+					})
+					.First())
+				.ToListAsync();
+
+			// 移除 IN 交叉組合多撈到、但呼叫端沒要求的配對
+			var requested = keyList.ToHashSet();
+			return latest
+				.Where(x => requested.Contains((x.CropCode, x.MarketCode)))
+				.ToList();
+		}
+
 		/// <summary>
 		/// 組裝 GetPricesAsync 的 Redis Cache Key。
 		/// cropCodes 排序後 Join，確保 ["A01","B02"] 和 ["B02","A01"] 命中同一個 cache。

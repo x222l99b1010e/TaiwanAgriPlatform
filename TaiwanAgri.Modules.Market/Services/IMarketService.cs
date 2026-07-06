@@ -32,5 +32,12 @@ namespace TaiwanAgri.Modules.Market.Services
 			DateOnly? endDate = null);
 
 		Task<DateOnly?> GetLatestTransDateAsync(string marketCode);
+
+		/// <summary>
+		/// 批次取得多組（作物, 市場）的最新一筆均價。
+		/// 一次 SQL 完成，取代逐筆呼叫 GetPricesAsync 的 N+1 查詢
+		/// </summary>
+		Task<List<LatestPriceDto>> GetLatestPricesAsync(
+			IEnumerable<(string CropCode, string MarketCode)> keys);
 	}
 }
