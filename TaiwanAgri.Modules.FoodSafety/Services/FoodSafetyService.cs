@@ -56,7 +56,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 					Status = x.Status,
 					ProductScope = x.ContainCrops,
 					MailingAddress = x.MailingAddress,
-					LegacyCertNumber = x.OldCertOrganicSN,
+					LegacyCertNumber = x.OldCertOrganicSn,
 					HasAmbiguousProductMapping = x.IsMultiCertSource
 				})
 				.ToListAsync();

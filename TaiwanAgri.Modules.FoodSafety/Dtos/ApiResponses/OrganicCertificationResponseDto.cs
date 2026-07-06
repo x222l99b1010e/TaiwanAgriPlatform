@@ -22,7 +22,7 @@
 
 		public string MailingAddress { get; set; } = string.Empty;
 
-		/// <summary>對應 Entity: OldCertOrganicSN（舊制證書字號）</summary>
+		/// <summary>對應 Entity: OldCertOrganicSn（舊制證書字號）</summary>
 		public string LegacyCertNumber { get; set; } = string.Empty;
 
 		/// <summary>

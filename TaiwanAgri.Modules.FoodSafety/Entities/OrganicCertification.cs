@@ -67,10 +67,12 @@ namespace TaiwanAgri.Modules.FoodSafety.Entities
 		public string MailingAddress { get; set; } = string.Empty;
 
 		/// <summary>
-		/// 舊制證書字號，格式與 CertOrganicSn 不同（如 "TOC-C0417"），部分記錄為空字串
+		/// 舊制證書字號，格式與 CertOrganicSn 不同（如 "TOC-C0417"），部分記錄為空字串。
+		/// 屬性名統一用 Sn 大小寫；DB 欄位以 [Column] 保留原名，不產生 schema 變更
 		/// </summary>
 		[MaxLength(500)]
-		public string OldCertOrganicSN { get; set; } = string.Empty;
+		[Column("OldCertOrganicSN")]
+		public string OldCertOrganicSn { get; set; } = string.Empty;
 
 		/// <summary>
 		/// 標記此筆記錄是否來自 CertOrganicSn 異值並存的原始記錄拆分而來。

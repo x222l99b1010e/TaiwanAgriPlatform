@@ -38,7 +38,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 					Status = "有效",
 					ContainCrops = "水稻、玉米",
 					MailingAddress = "台北市信義區",
-					OldCertOrganicSN = "OLD-001",
+					OldCertOrganicSn = "OLD-001",
 					IsMultiCertSource = false
 				},
 				new OrganicCertification
@@ -55,7 +55,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 					Status = "有效",
 					ContainCrops = "茶葉",
 					MailingAddress = "台中市西區",
-					OldCertOrganicSN = "OLD-002",
+					OldCertOrganicSn = "OLD-002",
 					IsMultiCertSource = false
 				},
 				new OrganicCertification
@@ -72,7 +72,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 					Status = "有效",
 					ContainCrops = "蔬菜、水果",
 					MailingAddress = "高雄市三民區",
-					OldCertOrganicSN = "OLD-003",
+					OldCertOrganicSn = "OLD-003",
 					IsMultiCertSource = false
 				}
 			};
@@ -138,9 +138,9 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var entities = new List<OrganicCertification>
 				{
-					new OrganicCertification { Id = 1, CertOrganicSn = "SN-001", Name = "業者A", Address = "台北市信義區", Tel = "02-1111-1111", Products = "水稻", BehaviorType = "生產", CompanyName = "驗證機構A", EffectiveDate = new DateOnly(2026,1,1), Status = "有效", ContainCrops = "水稻、玉米", MailingAddress = "台北市信義區", OldCertOrganicSN = "OLD-001", IsMultiCertSource = false },
-					new OrganicCertification { Id = 2, CertOrganicSn = "SN-002", Name = "業者B", Address = "台中市西區", Tel = "04-2222-2222", Products = "茶葉", BehaviorType = "生產", CompanyName = "驗證機構B", EffectiveDate = new DateOnly(2026,2,1), Status = "有效", ContainCrops = "茶葉", MailingAddress = "台中市西區", OldCertOrganicSN = "OLD-002", IsMultiCertSource = false },
-					new OrganicCertification { Id = 3, CertOrganicSn = "SN-003", Name = "業者C", Address = "高雄市三民區", Tel = "07-3333-3333", Products = "蔬菜", BehaviorType = "生產", CompanyName = "驗證機構C", EffectiveDate = new DateOnly(2026,3,1), Status = "有效", ContainCrops = "蔬菜、水果", MailingAddress = "高雄市三民區", OldCertOrganicSN = "OLD-003", IsMultiCertSource = false }
+					new OrganicCertification { Id = 1, CertOrganicSn = "SN-001", Name = "業者A", Address = "台北市信義區", Tel = "02-1111-1111", Products = "水稻", BehaviorType = "生產", CompanyName = "驗證機構A", EffectiveDate = new DateOnly(2026,1,1), Status = "有效", ContainCrops = "水稻、玉米", MailingAddress = "台北市信義區", OldCertOrganicSn = "OLD-001", IsMultiCertSource = false },
+					new OrganicCertification { Id = 2, CertOrganicSn = "SN-002", Name = "業者B", Address = "台中市西區", Tel = "04-2222-2222", Products = "茶葉", BehaviorType = "生產", CompanyName = "驗證機構B", EffectiveDate = new DateOnly(2026,2,1), Status = "有效", ContainCrops = "茶葉", MailingAddress = "台中市西區", OldCertOrganicSn = "OLD-002", IsMultiCertSource = false },
+					new OrganicCertification { Id = 3, CertOrganicSn = "SN-003", Name = "業者C", Address = "高雄市三民區", Tel = "07-3333-3333", Products = "蔬菜", BehaviorType = "生產", CompanyName = "驗證機構C", EffectiveDate = new DateOnly(2026,3,1), Status = "有效", ContainCrops = "蔬菜、水果", MailingAddress = "高雄市三民區", OldCertOrganicSn = "OLD-003", IsMultiCertSource = false }
 				};
 			await dbContext.OrganicCertifications.AddRangeAsync(entities);
 			await dbContext.SaveChangesAsync();
@@ -171,9 +171,9 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var entities = new List<OrganicCertification>
 				{
-					new OrganicCertification { Id = 1, CertOrganicSn = "SN-001", Name = "業者A", Address = "台北市信義區", Tel = "02-1111-1111", Products = "水稻", BehaviorType = "生產", CompanyName = "驗證機構A", EffectiveDate = new DateOnly(2026,1,1), Status = "有效", ContainCrops = "水稻、玉米", MailingAddress = "台北市信義區", OldCertOrganicSN = "OLD-001", IsMultiCertSource = false },
-					new OrganicCertification { Id = 2, CertOrganicSn = "SN-002", Name = "業者B", Address = "台中市西區", Tel = "04-2222-2222", Products = "茶葉", BehaviorType = "生產", CompanyName = "驗證機構B", EffectiveDate = new DateOnly(2026,2,1), Status = "有效", ContainCrops = "茶葉", MailingAddress = "台中市西區", OldCertOrganicSN = "OLD-002", IsMultiCertSource = false },
-					new OrganicCertification { Id = 3, CertOrganicSn = "SN-003", Name = "業者C", Address = "高雄市三民區", Tel = "07-3333-3333", Products = "蔬菜", BehaviorType = "生產", CompanyName = "驗證機構C", EffectiveDate = new DateOnly(2026,3,1), Status = "有效", ContainCrops = "蔬菜、水果", MailingAddress = "高雄市三民區", OldCertOrganicSN = "OLD-003", IsMultiCertSource = false }
+					new OrganicCertification { Id = 1, CertOrganicSn = "SN-001", Name = "業者A", Address = "台北市信義區", Tel = "02-1111-1111", Products = "水稻", BehaviorType = "生產", CompanyName = "驗證機構A", EffectiveDate = new DateOnly(2026,1,1), Status = "有效", ContainCrops = "水稻、玉米", MailingAddress = "台北市信義區", OldCertOrganicSn = "OLD-001", IsMultiCertSource = false },
+					new OrganicCertification { Id = 2, CertOrganicSn = "SN-002", Name = "業者B", Address = "台中市西區", Tel = "04-2222-2222", Products = "茶葉", BehaviorType = "生產", CompanyName = "驗證機構B", EffectiveDate = new DateOnly(2026,2,1), Status = "有效", ContainCrops = "茶葉", MailingAddress = "台中市西區", OldCertOrganicSn = "OLD-002", IsMultiCertSource = false },
+					new OrganicCertification { Id = 3, CertOrganicSn = "SN-003", Name = "業者C", Address = "高雄市三民區", Tel = "07-3333-3333", Products = "蔬菜", BehaviorType = "生產", CompanyName = "驗證機構C", EffectiveDate = new DateOnly(2026,3,1), Status = "有效", ContainCrops = "蔬菜、水果", MailingAddress = "高雄市三民區", OldCertOrganicSn = "OLD-003", IsMultiCertSource = false }
 				};
 			await dbContext.OrganicCertifications.AddRangeAsync(entities);
 			await dbContext.SaveChangesAsync();
@@ -213,9 +213,9 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var entities = new List<OrganicCertification>
 				{
-					new OrganicCertification { Id = 1, CertOrganicSn = "SN-001", Name = "業者A", Address = "台北市信義區", Tel = "02-1111-1111", Products = "水稻", BehaviorType = "生產", CompanyName = "驗證機構A", EffectiveDate = new DateOnly(2026,1,1), Status = "有效", ContainCrops = "水稻、玉米", MailingAddress = "台北市信義區", OldCertOrganicSN = "OLD-001", IsMultiCertSource = false },
-					new OrganicCertification { Id = 2, CertOrganicSn = "SN-002", Name = "業者B", Address = "台中市西區", Tel = "04-2222-2222", Products = "茶葉", BehaviorType = "生產", CompanyName = "驗證機構B", EffectiveDate = new DateOnly(2026,2,1), Status = "有效", ContainCrops = "茶葉", MailingAddress = "台中市西區", OldCertOrganicSN = "OLD-002", IsMultiCertSource = false },
-					new OrganicCertification { Id = 3, CertOrganicSn = "SN-003", Name = "業者C", Address = "高雄市三民區", Tel = "07-3333-3333", Products = "蔬菜", BehaviorType = "生產", CompanyName = "驗證機構C", EffectiveDate = new DateOnly(2026,3,1), Status = "有效", ContainCrops = "蔬菜、水果", MailingAddress = "高雄市三民區", OldCertOrganicSN = "OLD-003", IsMultiCertSource = false }
+					new OrganicCertification { Id = 1, CertOrganicSn = "SN-001", Name = "業者A", Address = "台北市信義區", Tel = "02-1111-1111", Products = "水稻", BehaviorType = "生產", CompanyName = "驗證機構A", EffectiveDate = new DateOnly(2026,1,1), Status = "有效", ContainCrops = "水稻、玉米", MailingAddress = "台北市信義區", OldCertOrganicSn = "OLD-001", IsMultiCertSource = false },
+					new OrganicCertification { Id = 2, CertOrganicSn = "SN-002", Name = "業者B", Address = "台中市西區", Tel = "04-2222-2222", Products = "茶葉", BehaviorType = "生產", CompanyName = "驗證機構B", EffectiveDate = new DateOnly(2026,2,1), Status = "有效", ContainCrops = "茶葉", MailingAddress = "台中市西區", OldCertOrganicSn = "OLD-002", IsMultiCertSource = false },
+					new OrganicCertification { Id = 3, CertOrganicSn = "SN-003", Name = "業者C", Address = "高雄市三民區", Tel = "07-3333-3333", Products = "蔬菜", BehaviorType = "生產", CompanyName = "驗證機構C", EffectiveDate = new DateOnly(2026,3,1), Status = "有效", ContainCrops = "蔬菜、水果", MailingAddress = "高雄市三民區", OldCertOrganicSn = "OLD-003", IsMultiCertSource = false }
 				};
 			await dbContext.OrganicCertifications.AddRangeAsync(entities);
 			await dbContext.SaveChangesAsync();

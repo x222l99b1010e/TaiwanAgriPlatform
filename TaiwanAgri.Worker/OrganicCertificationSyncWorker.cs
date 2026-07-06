@@ -132,7 +132,7 @@ namespace TaiwanAgri.Worker
 				Status = dto.Status,
 				ContainCrops = dto.ContainCrops,
 				MailingAddress = dto.MailingAddress,
-				OldCertOrganicSN = dto.OldCertOrganicSN,
+				OldCertOrganicSn = dto.OldCertOrganicSN,
 				IsMultiCertSource = isMultiCertSource,
 				SyncedAt = DateTime.UtcNow
 			}).ToList();
