@@ -49,9 +49,10 @@ namespace TaiwanAgri.Modules.User.Services
 
 		public async Task RemoveWatchlistItemsAsync(string userId, IEnumerable<int> ids)
 		{
+			// 數量上限防禦在 Controller 層驗證後回 400，
+			// 這裡不做靜默截斷（原 Take(50) 無排序，刪哪 50 筆不確定）
 			var targetWatchListItems = context.UserWatchlists
-				.Where(w => w.UserId == userId && ids.Contains(w.Id))
-				.Take(50);
+				.Where(w => w.UserId == userId && ids.Contains(w.Id));
 			context.UserWatchlists.RemoveRange(targetWatchListItems);
 			await context.SaveChangesAsync();
 		}

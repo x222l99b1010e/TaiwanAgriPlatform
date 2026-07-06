@@ -1,8 +1,9 @@
 ﻿using System.Text.Json.Serialization;
+using TaiwanAgri.Core.Dtos;
 
 namespace TaiwanAgri.Modules.FoodSafety.Dtos.WorkerResponses
 {
-	public class PesticideViolationApiResponse
+	public class PesticideViolationApiResponse : IMoaPagedResponse<PesticideViolationDto>
 	{
 		[JsonPropertyName("RS")]
 		public string RS { get; set; } = string.Empty;

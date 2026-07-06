@@ -4,6 +4,7 @@ using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.FoodSafety.Dtos.ApiResponses;
 using TaiwanAgri.Modules.FoodSafety.Dtos.ExternalResponses;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TaiwanAgri.Core.Dtos;
 using TaiwanAgri.Modules.FoodSafety.Dtos.Queries;
 
@@ -13,17 +14,17 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 	{
 		private readonly HttpClient _httpClient;
 		private readonly FoodSafetyDbContext _context;
+		private readonly ILogger<FoodSafetyService> _logger;
 
-		public FoodSafetyService(IHttpClientFactory httpClientFactory, FoodSafetyDbContext context)
+		public FoodSafetyService(IHttpClientFactory httpClientFactory, FoodSafetyDbContext context, ILogger<FoodSafetyService> logger)
 		{
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_context = context;
+			_logger = logger;
 		}
 
 		public async Task<PagedResult<OrganicCertificationResponseDto>> GetOrganicCertificationsAsync(OrganicCertificationQueryDto queryDto)
 		{
-			//Console.WriteLine($"[偵測] Page={queryDto.Page}, PageSize={queryDto.PageSize}, OperatorName={queryDto.OperatorName}");
-
 			var query = _context.OrganicCertifications.AsQueryable();
 
 			if (!string.IsNullOrWhiteSpace(queryDto.OperatorName))
@@ -55,7 +56,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 					Status = x.Status,
 					ProductScope = x.ContainCrops,
 					MailingAddress = x.MailingAddress,
-					LegacyCertNumber = x.OldCertOrganicSN,
+					LegacyCertNumber = x.OldCertOrganicSn,
 					HasAmbiguousProductMapping = x.IsMultiCertSource
 				})
 				.ToListAsync();
@@ -74,16 +75,19 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 		{
 			var fromDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-days);
 
-			var targetDate = _context.PesticideViolations
+			var violationsQuery = _context.PesticideViolations
 				.Where(v => v.SamplingDate >= fromDate);
 
 			if (inspectResult != null)
 			{
-				targetDate = targetDate.Where(v => v.InspectResult == inspectResult);
+				violationsQuery = violationsQuery.Where(v => v.InspectResult == inspectResult);
 			}
 
-			var totalCount = await targetDate.CountAsync();
-			var items = await targetDate
+			var totalCount = await violationsQuery.CountAsync();
+			var items = await violationsQuery
+				// 同日多筆時以 Id 決勝，確保翻頁時同一筆不會重複出現或消失
+				.OrderByDescending(v => v.SamplingDate)
+				.ThenByDescending(v => v.Id)
 				.Skip((page - 1) * pageSize)
 				.Take(pageSize)
 				.Select(v => new ViolationResponseDto
@@ -120,22 +124,15 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			var producerTask = SafeFetch<AgriProducerApiResponse>(
 				$"{MoaApiEndpoints.AgriProducerInfo}?TraceCode={traceCode}");
 
-			// 洗選蛋：用比 traceCode 小的起始值讓目標批次出現在結果裡
+			// 洗選蛋 / 禽肉：用比 traceCode 小的起始值讓目標批次出現在結果裡
 			// API 的 Traceno_Start 參數是「>= 過濾」，後端再做區間包含比對
-			var eggStartParam = traceCode.Length >= 4
-				? traceCode[..^4] + "0000"
-				: traceCode;
+			var tracenoStartParam = NormalizeTracenoStart(traceCode);
 
 			var eggTask = SafeFetch<WashedEggApiResponse>(
-				$"{MoaApiEndpoints.WashedEggs}?Traceno_Start={eggStartParam}");
-
-			// 禽肉：同洗選蛋策略
-			var poultryStartParam = traceCode.Length >= 4
-				? traceCode[..^4] + "0000"
-				: traceCode;
+				$"{MoaApiEndpoints.WashedEggs}?Traceno_Start={tracenoStartParam}");
 
 			var poultryTask = SafeFetch<PoultryApiResponse>(
-				$"{MoaApiEndpoints.DomesticPoultry}?Traceno_Start={poultryStartParam}");
+				$"{MoaApiEndpoints.DomesticPoultry}?Traceno_Start={tracenoStartParam}");
 
 			// ── 2. 等四支全部回來 ────────────────────────────────────────
 			// Task.WhenAll：同時等待，總時間 = 最慢那支，不是四支加總
@@ -222,6 +219,17 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			};
 		}
 
+		/// <summary>
+		/// 洗選蛋/禽肉 API 的 Traceno_Start 為「>= 過濾」，
+		/// 將追溯碼後四位歸零作為查詢起始值，讓包含 traceCode 的批次落在回傳結果內
+		/// </summary>
+		internal static string NormalizeTracenoStart(string traceCode)
+		{
+			return traceCode.Length >= 4
+				? traceCode[..^4] + "0000"
+				: traceCode;
+		}
+
 		// ── 私有輔助方法：安全打 API，失敗回傳 null 而非拋例外 ──────────
 		private async Task<T?> SafeFetch<T>(string url) where T : class
 		{
@@ -229,14 +237,21 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			{
 				var response = await _httpClient.GetAsync(url);
 				if (!response.IsSuccessStatusCode)
+				{
+					_logger.LogWarning("[Traceability] 外部 API 回應非 2xx（{StatusCode}），該來源以無資料處理：{Url}",
+						(int)response.StatusCode, url);
 					return null;
+				}
 
 				return await response.Content.ReadFromJsonAsync<T>();
 			}
-			catch
+			catch (Exception ex)
 			{
-				// 網路錯誤、timeout、反序列化失敗都回傳 null
-				// 讓其他三支 API 的結果仍然可以正常回傳
+				// 網路錯誤、timeout、反序列化失敗都回傳 null，
+				// 讓其他三支 API 的結果仍然可以正常回傳。
+				// 但必須留下日誌：否則某支 API 長期壞掉時，
+				// 前端只會看到「查無資料」，後端完全無跡可查
+				_logger.LogWarning(ex, "[Traceability] 外部 API 呼叫失敗，該來源以無資料處理：{Url}", url);
 				return null;
 			}
 		}

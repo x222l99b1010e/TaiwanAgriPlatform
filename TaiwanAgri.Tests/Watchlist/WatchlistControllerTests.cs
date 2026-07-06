@@ -61,12 +61,8 @@ namespace TaiwanAgri.Tests.Watchlist
 			// 7. 驗證 MarketService 完全沒被呼叫
 			//    清單是空的，不應該去查任何價格
 			mockMarketService.Verify(
-				s => s.GetPricesAsync(
-					It.IsAny<string>(),
-					It.IsAny<string[]>(),
-					It.IsAny<string?>(),
-					It.IsAny<DateOnly?>(),
-					It.IsAny<DateOnly?>()),
+				s => s.GetLatestPricesAsync(
+					It.IsAny<IEnumerable<(string, string)>>()),
 				Times.Never());
 		}
 
@@ -94,27 +90,22 @@ namespace TaiwanAgri.Tests.Watchlist
 				.Setup(s => s.GetUserWatchlistItemsAsync(It.IsAny<string>()))
 				.ReturnsAsync(new List<WatchlistItemDto> { fakeWatchlistItem });
 
-			// 3. 設定假 MarketService：回傳一筆假價格
-			//    Controller 會取 OrderByDescending(TransDate).FirstOrDefault()
-			//    所以只需要準備一筆，它就會是最新的那筆
-			var fakePrices = new List<PriceResponseDto>
+			// 3. 設定假 MarketService：批次查詢回傳一筆最新均價
+			//    Controller 以 (CropCode, MarketCode) 為 key 對回監看項目
+			var fakeLatestPrices = new List<LatestPriceDto>
 			{
-				new PriceResponseDto
+				new LatestPriceDto
 				{
 					CropCode = "A001",
-					CropName = "高麗菜",
+					MarketCode = "M001",
 					AvgPrice = 12.5m,
 					TransDate = new DateOnly(2026, 1, 1)
 				}
 			};
 			mockMarketService
-				.Setup(s => s.GetPricesAsync(
-					It.IsAny<string>(),
-					It.IsAny<string[]>(),
-					It.IsAny<string?>(),
-					It.IsAny<DateOnly?>(),
-					It.IsAny<DateOnly?>()))
-				.ReturnsAsync(fakePrices);
+				.Setup(s => s.GetLatestPricesAsync(
+					It.IsAny<IEnumerable<(string, string)>>()))
+				.ReturnsAsync(fakeLatestPrices);
 
 			// 4. 建立 Controller，注入兩個假 Service
 			var controller = new WatchlistController(
@@ -151,15 +142,11 @@ namespace TaiwanAgri.Tests.Watchlist
 			Assert.Equal(12.5m, dto.AvgPrice);
 			Assert.Equal(new DateOnly(2026, 1, 1), dto.TransDate);
 
-			// 9. 驗證 MarketService 被呼叫了恰好一次
-			//    foreach 裡有一筆監看項目，所以應該查了一次價格
+			// 9. 驗證批次查詢恰好被呼叫一次
+			//    無論監看清單有幾筆，都只該打一次 MarketService（不再是 N+1）
 			mockMarketService.Verify(
-				s => s.GetPricesAsync(
-					It.IsAny<string>(),
-					It.IsAny<string[]>(),
-					It.IsAny<string?>(),
-					It.IsAny<DateOnly?>(),
-					It.IsAny<DateOnly?>()),
+				s => s.GetLatestPricesAsync(
+					It.IsAny<IEnumerable<(string, string)>>()),
 				Times.Once());
 		}
 	}

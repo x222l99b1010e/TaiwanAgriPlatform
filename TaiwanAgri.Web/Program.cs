@@ -31,11 +31,10 @@ namespace TaiwanAgri.Web
 			}
 
 			// Configure the HTTP request pipeline.
+			// 例外處理統一由 GlobalExceptionMiddleware 負責（W20b），
+			// 不再使用 UseDeveloperExceptionPage / UseExceptionHandler
 			if (app.Environment.IsDevelopment())
 			{
-				// 開發者模式：看到詳細的報錯
-				//app.UseDeveloperExceptionPage();
-
 				// Swagger UI 只在開發環境啟用，正式環境不暴露 API 文件
 				app.UseSwagger();
 				app.UseSwaggerUI(); // 預設路徑：/swagger
@@ -43,14 +42,8 @@ namespace TaiwanAgri.Web
 			}
 			else
 			{
-				// 正式環境：
-				// 1. 回傳不含敏感資訊的標準錯誤 JSON (Problem Details)
-				//app.UseExceptionHandler();
-
 				app.UseStatusCodePages(); // 自動處理 400-599 的狀態碼
-
-				// 2. 強制 HTTPS 安全傳輸
-				app.UseHsts();
+				app.UseHsts(); // 強制 HTTPS 安全傳輸
 			}
 
 			if (!app.Environment.IsDevelopment())

@@ -116,11 +116,14 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			// 先撈出去，再在記憶體 GroupBy 去重
 			// 同一天同一個災害可能有幾百筆（每個村落一筆），前端只需要唯一事件
+			// Take 前必須有 OrderBy，否則 TOP(n) 取哪幾筆不確定，
+			// 超量截斷時 AffectedCounties 會不完整且每次查詢結果不同
 			var groupedRaw = await query
+				.OrderByDescending(d => d.LastUpdateDate)
 				.Select(d => new {
 					d.DisasterName,
 					d.AlertType,
-					d.County,                                          // ← 補回
+					d.County,
 					AlertDate = DateOnly.FromDateTime(d.LastUpdateDate)
 				})
 				.Take(limit)
@@ -168,23 +171,6 @@ namespace TaiwanAgri.Modules.Market.Services
 				})
 				.Distinct()
 				.ToListAsync();
-
-			//2. 查 CropInfos，條件是 CropName 不為空，且 CropCode 在 AgriProductsTrans 的 TcType 對應市場類型中有出現過
-			//var crops = await _context.CropInfos
-			//	.Where(c => c.CropName != "" &&
-			//				_context.AgriProductsTrans
-			//					.Where(a => a.TcType == tcType)
-			//					.Select(a => a.CropCode)
-			//					.Contains(c.CropCode))
-			//	.Select(c => new CropResponseDto
-			//	{
-			//		CropCode = c.CropCode,
-			//		CropName = c.CropName
-			//	})
-			//	.Distinct()
-			//	.ToListAsync();
-
-			//return crops;
 		}
 
 		public async Task<List<MarketResponseDto>> GetMarketsAsync(string marketType)
@@ -205,11 +191,15 @@ namespace TaiwanAgri.Modules.Market.Services
 		public async Task<List<RestDayResponseDto>> GetRestDaysAsync(string marketCode, DateOnly startDate, DateOnly endDate)
 		{
 			// ── Step 1：SQL 階段 ──────────────────────────────────────────
-			// 只用 MarketCode 過濾，其餘條件留到記憶體處理
-			// 原因：MarketRestDays 用民國年/月/日三欄儲存，
-			// EF Core 無法在 SQL 層將三欄組合為 DateOnly 再做範圍比較
+			// MarketRestDays 用民國年/月/日三欄儲存，
+			// EF Core 無法在 SQL 層將三欄組合為 DateOnly 再做精確範圍比較，
+			// 但可以先用民國「年」粗篩，把撈回記憶體的筆數從全表縮到查詢區間附近
+			var rocYearStart = startDate.Year - 1911;
+			var rocYearEnd = endDate.Year - 1911;
 			var records = await _context.MarketRestDays
-				.Where(r => r.MarketCode == marketCode)
+				.Where(r => r.MarketCode == marketCode
+						 && r.Year >= rocYearStart
+						 && r.Year <= rocYearEnd)
 				.ToListAsync();
 
 			// ── Step 2：記憶體階段 ────────────────────────────────────────
@@ -245,6 +235,40 @@ namespace TaiwanAgri.Modules.Market.Services
 			return porkList;
 		}
 
+		public async Task<List<LatestPriceDto>> GetLatestPricesAsync(
+			IEnumerable<(string CropCode, string MarketCode)> keys)
+		{
+			var keyList = keys.Distinct().ToList();
+			if (keyList.Count == 0)
+				return new List<LatestPriceDto>();
+
+			var cropCodes = keyList.Select(k => k.CropCode).Distinct().ToList();
+			var marketCodes = keyList.Select(k => k.MarketCode).Distinct().ToList();
+
+			// SQL 端先用兩個 IN 縮小範圍（可能多撈到交叉組合，最後再精準過濾），
+			// GroupBy + 每組取最新一筆，一次查詢取代逐組查詢
+			var latest = await _context.AgriProductsTrans
+				.Where(t => cropCodes.Contains(t.CropCode) && marketCodes.Contains(t.MarketCode))
+				.GroupBy(t => new { t.CropCode, t.MarketCode })
+				.Select(g => g
+					.OrderByDescending(t => t.TransDate)
+					.Select(t => new LatestPriceDto
+					{
+						CropCode = t.CropCode,
+						MarketCode = t.MarketCode,
+						TransDate = t.TransDate,
+						AvgPrice = t.AvgPrice
+					})
+					.First())
+				.ToListAsync();
+
+			// 移除 IN 交叉組合多撈到、但呼叫端沒要求的配對
+			var requested = keyList.ToHashSet();
+			return latest
+				.Where(x => requested.Contains((x.CropCode, x.MarketCode)))
+				.ToList();
+		}
+
 		/// <summary>
 		/// 組裝 GetPricesAsync 的 Redis Cache Key。
 		/// cropCodes 排序後 Join，確保 ["A01","B02"] 和 ["B02","A01"] 命中同一個 cache。
@@ -265,7 +289,6 @@ namespace TaiwanAgri.Modules.Market.Services
 				DateOnly finalEnd)
 		{
 			var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
-			//return $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
 			return $"{CacheKeys.MarketPricesPrefix}{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
 		}
 	}
