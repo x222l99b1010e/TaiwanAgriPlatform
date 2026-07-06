@@ -171,23 +171,6 @@ namespace TaiwanAgri.Modules.Market.Services
 				})
 				.Distinct()
 				.ToListAsync();
-
-			//2. 查 CropInfos，條件是 CropName 不為空，且 CropCode 在 AgriProductsTrans 的 TcType 對應市場類型中有出現過
-			//var crops = await _context.CropInfos
-			//	.Where(c => c.CropName != "" &&
-			//				_context.AgriProductsTrans
-			//					.Where(a => a.TcType == tcType)
-			//					.Select(a => a.CropCode)
-			//					.Contains(c.CropCode))
-			//	.Select(c => new CropResponseDto
-			//	{
-			//		CropCode = c.CropCode,
-			//		CropName = c.CropName
-			//	})
-			//	.Distinct()
-			//	.ToListAsync();
-
-			//return crops;
 		}
 
 		public async Task<List<MarketResponseDto>> GetMarketsAsync(string marketType)
@@ -306,7 +289,6 @@ namespace TaiwanAgri.Modules.Market.Services
 				DateOnly finalEnd)
 		{
 			var sortedCrops = string.Join(",", cropCodes.OrderBy(c => c));
-			//return $"market:prices:{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
 			return $"{CacheKeys.MarketPricesPrefix}{marketType}:{sortedCrops}:{marketCode ?? ""}:{finalStart}:{finalEnd}";
 		}
 	}

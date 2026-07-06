@@ -66,7 +66,12 @@ namespace TaiwanAgri.Web.Controllers
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId is null) return Unauthorized();
 
-			await userWatchlistService.RemoveWatchlistItemsAsync(userId, ids);
+			var idList = ids.ToList();
+			// 上限防禦：明確回 400，而不是在 Service 層靜默截斷
+			if (idList.Count > 50)
+				return BadRequest("一次最多刪除 50 筆");
+
+			await userWatchlistService.RemoveWatchlistItemsAsync(userId, idList);
 			return NoContent();
 		}
 	}

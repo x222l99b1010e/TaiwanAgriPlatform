@@ -12,26 +12,34 @@ namespace TaiwanAgri.Web.Controllers
 	{
 		private readonly IMarketService _marketService;
 		private readonly IFoodSafetyService _foodSafetyService;
+		private readonly string _todayVegMarketCode;
+		private readonly string[] _todayVegCropCodes;
+
+		// 設定外化（同 MarketQueryLimits 慣例）：appsettings 可覆寫，未設定時用預設值
+		// 預設值：台北一（109）固定 10 種民生蔬菜
 		private static readonly string[] DefaultVegCropCodes = new[]
 		{
 			"LA2", "SE1", "SB1", "LH1", "FJ1",
 			"FI1", "FB1", "LF1", "LD1", "SP1"
 		};
-		public FoodSafetyController(IMarketService marketService, IFoodSafetyService foodSafetyService)
+		public FoodSafetyController(IMarketService marketService, IFoodSafetyService foodSafetyService, IConfiguration configuration)
 		{
 			_marketService = marketService;
 			_foodSafetyService = foodSafetyService;
+			_todayVegMarketCode = configuration.GetValue<string>("FoodSafety:TodayVeg:MarketCode") ?? "109";
+			_todayVegCropCodes = configuration.GetSection("FoodSafety:TodayVeg:CropCodes").Get<string[]>()
+				?? DefaultVegCropCodes;
 		}
 
 		[HttpGet("today-veg-prices")]
 		public async Task<IActionResult> GetTodayVegPrices()
 		{
 			// 取 DB 裡最新的交易日（不是今天，是實際有資料的最近一天）
-			var latestDate = await _marketService.GetLatestTransDateAsync("109");
+			var latestDate = await _marketService.GetLatestTransDateAsync(_todayVegMarketCode);
 			if (latestDate == null)
 				return Ok(new List<PriceResponseDto>());
 
-			var result = await _marketService.GetPricesAsync("Veg", DefaultVegCropCodes, "109", latestDate.Value, latestDate.Value);
+			var result = await _marketService.GetPricesAsync("Veg", _todayVegCropCodes, _todayVegMarketCode, latestDate.Value, latestDate.Value);
 			return Ok(result);
 
 		}
