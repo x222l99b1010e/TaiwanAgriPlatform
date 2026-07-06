@@ -116,11 +116,14 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			// 先撈出去，再在記憶體 GroupBy 去重
 			// 同一天同一個災害可能有幾百筆（每個村落一筆），前端只需要唯一事件
+			// Take 前必須有 OrderBy，否則 TOP(n) 取哪幾筆不確定，
+			// 超量截斷時 AffectedCounties 會不完整且每次查詢結果不同
 			var groupedRaw = await query
+				.OrderByDescending(d => d.LastUpdateDate)
 				.Select(d => new {
 					d.DisasterName,
 					d.AlertType,
-					d.County,                                          // ← 補回
+					d.County,
 					AlertDate = DateOnly.FromDateTime(d.LastUpdateDate)
 				})
 				.Take(limit)
@@ -205,11 +208,15 @@ namespace TaiwanAgri.Modules.Market.Services
 		public async Task<List<RestDayResponseDto>> GetRestDaysAsync(string marketCode, DateOnly startDate, DateOnly endDate)
 		{
 			// ── Step 1：SQL 階段 ──────────────────────────────────────────
-			// 只用 MarketCode 過濾，其餘條件留到記憶體處理
-			// 原因：MarketRestDays 用民國年/月/日三欄儲存，
-			// EF Core 無法在 SQL 層將三欄組合為 DateOnly 再做範圍比較
+			// MarketRestDays 用民國年/月/日三欄儲存，
+			// EF Core 無法在 SQL 層將三欄組合為 DateOnly 再做精確範圍比較，
+			// 但可以先用民國「年」粗篩，把撈回記憶體的筆數從全表縮到查詢區間附近
+			var rocYearStart = startDate.Year - 1911;
+			var rocYearEnd = endDate.Year - 1911;
 			var records = await _context.MarketRestDays
-				.Where(r => r.MarketCode == marketCode)
+				.Where(r => r.MarketCode == marketCode
+						 && r.Year >= rocYearStart
+						 && r.Year <= rocYearEnd)
 				.ToListAsync();
 
 			// ── Step 2：記憶體階段 ────────────────────────────────────────

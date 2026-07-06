@@ -74,16 +74,19 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 		{
 			var fromDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-days);
 
-			var targetDate = _context.PesticideViolations
+			var violationsQuery = _context.PesticideViolations
 				.Where(v => v.SamplingDate >= fromDate);
 
 			if (inspectResult != null)
 			{
-				targetDate = targetDate.Where(v => v.InspectResult == inspectResult);
+				violationsQuery = violationsQuery.Where(v => v.InspectResult == inspectResult);
 			}
 
-			var totalCount = await targetDate.CountAsync();
-			var items = await targetDate
+			var totalCount = await violationsQuery.CountAsync();
+			var items = await violationsQuery
+				// 同日多筆時以 Id 決勝，確保翻頁時同一筆不會重複出現或消失
+				.OrderByDescending(v => v.SamplingDate)
+				.ThenByDescending(v => v.Id)
 				.Skip((page - 1) * pageSize)
 				.Take(pageSize)
 				.Select(v => new ViolationResponseDto
