@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="TaiwanAgri.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TaiwanAgri.Core\TaiwanAgri.Core.csproj" />
   </ItemGroup>
 
