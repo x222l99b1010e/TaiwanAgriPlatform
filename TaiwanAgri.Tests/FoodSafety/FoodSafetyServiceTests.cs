@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.FoodSafety.Dtos.Queries;
@@ -85,7 +86,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 				.Returns(new HttpClient());
 
 			// 4. 建立被測對象
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
 
 			// ── Act ──────────────────────────────────────────────
 
@@ -146,7 +147,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
 			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
 
 			// ── Act ──────────────────────────────────────────────
 			// 傳完整字串「業者A」，只會篩出這一筆；若傳部分字串「業者」會篩出全部3筆
@@ -179,7 +180,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
 			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
 
 			// ── Act ──────────────────────────────────────────────
 			// OperatorName="業者"（部分比對，符合全部3筆）
@@ -221,7 +222,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
 			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
 
 			// ── Act ──────────────────────────────────────────────
 			// 「玉米」只存在於業者A的 ContainCrops（水稻、玉米），Products 沒有 → 驗證 ContainCrops 這條 OR 分支
