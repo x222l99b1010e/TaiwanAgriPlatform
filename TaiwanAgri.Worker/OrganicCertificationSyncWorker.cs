@@ -1,5 +1,6 @@
-﻿using System.Text.Json;
+﻿using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Constants;
+using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.FoodSafety.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.FoodSafety.Entities;
@@ -41,45 +42,10 @@ namespace TaiwanAgri.Worker
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<FoodSafetyDbContext>();
 
-			var allDtos = new List<OrganicCertificationDto>();
-			int page = 1;
-			while (true)
-			{
-				// 第一頁不帶 page 參數，第二頁以後才帶，對齊 PesticideViolation 的分頁慣例
-				var url = (page == 1) ? MoaApiEndpoints.OrganicVerification : $"{MoaApiEndpoints.OrganicVerification}?page={page}";
-				var json = await _httpClient.GetStringAsync(url, stoppingToken);
-				var response = JsonSerializer.Deserialize<OrganicCertificationApiResponse>(json);
-
-				if (response?.RS != "OK" || response.Data.Count == 0)
-				{
-					if (page == 1)
-					{
-						_logger.LogWarning("[OrganicCertificationSync] API回應異常或無資料，停止同步");
-					}
-					else
-					{
-						// 非會員只能拿第一頁，第二頁以後可能直接無資料，這不算異常，是權限限制
-						_logger.LogInformation("[OrganicCertificationSync] 第 {Page} 頁無資料或無分頁權限，停止抓取", page);
-					}
-					break;
-				}
-				_logger.LogInformation("[OrganicCertificationSync] 成功抓取第 {Page} 頁，共 {Count} 筆資料", page, response.Data.Count);
-				allDtos.AddRange(response.Data);
-
-				// API 回傳 Next=false 代表沒有下一頁，主動停止
-				if (!response.Next)
-					break;
-
-				page++;
-
-				// 保護性上限，避免 API 異常導致無限迴圈（例如 Next 永遠回傳 true）
-				if (page > 20)
-				{
-					_logger.LogWarning("[OrganicCertificationSync] 已達分頁上限（20頁），停止繼續抓取");
-					break;
-				}
-			}
-			_logger.LogInformation("[OrganicCertificationSync] 共抓取 {Count} 筆原始資料", allDtos.Count);
+			// 分頁抓取邏輯（第一頁不帶參數、RS 判斷、Next 旗標、20 頁保護上限）
+			// 統一由 MoaPagedFetcher 處理，與 PesticideViolationSyncWorker 共用
+			var allDtos = await MoaPagedFetcher.FetchAllPagesAsync<OrganicCertificationApiResponse, OrganicCertificationDto>(
+				_httpClient, MoaApiEndpoints.OrganicVerification, _logger, "[OrganicCertificationSync]", stoppingToken);
 
 			// 與 PesticideViolation 的關鍵差異：
 			// PesticideViolation 是 Select + Where(!=null)，一筆 DTO 對應零或一筆 Entity
@@ -97,7 +63,9 @@ namespace TaiwanAgri.Worker
 			}
 
 			// 資料庫既有去重：跟批次內去重（DistinctBy）是不同層次的重複，兩者都要做才完整
-			var existingCertSns = db.OrganicCertifications.Select(x => x.CertOrganicSn).ToHashSet();
+			var existingCertSns = await db.OrganicCertifications
+				.Select(x => x.CertOrganicSn)
+				.ToHashSetAsync(stoppingToken);
 
 			var toInsert = incoming.Where(x => !existingCertSns.Contains(x.CertOrganicSn)).ToList();
 

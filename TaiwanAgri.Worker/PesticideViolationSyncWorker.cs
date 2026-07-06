@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+﻿using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Constants;
 using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.FoodSafety.Data;
@@ -41,39 +41,10 @@ namespace TaiwanAgri.Worker
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<FoodSafetyDbContext>();
 
-			var allDtos = new List<PesticideViolationDto>();
-			int page = 1;
-			while (true)
-			{
-				var url = (page == 1)? MoaApiEndpoints.PesticideViolation : $"{MoaApiEndpoints.PesticideViolation}?page={page}";
-				var json = await _httpClient.GetStringAsync(url, stoppingToken);
-				var response = JsonSerializer.Deserialize<PesticideViolationApiResponse>(json);
+			// 分頁抓取邏輯統一由 MoaPagedFetcher 處理，與 OrganicCertificationSyncWorker 共用
+			var allDtos = await MoaPagedFetcher.FetchAllPagesAsync<PesticideViolationApiResponse, PesticideViolationDto>(
+				_httpClient, MoaApiEndpoints.PesticideViolation, _logger, "[PesticideViolationSync]", stoppingToken);
 
-				if (response?.RS != "OK" || response.Data.Count == 0)
-				{
-					if (page == 1)
-					{
-						_logger.LogWarning("[PesticideViolationSync] API回應異常或無資料，停止同步");
-					}
-					else
-					{
-						_logger.LogInformation("[PesticideViolationSync] 第 {Page} 頁無資料或無分頁權限，停止抓取", page);
-					}
-					break;
-				}
-				_logger.LogInformation("[PesticideViolationSync] 成功抓取第 {Page} 頁， 共 {Count} 筆資料", page, response.Data.Count);
-				allDtos.AddRange(response.Data);
-				if (!response.Next)
-					break;
-				page++;
-				if (page > 20)
-				{
-					_logger.LogWarning("[PesticideViolationSync] 已達分頁上限（20頁），停止繼續抓取");
-					break;
-				}	
-			}
-			_logger.LogInformation("[PesticideViolationSync] 共抓取 {Count} 筆資料", allDtos.Count);
-			
 			var incoming = allDtos
 				.Select(MapToEntity)
 				.Where(x => x != null)
@@ -88,7 +59,9 @@ namespace TaiwanAgri.Worker
 				return;
 			}
 
-			var existingNumbers = db.PesticideViolations.Select(x => x.Number).ToHashSet();
+			var existingNumbers = await db.PesticideViolations
+				.Select(x => x.Number)
+				.ToHashSetAsync(stoppingToken);
 
 			var toInsert = incoming.Where(x => !existingNumbers.Contains(x.Number)).ToList();
 
