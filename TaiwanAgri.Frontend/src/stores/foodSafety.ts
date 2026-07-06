@@ -5,6 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { foodSafetyApi } from '@/api/foodSafety'
+import { useLatestRequest } from '@/composables/useLatestRequest'
 import type { PriceResponseDto } from '@/api/market'
 import type { TraceabilityResponseDto, ViolationResult, PagedResult } from '@/api/foodSafety'
 import type { OrganicCertificationResult, OrganicCertificationQueryParams} from '@/api/foodSafety'
@@ -23,7 +24,10 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
   const error = ref<string | null>(null)
 
   // 是否已經載入過（避免重複打 API）
+  // 搭配 lastFetchedAt 做 TTL：頁面開著跨過資料更新時間時，重新進頁仍能拿到新資料
   const hasFetched = ref(false)
+  const TODAY_VEG_TTL_MS = 10 * 60 * 1000
+  let todayVegLastFetchedAt = 0
 
   // 追溯查詢結果
   const traceabilityResult = ref<TraceabilityResponseDto | null>(null)
@@ -45,15 +49,16 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
 
   // ─── 動作（Actions） ──────────────────────────────────────────────────────
 
-  /** 載入今日蔬菜均價（hasFetched 保護，同一 session 只打一次） */
+  /** 載入今日蔬菜均價（hasFetched + TTL 保護，10 分鐘內不重複打 API） */
   async function fetchTodayVegPrices() {
-    if (hasFetched.value) return
+    if (hasFetched.value && Date.now() - todayVegLastFetchedAt < TODAY_VEG_TTL_MS) return
 
     isLoading.value = true
     error.value = null
     try {
       todayVegPrices.value = await foodSafetyApi.getTodayVegPrices()
       hasFetched.value = true
+      todayVegLastFetchedAt = Date.now()
     } catch (e) {
       error.value = '載入今日菜價失敗，請稍後再試'
       console.error(e)
@@ -77,42 +82,48 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
     }
   }
 
+    // 請求序號防競態：舊回應不覆蓋新結果（違規牆與有機驗證各自獨立計數）
+    const violationsRequest = useLatestRequest()
+    const organicCertRequest = useLatestRequest()
+
   async function fetchViolations(
       days: number,
       inspectResult: string | undefined,
       page: number,
       pageSize: number
     ) {
+      const mySeq = violationsRequest.next()
       isLoadingViolations.value = true
       violationsError.value = null
       try {
-        violationsPage.value = await foodSafetyApi.getViolations(days, inspectResult, page, pageSize)
+        const result = await foodSafetyApi.getViolations(days, inspectResult, page, pageSize)
+        if (!violationsRequest.isLatest(mySeq)) return
+        violationsPage.value = result
       } catch (e) {
+        if (!violationsRequest.isLatest(mySeq)) return
         violationsError.value = '載入農藥違規資料失敗，請稍後再試'
         console.error(e)
       } finally {
-        isLoadingViolations.value = false
+        if (violationsRequest.isLatest(mySeq)) {
+          isLoadingViolations.value = false
+        }
       }
     }
 
-    // 用來判斷「這次回應是不是最新一次發出的請求」
-    // 避免：使用者連續調整篩選條件時，較慢回來的舊請求覆蓋掉較快回來的新結果
-    let organicCertRequestSeq = 0
-
     async function fetchOrganicCertifications(params: OrganicCertificationQueryParams) {
-      const mySeq = ++organicCertRequestSeq
+      const mySeq = organicCertRequest.next()
       isLoadingOrganicCert.value = true
       organicCertError.value = null
       try {
         const result = await foodSafetyApi.getOrganicCertifications(params)
-        if (mySeq !== organicCertRequestSeq) return
+        if (!organicCertRequest.isLatest(mySeq)) return
         organicCertPage.value = result
       } catch (e) {
-        if (mySeq !== organicCertRequestSeq) return
+        if (!organicCertRequest.isLatest(mySeq)) return
         organicCertError.value = '載入有機驗證資料失敗，請稍後再試'
         console.error(e)
       } finally {
-        if (mySeq === organicCertRequestSeq) {
+        if (organicCertRequest.isLatest(mySeq)) {
           isLoadingOrganicCert.value = false
         }
       }
