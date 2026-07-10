@@ -55,17 +55,17 @@ namespace TaiwanAgri.Web.Controllers
 		}
 
 		[HttpGet("violations")]
-		public async Task<IActionResult> GetViolations([FromQuery] int days = 90, [FromQuery] string? inspectResult = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+		public async Task<IActionResult> GetViolations([FromQuery] ViolationQueryDto queryDto)
 		{
-			if (days <= 0)
+			if (queryDto.Days <= 0)
 				return BadRequest("天數必須大於 0");
-			if (days > 3650)
+			if (queryDto.Days > 3650)
 				return BadRequest("天數不可超過 3650");
-			if (page <= 0)
+			if (queryDto.Page <= 0)
 				return BadRequest("頁碼必須大於 0");
-			if (pageSize <= 0 || pageSize > 100)
+			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
 				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
-			var result = await _foodSafetyService.GetViolationsAsync(days, inspectResult, page, pageSize);
+			var result = await _foodSafetyService.GetViolationsAsync(queryDto);
 			return Ok(result);
 		}
 

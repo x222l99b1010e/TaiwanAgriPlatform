@@ -71,17 +71,17 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			};
 		}
 
-		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(int days, string? inspectResult = null, int page = 1, int pageSize = 20)
+		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(ViolationQueryDto queryDto)
 		{
-			var fromDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-days);
+			var fromDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-queryDto.Days);
 
 			var violationsQuery = _context.PesticideViolations
 				.Where(v => v.SamplingDate >= fromDate);
 
 			// 空字串/空白視同未過濾：客戶端送 ?inspectResult= 時不應變成 InspectResult == "" 而靜默回空頁
-			if (!string.IsNullOrWhiteSpace(inspectResult))
+			if (!string.IsNullOrWhiteSpace(queryDto.InspectResult))
 			{
-				violationsQuery = violationsQuery.Where(v => v.InspectResult == inspectResult);
+				violationsQuery = violationsQuery.Where(v => v.InspectResult == queryDto.InspectResult);
 			}
 
 			var totalCount = await violationsQuery.CountAsync();
@@ -89,8 +89,8 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 				// 同日多筆時以 Id 決勝，確保翻頁時同一筆不會重複出現或消失
 				.OrderByDescending(v => v.SamplingDate)
 				.ThenByDescending(v => v.Id)
-				.Skip((page - 1) * pageSize)
-				.Take(pageSize)
+				.Skip((queryDto.Page - 1) * queryDto.PageSize)
+				.Take(queryDto.PageSize)
 				.Select(v => new ViolationResponseDto
 				{
 					Number = v.Number,
@@ -107,9 +107,9 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			{
 				Items = items,
 				TotalCount = totalCount,
-				Page = page,
-				PageSize = pageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+				Page = queryDto.Page,
+				PageSize = queryDto.PageSize,
+				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
 			};
 		}
 

@@ -275,8 +275,10 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			// ── Act ──────────────────────────────────────────────
 			// 客戶端送 ?inspectResult=（空字串）或全空白時，應視同「未指定」而非過濾 InspectResult == ""
-			var emptyResult = await service.GetViolationsAsync(90, inspectResult: "");
-			var whitespaceResult = await service.GetViolationsAsync(90, inspectResult: "  ");
+			var emptyResult = await service.GetViolationsAsync(
+				new ViolationQueryDto { Days = 90, InspectResult = "" });
+			var whitespaceResult = await service.GetViolationsAsync(
+				new ViolationQueryDto { Days = 90, InspectResult = "  " });
 
 			// ── Assert ───────────────────────────────────────────
 			Assert.Equal(2, emptyResult.TotalCount);
@@ -291,7 +293,8 @@ namespace TaiwanAgri.Tests.FoodSafety
 			var service = CreateService(dbContext);
 
 			// ── Act ──────────────────────────────────────────────
-			var result = await service.GetViolationsAsync(90, inspectResult: "不合格");
+			var result = await service.GetViolationsAsync(
+				new ViolationQueryDto { Days = 90, InspectResult = "不合格" });
 
 			// ── Assert ───────────────────────────────────────────
 			// 對照組：有值時過濾仍要生效，證明空字串修正沒有把過濾整個關掉
