@@ -78,7 +78,8 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			var violationsQuery = _context.PesticideViolations
 				.Where(v => v.SamplingDate >= fromDate);
 
-			if (inspectResult != null)
+			// 空字串/空白視同未過濾：客戶端送 ?inspectResult= 時不應變成 InspectResult == "" 而靜默回空頁
+			if (!string.IsNullOrWhiteSpace(inspectResult))
 			{
 				violationsQuery = violationsQuery.Where(v => v.InspectResult == inspectResult);
 			}

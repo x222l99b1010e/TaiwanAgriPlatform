@@ -240,5 +240,63 @@ namespace TaiwanAgri.Tests.FoodSafety
 			Assert.Equal(1, resultFromProducts.TotalCount);
 			Assert.Equal("業者C", resultFromProducts.Items[0].OperatorName);
 		}
+
+		// ── GetViolationsAsync ───────────────────────────────────────
+
+		private static FoodSafetyDbContext CreateViolationDb(string dbName)
+		{
+			var options = new DbContextOptionsBuilder<FoodSafetyDbContext>()
+				.UseInMemoryDatabase(dbName)
+				.Options;
+			var dbContext = new FoodSafetyDbContext(options);
+
+			// 取樣日期用相對今天的近期值，確保落在預設 days=90 視窗內
+			var recentDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3);
+			dbContext.PesticideViolations.AddRange(
+				new PesticideViolation { Id = 1, Number = "V-001", SamplingDate = recentDate, ProductName = "青江菜", ProducerName = "產戶A", SamplingLocation = "台北市", InspectResult = "不合格", Note = "" },
+				new PesticideViolation { Id = 2, Number = "V-002", SamplingDate = recentDate, ProductName = "小白菜", ProducerName = "產戶B", SamplingLocation = "新北市", InspectResult = "與規定不符", Note = "" });
+			dbContext.SaveChanges();
+			return dbContext;
+		}
+
+		private static FoodSafetyService CreateService(FoodSafetyDbContext dbContext)
+		{
+			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
+			return new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
+		}
+
+		[Fact]
+		public async Task GetViolationsAsync_EmptyOrWhitespaceInspectResult_IgnoresFilter()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			var dbContext = CreateViolationDb("TestDb_EmptyInspectResult_GetViolations");
+			var service = CreateService(dbContext);
+
+			// ── Act ──────────────────────────────────────────────
+			// 客戶端送 ?inspectResult=（空字串）或全空白時，應視同「未指定」而非過濾 InspectResult == ""
+			var emptyResult = await service.GetViolationsAsync(90, inspectResult: "");
+			var whitespaceResult = await service.GetViolationsAsync(90, inspectResult: "  ");
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.Equal(2, emptyResult.TotalCount);
+			Assert.Equal(2, whitespaceResult.TotalCount);
+		}
+
+		[Fact]
+		public async Task GetViolationsAsync_InspectResultFilter_ReturnsMatchedOnly()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			var dbContext = CreateViolationDb("TestDb_FilterInspectResult_GetViolations");
+			var service = CreateService(dbContext);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetViolationsAsync(90, inspectResult: "不合格");
+
+			// ── Assert ───────────────────────────────────────────
+			// 對照組：有值時過濾仍要生效，證明空字串修正沒有把過濾整個關掉
+			Assert.Equal(1, result.TotalCount);
+			Assert.Equal("V-001", result.Items[0].Number);
+		}
 	}
 }

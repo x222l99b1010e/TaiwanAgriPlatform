@@ -59,6 +59,8 @@ namespace TaiwanAgri.Web.Controllers
 		{
 			if (days <= 0)
 				return BadRequest("天數必須大於 0");
+			if (days > 3650)
+				return BadRequest("天數不可超過 3650");
 			if (page <= 0)
 				return BadRequest("頁碼必須大於 0");
 			if (pageSize <= 0 || pageSize > 100)
