@@ -22,6 +22,10 @@ namespace TaiwanAgri.Modules.FoodSafety.Entities
 		[MaxLength(150)]
 		public string CertOrganicSn { get; set; } = string.Empty;
 
+		/// <summary>
+		/// 經營者（農戶／公司）名稱。維持農業部 API 原欄位名是刻意決策；
+		/// 對外語意見 ResponseDto 的 OperatorName
+		/// </summary>
 		[MaxLength(200)]
 		public string Name { get; set; } = string.Empty;
 
@@ -40,6 +44,11 @@ namespace TaiwanAgri.Modules.FoodSafety.Entities
 		[MaxLength(100)]
 		public string BehaviorType { get; set; } = string.Empty;
 
+		/// <summary>
+		/// 「驗證機構」名稱（慈心、環球等），不是經營者的公司名——
+		/// 農業部文件記載的易誤讀欄位，維持原名以對應 API；
+		/// 對外語意見 ResponseDto 的 VerificationBodyName
+		/// </summary>
 		[MaxLength(150)]
 		public string CompanyName { get; set; } = string.Empty;
 

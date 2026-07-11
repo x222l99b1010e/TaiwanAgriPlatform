@@ -12,6 +12,9 @@ namespace TaiwanAgri.Web
 		{
 			var builder = WebApplication.CreateBuilder(args);
 
+			// 時鐘統一走 TimeProvider 注入（測試可固定時刻做「近 N 天」邊界驗證）
+			builder.Services.AddSingleton(TimeProvider.System);
+
 			builder.Services.AddIdentityModule(builder.Configuration);
 			builder.Services.AddMarketModule(builder.Configuration);
 			builder.Services.AddWeatherModule(builder.Configuration);

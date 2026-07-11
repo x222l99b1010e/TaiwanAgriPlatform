@@ -86,7 +86,8 @@ namespace TaiwanAgri.Tests.Market
 			var service = new MarketService(
 				dbContext,
 				mockCache.Object,
-				mockConfig.Object);
+				mockConfig.Object,
+				TimeProvider.System);
 
 			// ══════════════════════════════════════════════
 			// Act：開演
@@ -206,7 +207,8 @@ namespace TaiwanAgri.Tests.Market
 			var service = new MarketService(
 				dbContext,
 				mockCache.Object,
-				mockConfig.Object);
+				mockConfig.Object,
+				TimeProvider.System);
 
 			// ══════════════════════════════════════════════
 			// Act：開演
