@@ -34,7 +34,7 @@ namespace TaiwanAgri.Worker
 				_httpClient, MoaApiEndpoints.PesticideViolation, _logger, "[PesticideViolationSync]", stoppingToken);
 
 			var incoming = allDtos
-				.Select(MapToEntity)
+				.Select(dto => MapToEntity(dto, _logger))
 				.Where(x => x != null)
 				//在 .Where(x => x != null) 後面加一個 cast 告訴編譯器「我保證這裡不會有 null」
 				.Cast<PesticideViolation>()
@@ -47,23 +47,27 @@ namespace TaiwanAgri.Worker
 				return;
 			}
 
-			var existingNumbers = await db.PesticideViolations
-				.Select(x => x.Number)
-				.ToHashSetAsync(stoppingToken);
+			// 既有鍵以「本批最舊取樣日」為視窗下界，避免對隨年份無上限成長的違規表全表掃描：
+			// API 每次只回近期資料，且同一 Number 的 SamplingDate 不會變動，
+			// 視窗之外不可能出現與本批重複的 Number
+			var oldestSamplingDate = incoming.Min(x => x.SamplingDate);
 
-			var toInsert = incoming.Where(x => !existingNumbers.Contains(x.Number)).ToList();
-
-			if (toInsert.Count == 0)
-			{
-				_logger.LogInformation("[PesticideViolationSync] 無新資料需要同步");
-				return;
-			}
-			await db.PesticideViolations.AddRangeAsync(toInsert, stoppingToken);
-			await db.SaveChangesAsync(stoppingToken);
-			_logger.LogInformation("[PesticideViolationSync] 成功同步 {Count} 筆新資料 略過 {Skipped} 筆重複", toInsert.Count, incoming.Count - toInsert.Count	);
+			await DbSyncHelper.InsertNewByKeyAsync(
+				db,
+				db.PesticideViolations
+					.Where(x => x.SamplingDate >= oldestSamplingDate)
+					.Select(x => x.Number),
+				incoming,
+				x => x.Number,
+				_logger, "[PesticideViolationSync]", stoppingToken);
 		}
 
-		private PesticideViolation? MapToEntity(PesticideViolationDto dto)
+		/// <summary>
+		/// 將單筆 DTO 轉換為 Entity；日期轉換失敗記 warning 並回傳 null（整筆跳過）。
+		/// 比照 OrganicCertificationSyncWorker.MapToEntities 的 internal static 模式：
+		/// 純資料轉換不依賴 Worker 實例狀態，static 化後測試不需 Mock 建構子依賴
+		/// </summary>
+		internal static PesticideViolation? MapToEntity(PesticideViolationDto dto, ILogger logger)
 		{
 			try
 			{
@@ -82,7 +86,7 @@ namespace TaiwanAgri.Worker
 			}
 			catch (ArgumentException ex)
 			{
-				_logger.LogWarning("[PesticideViolationSync] 日期轉換失敗，跳過此筆。Number: {Number}, SamplingDate: {Date}, 原因: {Message}",
+				logger.LogWarning("[PesticideViolationSync] 日期轉換失敗，跳過此筆。Number: {Number}, SamplingDate: {Date}, 原因: {Message}",
 					dto.Number, dto.SamplingDate, ex.Message);
 				return null;
 			}

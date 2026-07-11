@@ -50,22 +50,14 @@ namespace TaiwanAgri.Worker
 				return;
 			}
 
-			// 資料庫既有去重：跟批次內去重（DistinctBy）是不同層次的重複，兩者都要做才完整
-			var existingCertSns = await db.OrganicCertifications
-				.Select(x => x.CertOrganicSn)
-				.ToHashSetAsync(stoppingToken);
-
-			var toInsert = incoming.Where(x => !existingCertSns.Contains(x.CertOrganicSn)).ToList();
-
-			if (toInsert.Count == 0)
-			{
-				_logger.LogInformation("[OrganicCertificationSync] 無新資料需要同步");
-				return;
-			}
-			await db.OrganicCertifications.AddRangeAsync(toInsert, stoppingToken);
-			await db.SaveChangesAsync(stoppingToken);
-			_logger.LogInformation("[OrganicCertificationSync] 成功同步 {Count} 筆新資料，略過 {Skipped} 筆重複",
-				toInsert.Count, incoming.Count - toInsert.Count);
+			// 資料庫既有去重：跟批次內去重（DistinctBy）是不同層次的重複，兩者都要做才完整。
+			// 既有鍵維持全撈：本表以 CertOrganicSn 為鍵、無日期視窗可用，且量小（數千筆）
+			await DbSyncHelper.InsertNewByKeyAsync(
+				db,
+				db.OrganicCertifications.Select(x => x.CertOrganicSn),
+				incoming,
+				x => x.CertOrganicSn,
+				_logger, "[OrganicCertificationSync]", stoppingToken);
 		}
 
 		/// <summary>
