@@ -7,35 +7,22 @@ using TaiwanAgri.Modules.Weather.Entities;
 
 namespace TaiwanAgri.Worker
 {
-	public class RainfallStationSyncWorker : BackgroundService
+	public class RainfallStationSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<RainfallStationSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 		public RainfallStationSyncWorker(ILogger<RainfallStationSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try 
-				{
-					await SyncRainfallStationAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[RainfallStationSync] 同步失敗");
-				}
+		protected override TimeSpan Interval => TimeSpan.FromDays(7); // 正式排程7天一次
+		protected override string LogPrefix => "[RainfallStationSync]";
 
-				await Task.Delay(TimeSpan.FromDays(7), stoppingToken); // 正式排程7天一次
-			}
-		}
-
-		private async Task SyncRainfallStationAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			//每次建立一個Scope
 			using var scope = _scopeFactory.CreateScope();

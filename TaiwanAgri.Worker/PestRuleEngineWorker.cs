@@ -6,29 +6,19 @@ using TaiwanAgri.Modules.Weather.Services;
 
 namespace TaiwanAgri.Worker
 {
-	public class PestRuleEngineWorker : BackgroundService
+	public class PestRuleEngineWorker : ScheduledSyncWorkerBase
 	{
-		private readonly ILogger<PestRuleEngineWorker> _logger;
 		private readonly PestRuleEngine _pestRuleEngine;
 		public PestRuleEngineWorker(ILogger<PestRuleEngineWorker> logger, PestRuleEngine pestRuleEngine)
+			: base(logger)
 		{
-			_logger = logger;
 			_pestRuleEngine = pestRuleEngine;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while(!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await _pestRuleEngine.EvaluateAsync(stoppingToken);
-				}
-				catch (Exception ex) 
-				{
-					_logger.LogError(ex, "[PestRuleEngineWorker] 執行失敗");
-				}
-				await Task.Delay(TimeSpan.FromDays(1), stoppingToken); // 每天執行一次
-			}
-		}
+
+		protected override TimeSpan Interval => TimeSpan.FromDays(1); // 每天執行一次
+		protected override string LogPrefix => "[PestRuleEngineWorker]";
+
+		protected override Task SyncAsync(CancellationToken stoppingToken)
+			=> _pestRuleEngine.EvaluateAsync(stoppingToken);
 	}
 }

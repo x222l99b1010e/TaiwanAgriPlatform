@@ -7,36 +7,23 @@ using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
 
 namespace TaiwanAgri.Worker
 {
-	public class PestDecadeSyncWorker : BackgroundService
+	public class PestDecadeSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<PestDecadeSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 		public PestDecadeSyncWorker(ILogger<PestDecadeSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
 
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncPestDecadeAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[PestDecadeSync] 同步失敗");
-				}
+		protected override TimeSpan Interval => TimeSpan.FromDays(10); // 正式排程每10天1次
+		protected override string LogPrefix => "[PestDecadeSync]";
 
-				await Task.Delay(TimeSpan.FromDays(10), stoppingToken); // 正式排程每10天1次
-			}
-		}
-
-		private async Task SyncPestDecadeAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();

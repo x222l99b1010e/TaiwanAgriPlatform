@@ -7,36 +7,24 @@ using TaiwanAgri.Modules.FoodSafety.Entities;
 
 namespace TaiwanAgri.Worker
 {
-	public class OrganicCertificationSyncWorker : BackgroundService
+	public class OrganicCertificationSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<OrganicCertificationSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 
 		public OrganicCertificationSyncWorker(ILogger<OrganicCertificationSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
 
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncOrganicCertificationAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[OrganicCertificationSync] 同步失敗");
-				}
-				await Task.Delay(TimeSpan.FromDays(1), stoppingToken); // 正式排程每1天一次
-			}
-		}
+		protected override TimeSpan Interval => TimeSpan.FromDays(1); // 正式排程每1天一次
+		protected override string LogPrefix => "[OrganicCertificationSync]";
 
-		private async Task SyncOrganicCertificationAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			// 用 IServiceScopeFactory 建立獨立 Scope，才能在這個 Singleton Worker 裡安全注入 Scoped 的 DbContext
 			using var scope = _scopeFactory.CreateScope();

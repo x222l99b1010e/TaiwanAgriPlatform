@@ -7,35 +7,22 @@ using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
 
 namespace TaiwanAgri.Worker
 {
-	public class WeatherSyncWorker : BackgroundService
+	public class WeatherSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<WeatherSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 		public WeatherSyncWorker(ILogger<WeatherSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncWeatherAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[WeatherSync] 同步失敗");
-				}
+		protected override TimeSpan Interval => TimeSpan.FromHours(1); // 正式排程每小時一次
+		protected override string LogPrefix => "[WeatherSync]";
 
-				await Task.Delay(TimeSpan.FromHours(1), stoppingToken); // 正式排程每小時一次
-			}
-		}
-
-		private async Task SyncWeatherAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			// IServiceScopeFactory：每次寫入建立一個獨立的 Scope
 			// 原因：DbContext 是 Scoped，不能直接注入進 Singleton 的 BackgroundService

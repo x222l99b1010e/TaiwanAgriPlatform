@@ -7,36 +7,24 @@ using TaiwanAgri.Modules.FoodSafety.Entities;
 
 namespace TaiwanAgri.Worker
 {
-	public class PesticideViolationSyncWorker : BackgroundService
+	public class PesticideViolationSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<PesticideViolationSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 
 		public PesticideViolationSyncWorker(ILogger<PesticideViolationSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
 
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncPesticideViolationAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[PesticideViolationSync] 同步失敗");
-				}
-				await Task.Delay(TimeSpan.FromDays(1), stoppingToken); // 正式排程每1天一次
-			}
-		}
+		protected override TimeSpan Interval => TimeSpan.FromDays(1); // 正式排程每1天一次
+		protected override string LogPrefix => "[PesticideViolationSync]";
 
-		private async Task SyncPesticideViolationAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<FoodSafetyDbContext>();

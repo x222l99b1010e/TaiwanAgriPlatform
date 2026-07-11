@@ -7,34 +7,22 @@ using TaiwanAgri.Modules.Market.Entities;
 
 namespace TaiwanAgri.Worker
 {
-	public class CropMarketSyncWorker : BackgroundService
+	public class CropMarketSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<CropMarketSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 		public CropMarketSyncWorker(ILogger<CropMarketSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncCropMarketAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[CropMarketSync] 同步失敗");
-				}
-				await Task.Delay(TimeSpan.FromDays(14), stoppingToken); // 每14天執行一次
-			}			
-		}
+		protected override TimeSpan Interval => TimeSpan.FromDays(14); // 每14天執行一次
+		protected override string LogPrefix => "[CropMarketSync]";
 
-		private async Task SyncCropMarketAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			// 使用範圍工廠來取得 DbContext，確保每次執行都有新的 DbContext 實例
 			using var scope = _scopeFactory.CreateScope();

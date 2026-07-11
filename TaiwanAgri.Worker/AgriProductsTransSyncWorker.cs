@@ -12,35 +12,28 @@ using TaiwanAgri.Modules.Market.Entities;
 
 namespace TaiwanAgri.Worker
 {
-	public class AgriProductsTransSyncWorker : BackgroundService
+	public class AgriProductsTransSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<AgriProductsTransSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _serviceScopeFactory;
 		private readonly IConfiguration _configuration;
 		public AgriProductsTransSyncWorker(ILogger<AgriProductsTransSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory serviceScopeFactory, IConfiguration configuration)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_serviceScopeFactory = serviceScopeFactory;
 			_configuration = configuration;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		protected override TimeSpan Interval => TimeSpan.FromDays(1); // 每天執行一次
+		protected override string LogPrefix => "[AgriProductsTransSyncWorker]";
+
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try 
-				{
-					var success = await SyncAgriProductsTransAsync(stoppingToken);
-					if (success)
-						await PublishPriceUpdatedEventAsync();
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, " [AgriProductsTransSyncWorker] 同步失敗 ");
-				}
-				await Task.Delay(TimeSpan.FromDays(1), stoppingToken); // 每天執行一次
-			}
+			var success = await SyncAgriProductsTransAsync(stoppingToken);
+			if (success)
+				await PublishPriceUpdatedEventAsync();
 		}
 
 		private async Task PublishPriceUpdatedEventAsync()

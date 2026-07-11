@@ -9,35 +9,22 @@ using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
 
 namespace TaiwanAgri.Worker
 {
-	public class PestAlertSyncWorker : BackgroundService
+	public class PestAlertSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<PestAlertSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 		public PestAlertSyncWorker(ILogger<PestAlertSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncPestAlertAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[PestAlertSync] 同步失敗");
-				}
+		protected override TimeSpan Interval => TimeSpan.FromDays(1); // 正式排程每天一次
+		protected override string LogPrefix => "[PestAlertSync]";
 
-				await Task.Delay(TimeSpan.FromDays(1), stoppingToken); // 正式排程每天一次
-			}
-		}
-
-		private async Task SyncPestAlertAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			//每次寫入建立一個獨立的 Scope，確保 DbContext 的生命週期正確，並且在操作完成後能夠正確釋放資源。
 			//這樣做的好處是可以避免 DbContext 在長時間運行的背景服務中持續存在，從而減少內存泄漏和資源占用的風險。
