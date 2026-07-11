@@ -207,8 +207,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
+import { usePagination } from '@/composables/usePagination'
 
 const store = useFoodSafetyStore()
 
@@ -225,17 +226,30 @@ const resultOptions: { label: string; value: string | undefined }[] = [
   { label: '合格', value: '合格' },
 ]
 
-const currentPage = ref(1)
-const pageSizeOptions = [10, 20, 50, 100]
-const jumpPageInput = ref<number | null>(null)
-
-// 每頁筆數：從 localStorage 讀取上次選擇，沒有的話預設 20
-const PAGE_SIZE_STORAGE_KEY = 'violationWall.pageSize'
-const storedPageSize = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY))
-const pageSize = ref(pageSizeOptions.includes(storedPageSize) ? storedPageSize : 20)
-
 // 是否已經執行過查詢
 const hasSearched = ref(false)
+
+// 分頁控制邏輯共用（與 OrganicCertView 同一份 composable）
+const {
+  pageSizeOptions,
+  pageSize,
+  currentPage,
+  jumpPageInput,
+  visiblePages,
+  changePage,
+  handleJumpPage,
+  handlePageSizeChange: paginationPageSizeChange,
+  rowNumber,
+} = usePagination({
+  storageKey: 'violationWall.pageSize',
+  totalPages: () => store.violationsPage?.totalPages,
+  onChange: doFetch,
+})
+
+// 尚未查詢過時只記住每頁筆數選擇、不打 API（未查詢前顯示等待畫面）
+function handlePageSizeChange(event: Event) {
+  paginationPageSizeChange(event, hasSearched.value)
+}
 
 // 查詢當下實際套用的天數（顯示在頁首說明用，跟輸入框當下的值分開）
 const appliedDays = ref(90)
@@ -267,40 +281,6 @@ function changeResult(v: string | undefined) {
   }
 }
 
-/**
- * 每頁筆數變更處理。
- * 刻意不用 v-model + @change 混用（曾經發生 handler 讀到舊值的時序問題），
- * 改成從原生 change 事件直接取值、手動賦值，確保 pageSize 更新完成後才觸發查詢。
- */
-function handlePageSizeChange(event: Event) {
-  const newSize = Number((event.target as HTMLSelectElement).value)
-  pageSize.value = newSize
-
-  // 不管有沒有查詢過，都先存進 localStorage 記住這個選擇
-  localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(newSize))
-
-  // 但只有查詢過，才重新打 API（未查詢時不自動查詢）
-  if (hasSearched.value) {
-    currentPage.value = 1
-    doFetch()
-  }
-}
-
-function changePage(p: number) {
-  if (!store.violationsPage) return
-  if (p < 1 || p > store.violationsPage.totalPages) return
-  currentPage.value = p
-  doFetch()
-}
-
-function handleJumpPage() {
-  if (!store.violationsPage) return
-  if (!jumpPageInput.value) return
-  const target = Math.min(Math.max(1, jumpPageInput.value), store.violationsPage.totalPages)
-  changePage(target)
-  jumpPageInput.value = null
-}
-
 /** 使用者主動觸發查詢（按查詢鈕、按 Enter、點預設天數按鈕） */
 function triggerSearch() {
   appliedDays.value = resolveDays()
@@ -313,14 +293,6 @@ function doFetch() {
   store.fetchViolations(appliedDays.value, selectedResult.value, currentPage.value, pageSize.value)
 }
 
-/**
- * 計算表格序號：不是「這一頁裡的第幾筆」，而是「在全部符合條件的資料中排第幾筆」。
- * 例如 pageSize=20，目前在第 2 頁，這一頁第 1 筆（index=0）就是全域第 21 筆。
- */
-function rowNumber(index: number): number {
-  return (currentPage.value - 1) * pageSize.value + index + 1
-}
-
 function resultClass(result: string) {
   if (result === '不合格') return 'fail'
   if (result === '標示合格') return 'warn'
@@ -331,18 +303,6 @@ function resultClass(result: string) {
 function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
 }
-
-/** 分頁按鈕：最多顯示 5 個頁碼，以目前頁為中心 */
-const visiblePages = computed(() => {
-  const total = store.violationsPage?.totalPages ?? 0
-  const current = currentPage.value
-  const range = 2
-  const start = Math.max(1, current - range)
-  const end = Math.min(total, current + range)
-  const pages: number[] = []
-  for (let i = start; i <= end; i++) pages.push(i)
-  return pages
-})
 
 // ── 注意：這裡刻意不用 onMounted 自動查詢，符合「未查詢前顯示等待」的需求 ──
 </script>

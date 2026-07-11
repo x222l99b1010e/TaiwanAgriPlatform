@@ -15,17 +15,18 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
   // ─── 狀態（State） ────────────────────────────────────────────────────────
 
   // 今日蔬菜均價資料
+  // 狀態命名統一 todayVeg 前綴，與違規牆（violations*）／有機驗證（organicCert*）一致
   const todayVegPrices = ref<PriceResponseDto[]>([])
 
   // 載入狀態
-  const isLoading = ref(false)
+  const isLoadingTodayVeg = ref(false)
 
   // 錯誤訊息
-  const error = ref<string | null>(null)
+  const todayVegError = ref<string | null>(null)
 
   // 是否已經載入過（避免重複打 API）
   // 搭配 lastFetchedAt 做 TTL：頁面開著跨過資料更新時間時，重新進頁仍能拿到新資料
-  const hasFetched = ref(false)
+  const todayVegHasFetched = ref(false)
   const TODAY_VEG_TTL_MS = 10 * 60 * 1000
   let todayVegLastFetchedAt = 0
 
@@ -49,21 +50,21 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
 
   // ─── 動作（Actions） ──────────────────────────────────────────────────────
 
-  /** 載入今日蔬菜均價（hasFetched + TTL 保護，10 分鐘內不重複打 API） */
+  /** 載入今日蔬菜均價（todayVegHasFetched + TTL 保護，10 分鐘內不重複打 API） */
   async function fetchTodayVegPrices() {
-    if (hasFetched.value && Date.now() - todayVegLastFetchedAt < TODAY_VEG_TTL_MS) return
+    if (todayVegHasFetched.value && Date.now() - todayVegLastFetchedAt < TODAY_VEG_TTL_MS) return
 
-    isLoading.value = true
-    error.value = null
+    isLoadingTodayVeg.value = true
+    todayVegError.value = null
     try {
       todayVegPrices.value = await foodSafetyApi.getTodayVegPrices()
-      hasFetched.value = true
+      todayVegHasFetched.value = true
       todayVegLastFetchedAt = Date.now()
     } catch (e) {
-      error.value = '載入今日菜價失敗，請稍後再試'
+      todayVegError.value = '載入今日菜價失敗，請稍後再試'
       console.error(e)
     } finally {
-      isLoading.value = false
+      isLoadingTodayVeg.value = false
     }
   }
 
@@ -145,9 +146,9 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
   return {
     // State
     todayVegPrices,
-    isLoading,
-    error,
-    hasFetched,
+    isLoadingTodayVeg,
+    todayVegError,
+    todayVegHasFetched,
     traceabilityResult,
     isSearching,
     searchError,
