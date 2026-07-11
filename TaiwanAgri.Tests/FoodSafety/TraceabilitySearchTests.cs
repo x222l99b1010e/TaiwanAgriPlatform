@@ -60,7 +60,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 				.Options;
 
 			return new FoodSafetyService(mockFactory.Object, new FoodSafetyDbContext(options),
-				NullLogger<FoodSafetyService>.Instance);
+				NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
 		}
 
 		// ── NormalizeTracenoStart：純函式，直接驗證 ─────────────────────────

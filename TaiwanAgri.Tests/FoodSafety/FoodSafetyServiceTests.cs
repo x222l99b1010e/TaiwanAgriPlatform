@@ -86,7 +86,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 				.Returns(new HttpClient());
 
 			// 4. 建立被測對象
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 
@@ -147,7 +147,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
 			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 			// 傳完整字串「業者A」，只會篩出這一筆；若傳部分字串「業者」會篩出全部3筆
@@ -180,7 +180,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
 			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 			// OperatorName="業者"（部分比對，符合全部3筆）
@@ -222,7 +222,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
 			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 			// 「玉米」只存在於業者A的 ContainCrops（水稻、玉米），Products 沒有 → 驗證 ContainCrops 這條 OR 分支
@@ -263,7 +263,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		{
 			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
 			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			return new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance);
+			return new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
 		}
 
 		[Fact]
@@ -300,6 +300,45 @@ namespace TaiwanAgri.Tests.FoodSafety
 			// 對照組：有值時過濾仍要生效，證明空字串修正沒有把過濾整個關掉
 			Assert.Equal(1, result.TotalCount);
 			Assert.Equal("V-001", result.Items[0].Number);
+		}
+
+		/// <summary>固定時刻的 TimeProvider，讓「近 N 天」邊界測試可重現</summary>
+		private sealed class FixedTimeProvider : TimeProvider
+		{
+			private readonly DateTimeOffset _utcNow;
+			public FixedTimeProvider(DateTimeOffset utcNow) => _utcNow = utcNow;
+			public override DateTimeOffset GetUtcNow() => _utcNow;
+		}
+
+		[Fact]
+		public async Task GetViolationsAsync_近N天邊界_以台灣時區日界計算()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// UTC 2026-07-10 18:00 = 台灣 2026-07-11 02:00（已跨日）：
+			// 台灣日界的「今天」是 7/11；若誤用 UTC 日界會算成 7/10
+			var clock = new FixedTimeProvider(new DateTimeOffset(2026, 7, 10, 18, 0, 0, TimeSpan.Zero));
+
+			var options = new DbContextOptionsBuilder<FoodSafetyDbContext>()
+				.UseInMemoryDatabase("TestDb_TaiwanDayBoundary_GetViolations")
+				.Options;
+			var dbContext = new FoodSafetyDbContext(options);
+			dbContext.PesticideViolations.AddRange(
+				new PesticideViolation { Id = 1, Number = "V-IN", SamplingDate = new DateOnly(2026, 7, 10), ProductName = "青江菜", ProducerName = "產戶A", SamplingLocation = "台北市", InspectResult = "不合格", Note = "" },
+				new PesticideViolation { Id = 2, Number = "V-OUT", SamplingDate = new DateOnly(2026, 7, 9), ProductName = "小白菜", ProducerName = "產戶B", SamplingLocation = "新北市", InspectResult = "不合格", Note = "" });
+			dbContext.SaveChanges();
+
+			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
+			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, clock);
+
+			// ── Act ──────────────────────────────────────────────
+			// Days=1 → fromDate = 台灣今天(7/11) - 1 = 7/10
+			var result = await service.GetViolationsAsync(new ViolationQueryDto { Days = 1 });
+
+			// ── Assert ───────────────────────────────────────────
+			// 只有 7/10 這筆入選；若仍以 UTC 日界計算（fromDate = 7/09），7/09 那筆也會被誤納
+			Assert.Equal(1, result.TotalCount);
+			Assert.Equal("V-IN", result.Items[0].Number);
 		}
 	}
 }

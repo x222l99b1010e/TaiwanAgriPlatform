@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Json;
 using TaiwanAgri.Core.Constants;
+using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.FoodSafety.Dtos.ApiResponses;
 using TaiwanAgri.Modules.FoodSafety.Dtos.ExternalResponses;
@@ -15,12 +16,14 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 		private readonly HttpClient _httpClient;
 		private readonly FoodSafetyDbContext _context;
 		private readonly ILogger<FoodSafetyService> _logger;
+		private readonly TimeProvider _timeProvider;
 
-		public FoodSafetyService(IHttpClientFactory httpClientFactory, FoodSafetyDbContext context, ILogger<FoodSafetyService> logger)
+		public FoodSafetyService(IHttpClientFactory httpClientFactory, FoodSafetyDbContext context, ILogger<FoodSafetyService> logger, TimeProvider timeProvider)
 		{
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_context = context;
 			_logger = logger;
+			_timeProvider = timeProvider;
 		}
 
 		public async Task<PagedResult<OrganicCertificationResponseDto>> GetOrganicCertificationsAsync(OrganicCertificationQueryDto queryDto)
@@ -73,7 +76,8 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 
 		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(ViolationQueryDto queryDto)
 		{
-			var fromDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-queryDto.Days);
+			// 「近 N 天」以台灣時區日界計算（UtcNow 慢 8 小時，日界前後會差一天）
+			var fromDate = TaiwanTime.Today(_timeProvider).AddDays(-queryDto.Days);
 
 			var violationsQuery = _context.PesticideViolations
 				.Where(v => v.SamplingDate >= fromDate);
