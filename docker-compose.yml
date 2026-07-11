@@ -23,26 +23,35 @@ services:
     ports:
       - "5672:5672"     # AMQP 協議（應用程式連線用）
       - "15672:15672"   # Management UI（瀏覽器管理介面）
-  web:
-    build:
-      context: .
-      dockerfile: TaiwanAgri.Web/Dockerfile
-    environment:
-      - RabbitMQ__HostName=rabbitmq
-    depends_on:
-      - rabbitmq
-      - sqlserver
-      - redis
+  # ── [已停用 2026-07-11 文件校正] ─────────────────────────────────
+  # web / worker 服務引用的 TaiwanAgri.Web/Dockerfile 與 TaiwanAgri.Worker/Dockerfile
+  # 尚未建立，保留此定義會導致 docker-compose up 直接失敗。
+  # 此二區塊原為 W17 Code Review（2026-06-13）示範 RabbitMQ__HostName 環境覆蓋而加入，
+  # 與「Docker 只跑基礎設施，.NET 應用跑在本機」的開發原則（PR #001／DevLog 條目 001）
+  # 及 SA/SD W20 註記「Docker 打包延後至所有功能模組完成後統一處理」不符，故先註解停用。
+  # 重新啟用條件：功能模組全部完成、進入統一容器化打包階段（SA/SD §11.1 排程之後），
+  # 補上兩個 Dockerfile 後再取消註解。
+  # web:
+  #   build:
+  #     context: .
+  #     dockerfile: TaiwanAgri.Web/Dockerfile
+  #   environment:
+  #     - RabbitMQ__HostName=rabbitmq
+  #   depends_on:
+  #     - rabbitmq
+  #     - sqlserver
+  #     - redis
 
-  worker:
-    build:
-      context: .
-      dockerfile: TaiwanAgri.Worker/Dockerfile
-    environment:
-      - RabbitMQ__HostName=rabbitmq
-    depends_on:
-      - rabbitmq
-      - sqlserver
+  # worker:
+  #   build:
+  #     context: .
+  #     dockerfile: TaiwanAgri.Worker/Dockerfile
+  #   environment:
+  #     - RabbitMQ__HostName=rabbitmq
+  #   depends_on:
+  #     - rabbitmq
+  #     - sqlserver
+  # ────────────────────────────────────────────────────────────────
 
 volumes:
   sqlserver_data:

@@ -10,34 +10,22 @@ using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 
 namespace TaiwanAgri.Worker
 {
-	public class PorkTransSyncWorker : BackgroundService
+	public class PorkTransSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<PorkTransSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _serviceScopeFactory;
 		public PorkTransSyncWorker(ILogger<PorkTransSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory serviceScopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_serviceScopeFactory = serviceScopeFactory;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncPorkTransAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, " [PorkTransSyncWorker] 同步失敗 ");
-				}
-				await Task.Delay(TimeSpan.FromHours(12), stoppingToken); // 每12小時執行一次
-			}
-		}
+		protected override TimeSpan Interval => TimeSpan.FromHours(12); // 每12小時執行一次
+		protected override string LogPrefix => "[PorkTransSyncWorker]";
 
-		private async Task SyncPorkTransAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			using var scope = _serviceScopeFactory.CreateScope();
 			var dbMarket = scope.ServiceProvider.GetRequiredService<MarketDbContext>();

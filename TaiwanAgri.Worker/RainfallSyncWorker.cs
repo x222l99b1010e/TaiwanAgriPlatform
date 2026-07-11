@@ -8,21 +8,25 @@ using TaiwanAgri.Modules.Weather.Entities;
 
 namespace TaiwanAgri.Worker
 {
-	public class RainfallSyncWorker : BackgroundService
+	public class RainfallSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<RainfallSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 		public RainfallSyncWorker(ILogger<RainfallSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		protected override TimeSpan Interval => TimeSpan.FromMinutes(10); // 正式排程10分鐘一次
+		protected override string LogPrefix => "[RainfallSync]";
+
+		// Polling：等待 RainfallStationSyncWorker 先把站台資料落地
+		protected override async Task WaitUntilReadyAsync(CancellationToken stoppingToken)
 		{
-			// Polling：等待站台資料就緒
 			while (!stoppingToken.IsCancellationRequested)
 			{
 				using var pollScope = _scopeFactory.CreateScope();
@@ -34,23 +38,9 @@ namespace TaiwanAgri.Worker
 				_logger.LogInformation("[RainfallSync] 等待站台資料，30 秒後重試...");
 				await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 			}
-
-			// 主同步迴圈
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try 
-				{
-					await SyncRainfallAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, "[RainfallSync] 同步失敗");
-				}
-				await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken); // 正式排程10分鐘一次
-			}
 		}
 
-		private async Task SyncRainfallAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			//每次建立一個Scope
 			using var scope = _scopeFactory.CreateScope();

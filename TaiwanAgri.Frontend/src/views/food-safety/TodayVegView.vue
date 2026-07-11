@@ -9,20 +9,20 @@
     </div>
 
     <!-- 載入中 -->
-    <div v-if="store.isLoading" class="state-box">
+    <div v-if="store.isLoadingTodayVeg" class="state-box">
       <div class="loading-spinner" />
       <span class="state-text">資料載入中...</span>
     </div>
 
     <!-- 錯誤 -->
-    <div v-else-if="store.error" class="state-box error-box">
+    <div v-else-if="store.todayVegError" class="state-box error-box">
       <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.error }}</span>
+      <span class="state-text">{{ store.todayVegError }}</span>
       <button class="btn-retry" @click="store.fetchTodayVegPrices()">重試</button>
     </div>
 
     <!-- 無資料 -->
-    <div v-else-if="store.todayVegPrices.length === 0 && store.hasFetched" class="state-box">
+    <div v-else-if="store.todayVegPrices.length === 0 && store.todayVegHasFetched" class="state-box">
       <span class="mdi mdi-calendar-remove state-icon" />
       <span class="state-text">今日無菜價資料（可能為休市日）</span>
     </div>

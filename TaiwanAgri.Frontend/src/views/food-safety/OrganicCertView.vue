@@ -185,8 +185,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
+import { usePagination } from '@/composables/usePagination'
 import type { OrganicCertificationQueryParams, OrganicCertificationResult } from '@/api/foodSafety'
 
 const store = useFoodSafetyStore()
@@ -196,10 +197,22 @@ const operatorName = ref('')
 const verificationBodyName = ref('')
 const productKeyword = ref('')
 
-const currentPage = ref(1)
-const pageSizeOptions = [10, 20, 50, 100]
-const pageSize = ref(20)
-const jumpPageInput = ref<number | null>(null)
+// 分頁控制邏輯共用（與 ViolationWallView 同一份 composable）；
+// pageSize 一併記憶 localStorage，統一先前兩頁不一致的行為
+const {
+  pageSizeOptions,
+  pageSize,
+  currentPage,
+  jumpPageInput,
+  visiblePages,
+  changePage,
+  handleJumpPage,
+  handlePageSizeChange,
+} = usePagination({
+  storageKey: 'organicCert.pageSize',
+  totalPages: () => store.organicCertPage?.totalPages,
+  onChange: fetchImmediate,
+})
 
 // 記錄哪些卡片目前是展開狀態（存 item.id）
 const expandedIds = ref<Set<number>>(new Set())
@@ -244,39 +257,6 @@ function onFilterChange() {
   currentPage.value = 1
   store.fetchOrganicCertificationsDebounced(buildParams())
 }
-
-function changePage(p: number) {
-  const total = store.organicCertPage?.totalPages ?? 1
-  if (p < 1 || p > total) return
-  currentPage.value = p
-  fetchImmediate()
-}
-
-function handlePageSizeChange(event: Event) {
-  const newSize = Number((event.target as HTMLSelectElement).value)
-  pageSize.value = newSize
-  currentPage.value = 1
-  fetchImmediate()
-}
-
-function handleJumpPage() {
-  if (!store.organicCertPage || !jumpPageInput.value) return
-  const target = Math.min(Math.max(1, jumpPageInput.value), store.organicCertPage.totalPages)
-  changePage(target)
-  jumpPageInput.value = null
-}
-
-/** 分頁按鈕：最多顯示 5 個頁碼，以目前頁為中心（沿用 ViolationWallView 的邏輯） */
-const visiblePages = computed(() => {
-  const total = store.organicCertPage?.totalPages ?? 0
-  const current = currentPage.value
-  const range = 2
-  const start = Math.max(1, current - range)
-  const end = Math.min(total, current + range)
-  const pages: number[] = []
-  for (let i = start; i <= end; i++) pages.push(i)
-  return pages
-})
 
 function statusClass(status: string) {
   if (status === '終止' || status === '結束') return 'inactive'

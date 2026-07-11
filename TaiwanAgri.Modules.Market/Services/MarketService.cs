@@ -14,11 +14,13 @@ namespace TaiwanAgri.Modules.Market.Services
 		private readonly MarketDbContext _context;
 		private readonly IDistributedCache _cache;
 		private readonly IConfiguration _configuration;
-		public MarketService(MarketDbContext context, IDistributedCache cache, IConfiguration configuration)
+		private readonly TimeProvider _timeProvider;
+		public MarketService(MarketDbContext context, IDistributedCache cache, IConfiguration configuration, TimeProvider timeProvider)
 		{
 			_context = context;
 			_cache = cache;
 			_configuration = configuration;
+			_timeProvider = timeProvider;
 		}
 		public async Task<DateOnly?> GetLatestTransDateAsync(string marketCode)
 		{
@@ -38,7 +40,8 @@ namespace TaiwanAgri.Modules.Market.Services
 			DateOnly? endDate = null)
 		{
 			// 1. 日期解析與預設值（先解析，cache key 才能用實際日期）
-			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Today);
+			//    預設查到「今天」＝台灣時區日界（DateTime.Today 是主機本地時區，部署在 UTC 環境會差一天）
+			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
 			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
 
 			// 2. 組裝 Cache Key（cropCodes 排序確保任意排列命中同一 slot）
@@ -215,7 +218,7 @@ namespace TaiwanAgri.Modules.Market.Services
 
 		public async Task<List<PorkResponseDto>> GetPorkAsync(string? marketName = null, DateOnly? startDate = null, DateOnly? endDate = null)
 		{
-			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Today);
+			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
 			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
 
 			var porkList = await _context.PorkTrans

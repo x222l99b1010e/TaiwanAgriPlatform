@@ -8,34 +8,22 @@ using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 
 namespace TaiwanAgri.Worker
 {
-	public class DebrisAlertRecordSyncWorker : BackgroundService
+	public class DebrisAlertRecordSyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _serviceScopeFactory;
 		public DebrisAlertRecordSyncWorker(ILogger<DebrisAlertRecordSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory serviceScopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_serviceScopeFactory = serviceScopeFactory;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while(!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncDebrisAlertRecordAsync(stoppingToken);
-				}
-				catch (Exception ex)
-				{
-					_logger.LogError(ex, " [DebrisAlertRecordSyncWorker] 同步失敗 ");
-				}
-				await Task.Delay(TimeSpan.FromHours(6), stoppingToken); // 每6小時執行一次
-			}
-		}
+		protected override TimeSpan Interval => TimeSpan.FromHours(6); // 每6小時執行一次
+		protected override string LogPrefix => "[DebrisAlertRecordSyncWorker]";
 
-		private async Task SyncDebrisAlertRecordAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			using var scope = _serviceScopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<MarketDbContext>();

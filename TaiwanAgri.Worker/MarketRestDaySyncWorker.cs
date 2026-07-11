@@ -6,36 +6,23 @@ using TaiwanAgri.Modules.Market.Entities;
 
 namespace TaiwanAgri.Worker
 {
-	public class MarketRestDaySyncWorker : BackgroundService
+	public class MarketRestDaySyncWorker : ScheduledSyncWorkerBase
 	{
 		private readonly ILogger<MarketRestDaySyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
 
 		public MarketRestDaySyncWorker(ILogger<MarketRestDaySyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
+			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_scopeFactory = scopeFactory;
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-		{
-			while (!stoppingToken.IsCancellationRequested)
-			{
-				try
-				{
-					await SyncMarketRestDayAsync(stoppingToken);
-				}
-				catch(Exception ex)
-				{
-					_logger.LogError(ex, "[MarketRestDaySync] 同步失敗");
-				}
+		protected override TimeSpan Interval => TimeSpan.FromDays(7); // 正式排程每7天一次
+		protected override string LogPrefix => "[MarketRestDaySync]";
 
-				await Task.Delay(TimeSpan.FromDays(7), stoppingToken); // 正式排程每7天一次
-			}
-		}
-
-		private async Task SyncMarketRestDayAsync(CancellationToken stoppingToken)
+		protected override async Task SyncAsync(CancellationToken stoppingToken)
 		{
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<MarketDbContext>();

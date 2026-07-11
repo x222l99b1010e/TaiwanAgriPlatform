@@ -46,6 +46,12 @@ namespace TaiwanAgri.Modules.Market.Data
 				// 新增：讓 GetCropsAsync 的 TcType 篩選可以走索引
 				entity.HasIndex(e => e.TcType)
 					  .HasDatabaseName("IX_AgriProductsTrans_TcType");
+				// 支撐 GetLatestPricesAsync「每組 (CropCode, MarketCode) 取最新一筆」的
+				// ROW_NUMBER 視窗查詢：partition 鍵開頭＋TransDate DESC；
+				// 既有索引皆不以 (CropCode, MarketCode) 開頭，監看清單一多就掃全部歷史列
+				entity.HasIndex(e => new { e.CropCode, e.MarketCode, e.TransDate })
+					  .HasDatabaseName("IX_AgriProductsTrans_CropCode_MarketCode_TransDate")
+					  .IsDescending(false, false, true);
 
 				entity.Property(e => e.UpperPrice).HasPrecision(8, 2);
 				entity.Property(e => e.MiddlePrice).HasPrecision(8, 2);
