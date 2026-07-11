@@ -16,6 +16,8 @@ namespace TaiwanAgri.Core.Constants
 		// 模組 4：行情
 		public const string AgriProductsTrans = "api/v1/AgriProductsTransType/";
 		public const string PorkTrans = "api/v1/PorkTransType/";
+		// 土石流警戒走農業部舊制 TransService 通道（非 api/v1 REST 形態）：
+		// 該資料集未上架新版 OpenData API，只能以 UnitId 參數呼叫舊端點
 		public const string DebrisAlert = "Service/OpenData/TransService.aspx?UnitId=kRam3LShuWSv";
 		public const string MarketRestDay = "api/v1/MarketRestDayFarmWCF/";
 		public const string CropMarketType = "api/v1/CropMarketType/?CropMarketType=";
