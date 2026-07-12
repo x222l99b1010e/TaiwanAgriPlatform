@@ -603,14 +603,14 @@ npm test
 | W11 | RBAC 骨架 + 動態 Navbar | NavModule 自參照；RoleModulePermission 複合 PK；DbInitializer；NavService；TopNav hover dropdown（PR #022） | ✅ 完成 |
 | W12 | 技術債補丁 | MarketInfos MarketType 索引；AgriProductsTransSyncWorker 並發控制；PriceChart.vue options；Serilog 檔案日誌（PR #023–025） | ✅ 完成 |
 | W13–14 | Redis + RabbitMQ + 模組 2 前台 | GetPricesAsync Cache-Aside（TTL 25hr）；RabbitMQ Publisher/Consumer 骨架；WeatherService / PestService 查詢層；Vue 3 天氣面板四頁；前端淺色主題全站重設計；毛豬行情前後端（PR #026–029） | ✅ 完成 |
-| W15 | JWT 身分驗證 | ASP.NET Core Identity + JWT；AuthService；LoginView.vue；authClient.ts axios interceptor（PR #032） | ✅ 完成 |
-| W16 | 農場偏好設定 | TaiwanAgri.Modules.User；UserFarmProfile / UserFarmCrop；Upsert 策略；ProfileController；ProfileView.vue（PR #033） | ✅ 完成 |
-| W17 | 監看清單 | UserWatchlist Entity；IUserWatchlistService（防重複 + 409）；WatchlistController 批量刪除；WatchlistView.vue（PR #034–037） | ✅ 完成 |
+| W15 | JWT 身分驗證 | ASP.NET Core Identity + JWT；AuthService；LoginView.vue；authClient.ts axios interceptor（PR #033） | ✅ 完成 |
+| W16 | 農場偏好設定 | TaiwanAgri.Modules.User；UserFarmProfile / UserFarmCrop；Upsert 策略；ProfileController；ProfileView.vue（PR #034） | ✅ 完成 |
+| W17 | 監看清單 | UserWatchlist Entity；IUserWatchlistService（防重複 + 409）；WatchlistController 批量刪除；WatchlistView.vue（PR #035–037） | ✅ 完成 |
 | W18 | 監看清單行情整合 | WatchlistEnrichedItemDto 跨模組聚合；Controller Pattern C；UserWatchlist 補 MarketType；均價顯示（PR #038） | ✅ 完成 |
 | W19 | 測試 Sprint | xUnit + Moq；MarketServiceCacheTests / UserWatchlistServiceTests / WatchlistControllerTests；共 12 個測試全數綠燈（PR #039） | ✅ 完成 |
 | W20 | DevOps | GitHub Actions CI（restore/build/test + badge，W20a）；GlobalExceptionMiddleware 全域例外攔截 + 標準化 JSON 錯誤回應（W20b）。全域搜尋與 Docker 打包延後至功能模組全部完成後統一處理 | ✅ 完成 |
 | W21 | 模組 1（食安） | FoodSafetyDbContext + 模組骨架；今日菜價快覽 + 全站菜價輪播（W21a）；農產品追溯查詢（W21b）；農藥違規警示牆 + PesticideViolationSyncWorker（W21c）；有機農產品驗證查詢 + OrganicCertificationSyncWorker（W21d）（GitHub PR #5–#8） | ✅ 完成 |
-| —（不掛週次） | Code Review 修正批次 | TimeProvider 時鐘注入 + 台灣時區日界；ScheduledSyncWorkerBase / DbSyncHelper / MoaPagedFetcher 抽共用；Watchlist N+1 批次化；分頁排序穩定性；(CropCode, MarketCode, TransDate DESC) 索引；前端 vitest 導入 + useLatestRequest/usePagination（PR #046，GitHub PR #10–#12） | ✅ 完成 |
+| —（不掛週次） | Code Review 修正批次 | TimeProvider 時鐘注入 + 台灣時區日界；ScheduledSyncWorkerBase / DbSyncHelper / MoaPagedFetcher 抽共用；Watchlist N+1 批次化；分頁排序穩定性；(CropCode, MarketCode, TransDate DESC) 索引；前端 vitest 導入 + useLatestRequest/usePagination（PR #045–046，GitHub PR #10–#12） | ✅ 完成 |
 | W22–23 | 模組 3（寵物地圖） | Leaflet 認領養地圖 + MarkerCluster；遺失啟事 CRUD；合法業者查詢；地理編碼整合（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ⬜ 待開始（下一個 Sprint） |
 
 ---
