@@ -61,16 +61,16 @@
   - 跨模組資料聚合在 Controller 層（Pattern C），`IUserWatchlistService` + `IMarketService` 同時注入
   - `WatchlistEnrichedItemDto` 含靜態偏好 + 動態均價 + 交易日期（nullable）
 
-### 🛒 模組 1：台灣生鮮物價與食安透明網（待開發，規劃於 W21）
+### 🛒 模組 1：台灣生鮮物價與食安透明網（W21 完成）
 
 面向一般消費者，今日物價查詢 + 食安追溯核查。
 
-- 今日物價首頁（毫秒級回應，Redis Cache-Aside Pattern）
-- 追溯碼查詢（支援 QR Code 掃描）
-- 農藥殘留違規警示牆（近 90 天不合格名單）
-- RabbitMQ 非同步推播架構（Publisher → Exchange → Queue → Consumer）
+- 今日菜價快覽（重點作物均價卡片，TTL 快取跨日自動更新）+ 全站菜價輪播
+- 農產品追溯查詢（溯源碼查詢，串接 MOA 追溯 API）
+- 農藥殘留違規警示牆（近 N 天不合格名單，days 上限保護 + 檢驗結果篩選 + 分頁）
+- 有機農產品驗證查詢（側邊篩選 + 卡片列表 + 穩定分頁排序）
 
-### 🐾 模組 3：毛小孩守護地圖（待開發，規劃於 W22–23）
+### 🐾 模組 3：毛小孩守護地圖（下一個 Sprint：W22–23）
 
 面向寵物飼主，整合認領養地圖、遺失協尋、合法業者查驗。
 
@@ -92,11 +92,9 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                  TaiwanAgri.Worker                          │
 │    .NET Worker Service + Serilog                            │
-│    WeatherSyncWorker        | PestAlertSyncWorker           │
-│    RainfallSyncWorker       | PestDecadeSyncWorker           │
-│    PestRuleEngineWorker     | MarketRestDaySyncWorker        │
-│    CropMarketSyncWorker     | AgriProductsTransSyncWorker    │
-│    DebrisAlertRecordSyncWorker | PorkTransSyncWorker         │
+│    13 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼     │
+│    （氣象 / 雨量 / 病蟲害×3 / 行情×4 / 天災 / 毛豬            │
+│      / 農藥違規 / 有機驗證），落地共用 DbSyncHelper           │
 └──────────┬────────────────────────┬─────────────────────────┘
            │ EF Core                │ RabbitMQ
            │ (多 DbContext)         │
@@ -109,13 +107,17 @@
      │  Permissions,    │   │   RoutingKey: agri.market.*     │
      │  SyncStates)     │   └──────────────┬─────────────────┘
      │ UserDbContext    │                  │ Subscribe
+     │ FoodSafetyDb-    │                  │
+     │   Context        │                  │
      └─────┬────────────┘                  ▼
            │                ┌──────────────────────────────────────┐
      ┌─────┴──────┐         │          TaiwanAgri.Web              │
      │ SQL Server │         │   ASP.NET Core Web API               │
      │   2022     │         │   ApplicationDbContext               │
      └────────────┘         │   (繼承 IdentityDbContext)            │
+                            │   GlobalExceptionMiddleware           │
                             │   MarketController  (6 支端點)        │
+                            │   FoodSafetyController (4 支端點)     │
                             │   NavController [AllowAnonymous]      │
                             │   AuthController   (login/register)   │
                             │   ProfileController [Authorize]       │
@@ -153,7 +155,12 @@ TaiwanAgriPlatform/
 │   │   ├── INavService.cs
 │   │   └── NavService.cs             # 三段式 RBAC 查詢（RoleManager GUID 解析）
 │   ├── Helpers/
-│   │   └── DateHelper.cs             # ParseRocDate / ParseIsoDate 等
+│   │   ├── DateHelper.cs             # ParseRocDate / ParseIsoDate 等
+│   │   ├── TaiwanTime.cs             # 台灣時區日界（TimeProvider 注入）
+│   │   ├── DbSyncHelper.cs           # InsertNewByKeyAsync 共用落地流水線
+│   │   └── MoaPagedFetcher.cs        # MOA 分頁抓取共用迴圈
+│   ├── Extensions/
+│   │   └── MoaApiClientExtensions.cs # AddMoaApiClient() Named Client 共用設定
 │   └── Infrastructure/
 │       ├── Data/
 │       │   └── CoreDbContext.cs      # SyncStates + NavModules + RoleModulePermissions
@@ -194,14 +201,24 @@ TaiwanAgriPlatform/
 │       ├── IUserWatchlistService.cs
 │       └── UserWatchlistService.cs   # AnyAsync 防重複 + RemoveRange 防越權
 │
-├── TaiwanAgri.Modules.FoodSafety/    # 模組 1：食安追溯後端（佔位，規劃於 W21）
-├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組後端（佔位，規劃於 W22-23）
+├── TaiwanAgri.Modules.FoodSafety/    # 模組 1：食安模組（W21 完成）
+│   ├── Data/
+│   │   └── FoodSafetyDbContext.cs    # schema: foodsafety
+│   ├── Entities/
+│   │   └── (PesticideViolation / OrganicCertification)
+│   ├── Dtos/                         # ViolationQueryDto 等統一查詢簽名
+│   └── Services/
+│       └── (IFoodSafetyService / FoodSafetyService)
 │
-├── TaiwanAgri.Worker/                # 入口層：所有排程 Worker + DI 組裝
+├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組後端（佔位，W22-23 開發）
+│
+├── TaiwanAgri.Worker/                # 入口層：13 支排程 Worker + DI 組裝
+│   └── ScheduledSyncWorkerBase.cs    # 排程外殼基底（SyncAsync/Interval/LogPrefix + 0–30s 啟動 jitter）
 │
 ├── TaiwanAgri.Web/                   # 入口層：Web API + DI 組裝
 │   ├── Controllers/
 │   │   ├── AuthController.cs         # POST /api/auth/login、POST /api/auth/register
+│   │   ├── FoodSafetyController.cs   # 今日菜價 / 追溯 / 違規牆 / 有機驗證（4 支端點）
 │   │   ├── MarketController.cs       # 6 支端點（含 /pork）
 │   │   ├── NavController.cs          # [AllowAnonymous] GET /api/nav/modules
 │   │   ├── NotificationController.cs # [Authorize] 通知列表 / 未讀數 / 標記已讀
@@ -211,11 +228,14 @@ TaiwanAgriPlatform/
 │   │   └── WeatherController.cs      # 氣象站 / 雨量
 │   ├── Extensions/                   # Modular Monolith 各模組 Extension Methods
 │   │   ├── CoreModuleExtensions.cs
+│   │   ├── FoodSafetyModuleExtensions.cs
 │   │   ├── IdentityExtensions.cs     # JWT Bearer 設定
 │   │   ├── InfrastructureExtensions.cs # Redis / CORS / RabbitMQ Consumer
 │   │   ├── MarketModuleExtensions.cs
 │   │   ├── UserModuleExtensions.cs
 │   │   └── WeatherModuleExtensions.cs
+│   ├── Middlewares/
+│   │   └── GlobalExceptionMiddleware.cs # 全域例外攔截 + 標準化 JSON 錯誤回應
 │   ├── Services/
 │   │   ├── AuthService.cs            # JWT 發行（HMAC-SHA256）
 │   │   └── PriceUpdatedConsumer.cs   # RabbitMQ Consumer 骨架
@@ -227,6 +247,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── auth.ts               # /api/auth/login、/api/auth/register
 │   │   │   ├── authClient.ts         # axios instance（自動注入 Bearer token）
 │   │   │   ├── cropApi.ts            # 三市場合併作物清單（profile 用）
+│   │   │   ├── foodSafety.ts         # 食安四支端點封裝
 │   │   │   ├── market.ts             # 模組 4+畜禽 六支端點封裝
 │   │   │   ├── nav.ts                # GET /api/nav/modules
 │   │   │   ├── profile.ts            # GET/PUT /api/profile/farm
@@ -234,11 +255,15 @@ TaiwanAgriPlatform/
 │   │   │   └── weather.ts            # 氣象 / 雨量 / 病蟲害 / 通知 封裝
 │   │   ├── stores/
 │   │   │   ├── authStore.ts          # Pinia：JWT + 使用者資訊（localStorage 持久化）
+│   │   │   ├── foodSafety.ts         # Pinia：食安狀態（todayVeg TTL / violations / organicCert）
 │   │   │   ├── market.ts             # Pinia：市場行情全域狀態
 │   │   │   ├── nav.ts                # Pinia：nav store + loadModules
 │   │   │   ├── notification.ts       # Pinia：未讀數 + 通知列表 + 無限捲動
 │   │   │   ├── profile.ts            # Pinia：農場設定
 │   │   │   └── watchlist.ts          # Pinia：監看清單
+│   │   ├── composables/
+│   │   │   ├── useLatestRequest.ts   # 請求序號防競態（vitest 覆蓋）
+│   │   │   └── usePagination.ts      # 分頁邏輯共用
 │   │   ├── components/
 │   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺
 │   │   │   ├── NotificationBell.vue  # 鈴鐺 + 未讀紅點 + Dropdown 無限捲動
@@ -249,6 +274,11 @@ TaiwanAgriPlatform/
 │   │   ├── views/
 │   │   │   ├── auth/
 │   │   │   │   └── LoginView.vue     # 登入 / 註冊 Tab + 錯誤中文翻譯
+│   │   │   ├── food-safety/
+│   │   │   │   ├── TodayVegView.vue  # 今日菜價快覽
+│   │   │   │   ├── TraceabilityView.vue # 農產品追溯查詢
+│   │   │   │   ├── ViolationWallView.vue # 農藥違規警示牆
+│   │   │   │   └── OrganicCertView.vue   # 有機農產品驗證查詢
 │   │   │   ├── market/
 │   │   │   │   ├── PricesView.vue    # 作物行情查詢
 │   │   │   │   ├── DisastersView.vue # 天災警戒紀錄
@@ -259,6 +289,7 @@ TaiwanAgriPlatform/
 │   │   │   │   ├── RainfallView.vue  # 雨量趨勢（折線圖 + 明細表格）
 │   │   │   │   ├── PestAlertsView.vue # 病蟲害警報牆（可展開）
 │   │   │   │   └── PestDecadeView.vue # 旬密度趨勢（折線圖 + 全選切換）
+│   │   │   ├── FoodSafetyView.vue    # 食安模組容器（RouterView）
 │   │   │   ├── MarketView.vue        # 市場模組容器（RouterView）
 │   │   │   ├── WeatherView.vue       # 氣象模組容器（RouterView）
 │   │   │   ├── ProfileView.vue       # 農場設定（Autocomplete 作物搜尋）
@@ -270,15 +301,13 @@ TaiwanAgriPlatform/
 │   │   └── utils/exportCsv.ts        # CSV 匯出（UTF-8 BOM）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq
-    ├── Helpers/
-    │   └── DateHelperTests.cs         # 6 個邊界值測試（Happy Path / Null Path）
-    ├── Market/
-    │   └── MarketServiceCacheTests.cs # Cache Hit / Cache Miss（Mock IDistributedCache）
-    ├── User/
-    │   └── UserWatchlistServiceTests.cs # 防重複 / 成功新增（InMemory DB）
-    └── Watchlist/
-        └── WatchlistControllerTests.cs  # 空清單 / Pattern C 組合（Mock Services）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 49 個測試案例）
+    ├── Helpers/                       # DateHelper 民國曆邊界值
+    ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
+    ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
+    ├── Watchlist/                     # Controller Pattern C 組合（Mock Services）
+    ├── FoodSafety/                    # FoodSafetyService 查詢 + 追溯搜尋
+    └── Worker/                        # 食安兩支 SyncWorker（MapToEntity 可測化）
 ```
 
 ---
@@ -300,7 +329,8 @@ TaiwanAgriPlatform/
 | 圖表 | Chart.js | 4.x | 折線圖 / 移動平均線 / 天災垂直線 |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller 層） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils 單元測試（`npm test`） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
 ---
@@ -383,7 +413,7 @@ taiwanagriplatform-rabbitmq-1       running (healthy)
 
 ### Step 4：執行 EF Core Migration
 
-本專案採用多 DbContext 架構，**五個 DbContext 各自有獨立的 Migration 目錄，必須分別執行**。
+本專案採用多 DbContext 架構，**六個 DbContext 各自有獨立的 Migration 目錄，必須分別執行**。
 
 ```powershell
 # 1. Identity + ApplicationUser（AspNetUsers 等標準表）
@@ -400,6 +430,9 @@ Update-Database -Context CoreDbContext -StartupProject TaiwanAgri.Worker
 
 # 5. 使用者個人化（UserFarmProfiles / UserFarmCrops / UserWatchlists）
 Update-Database -Context UserDbContext -StartupProject TaiwanAgri.Web
+
+# 6. 食安模組（PesticideViolations / OrganicCertifications）
+Update-Database -Context FoodSafetyDbContext -StartupProject TaiwanAgri.Worker
 ```
 
 Migration 執行完成後，`core.NavModules`（13 筆）與 `core.RoleModulePermissions`（26 筆）會由 `DbInitializer.SeedAsync` 在應用程式啟動時自動寫入。
@@ -430,22 +463,22 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
+# 後端（xUnit + Moq，共 49 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
+
+# 前端（Vitest，共 8 個測試案例）
+cd TaiwanAgri.Frontend
+npm test
 ```
 
-目前共 12 個測試案例，全數綠燈：
-
-- `DateHelperTests.cs` — 6 個（民國曆日期轉換邊界值）
-- `MarketServiceCacheTests.cs` — 2 個（Cache Hit / Cache Miss）
-- `UserWatchlistServiceTests.cs` — 2 個（防重複 / 成功新增）
-- `WatchlistControllerTests.cs` — 2 個（空清單 / Pattern C 組合）
+後端涵蓋 Helpers / Market / User / Watchlist / FoodSafety / Worker 六個面向；前端涵蓋 `useLatestRequest`（請求序號防競態）與 `exportCsv`（CSV 匯出純函式）。CI（GitHub Actions）在每次 push / PR 自動執行 restore → build → test。
 
 ---
 
 ## 🗄️ 資料庫設計概覽
 
-本專案資料表由五個 DbContext 分工管理：
+本專案資料表由六個 DbContext 分工管理：
 
 **ApplicationDbContext**（`TaiwanAgri.Web`，schema: dbo）：
 `AspNetUsers` | `AspNetRoles` | 其他 Identity 標準表
@@ -462,9 +495,12 @@ dotnet test
 **UserDbContext**（`TaiwanAgri.Modules.User`，schema: dbo）：
 `UserFarmProfiles` | `UserFarmCrops` | `UserWatchlists`
 
+**FoodSafetyDbContext**（`TaiwanAgri.Modules.FoodSafety`，schema: foodsafety）：
+`PesticideViolations` | `OrganicCertifications`
+
 > **跨 DbContext FK 說明**：`RoleModulePermissions.RoleId` 指向 `AspNetRoles.Id`（GUID），以 `nvarchar(450)` 邏輯 FK 處理，無物理 FOREIGN KEY CONSTRAINT。`UserFarmCrop.CropName` 為跨 DbContext 快照欄位，寫入時從 MarketDbContext 複製，不做即時 JOIN。
 
-完整資料表設計請參考 [SA/SD 文件](docs/TaiwanAgriPlatform_SA_SD_V26_1.docx)。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V30.4.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -503,6 +539,15 @@ dotnet test
 | marketCode | string | — | 不傳則回傳全台均價 |
 | startDate | string | — | yyyy-MM-dd，預設今天往前 365 天 |
 | endDate | string | — | yyyy-MM-dd，預設今天 |
+
+### 模組 1 — 生鮮物價與食安透明網
+
+| Method | URL | 說明 | 認證 |
+|--------|-----|------|------|
+| GET | `/api/FoodSafety/today-veg-prices` | 今日菜價快覽（重點作物最新均價） | 不需要 |
+| GET | `/api/FoodSafety/traceability?traceCode=...` | 農產品追溯查詢 | 不需要 |
+| GET | `/api/FoodSafety/violations` | 農藥殘留違規名單（days 上限保護 + 檢驗結果篩選 + 分頁） | 不需要 |
+| GET | `/api/FoodSafety/organic-certifications` | 有機農產品驗證查詢（篩選 + 穩定分頁排序） | 不需要 |
 
 ### 模組 2 — 智慧青農戰情室
 
@@ -563,9 +608,10 @@ dotnet test
 | W17 | 監看清單 | UserWatchlist Entity；IUserWatchlistService（防重複 + 409）；WatchlistController 批量刪除；WatchlistView.vue（PR #034–037） | ✅ 完成 |
 | W18 | 監看清單行情整合 | WatchlistEnrichedItemDto 跨模組聚合；Controller Pattern C；UserWatchlist 補 MarketType；均價顯示（PR #038） | ✅ 完成 |
 | W19 | 測試 Sprint | xUnit + Moq；MarketServiceCacheTests / UserWatchlistServiceTests / WatchlistControllerTests；共 12 個測試全數綠燈（PR #039） | ✅ 完成 |
-| W20 | 整合優化 | 全域搜尋；GlobalExceptionMiddleware；Docker 打包；GitHub Actions CI | ⬜ 待開始 |
-| W21 | 模組 1（食安） | 今日物價首頁（Redis Cache-Aside）；追溯碼查詢；農藥違規警示牆；RabbitMQ Publisher/Exchange/Queue/Consumer 推播架構（原規劃於 W11-12，因 RBAC 骨架與身分驗證/監看清單功能優先處理而順延） | ⬜ 待開始 |
-| W22–23 | 模組 3（寵物地圖） | Leaflet 認領養地圖 + MarkerCluster；遺失啟事 CRUD；合法業者查詢；地理編碼整合（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ⬜ 待開始 |
+| W20 | DevOps | GitHub Actions CI（restore/build/test + badge，W20a）；GlobalExceptionMiddleware 全域例外攔截 + 標準化 JSON 錯誤回應（W20b）。全域搜尋與 Docker 打包延後至功能模組全部完成後統一處理 | ✅ 完成 |
+| W21 | 模組 1（食安） | FoodSafetyDbContext + 模組骨架；今日菜價快覽 + 全站菜價輪播（W21a）；農產品追溯查詢（W21b）；農藥違規警示牆 + PesticideViolationSyncWorker（W21c）；有機農產品驗證查詢 + OrganicCertificationSyncWorker（W21d）（GitHub PR #5–#8） | ✅ 完成 |
+| —（不掛週次） | Code Review 修正批次 | TimeProvider 時鐘注入 + 台灣時區日界；ScheduledSyncWorkerBase / DbSyncHelper / MoaPagedFetcher 抽共用；Watchlist N+1 批次化；分頁排序穩定性；(CropCode, MarketCode, TransDate DESC) 索引；前端 vitest 導入 + useLatestRequest/usePagination（PR #046，GitHub PR #10–#12） | ✅ 完成 |
+| W22–23 | 模組 3（寵物地圖） | Leaflet 認領養地圖 + MarkerCluster；遺失啟事 CRUD；合法業者查詢；地理編碼整合（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ⬜ 待開始（下一個 Sprint） |
 
 ---
 
@@ -607,6 +653,18 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 **前端三層架構：api / Store / Component**
 `api/` 負責 HTTP 封裝；`stores/`（Pinia）負責全域狀態；Vue 元件負責 UI 渲染。`authClient.ts` 以 axios interceptor 在每次請求自動注入 Bearer token。平鋪 prices → Chart.js datasets 的格式轉換放在 `PriceChart.vue` 的 `computed()`，純顯示格式轉換，不屬於業務邏輯。
 
+**GlobalExceptionMiddleware 標準化錯誤回應**
+所有未攔截例外統一在 Middleware 層轉為標準化 JSON 錯誤格式，Controller 不再散落 try-catch。開發環境回傳詳細訊息、正式環境只回傳通用訊息，避免內部細節外洩。
+
+**台灣時區日界 + TimeProvider 時鐘注入**
+「今天」的定義統一為台灣時區（`TaiwanTime.Today(TimeProvider)`），查詢服務的時鐘一律走 `TimeProvider` 注入而非直接呼叫 `DateTime.Now`，讓日界邏輯可測試、跨時區部署不出錯。
+
+**Worker 排程外殼與落地流水線抽象**
+13 支 SyncWorker 統一繼承 `ScheduledSyncWorkerBase`（只需實作 SyncAsync / Interval / LogPrefix，基底含 0–30 秒啟動 jitter 錯開啟動風暴）；資料落地共用 `DbSyncHelper.InsertNewByKeyAsync`（以既有鍵視窗掃描防重複）；MOA 分頁抓取共用 `MoaPagedFetcher`。新 Worker 依此慣例撰寫。
+
+**前端 useLatestRequest 防競態**
+使用者快速切換篩選條件時，晚發先回的舊請求可能覆蓋新結果。以請求序號 composable 統一處理：只採納最後一次發出請求的回應。搭配 `usePagination` 抽離分頁邏輯，均有 vitest 覆蓋。
+
 **xUnit + Moq 三種隔離策略**
 Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistributedCache>`）；Service 層只依賴 DB 時用 InMemory（UserWatchlistService → InMemory UserDbContext）；Controller 層測試跨模組組合邏輯時同時 Mock 兩個 Service（WatchlistController）。Extension Method 無法被 Mock 攔截，須 Setup 底層介面方法（GetStringAsync → GetAsync）。
 
@@ -616,7 +674,7 @@ Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistri
 
 | 文件 | 說明 |
 |------|------|
-| `docs/TaiwanAgriPlatform_SA_SD_V26_1.docx` | SA/SD 完整設計文件（W1–W19 全部實戰開發紀錄，含架構決策日誌 §12.1–§12.29；§11.1 Sprint 計畫延伸至 W23，補入 W21 食安模組與 W22-23 寵物地圖模組排程） |
+| `TaiwanAgriPlatform_SA_SD_V30.4.docx` | SA/SD 完整設計文件（W1–W21 全部實戰開發紀錄 + Code Review 修正批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -636,4 +694,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-06-19 ｜ 對應 SA/SD 文件版本 v26.1 ｜ Sprint 排程調整（新增 W21 食安模組、W22-23 寵物地圖模組排程）*
+*最後更新：2026-07-12 ｜ 對應 SA/SD 文件版本 v30.4 ｜ W21 食安模組完成 + Code Review 修正批次收尾，W22-23 寵物模組開工前基準點*
