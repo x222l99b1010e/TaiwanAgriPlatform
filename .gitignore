@@ -45,3 +45,6 @@ _ReSharper*/
 *.pfx
 *.key
 *.pem
+
+# Owner-local session bootstrap (hardcodes local docs-folder path, same "本機不進 repo" convention as SA/SD docx)
+CLAUDE.md
