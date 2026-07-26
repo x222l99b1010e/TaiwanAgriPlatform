@@ -106,6 +106,12 @@ namespace TaiwanAgri.Worker
 			if (!int.TryParse(dto.Year, out var year)) return null;
 			if (!int.TryParse(dto.Month, out var month)) return null;
 			if (!int.TryParse(dto.Decade, out var tenDays)) return null;
+			if (string.IsNullOrWhiteSpace(dto.City) || string.IsNullOrWhiteSpace(dto.Town))
+			{
+				_logger.LogWarning("[PestDecadeSync] 略過缺少縣市/鄉鎮欄位的資料：PestName={PestName}, Year={Year}, Month={Month}, TenDays={TenDays}, City={City}, Town={Town}",
+					dto.PestName, dto.Year, dto.Month, dto.Decade, dto.City, dto.Town);
+				return null;
+			}
 
 			return new PestDecadeSummary
 			{
