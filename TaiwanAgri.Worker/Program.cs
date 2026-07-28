@@ -4,6 +4,7 @@ using TaiwanAgri.Core.Extensions;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.Market.Data;
+using TaiwanAgri.Modules.Pet.Data;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
 
@@ -42,9 +43,14 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddDbContext<FoodSafetyDbContext>(options =>
 				options.UseSqlServer(
 					builder.Configuration.GetConnectionString("DefaultConnection")));
+			builder.Services.AddDbContext<PetDbContext>(options =>
+				options.UseSqlServer(
+					builder.Configuration.GetConnectionString("DefaultConnection")));
 
 			// MoaApi Named Client 設定與 Web 共用（TaiwanAgri.Core.Extensions）
 			builder.Services.AddMoaApiClient();
+			// 時鐘統一走 TimeProvider 注入（跟 TaiwanAgri.Web 保持一致慣例）
+			builder.Services.AddSingleton(TimeProvider.System);
 
 			//Weather 註冊
 			builder.Services.AddHostedService<WeatherSyncWorker>();
@@ -63,6 +69,8 @@ namespace TaiwanAgri.Worker
 			//FoodSafety 註冊
 			builder.Services.AddHostedService<PesticideViolationSyncWorker>();
 			builder.Services.AddHostedService<OrganicCertificationSyncWorker>();
+			//Pet 註冊
+			builder.Services.AddHostedService<AnimalRecognitionSyncWorker>();
 
 			var host = builder.Build();
 			host.Run();
