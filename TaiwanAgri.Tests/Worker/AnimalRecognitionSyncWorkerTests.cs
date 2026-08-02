@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using TaiwanAgri.Modules.Pet.Data;
 using TaiwanAgri.Modules.Pet.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Pet.Entities;
+using TaiwanAgri.Modules.Pet.Entities.Enums;
 using TaiwanAgri.Worker.Pet;
 using Xunit;
 
@@ -112,6 +113,29 @@ namespace TaiwanAgri.Tests.Worker
 			Assert.Equal(2, db.Shelters.Count());
 			var newShelter = db.Shelters.Single(s => s.ShelterPkId == 666666);
 			Assert.Null(newShelter.Latitude);
+		}
+
+		// ===== MapToEntity =====
+
+		[Fact]
+		public void MapToEntity_AnimalSex為N_對應Unknown不落到Other()
+		{
+			var dto = new ShelterAnimalDto
+			{
+				AnimalSubId = "A1",
+				AnimalShelterPkId = 1,
+				AnimalKind = "狗",
+				AnimalSex = "N",
+				AnimalBodyType = "SMALL",
+				AnimalAge = "ADULT",
+				AnimalSterilization = "N",
+				AnimalBacterin = "N",
+				AnimalCreateTime = "2026/01/01"
+			};
+
+			var result = AnimalRecognitionSyncWorker.MapToEntity(dto, TimeProvider.System, NullLogger.Instance);
+
+			Assert.Equal(AnimalSex.Unknown, result.Sex);
 		}
 	}
 }

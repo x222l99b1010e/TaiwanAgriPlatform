@@ -170,6 +170,9 @@ namespace TaiwanAgri.Worker.Pet
 				{
 					"M" => AnimalSex.Male,
 					"F" => AnimalSex.Female,
+					// 決策19 樣本太薄弱暫緩，之後單日增量分別出現 8 筆（07/27）與 6 筆（07/28）
+					// 真實資料，證據量已足：這是明確的「未知」語意，不該落到 Other（其他值）
+					"N" => AnimalSex.Unknown,
 					_ => EnumMappingHelper.LogUnexpectedValue(dto.AnimalSubId, nameof(dto.AnimalSex), dto.AnimalSex, AnimalSex.Other, logger)
 				},
 				BodyType = dto.AnimalBodyType switch
