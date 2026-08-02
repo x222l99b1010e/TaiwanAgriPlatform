@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using TaiwanAgri.Modules.Pet.Data;
 using TaiwanAgri.Modules.Pet.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Pet.Entities;
-using TaiwanAgri.Worker;
+using TaiwanAgri.Worker.Pet;
 using Xunit;
 
 namespace TaiwanAgri.Tests.Worker

@@ -4,8 +4,9 @@ using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.FoodSafety.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.FoodSafety.Entities;
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.FoodSafety
 {
 	public class PesticideViolationSyncWorker : ScheduledSyncWorkerBase
 	{

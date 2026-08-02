@@ -9,8 +9,9 @@ using TaiwanAgri.Core.Infrastructure.Entities;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Market.Entities;
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.Market
 {
 	public class AgriProductsTransSyncWorker : ScheduledSyncWorkerBase
 	{

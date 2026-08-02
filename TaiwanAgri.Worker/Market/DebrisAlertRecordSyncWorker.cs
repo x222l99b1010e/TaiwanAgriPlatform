@@ -5,8 +5,9 @@ using System.Text.Json;
 using TaiwanAgri.Modules.Market.Entities;
 using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
 
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.Market
 {
 	public class DebrisAlertRecordSyncWorker : ScheduledSyncWorkerBase
 	{

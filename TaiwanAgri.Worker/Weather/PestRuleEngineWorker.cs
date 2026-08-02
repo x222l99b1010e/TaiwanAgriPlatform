@@ -3,8 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using TaiwanAgri.Modules.Weather.Services;
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.Weather
 {
 	public class PestRuleEngineWorker : ScheduledSyncWorkerBase
 	{

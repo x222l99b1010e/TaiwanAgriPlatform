@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using TaiwanAgri.Modules.FoodSafety.Dtos.WorkerResponses;
-using TaiwanAgri.Worker;
+using TaiwanAgri.Worker.FoodSafety;
 using Xunit;
 
 namespace TaiwanAgri.Tests.Worker

@@ -4,8 +4,9 @@ using TaiwanAgri.Core.Constants;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
 using TaiwanAgri.Modules.Weather.Entities;
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.Weather
 {
 	public class RainfallStationSyncWorker : ScheduledSyncWorkerBase
 	{

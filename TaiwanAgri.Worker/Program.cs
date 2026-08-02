@@ -7,6 +7,10 @@ using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Pet.Data;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
+using TaiwanAgri.Worker.Weather;
+using TaiwanAgri.Worker.Market;
+using TaiwanAgri.Worker.FoodSafety;
+using TaiwanAgri.Worker.Pet;
 
 namespace TaiwanAgri.Worker
 {

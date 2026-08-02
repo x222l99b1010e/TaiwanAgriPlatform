@@ -6,8 +6,9 @@ using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Entities;
 using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Modules.Weather.Dtos.WorkerResponses;
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.Weather
 {
 	public class PestAlertSyncWorker : ScheduledSyncWorkerBase
 	{

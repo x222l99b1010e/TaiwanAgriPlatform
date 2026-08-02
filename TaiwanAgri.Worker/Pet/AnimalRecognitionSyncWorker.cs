@@ -8,8 +8,9 @@ using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Core.Infrastructure.Entities;
 using TaiwanAgri.Modules.Pet.Entities;
 using TaiwanAgri.Modules.Pet.Entities.Enums;
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.Pet
 {
 	public class AnimalRecognitionSyncWorker : ScheduledSyncWorkerBase
 	{

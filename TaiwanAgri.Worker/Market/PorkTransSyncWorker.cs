@@ -7,8 +7,9 @@ using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Core.Infrastructure.Entities;
 using TaiwanAgri.Modules.Market.Entities;
 using TaiwanAgri.Modules.Market.Dtos.WorkerResponses;
+using TaiwanAgri.Worker;
 
-namespace TaiwanAgri.Worker
+namespace TaiwanAgri.Worker.Market
 {
 	public class PorkTransSyncWorker : ScheduledSyncWorkerBase
 	{
