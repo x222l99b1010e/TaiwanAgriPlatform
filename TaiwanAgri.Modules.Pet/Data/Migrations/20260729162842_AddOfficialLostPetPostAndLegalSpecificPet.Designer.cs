@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaiwanAgri.Modules.Pet.Data;
 
@@ -11,9 +12,11 @@ using TaiwanAgri.Modules.Pet.Data;
 namespace TaiwanAgri.Modules.Pet.Data.Migrations
 {
     [DbContext(typeof(PetDbContext))]
-    partial class PetDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729162842_AddOfficialLostPetPostAndLegalSpecificPet")]
+    partial class AddOfficialLostPetPostAndLegalSpecificPet
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -176,8 +179,8 @@ namespace TaiwanAgri.Modules.Pet.Data.Migrations
 
                     b.Property<string>("PhoneNum")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("PictureUrl")
                         .IsRequired()

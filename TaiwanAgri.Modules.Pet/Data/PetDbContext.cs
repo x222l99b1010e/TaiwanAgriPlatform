@@ -10,6 +10,8 @@ namespace TaiwanAgri.Modules.Pet.Data
 		}
 		public DbSet<Shelter> Shelters => Set<Shelter>();
 		public DbSet<ShelterAnimal> ShelterAnimals => Set<ShelterAnimal>();
+		public DbSet<OfficialLostPetPost> OfficialLostPetPosts => Set<OfficialLostPetPost>();
+		public DbSet<LegalSpecificPet> LegalSpecificPets => Set<LegalSpecificPet>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -35,6 +37,26 @@ namespace TaiwanAgri.Modules.Pet.Data
 			{
 				entity.ToTable("Shelters", schema: "pet");
 				entity.Property(e => e.ShelterPkId).ValueGeneratedNever();
+			});
+
+			modelBuilder.Entity<OfficialLostPetPost>(entity =>
+			{
+				entity.ToTable("OfficialLostPetPosts", schema: "pet");
+				// KeyNo 是官方資料自帶的序號，全域唯一（不像 ShelterAnimal 要搭配收容所才唯一）
+				entity.HasIndex(e => e.KeyNo).IsUnique();
+				entity.Property(e => e.Category).HasConversion<string>();
+				entity.Property(e => e.Sex).HasConversion<string>();
+			});
+
+			modelBuilder.Entity<LegalSpecificPet>(entity =>
+			{
+				entity.ToTable("LegalSpecificPets", schema: "pet");
+				entity.HasIndex(e => e.ExternalId).IsUnique();
+				entity.Property(e => e.AnimalType).HasConversion<string>();
+				entity.Property(e => e.RankGrade).HasConversion<string>();
+				entity.Property(e => e.RankDataConfirmed).HasConversion<string>();
+				entity.Property(e => e.RankDescriptionConfirmed).HasConversion<string>();
+				entity.Property(e => e.StateFlag).HasConversion<string>();
 			});
 		}
 	}
