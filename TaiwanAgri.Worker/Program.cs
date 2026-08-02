@@ -76,6 +76,7 @@ namespace TaiwanAgri.Worker
 			//Pet 註冊
 			builder.Services.AddHostedService<AnimalRecognitionSyncWorker>();
 			builder.Services.AddHostedService<PetLoseListSyncWorker>();
+			builder.Services.AddHostedService<LegalSpecificPetSyncWorker>();
 
 			var host = builder.Build();
 			host.Run();
