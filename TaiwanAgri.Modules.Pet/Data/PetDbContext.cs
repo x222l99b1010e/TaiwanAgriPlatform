@@ -12,6 +12,7 @@ namespace TaiwanAgri.Modules.Pet.Data
 		public DbSet<ShelterAnimal> ShelterAnimals => Set<ShelterAnimal>();
 		public DbSet<OfficialLostPetPost> OfficialLostPetPosts => Set<OfficialLostPetPost>();
 		public DbSet<LegalSpecificPet> LegalSpecificPets => Set<LegalSpecificPet>();
+		public DbSet<LostPetPost> LostPetPosts => Set<LostPetPost>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -57,6 +58,13 @@ namespace TaiwanAgri.Modules.Pet.Data
 				entity.Property(e => e.RankDataConfirmed).HasConversion<string>();
 				entity.Property(e => e.RankDescriptionConfirmed).HasConversion<string>();
 				entity.Property(e => e.StateFlag).HasConversion<string>();
+			});
+
+			modelBuilder.Entity<LostPetPost>(entity =>
+			{
+				entity.ToTable("LostPetPosts", schema: "pet");
+				entity.HasIndex(e => e.UserId);
+				entity.Property(e => e.Status).HasConversion<string>();
 			});
 		}
 	}
