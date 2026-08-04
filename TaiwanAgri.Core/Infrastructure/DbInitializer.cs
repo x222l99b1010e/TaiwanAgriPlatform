@@ -63,7 +63,13 @@ namespace TaiwanAgri.Core.Infrastructure
 						new() { Name = "有機驗證查詢",   Route = "/food-safety/organic-certifications", Icon = "mdi-certificate",  IsActive = true, SortOrder = 4 },
 					}
 				},
-				new() { Name = "毛小孩地圖", Route = "/pet",          Icon = "mdi-paw",             IsActive = true, SortOrder = 4 },
+				new() { Name = "毛小孩地圖", Route = "/pet",          Icon = "mdi-paw",             IsActive = true, SortOrder = 4, Children = new List<NavModule>
+					{
+						new() { Name = "收容動物地圖",   Route = "/pet/shelter-map",    Icon = "mdi-map-marker-radius", IsActive = true, SortOrder = 1 },
+						new() { Name = "遺失啟事協尋",   Route = "/pet/lost-pets",      Icon = "mdi-dog-side",          IsActive = true, SortOrder = 2 },
+						new() { Name = "合法寵物業查詢", Route = "/pet/legal-business", Icon = "mdi-store-check",       IsActive = true, SortOrder = 3 },
+					}
+				},
 			};
 
 			context.NavModules.AddRange(modules);

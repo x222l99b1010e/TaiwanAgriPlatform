@@ -10,4 +10,8 @@
     <ProjectReference Include="..\TaiwanAgri.Core\TaiwanAgri.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Data\Migrations\" />
+  </ItemGroup>
+
 </Project>

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using TaiwanAgri.Core.Infrastructure;
 using TaiwanAgri.Core.Infrastructure.Data;
+using TaiwanAgri.Modules.Pet.Data;
+using TaiwanAgri.Modules.Pet.Infrastructure;
 using TaiwanAgri.Web.Extensions;
 using TaiwanAgri.Web.Middlewares;
 
@@ -22,6 +24,7 @@ namespace TaiwanAgri.Web
 			builder.Services.AddInfrastructure(builder.Configuration);
 			builder.Services.AddUserModule(builder.Configuration);
 			builder.Services.AddFoodSafetyModule(builder.Configuration);
+			builder.Services.AddPetModule(builder.Configuration);
 
 			var app = builder.Build();
 
@@ -31,6 +34,12 @@ namespace TaiwanAgri.Web
 				var coreContext = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
 				var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 				await DbInitializer.SeedAsync(coreContext, roleManager);
+			}
+
+			using (var scope = app.Services.CreateScope())
+			{
+				var petContext = scope.ServiceProvider.GetRequiredService<PetDbContext>();
+				await PetDbInitializer.SeedAsync(petContext);
 			}
 
 			// Configure the HTTP request pipeline.

@@ -33,6 +33,14 @@ namespace TaiwanAgri.Core.Constants
 
 		// 模組 3：寵物
 		public const string AnimalRecognition = "api/v1/AnimalRecognition/";
+		// AnimalRecognition 新制存在但有 $top 上限鎖死 1000、Page=2 被擋的限制，
+		// 一次性回填改走舊制 TransService 通道拿全量資料（見 DECISIONS.md 關鍵決策 12）
+		public const string AnimalRecognitionLegacy = "Service/OpenData/TransService.aspx?UnitId=QcbUEzN6E6DL";
 		public const string PetLoseList = "api/v1/PetLoseList/";
+		public const string LegalSpecificPet = "api/v1/LegalSpecificPet/";
+		// LegalSpecificPet 舊制端點：文件（MOAOPD-API-EIR643）寫「單次查詢最多回傳1000筆」，
+		// 但實測不帶參數直接拿到 5845 筆——文件與實際行為不符，代表容量沒有正式保證，
+		// 只適合當一次性回填起點，長期排程改走上面的新制逐縣市迴圈（見 LegalPetCounties）
+		public const string LegalSpecificPetLegacy = "Service/OpenData/TransService.aspx?UnitId=fNT9RMo8PQRO";
 	}
 }
