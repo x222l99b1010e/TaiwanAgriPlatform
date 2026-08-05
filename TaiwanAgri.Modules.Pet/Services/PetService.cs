@@ -56,11 +56,34 @@ namespace TaiwanAgri.Modules.Pet.Services
 		public async Task<PagedResult<OfficialLostPetPostResponseDto>> GetOfficialLostPetPostsAsync(OfficialLostPetPostQueryDto queryDto)
 		{
 			var query = context.OfficialLostPetPosts.AsQueryable();
+
+			if (queryDto.Category.HasValue)
+				query = query.Where(x => x.Category == queryDto.Category.Value);
+
+			if (queryDto.Sex.HasValue)
+				query = query.Where(x => x.Sex == queryDto.Sex.Value);
+
 			var totalCount = await query.CountAsync();
 
-			var items = await query
-				.OrderByDescending(x => x.LostTime)
-				.ThenByDescending(x => x.Id)
+			// 縣市篩選刻意不做：這張表沒有結構化的 County 欄位，只有自由文字 LostPlace，
+			// 字串比對會跟 B3 技術債（nvarchar LIKE 全表掃描）同一類問題，且不保證準確
+			// （owner 2026-08-06 裁示：不划算，不做）。
+			// ThenByDescending 只能接在 IOrderedQueryable 後面，所以 tie-breaker 要寫在每個分支裡，
+			// 不能像篩選條件那樣共用一段接在後面
+			IOrderedQueryable<OfficialLostPetPost> orderedQuery = queryDto.SortBy switch
+			{
+				OfficialLostPetPostSortBy.Category => queryDto.SortDescending
+					? query.OrderByDescending(x => x.Category).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.Category).ThenByDescending(x => x.Id),
+				OfficialLostPetPostSortBy.Sex => queryDto.SortDescending
+					? query.OrderByDescending(x => x.Sex).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.Sex).ThenByDescending(x => x.Id),
+				_ => queryDto.SortDescending
+					? query.OrderByDescending(x => x.LostTime).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.LostTime).ThenByDescending(x => x.Id),
+			};
+
+			var items = await orderedQuery
 				.Skip((queryDto.Page - 1) * queryDto.PageSize)
 				.Take(queryDto.PageSize)
 				.Select(x => new OfficialLostPetPostResponseDto
@@ -101,11 +124,39 @@ namespace TaiwanAgri.Modules.Pet.Services
 			if (!string.IsNullOrWhiteSpace(queryDto.County))
 				query = query.Where(x => x.County == queryDto.County);
 
+			if (queryDto.AnimalType.HasValue)
+				query = query.Where(x => x.AnimalType == queryDto.AnimalType.Value);
+
+			if (queryDto.RankGrade.HasValue)
+				query = query.Where(x => x.RankGrade == queryDto.RankGrade.Value);
+
+			if (queryDto.StateFlag.HasValue)
+				query = query.Where(x => x.StateFlag == queryDto.StateFlag.Value);
+
+			// BusinessItems 是像 "ABC" 這種代碼組合字串（欄位上限 10 字元，不是長文字），
+			// Contains 在這裡不是 B3 那種 nvarchar(max) 全表掃描等級的效能疑慮
+			if (!string.IsNullOrWhiteSpace(queryDto.BusinessItem))
+				query = query.Where(x => x.BusinessItems.Contains(queryDto.BusinessItem));
+
 			var totalCount = await query.CountAsync();
 
-			var items = await query
-				.OrderBy(x => x.Name)
-				.ThenBy(x => x.Id)
+			// 刻意不做「許可證效期是否過期」的布林篩選，改成可排序：PermitValidDate 是 DateOnly?，
+			// null（查無效期資料）該算過期還是未過期沒有一翻兩瞪眼的答案，排序讓過期的自然排到
+			// 一端、使用者自己看得出來，不用回答這個 null 語意問題（owner 2026-08-06 裁示，選項 3）
+			IOrderedQueryable<LegalSpecificPet> orderedQuery = queryDto.SortBy switch
+			{
+				LegalSpecificPetSortBy.PermitValidDate => queryDto.SortDescending
+					? query.OrderByDescending(x => x.PermitValidDate).ThenBy(x => x.Id)
+					: query.OrderBy(x => x.PermitValidDate).ThenBy(x => x.Id),
+				LegalSpecificPetSortBy.RankGrade => queryDto.SortDescending
+					? query.OrderByDescending(x => x.RankGrade).ThenBy(x => x.Id)
+					: query.OrderBy(x => x.RankGrade).ThenBy(x => x.Id),
+				_ => queryDto.SortDescending
+					? query.OrderByDescending(x => x.Name).ThenBy(x => x.Id)
+					: query.OrderBy(x => x.Name).ThenBy(x => x.Id),
+			};
+
+			var items = await orderedQuery
 				.Skip((queryDto.Page - 1) * queryDto.PageSize)
 				.Take(queryDto.PageSize)
 				.Select(x => new LegalSpecificPetResponseDto
@@ -150,11 +201,21 @@ namespace TaiwanAgri.Modules.Pet.Services
 
 			var totalCount = await query.CountAsync();
 
+			// 這張表沒有動物種類這種可分類欄位（自建貼文只有 Title/Description 自由文字，
+			// 決策：不新增結構化分類），可篩選的維度就是 Status／County，能加的是排序
+			IOrderedQueryable<LostPetPost> orderedQuery = queryDto.SortBy switch
+			{
+				LostPetPostSortBy.UpdatedAt => queryDto.SortDescending
+					? query.OrderByDescending(x => x.UpdatedAt).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.UpdatedAt).ThenByDescending(x => x.Id),
+				_ => queryDto.SortDescending
+					? query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.CreatedAt).ThenByDescending(x => x.Id),
+			};
+
 			// 先撈實體再於記憶體內轉 DTO——MapToResponseDto 是一般 C# 方法，EF Core 無法把它翻譯成 SQL，
 			// 直接寫在 Select 裡會在執行期丟例外，必須先 ToListAsync() 讓查詢在 DB 端執行完畢
-			var entities = await query
-				.OrderByDescending(x => x.CreatedAt)
-				.ThenByDescending(x => x.Id)
+			var entities = await orderedQuery
 				.Skip((queryDto.Page - 1) * queryDto.PageSize)
 				.Take(queryDto.PageSize)
 				.ToListAsync();
