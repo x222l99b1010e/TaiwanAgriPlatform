@@ -138,7 +138,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 			};
 		}
 
-		public async Task<PagedResult<LostPetPostResponseDto>> GetLostPetPostsAsync(LostPetPostQueryDto queryDto)
+		public async Task<PagedResult<LostPetPostResponseDto>> GetLostPetPostsAsync(LostPetPostQueryDto queryDto, string? currentUserId)
 		{
 			var query = context.LostPetPosts.AsQueryable();
 
@@ -161,7 +161,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 
 			return new PagedResult<LostPetPostResponseDto>
 			{
-				Items = entities.Select(MapToResponseDto).ToList(),
+				Items = entities.Select(x => MapToResponseDto(x, currentUserId)).ToList(),
 				TotalCount = totalCount,
 				Page = queryDto.Page,
 				PageSize = queryDto.PageSize,
@@ -169,10 +169,10 @@ namespace TaiwanAgri.Modules.Pet.Services
 			};
 		}
 
-		public async Task<LostPetPostResponseDto?> GetLostPetPostByIdAsync(int id)
+		public async Task<LostPetPostResponseDto?> GetLostPetPostByIdAsync(int id, string? currentUserId)
 		{
 			var entity = await context.LostPetPosts.FirstOrDefaultAsync(x => x.Id == id);
-			return entity is null ? null : MapToResponseDto(entity);
+			return entity is null ? null : MapToResponseDto(entity, currentUserId);
 		}
 
 		public async Task<LostPetPostResponseDto> CreateLostPetPostAsync(string userId, CreateLostPetPostRequestDto request)
@@ -198,7 +198,8 @@ namespace TaiwanAgri.Modules.Pet.Services
 			context.LostPetPosts.Add(entity);
 			await context.SaveChangesAsync();
 
-			return MapToResponseDto(entity);
+			// 剛建立的貼文，建立者對自己一定是 owner
+			return MapToResponseDto(entity, userId);
 		}
 
 		public async Task<bool> UpdateLostPetPostAsync(int id, string userId, UpdateLostPetPostRequestDto request)
@@ -231,7 +232,11 @@ namespace TaiwanAgri.Modules.Pet.Services
 			return true;
 		}
 
-		private static LostPetPostResponseDto MapToResponseDto(LostPetPost entity)
+		/// <summary>
+		/// currentUserId 為 null（訪客未登入）時 IsOwner 一律 false，不需要另外判斷——
+		/// 字串比對對 null 是安全的（左邊先短路），不會丟例外。
+		/// </summary>
+		private static LostPetPostResponseDto MapToResponseDto(LostPetPost entity, string? currentUserId)
 		{
 			return new LostPetPostResponseDto
 			{
@@ -246,7 +251,8 @@ namespace TaiwanAgri.Modules.Pet.Services
 				Longitude = entity.Longitude,
 				Status = entity.Status.ToString(),
 				CreatedAt = entity.CreatedAt,
-				UpdatedAt = entity.UpdatedAt
+				UpdatedAt = entity.UpdatedAt,
+				IsOwner = currentUserId != null && entity.UserId == currentUserId
 			};
 		}
 	}

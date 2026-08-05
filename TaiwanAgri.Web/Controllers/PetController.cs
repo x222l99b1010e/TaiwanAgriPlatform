@@ -54,14 +54,16 @@ namespace TaiwanAgri.Web.Controllers
 			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
 				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
 
-			var result = await petService.GetLostPetPostsAsync(queryDto);
+			var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			var result = await petService.GetLostPetPostsAsync(queryDto, currentUserId);
 			return Ok(result);
 		}
 
 		[HttpGet("lost-pet-posts/{id:int}")]
 		public async Task<IActionResult> GetLostPetPostById(int id)
 		{
-			var result = await petService.GetLostPetPostByIdAsync(id);
+			var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			var result = await petService.GetLostPetPostByIdAsync(id, currentUserId);
 			return result is null ? NotFound() : Ok(result);
 		}
 

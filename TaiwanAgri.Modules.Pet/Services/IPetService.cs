@@ -14,9 +14,11 @@ namespace TaiwanAgri.Modules.Pet.Services
 
 		Task<PagedResult<LegalSpecificPetResponseDto>> GetLegalSpecificPetsAsync(LegalSpecificPetQueryDto queryDto);
 
-		Task<PagedResult<LostPetPostResponseDto>> GetLostPetPostsAsync(LostPetPostQueryDto queryDto);
+		/// <summary>currentUserId 為 null 代表訪客未登入，回傳項目的 IsOwner 一律 false</summary>
+		Task<PagedResult<LostPetPostResponseDto>> GetLostPetPostsAsync(LostPetPostQueryDto queryDto, string? currentUserId);
 
-		Task<LostPetPostResponseDto?> GetLostPetPostByIdAsync(int id);
+		/// <summary>currentUserId 為 null 代表訪客未登入，回傳項目的 IsOwner 一律 false</summary>
+		Task<LostPetPostResponseDto?> GetLostPetPostByIdAsync(int id, string? currentUserId);
 
 		Task<LostPetPostResponseDto> CreateLostPetPostAsync(string userId, CreateLostPetPostRequestDto request);
 

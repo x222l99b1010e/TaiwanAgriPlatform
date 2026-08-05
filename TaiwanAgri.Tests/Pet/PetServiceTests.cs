@@ -154,6 +154,45 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
+		public async Task GetLostPetPostsAsync_IsOwnerFlag_TrueForOwnerFalseForOthersAndGuests()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：釘住 W23 前端串接時修正的設計缺口——同一筆資料，帶自己的 userId 查
+			// IsOwner 要是 true，帶別人的 userId 或完全不帶（訪客）都要是 false。
+			// DTO 不外露 UserId，前端只能靠這個算好的布林值決定要不要顯示編輯／刪除按鈕
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_LostPetPost_IsOwnerFlag")
+				.Options;
+			var dbContext = new PetDbContext(options);
+
+			var original = new LostPetPost
+			{
+				UserId = "owner-001",
+				Title = "小白走失了",
+				Description = "在公園附近走丟",
+				Status = LostPetPostStatus.Searching,
+				CreatedAt = new DateTime(2026, 8, 1),
+				UpdatedAt = new DateTime(2026, 8, 1)
+			};
+			dbContext.LostPetPosts.Add(original);
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+			var queryDto = new LostPetPostQueryDto();
+
+			// ── Act ──────────────────────────────────────────────
+			var ownerView = await service.GetLostPetPostsAsync(queryDto, "owner-001");
+			var otherUserView = await service.GetLostPetPostsAsync(queryDto, "attacker-002");
+			var guestView = await service.GetLostPetPostsAsync(queryDto, null);
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.True(Assert.Single(ownerView.Items).IsOwner);
+			Assert.False(Assert.Single(otherUserView.Items).IsOwner);
+			Assert.False(Assert.Single(guestView.Items).IsOwner);
+		}
+
+		[Fact]
 		public async Task UpdateLostPetPostAsync_OwnPost_UpdatesFieldsAndBumpsUpdatedAt()
 		{
 			// ── Arrange ──────────────────────────────────────────
