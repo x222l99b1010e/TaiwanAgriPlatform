@@ -6,13 +6,18 @@
       :value="modelValue"
       @change="emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
+      <option v-if="includeAll" value="">全部縣市</option>
       <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
     </select>
   </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{ modelValue: string }>()
+// includeAll：地圖／表格類篩選預設要看「全部」時開啟；既有的天氣模組固定要選單一縣市，
+// 不受影響（預設 false，行為與原本一致）
+withDefaults(defineProps<{ modelValue: string; includeAll?: boolean }>(), {
+  includeAll: false,
+})
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const cities = [
