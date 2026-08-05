@@ -48,3 +48,6 @@ _ReSharper*/
 
 # Owner-local session bootstrap (hardcodes local docs-folder path, same "本機不進 repo" convention as SA/SD docx)
 CLAUDE.md
+
+# Claude Code Browser 預覽工具設定（只有 AI 工具會用，owner 手動起服務不需要這個檔案）
+.claude/launch.json
