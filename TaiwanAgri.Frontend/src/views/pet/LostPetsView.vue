@@ -5,6 +5,19 @@
       <p class="section-subtitle">使用者自行張貼的走失／拾獲協尋，登入後可管理自己的貼文</p>
     </div>
 
+    <!--
+      本頁全部是使用者自建內容（跟收容動物地圖／合法業者那兩頁的政府開放資料性質完全不同），
+      平台不驗證任何一筆的真實性。這個警語放頁面層級而不是每張卡片：同一句話印 12 次會被當成
+      版面裝飾自動略過，放在入口處只出現一次反而讀得到。
+    -->
+    <div class="safety-notice">
+      <span class="mdi mdi-alert-outline notice-icon" />
+      <span>
+        本頁啟事與聯絡方式皆由張貼者自行填寫，平台無法查證內容真偽。
+        近期詐騙猖獗，聯繫前請自行確認對方身分，切勿先行匯款、支付酬金或提供個人敏感資料。
+      </span>
+    </div>
+
     <!-- 篩選列 + 張貼入口 -->
     <div class="filter-bar">
       <div class="status-tabs">
@@ -77,7 +90,12 @@
 
         <div class="field-group">
           <label class="field-label">照片連結（選填）</label>
-          <input v-model="form.photoUrl" class="field-input" placeholder="外部圖床網址，例如 Imgur 連結" />
+          <input v-model="form.photoUrl" class="field-input" maxlength="1200"
+            placeholder="外部圖床網址，例如 https://i.imgur.com/xxxx.jpg" />
+          <p class="field-hint">
+            需為 http:// 或 https:// 開頭的完整網址。圖片存放在外部網站、非本站託管，
+            連結失效或內容變更本站無法控制。
+          </p>
         </div>
 
         <!-- 只有編輯既有貼文時才能改狀態；新增一律從「協尋中」開始（後端強制，前端表單不提供這個選項） -->
@@ -126,14 +144,75 @@
       <article v-for="post in store.lostPetPostsPage.items" :key="post.id" class="post-card">
         <div class="post-card-header">
           <span class="status-badge" :class="statusClass(post.status)">{{ statusLabel(post.status) }}</span>
-          <span v-if="post.latitude != null && post.longitude != null" class="coord-badge" title="已標記地圖座標">
-            <span class="mdi mdi-map-marker" />
-          </span>
+          <!--
+            座標原本只是一個「有標記」的圖示，看的人無法知道究竟標在哪裡——這個欄位等於只寫不讀。
+            本頁是分頁列表不是地圖（資料形狀決定，見既有設計前提），與其在每張卡片塞一個 Leaflet
+            實例（12 個地圖實例的成本不合理），不如把座標交給專業地圖服務：協尋情境真正需要的是
+            「怎麼過去」，外部地圖能直接導航，站內小圖做不到。
+          -->
+          <a
+            v-if="post.latitude != null && post.longitude != null"
+            class="coord-badge"
+            :href="`https://www.google.com/maps?q=${post.latitude},${post.longitude}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="在 Google 地圖開啟走失／拾獲地點"
+          >
+            <span class="mdi mdi-map-marker" /> 查看地點
+          </a>
+        </div>
+
+        <!--
+          照片：使用者自貼的外部圖床連結，本站只存字串不託管圖片。
+          referrerpolicy="no-referrer" 讓瀏覽器不要把本站網址送給圖床（避免外部站台側錄瀏覽來源）；
+          loading="lazy" 是因為一頁最多 12 張卡，捲到才載可省下大量非必要請求。
+        -->
+        <div v-if="isDisplayableImageUrl(post.photoUrl)" class="post-photo">
+          <div v-if="photoFailed[post.id]" class="photo-failed">
+            <span class="mdi mdi-image-off-outline" /> 圖片無法載入（外部連結可能已失效）
+          </div>
+          <!--
+            總覽的縮圖一律裁切（object-fit: cover）以維持格線整齊、避免卡片高度參差讓整頁被拉長；
+            想看未裁切的原圖就開新分頁看圖床原始檔案，不需要為此在站內做燈箱或詳情頁。
+          -->
+          <a
+            v-else
+            :href="post.photoUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="photo-link"
+            title="開新分頁檢視完整原始圖片"
+          >
+            <img
+              :src="post.photoUrl"
+              :alt="`${post.title} 的照片`"
+              class="photo-img"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              @error="photoFailed[post.id] = true"
+            />
+            <span class="photo-zoom-hint"><span class="mdi mdi-magnify-plus-outline" /> 看完整圖片</span>
+          </a>
+          <p class="photo-note">圖片由張貼者提供、存放於外部網站，非本站託管</p>
         </div>
 
         <h4 class="post-title">{{ post.title }}</h4>
         <p class="post-meta">{{ post.county || '未提供縣市' }}・{{ formatDate(post.createdAt) }}</p>
-        <p class="post-description">{{ post.description }}</p>
+        <!--
+          描述欄位允許 2000 字，但總覽固定截斷 3 行（約 70 字）——不處理的話填長描述等於白填，
+          9 成以上的內容永遠不會被看到。就地展開比另開詳情頁便宜得多：完整內容本來就在
+          手上這份 DTO 裡，不必新增路由、不必再打一次 API，而且預設仍是截斷狀態，
+          整頁的預設長度完全不變，只有讀者主動想看時才變長。
+        -->
+        <p class="post-description" :class="{ expanded: expandedIds[post.id] }">{{ post.description }}</p>
+        <button
+          v-if="isDescriptionClampable(post.description)"
+          type="button" class="btn-expand"
+          @click="expandedIds[post.id] = !expandedIds[post.id]"
+        >
+          {{ expandedIds[post.id] ? '收合' : '展開全文' }}
+          <span class="mdi" :class="expandedIds[post.id] ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
+        </button>
 
         <div class="post-contact">
           <span v-if="post.phone" class="contact-item"><span class="mdi mdi-phone" /> {{ post.phone }}</span>
@@ -169,6 +248,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick, watch } from 'vue'
+
 import CitySelector from '@/components/CitySelector.vue'
 import LeafletCoordinatePicker from '@/components/LeafletCoordinatePicker.vue'
 import PagerBar from '@/components/PagerBar.vue'
@@ -213,6 +293,40 @@ function statusClass(status: LostPetPostStatusValue): string {
 
 function formatDate(iso: string): string {
   return iso.slice(0, 10) // "2026-08-05T12:00:00" -> "2026-08-05"
+}
+
+// ─── 照片連結 ───────────────────────────────────────────────────────────
+
+/**
+ * PhotoUrl 存的是使用者自貼的外部圖床連結，DB 欄位是 nvarchar(max)、早期也沒有驗證，
+ * 因此裡面可能是任何字串（實測有純文字的舊資料）。渲染前一律重新判定，不能假設它是網址。
+ * 只放行 http/https：其餘協定（data:／javascript: 之類）不該出現在「外部圖床連結」這個語意的欄位。
+ */
+function isDisplayableImageUrl(url: string | null | undefined): boolean {
+  if (!url) return false
+  try {
+    const protocol = new URL(url).protocol
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false // URL 建構失敗 = 不是合法網址（例如舊資料存的純文字）
+  }
+}
+
+// 外部圖床連結失效是預期情境而非系統缺陷（見 DECISIONS 技術債：本站不負責圖片本身），
+// 載入失敗的改顯示提示文字，不要留一個破圖示在卡片上
+const photoFailed = reactive<Record<number, boolean>>({})
+
+// ─── 描述展開／收合 ─────────────────────────────────────────────────────
+
+const expandedIds = reactive<Record<number, boolean>>({})
+
+/**
+ * 判斷描述是否長到會被 3 行截斷。用字數估算而非量測 DOM：卡片寬約 400px、內文 14.5px，
+ * 一行約 24 個中文字，3 行約 72 字。抓 70 當門檻會有少量誤判（剛好接近門檻時多顯示一顆按鈕），
+ * 但換來不必為 v-for 裡的每張卡片各掛一個 ref 去比對 scrollHeight／clientHeight。
+ */
+function isDescriptionClampable(description: string): boolean {
+  return description.length > 70
 }
 
 // ─── 分頁 ───────────────────────────────────────────────────────────────
@@ -329,6 +443,12 @@ async function handleSubmit() {
   }
   if (!form.phone.trim() && !form.email.trim()) {
     formError.value = '電話與 Email 至少填一項，才能讓拾獲者聯絡到你'
+    return
+  }
+  // 這個欄位的語意就是「圖片網址」，存進非網址的字串沒有任何用途（渲染端一定會忽略它），
+  // 與其讓使用者以為存好了，不如在送出當下就講清楚
+  if (form.photoUrl.trim() && !isDisplayableImageUrl(form.photoUrl.trim())) {
+    formError.value = '照片連結必須是完整網址，請以 http:// 或 https:// 開頭'
     return
   }
 
@@ -484,6 +604,8 @@ onMounted(fetchList)
 
 .error-msg { font-size: 13px; color: var(--red); font-weight: 600; }
 
+.field-hint { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+
 /* ── 狀態容器（載入中／錯誤／空清單） ── */
 .state-box {
   display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -505,7 +627,7 @@ onMounted(fetchList)
 
 /* ── 貼文卡片格線 ── */
 .post-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 18px;
   margin-bottom: 24px;
 }
 
@@ -525,16 +647,74 @@ onMounted(fetchList)
 .status-badge.found { background: #e8f5e9; color: var(--green); }
 .status-badge.withdrawn { background: #f0f0f0; color: #757575; }
 
-.coord-badge { color: var(--green); font-size: 16px; }
+.coord-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--green); font-size: 13.5px; font-weight: 600; text-decoration: none;
+}
+.coord-badge:hover { text-decoration: underline; }
 
-.post-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-.post-meta { font-size: 12px; color: var(--text-muted); }
+/* ── 使用者自建內容的安全提醒（詐騙防範） ── */
+.safety-notice {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 12px 16px; margin-bottom: 18px;
+  background: #fff5f5; border: 1px solid #ffcdd2; border-left: 4px solid var(--red);
+  border-radius: 10px;
+  color: var(--red); font-size: 14.5px; font-weight: 700; line-height: 1.6;
+}
+.notice-icon { font-size: 18px; flex-shrink: 0; line-height: 1.5; }
+
+/* ── 照片（外部圖床連結） ── */
+.post-photo { display: flex; flex-direction: column; gap: 4px; }
+/*
+  用 aspect-ratio 取代固定 height：卡片寬度是 minmax(400px, 1fr)、會隨視窗伸縮，
+  固定高度在寬卡片上會變成扁條、在窄卡片上又過高。綁比例才能在任何寬度下都維持一致的構圖。
+  4:3 對直式與橫式照片都不至於裁掉太多（正方形 1/1 也是合理選擇，改這一行即可）。
+*/
+.photo-img {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
+  border-radius: 10px; border: 1px solid var(--border); background: #f2f2f2;
+}
+.photo-failed {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; border: 1px dashed var(--border);
+  background: #fafafa; color: var(--text-muted); font-size: 13.5px;
+}
+.photo-note { font-size: 12px; color: var(--text-muted); }
+
+.post-title { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.post-meta { font-size: 13.5px; color: var(--text-muted); }
 .post-description {
-  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 14.5px; color: var(--text-primary); line-height: 1.65;
+  /* line-clamp 標準版本瀏覽器支援仍在普及中，兩個都寫：有標準版本的走標準、
+     沒有的（多數現況）retreat 回 -webkit- 前綴版本 */
+  display: -webkit-box; line-clamp: 3; -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical; overflow: hidden;
+  white-space: pre-wrap; /* 保留張貼者輸入的換行，特徵條列才不會被擠成一整段 */
+}
+/* 展開時解除行數限制；overflow 一併放開，否則 clamp 拿掉了容器還是會裁 */
+.post-description.expanded {
+  line-clamp: unset; -webkit-line-clamp: unset; overflow: visible;
 }
 
-.post-contact { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--text-secondary); }
+.btn-expand {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px 0; border: none; background: transparent;
+  color: var(--green); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-expand:hover { text-decoration: underline; }
+
+/* 縮圖疊一層「看完整圖片」提示，滑過才浮現，避免常駐蓋住照片內容 */
+.photo-link { position: relative; display: block; }
+.photo-zoom-hint {
+  position: absolute; right: 8px; bottom: 8px;
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 12px; font-weight: 600;
+  opacity: 0; transition: opacity 0.15s;
+}
+.photo-link:hover .photo-zoom-hint { opacity: 1; }
+
+.post-contact { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; color: var(--text-primary); }
 .contact-item { display: inline-flex; align-items: center; gap: 4px; }
 .contact-missing { color: var(--text-muted); font-style: italic; }
 
