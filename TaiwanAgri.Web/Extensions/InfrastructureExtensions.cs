@@ -24,6 +24,10 @@ namespace TaiwanAgri.Web.Extensions
 					policy.WithOrigins(origins)
 						  .AllowAnyMethod()
 						  .AllowAnyHeader()
+						  // 自訂回應標頭預設不會交給跨網域的前端 JS 讀取，必須逐一列出。
+						  // 本機開發走 Vite proxy 屬同源、不受 CORS 限制，所以少了這行在開發環境
+						  // 完全測不出問題，只會在正式環境（前後端不同網域）安靜失效。
+						  .WithExposedHeaders("X-Result-Truncated")
 						  .AllowCredentials();
 				});
 			});

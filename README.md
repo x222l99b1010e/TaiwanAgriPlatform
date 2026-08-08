@@ -49,8 +49,8 @@
 
 - ASP.NET Core Identity + JWT（SignInManager + UserManager + JwtSecurityTokenHandler）
 - 登入 / 註冊（後端驗證訊息中文翻譯）
-- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，DB Seed 13 筆）
-- RoleModulePermission 複合 PK Entity（RoleId × ModuleId，Seed 26 筆）
+- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，目前 20 筆：4 個頂層模組 + 16 個子功能）
+- RoleModulePermission 複合 PK Entity（RoleId × ModuleId，Guest / Admin 各一列）
 - NavController `[AllowAnonymous]`：訪客直接取得 Guest 可見模組清單，無需 JWT
 - Vue 3 TopNav：頂層 tabs + hover dropdown 子功能渲染
 
@@ -70,13 +70,27 @@
 - 農藥殘留違規警示牆（近 N 天不合格名單，days 上限保護 + 檢驗結果篩選 + 分頁）
 - 有機農產品驗證查詢（側邊篩選 + 卡片列表 + 穩定分頁排序）
 
-### 🐾 模組 3：毛小孩守護地圖（下一個 Sprint：W22–23）
+### 🐾 模組 3：毛小孩守護地圖（W22-23 完成）
 
 面向寵物飼主，整合認領養地圖、遺失協尋、合法業者查驗。
 
-- 認領養地圖（Leaflet.js + MarkerCluster + 半徑篩選）
-- 遺失協尋地圖（地理編碼整合）
-- 登記遺失啟事（需登入，照片上傳）
+**後端（W22 完成）**
+
+- 三支同步 Worker：`AnimalRecognitionSyncWorker`（收容動物，舊制一次性回填 8187 筆 + 新制逐日增量）、
+  `PetLoseListSyncWorker`（官方遺失啟事，2018/01/01 起分批平行回填）、
+  `LegalSpecificPetSyncWorker`（合法特定寵物業，舊制回填 + 新制 22 縣市迴圈 upsert）
+- 五張資料表 + 33 間收容所座標種子資料（`PetDbInitializer`）
+- `PetController` 7 支端點：收容動物地圖查詢、官方遺失啟事、合法業者查詢、自建遺失啟事 CRUD
+- 自建遺失啟事支援登入後新增／編輯／刪除，越權操作一律回 404
+
+**前端（W23 完成）**
+
+- `ShelterMapView`：認領養地圖（Leaflet.js + MarkerCluster，並依收容所座標分組渲染成一所一標記，
+  解決同址上千隻動物疊圖成一團的問題；縣市／動物種類篩選；撞上防禦上限時顯示截斷提示並指引縣市＋種類組合篩選）
+- `LostPetsView`：遺失啟事列表與登記表單（登入後可新增／編輯／刪除自己的貼文並顯示對應按鈕，
+  **座標由地圖點選取得，不做地理編碼**；照片渲染縮圖、地圖連結、詐騙警語、描述可展開收合）
+- `LegalBusinessView`：合法寵物業查詢表格（縣市／動物類型／評鑑等級／營業狀態／業務項目五條件可疊加篩選、
+  三種排序、業務項目中文化、一鍵清除篩選）
 
 ---
 
@@ -92,9 +106,9 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                  TaiwanAgri.Worker                          │
 │    .NET Worker Service + Serilog                            │
-│    13 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼     │
-│    （氣象 / 雨量 / 病蟲害×3 / 行情×4 / 天災 / 毛豬            │
-│      / 農藥違規 / 有機驗證），落地共用 DbSyncHelper           │
+│    16 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼     │
+│    依模組分資料夾（Weather / Market / FoodSafety / Pet）      │
+│    落地共用 DbSyncHelper（InsertNewByKey / UpsertByKey）     │
 └──────────┬────────────────────────┬─────────────────────────┘
            │ EF Core                │ RabbitMQ
            │ (多 DbContext)         │
@@ -109,6 +123,7 @@
      │ UserDbContext    │                  │ Subscribe
      │ FoodSafetyDb-    │                  │
      │   Context        │                  │
+     │ PetDbContext     │                  │
      └─────┬────────────┘                  ▼
            │                ┌──────────────────────────────────────┐
      ┌─────┴──────┐         │          TaiwanAgri.Web              │
@@ -118,6 +133,7 @@
                             │   GlobalExceptionMiddleware           │
                             │   MarketController  (6 支端點)        │
                             │   FoodSafetyController (4 支端點)     │
+                            │   PetController     (7 支端點)        │
                             │   NavController [AllowAnonymous]      │
                             │   AuthController   (login/register)   │
                             │   ProfileController [Authorize]       │
@@ -157,14 +173,15 @@ TaiwanAgriPlatform/
 │   ├── Helpers/
 │   │   ├── DateHelper.cs             # ParseRocDate / ParseIsoDate 等
 │   │   ├── TaiwanTime.cs             # 台灣時區日界（TimeProvider 注入）
-│   │   ├── DbSyncHelper.cs           # InsertNewByKeyAsync 共用落地流水線
+│   │   ├── DbSyncHelper.cs           # InsertNewByKeyAsync / UpsertByKeyAsync 共用落地流水線
+│   │   ├── EnumMappingHelper.cs      # enum fallback 轉換的統一警告記錄
 │   │   └── MoaPagedFetcher.cs        # MOA 分頁抓取共用迴圈
 │   ├── Extensions/
 │   │   └── MoaApiClientExtensions.cs # AddMoaApiClient() Named Client 共用設定
 │   └── Infrastructure/
 │       ├── Data/
 │       │   └── CoreDbContext.cs      # SyncStates + NavModules + RoleModulePermissions
-│       └── DbInitializer.cs          # Seed 13 NavModules + 26 RoleModulePermissions
+│       └── DbInitializer.cs          # Seed NavModules（4 頂層 + 16 子功能）+ RoleModulePermissions
 │
 ├── TaiwanAgri.Modules.Weather/       # 模組 2：氣象 + 病蟲害
 │   └── (WeatherDbContext / Services / Entities / Dtos)
@@ -210,10 +227,28 @@ TaiwanAgriPlatform/
 │   └── Services/
 │       └── (IFoodSafetyService / FoodSafetyService)
 │
-├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組後端（佔位，W22-23 開發）
+├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組（W22-23 完成）
+│   ├── Constants/
+│   │   └── LegalPetCounties.cs       # 縣市代碼 ↔ 名稱對照（22 筆，真實資料反查驗證）
+│   ├── Data/
+│   │   └── PetDbContext.cs           # schema: pet；6 支 Migration；enum 皆 HasConversion<string>()
+│   ├── Entities/
+│   │   ├── Shelter.cs                # 收容所主檔（ShelterPkId 為 MOA 真實 ID，ValueGeneratedNever）
+│   │   ├── ShelterAnimal.cs          # 收容動物（複合 Unique Index (ShelterPkId, AnimalSubId)）
+│   │   ├── OfficialLostPetPost.cs    # 官方遺失啟事（唯讀同步）
+│   │   ├── LegalSpecificPet.cs       # 合法特定寵物業（upsert，評鑑/營業狀態會變動）
+│   │   ├── LostPetPost.cs            # 自建遺失啟事（使用者 CRUD，UserId 邏輯 FK，W23 補 IsOwner）
+│   │   └── Enums/                    # 9 個 enum，皆有 fallback 成員供容錯轉換
+│   ├── Infrastructure/
+│   │   └── PetDbInitializer.cs       # 33 間收容所座標種子（人工查證，非地理編碼）
+│   └── Services/
+│       ├── IPetService.cs
+│       └── PetService.cs             # 地圖端點不分頁（上限 3000）+ 三支分頁查詢（W23 補篩選排序）+ CRUD 越權防禦
 │
-├── TaiwanAgri.Worker/                # 入口層：13 支排程 Worker + DI 組裝
-│   └── ScheduledSyncWorkerBase.cs    # 排程外殼基底（SyncAsync/Interval/LogPrefix + 0–30s 啟動 jitter）
+├── TaiwanAgri.Worker/                # 入口層：16 支排程 Worker + DI 組裝（依模組分資料夾）
+│   ├── ScheduledSyncWorkerBase.cs    # 排程外殼基底（SyncAsync/Interval/LogPrefix + 0–30s 啟動 jitter）
+│   ├── Weather/ Market/ FoodSafety/  # 既有 13 支 Worker
+│   └── Pet/                          # AnimalRecognition / PetLoseList / LegalSpecificPet 三支
 │
 ├── TaiwanAgri.Web/                   # 入口層：Web API + DI 組裝
 │   ├── Controllers/
@@ -222,6 +257,7 @@ TaiwanAgriPlatform/
 │   │   ├── MarketController.cs       # 6 支端點（含 /pork）
 │   │   ├── NavController.cs          # [AllowAnonymous] GET /api/nav/modules
 │   │   ├── NotificationController.cs # [Authorize] 通知列表 / 未讀數 / 標記已讀
+│   │   ├── PetController.cs          # 寵物模組 7 支端點（GET 公開，CRUD [Authorize]）
 │   │   ├── PestController.cs         # 病蟲害警報 / 旬密度 / 害蟲清單
 │   │   ├── ProfileController.cs      # [Authorize] GET + PUT /api/profile/farm
 │   │   ├── WatchlistController.cs    # [Authorize] GET / POST / DELETE /api/watchlist
@@ -232,6 +268,7 @@ TaiwanAgriPlatform/
 │   │   ├── IdentityExtensions.cs     # JWT Bearer 設定
 │   │   ├── InfrastructureExtensions.cs # Redis / CORS / RabbitMQ Consumer
 │   │   ├── MarketModuleExtensions.cs
+│   │   ├── PetModuleExtensions.cs
 │   │   ├── UserModuleExtensions.cs
 │   │   └── WeatherModuleExtensions.cs
 │   ├── Middlewares/
@@ -250,6 +287,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── foodSafety.ts         # 食安四支端點封裝
 │   │   │   ├── market.ts             # 模組 4+畜禽 六支端點封裝
 │   │   │   ├── nav.ts                # GET /api/nav/modules
+│   │   │   ├── pet.ts                # 寵物模組型別定義 + 7 支端點封裝
 │   │   │   ├── profile.ts            # GET/PUT /api/profile/farm
 │   │   │   ├── watchlist.ts          # GET/POST/DELETE /api/watchlist
 │   │   │   └── weather.ts            # 氣象 / 雨量 / 病蟲害 / 通知 封裝
@@ -259,18 +297,21 @@ TaiwanAgriPlatform/
 │   │   │   ├── market.ts             # Pinia：市場行情全域狀態
 │   │   │   ├── nav.ts                # Pinia：nav store + loadModules
 │   │   │   ├── notification.ts       # Pinia：未讀數 + 通知列表 + 無限捲動
+│   │   │   ├── pet.ts                # Pinia：寵物模組全域狀態
 │   │   │   ├── profile.ts            # Pinia：農場設定
 │   │   │   └── watchlist.ts          # Pinia：監看清單
 │   │   ├── composables/
 │   │   │   ├── useLatestRequest.ts   # 請求序號防競態（vitest 覆蓋）
-│   │   │   └── usePagination.ts      # 分頁邏輯共用
+│   │   │   └── usePagination.ts      # 分頁邏輯共用（分頁視窗固定顯示 6 個頁碼，19 個 vitest 測試覆蓋）
 │   │   ├── components/
 │   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺
 │   │   │   ├── NotificationBell.vue  # 鈴鐺 + 未讀紅點 + Dropdown 無限捲動
-│   │   │   ├── CitySelector.vue      # 縣市下拉（氣象模組用）
+│   │   │   ├── CitySelector.vue      # 縣市下拉（補 includeAll，寵物模組共用）
 │   │   │   ├── MarketFilter.vue      # 市場類型 Tab + 市場下拉 + 作物 Chip 多選
 │   │   │   ├── DateRangePicker.vue   # 日期區間選擇 + 快捷按鈕
-│   │   │   └── PriceChart.vue        # Chart.js 折線圖 + 7 日均線 + 天災垂直線
+│   │   │   ├── PriceChart.vue        # Chart.js 折線圖 + 7 日均線 + 天災垂直線
+│   │   │   ├── PagerBar.vue          # 共用分頁列（寵物模組三個查詢頁共用）
+│   │   │   └── LeafletCoordinatePicker.vue # 地圖點選座標（遺失啟事表單用）
 │   │   ├── views/
 │   │   │   ├── auth/
 │   │   │   │   └── LoginView.vue     # 登入 / 註冊 Tab + 錯誤中文翻譯
@@ -289,25 +330,33 @@ TaiwanAgriPlatform/
 │   │   │   │   ├── RainfallView.vue  # 雨量趨勢（折線圖 + 明細表格）
 │   │   │   │   ├── PestAlertsView.vue # 病蟲害警報牆（可展開）
 │   │   │   │   └── PestDecadeView.vue # 旬密度趨勢（折線圖 + 全選切換）
+│   │   │   ├── pet/
+│   │   │   │   ├── ShelterMapView.vue    # 收容動物地圖（Leaflet + MarkerCluster + 依收容所分組渲染）
+│   │   │   │   ├── LostPetsView.vue      # 遺失啟事列表 + 登記表單（IsOwner 按鈕、地圖點選座標）
+│   │   │   │   └── LegalBusinessView.vue # 合法業者查詢（五條件疊加篩選 + 三種排序）
 │   │   │   ├── FoodSafetyView.vue    # 食安模組容器（RouterView）
 │   │   │   ├── MarketView.vue        # 市場模組容器（RouterView）
 │   │   │   ├── WeatherView.vue       # 氣象模組容器（RouterView）
+│   │   │   ├── PetView.vue           # 寵物模組容器（RouterView）
 │   │   │   ├── ProfileView.vue       # 農場設定（Autocomplete 作物搜尋）
 │   │   │   ├── WatchlistView.vue     # 監看清單（MarketType Tab + 均價顯示）
 │   │   │   └── PlaceholderView.vue   # 🚧 未開發模組佔位頁
 │   │   ├── App.vue                   # 兩層 Shell：TopNav + RouterView
 │   │   ├── router/index.ts           # 路由守衛（requiresAuth + redirect-after-login）
 │   │   ├── main.ts
-│   │   └── utils/exportCsv.ts        # CSV 匯出（UTF-8 BOM）
+│   │   └── utils/
+│   │       ├── exportCsv.ts          # CSV 匯出（UTF-8 BOM）
+│   │       └── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 49 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 75 個測試案例）
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
     ├── Watchlist/                     # Controller Pattern C 組合（Mock Services）
     ├── FoodSafety/                    # FoodSafetyService 查詢 + 追溯搜尋
-    └── Worker/                        # 食安兩支 SyncWorker（MapToEntity 可測化）
+    ├── Pet/                           # PetService 篩選排序 + IsOwner + 越權防禦 + JSON enum 契約 + TimeProvider 時間戳
+    └── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）
 ```
 
 ---
@@ -327,6 +376,7 @@ TaiwanAgriPlatform/
 | 前端 | Vue 3 + Vite + TypeScript | 最新穩定版 | SPA 前台 |
 | 狀態管理 | Pinia | 最新穩定版 | 全域狀態管理 |
 | 圖表 | Chart.js | 4.x | 折線圖 / 移動平均線 / 天災垂直線 |
+| 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
 | 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層） |
@@ -413,7 +463,7 @@ taiwanagriplatform-rabbitmq-1       running (healthy)
 
 ### Step 4：執行 EF Core Migration
 
-本專案採用多 DbContext 架構，**六個 DbContext 各自有獨立的 Migration 目錄，必須分別執行**。
+本專案採用多 DbContext 架構，**七個 DbContext 各自有獨立的 Migration 目錄，必須分別執行**。
 
 ```powershell
 # 1. Identity + ApplicationUser（AspNetUsers 等標準表）
@@ -433,22 +483,30 @@ Update-Database -Context UserDbContext -StartupProject TaiwanAgri.Web
 
 # 6. 食安模組（PesticideViolations / OrganicCertifications）
 Update-Database -Context FoodSafetyDbContext -StartupProject TaiwanAgri.Worker
+
+# 7. 寵物模組（Shelters / ShelterAnimals / OfficialLostPetPosts / LegalSpecificPets / LostPetPosts）
+Update-Database -Context PetDbContext -StartupProject TaiwanAgri.Web
 ```
 
-Migration 執行完成後，`core.NavModules`（13 筆）與 `core.RoleModulePermissions`（26 筆）會由 `DbInitializer.SeedAsync` 在應用程式啟動時自動寫入。
+Migration 執行完成後，`core.NavModules`、`core.RoleModulePermissions` 與 `pet.Shelters`（33 間收容所座標）會由 `DbInitializer.SeedAsync` / `PetDbInitializer.SeedAsync` 在 **`TaiwanAgri.Web` 啟動時**自動寫入。
 
 > **注意**：`Add-Migration` 也必須明確指定 `-Context` 和 `-Project` 參數，
 > 例如：`Add-Migration InitialUserSchema -Context UserDbContext -Project TaiwanAgri.Modules.User`
+>
+> 也可以用 dotnet CLI（在 repo 根目錄執行）：
+> `dotnet ef migrations add <Name> --project TaiwanAgri.Modules.Pet --startup-project TaiwanAgri.Web --context PetDbContext`
 
-### Step 5：啟動 Worker
-
-在 Visual Studio 將啟動專案設定為 `TaiwanAgri.Worker`，按 F5 啟動。Worker 會開始同步農業部 API 資料，初次同步較耗時，可在 Console 觀察 Serilog 輸出確認進度。
-
-### Step 6：啟動 Web API
+### Step 5：先啟動 Web API（種子資料必須先寫入）
 
 在 Visual Studio 將啟動專案設定為 `TaiwanAgri.Web`，按 F5 啟動。預設監聽 `https://localhost:7147`。
 
-`Program.cs` 在啟動時會自動執行 `DbInitializer.SeedAsync`（AnyAsync 冪等保護，重複執行不重複插入）。
+`Program.cs` 在啟動時會自動執行 `DbInitializer.SeedAsync` 與 `PetDbInitializer.SeedAsync`（皆有 `AnyAsync` 冪等保護，重複執行不重複插入）。
+
+> **⚠ 順序不能顛倒**：`TaiwanAgri.Worker` **不會**呼叫任何 Initializer，種子資料只在 Web 啟動時寫入。全新環境若先跑 Worker，`pet.Shelters` 會是空的，`ShelterAnimal` 的外鍵約束會擋下所有寫入。
+
+### Step 6：啟動 Worker
+
+在 Visual Studio 將啟動專案設定為 `TaiwanAgri.Worker`，按 F5 啟動。Worker 會開始同步農業部 API 資料，初次同步（尤其寵物模組的歷史回填）較耗時，可在 Console 或 `TaiwanAgri.Worker/logs/` 觀察 Serilog 輸出確認進度。
 
 ### Step 7：啟動前台開發伺服器
 
@@ -463,22 +521,22 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 49 個測試案例）
+# 後端（xUnit + Moq，共 75 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 8 個測試案例）
+# 前端（Vitest，共 27 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Helpers / Market / User / Watchlist / FoodSafety / Worker 六個面向；前端涵蓋 `useLatestRequest`（請求序號防競態）與 `exportCsv`（CSV 匯出純函式）。CI（GitHub Actions）在每次 push / PR 自動執行 restore → build → test。
+後端涵蓋 Helpers / Market / User / Watchlist / FoodSafety / Pet / Worker 七個面向；前端涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）與 `usePagination`（分頁視窗計算與跳頁邊界，19 個測試）。CI（GitHub Actions）在每次 push / PR 自動執行 restore → build → test。**⚠ CI 目前只跑後端，前端 27 個測試從未在 CI 執行過（技術債，見下方進度表）。**
 
 ---
 
 ## 🗄️ 資料庫設計概覽
 
-本專案資料表由六個 DbContext 分工管理：
+本專案資料表由七個 DbContext 分工管理：
 
 **ApplicationDbContext**（`TaiwanAgri.Web`，schema: dbo）：
 `AspNetUsers` | `AspNetRoles` | 其他 Identity 標準表
@@ -498,9 +556,14 @@ npm test
 **FoodSafetyDbContext**（`TaiwanAgri.Modules.FoodSafety`，schema: foodsafety）：
 `PesticideViolations` | `OrganicCertifications`
 
-> **跨 DbContext FK 說明**：`RoleModulePermissions.RoleId` 指向 `AspNetRoles.Id`（GUID），以 `nvarchar(450)` 邏輯 FK 處理，無物理 FOREIGN KEY CONSTRAINT。`UserFarmCrop.CropName` 為跨 DbContext 快照欄位，寫入時從 MarketDbContext 複製，不做即時 JOIN。
+**PetDbContext**（`TaiwanAgri.Modules.Pet`，schema: pet）：
+`Shelters`（收容所主檔，PK 為 MOA 真實 ID）| `ShelterAnimals`（收容動物，實體 FK → Shelters，`OnDelete: Restrict`）| `OfficialLostPetPosts` | `LegalSpecificPets` | `LostPetPosts`（使用者自建）
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V30.4.docx`（存放於專案文件資料夾，不進版控）。
+> **跨 DbContext FK 說明**：`RoleModulePermissions.RoleId` 指向 `AspNetRoles.Id`（GUID），以 `nvarchar(450)` 邏輯 FK 處理，無物理 FOREIGN KEY CONSTRAINT。`UserFarmCrop.CropName` 為跨 DbContext 快照欄位，寫入時從 MarketDbContext 複製，不做即時 JOIN。`LostPetPost.UserId` 同樣是跨 DbContext 邏輯 FK（指向 `AspNetUsers`，無導覽屬性）。
+>
+> **enum 儲存慣例**：`PetDbContext` 的所有 enum 屬性皆設 `HasConversion<string>()`，資料庫存可讀字串而非數字——好處是新增列舉成員不需要 Migration，也讓直接查 DB 時看得懂。
+
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V32.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -562,6 +625,21 @@ npm test
 | GET | `/api/Notification/unread-count` | 未讀通知數 | **需要 JWT** |
 | PATCH | `/api/Notification/{id}/read` | 標記單筆已讀 | **需要 JWT** |
 
+### 模組 3 — 毛小孩守護地圖
+
+| Method | URL | 說明 | 認證 |
+|--------|-----|------|------|
+| GET | `/api/pet/shelter-animals?county=&kind=` | 收容動物地圖查詢（**不分頁**，含收容所座標） | 不需要 |
+| GET | `/api/pet/official-lost-posts?category=&sex=&sortBy=&sortDescending=&page=&pageSize=` | 官方遺失啟事（分頁，無座標） | 不需要 |
+| GET | `/api/pet/legal-specific-pets?county=&animalType=&rankGrade=&stateFlag=&businessItem=&sortBy=&sortDescending=&page=&pageSize=` | 合法特定寵物業查詢（分頁，無座標，五條件可疊加） | 不需要 |
+| GET | `/api/pet/lost-pet-posts?status=&county=&sortBy=&sortDescending=&page=&pageSize=` | 自建遺失啟事列表（分頁，含座標） | 不需要（登入時額外回傳 `IsOwner`） |
+| GET | `/api/pet/lost-pet-posts/{id}` | 單筆自建遺失啟事 | 不需要（登入時額外回傳 `IsOwner`） |
+| POST | `/api/pet/lost-pet-posts` | 張貼遺失啟事（Phone/Email 至少填一項） | **需要 JWT** |
+| PUT | `/api/pet/lost-pet-posts/{id}` | 修改自己的啟事（非本人回 404） | **需要 JWT** |
+| DELETE | `/api/pet/lost-pet-posts/{id}` | 刪除自己的啟事（非本人回 404） | **需要 JWT** |
+
+> **`shelter-animals` 為何不分頁**：前端用 leaflet.markercluster 做標記聚合，聚合是拿「瀏覽器記憶體裡目前已有的點」計算的。若分頁，圓圈上的數字會變成「剛好落在這一頁的有幾隻」而非「這個縣市有幾隻」，是會誤導人的假數字。改以篩選條件 + 防禦性 `Take(3000)`（W23 由 2000 調高）上限確保查詢不失控，並以回應標頭 `X-Result-Truncated: true/false` 告知前端這次結果是否被截斷——前端不需要知道上限數字本身，只需要知道有沒有被截斷，於是前後端不必再各存一份上限常數。**已知技術債**：全台上萬筆動物僅落在約 30 個收容所座標上，正解是改用「收容所＋動物數量」聚合端點，見 SA/SD §9.5。
+
 ### 使用者個人化
 
 | Method | URL | 說明 | 認證 |
@@ -579,7 +657,7 @@ npm test
 本專案串接 [農業部開放資料平台](https://data.moa.gov.tw) 共 60 支 API。
 
 - **免費可用（53 支）**：涵蓋所有核心功能，MVP 開發不受限制
-- **需要 api_key（7 支）**：`SheepQuotation`、`WashedEggsTraceabilityType`、`LegalSpecificPet`、`PetFood`、`FeedAndAdditiveInputCertificate`、`FeedManagementInfo`、`MothSpecimenData`
+- **Swagger 介面標示 api_key 參數（7 支）**：`SheepQuotation`、`WashedEggsTraceabilityType`、`LegalSpecificPet`、`PetFood`、`FeedAndAdditiveInputCertificate`、`FeedManagementInfo`、`MothSpecimenData`。實測這 7 支**同樣可以未登入呼叫**——api_key 的真正作用是分頁權限（見下方限制說明），不是存取權限
 
 > **重要限制**：免費帳號分頁 API 只回傳第一頁資料（每頁最多 1,000 筆）。程式碼中保留分頁迴圈，當 API 回傳 `RS: "ERROR"` 時會優雅地 `break`，不影響正常運作。
 
@@ -611,7 +689,7 @@ npm test
 | W20 | DevOps | GitHub Actions CI（restore/build/test + badge，W20a）；GlobalExceptionMiddleware 全域例外攔截 + 標準化 JSON 錯誤回應（W20b）。全域搜尋與 Docker 打包延後至功能模組全部完成後統一處理 | ✅ 完成 |
 | W21 | 模組 1（食安） | FoodSafetyDbContext + 模組骨架；今日菜價快覽 + 全站菜價輪播（W21a）；農產品追溯查詢（W21b）；農藥違規警示牆 + PesticideViolationSyncWorker（W21c）；有機農產品驗證查詢 + OrganicCertificationSyncWorker（W21d）（GitHub PR #5–#8） | ✅ 完成 |
 | —（不掛週次） | Code Review 修正批次 | TimeProvider 時鐘注入 + 台灣時區日界；ScheduledSyncWorkerBase / DbSyncHelper / MoaPagedFetcher 抽共用；Watchlist N+1 批次化；分頁排序穩定性；(CropCode, MarketCode, TransDate DESC) 索引；前端 vitest 導入 + useLatestRequest/usePagination（PR #045–046，GitHub PR #10–#12） | ✅ 完成 |
-| W22–23 | 模組 3（寵物地圖） | Leaflet 認領養地圖 + MarkerCluster；遺失啟事 CRUD；合法業者查詢；地理編碼整合（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ⬜ 待開始（下一個 Sprint） |
+| W22–23 | 模組 3（寵物地圖） | **後端**：三支同步 Worker（收容動物回填 8187 筆 + 官方遺失啟事 + 合法業者 upsert）、五張資料表、33 間收容所座標種子、PetController 7 支端點、49→65 測試（PR #048）。**前端**：`ShelterMapView`（Leaflet + MarkerCluster，並依收容所座標分組渲染一所一標記）、`LostPetsView`（遺失啟事 CRUD、`IsOwner` 按鈕、地圖點選座標）、`LegalBusinessView`（五條件疊加篩選 + 三種排序 + 業務項目中文化），65→75 後端測試、8→27 前端測試（PR #049）。前端串接期間回頭修正後端四處介面不一致（`IsOwner`／`[FromBody]` enum／篩選排序／標記上限與截斷標頭）（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ✅ 完成 |
 
 ---
 
@@ -660,7 +738,31 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 「今天」的定義統一為台灣時區（`TaiwanTime.Today(TimeProvider)`），查詢服務的時鐘一律走 `TimeProvider` 注入而非直接呼叫 `DateTime.Now`，讓日界邏輯可測試、跨時區部署不出錯。
 
 **Worker 排程外殼與落地流水線抽象**
-13 支 SyncWorker 統一繼承 `ScheduledSyncWorkerBase`（只需實作 SyncAsync / Interval / LogPrefix，基底含 0–30 秒啟動 jitter 錯開啟動風暴）；資料落地共用 `DbSyncHelper.InsertNewByKeyAsync`（以既有鍵視窗掃描防重複）；MOA 分頁抓取共用 `MoaPagedFetcher`。新 Worker 依此慣例撰寫。
+16 支 SyncWorker 統一繼承 `ScheduledSyncWorkerBase`（只需實作 SyncAsync / Interval / LogPrefix，基底含 0–30 秒啟動 jitter 錯開啟動風暴）；資料落地共用 `DbSyncHelper.InsertNewByKeyAsync`（以既有鍵視窗掃描防重複）與 `DbSyncHelper.UpsertByKeyAsync`（來源資料會變動時用）；MOA 分頁抓取共用 `MoaPagedFetcher`。Worker 檔案依模組分資料夾（Weather / Market / FoodSafety / Pet）。新 Worker 依此慣例撰寫。
+
+**同一批資料的新舊兩條 API 路徑：按「執行次數」拆分**
+農業部部分資料集同時存在官方文件登記的新制端點（有分頁上限）與未登記文件的舊制端點（無限制、一次拿完）。兩者不是二選一，而是按時間維度拆開：**一次性的初始回填走舊制**（效率最高），**長期每日增量走新制**（穩定性有文件保障）。這讓舊制「可能被默默關掉」的風險從長期生產風險降級為一次性風險——回填當下若失敗，重跑即可，不影響任何已上線的排程。
+
+**落地策略由「來源資料會不會變」決定**
+`DbSyncHelper` 提供 `InsertNewByKeyAsync`（只新增）與 `UpsertByKeyAsync`（新增或逐欄位更新）兩種語意相反、不可混用的落地方式。事件型資料（收容個案、遺失啟事，登記後不再變動）用前者；主檔型資料（合法業者的評鑑等級、營業狀態會隨時間改變）必須用後者，否則資料會在不知不覺間過期失真，而 log 還顯示「略過 N 筆重複」看起來一切正常。`UpsertByKeyAsync` 採「先查出被追蹤的實體再逐欄位覆寫」，讓 EF Core 得以比對原始快照、**沒變動的欄位完全不產生 UPDATE**。
+
+**地圖端點刻意不分頁**
+`GET /api/pet/shelter-animals` 回傳完整清單而非 `PagedResult<T>`。分頁是為「人一頁一頁瀏覽清單」設計的，不是為「電腦計算完整地理分布」設計的——MarkerCluster 的聚合數字若建立在部分資料上會產生誤導。「查詢不能失控」這個要求改以篩選條件 + 防禦性 `Take(3000)` 上限達成，並以 `X-Result-Truncated` 回應標頭回報截斷狀態（而非前後端各存一份上限常數）。
+
+**`IsOwner`：回答問題本身，而不是丟出原始資料**
+`LostPetPostResponseDto` 不外露 `UserId`（隱私考量），但前端要判斷「這是不是我的貼文」時卻沒有可對照的欄位。解法不是把 `UserId` 補回去讓前端解 JWT 比對，而是後端在查詢當下直接算好布林值 `IsOwner` 回傳——前端完全不需要知道自己的 `userId`，比原設計更安全也更簡單。對應前端慣例：這類「公開可讀、但登入後回應更豐富」的中間態端點一律用會自動附帶 token 的 `authClient`，否則後端永遠收不到身分、`IsOwner` 永遠是 `false`。
+
+**enum 的「一律用字串」慣例只在回應方向成立**
+`Response DTO` 由 Service 層逐一 `.ToString()`、`[FromQuery]` 靠 ASP.NET Core Model Binding，兩者都吃字串；但 `[FromBody]` 由 `System.Text.Json` 反序列化，沒有 `[JsonConverter]` 時只吃數字。同一個 enum、換一個傳輸方向就換一套規則，需要在該屬性單獨標註轉換器，不能假設全域一致。
+
+**共用元件不為了「不動舊頁面」而長出兩套行為**
+`usePagination` 的分頁視窗改動時，一度考慮加可選參數、預設維持舊行為以避免影響既有食安模組頁面。最終定案是直接改共用預設值——共用元件的價值就是「改一次全部一致」，為了不動舊頁面而讓同一個 composable 分岔，等於用永久的複雜度換一次性的心理安全感。
+
+**座標取得：幾何換算，不是地理編碼**
+使用者張貼遺失啟事時，座標由前端 Leaflet 地圖的 `click` 事件直接取得，**不做地址→座標的地理編碼**。可拖曳地圖的圖磚載入時本來就知道每個像素對應的經緯度，換算是函式庫內建公式、不呼叫外部服務，必然成功；地理編碼則是語意比對，成功率取決於資料庫覆蓋率（實測 Nominatim 對台灣門牌地址覆蓋不足，33 筆收容所地址僅成功 1 筆，最終改為人工查證）。
+
+**跨環境種子資料要修兩處**
+`DbInitializer` 的冪等 guard（「表裡已有資料就跳過」）代價是它對已上線的環境永遠失效。因此補種子資料一律兩步並行：對現有資料庫直接下 SQL（修正現在）、對 `DbInitializer.cs` 種子清單同步更新（修正未來的新環境），缺一不可。
 
 **前端 useLatestRequest 防競態**
 使用者快速切換篩選條件時，晚發先回的舊請求可能覆蓋新結果。以請求序號 composable 統一處理：只採納最後一次發出請求的回應。搭配 `usePagination` 抽離分頁邏輯，均有 vitest 覆蓋。
@@ -674,7 +776,7 @@ Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistri
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V30.4.docx` | SA/SD 完整設計文件（W1–W21 全部實戰開發紀錄 + Code Review 修正批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V32.docx` | SA/SD 完整設計文件（W1–W23 全部實戰開發紀錄 + Code Review 修正批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -694,4 +796,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-07-12 ｜ 對應 SA/SD 文件版本 v30.4 ｜ W21 食安模組完成 + Code Review 修正批次收尾，W22-23 寵物模組開工前基準點*
+*最後更新：2026-08-09 ｜ 對應 SA/SD 文件版本 V32 ｜ W22-23 模組 3 寵物地圖前後端完成（三支同步 Worker + 三個前端畫面，後端 75 測試 + 前端 27 測試）*
