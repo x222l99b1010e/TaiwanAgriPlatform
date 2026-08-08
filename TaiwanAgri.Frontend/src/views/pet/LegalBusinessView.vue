@@ -62,6 +62,15 @@
           </div>
         </div>
 
+        <button
+          v-if="hasActiveLegalFilters"
+          type="button" class="btn-clear-filters"
+          title="清除所有篩選條件，回到未篩選狀態"
+          @click="clearLegalFilters"
+        >
+          <span class="mdi mdi-filter-remove-outline" /> 清除篩選
+        </button>
+
         <span v-if="store.isLoadingLegalSpecificPets" class="loading-hint">
           <span class="loading-spinner-sm" />載入中...
         </span>
@@ -111,7 +120,7 @@
               <tr v-for="item in store.legalSpecificPetsPage.items" :key="item.id">
                 <td class="cell-name">{{ item.name }}</td>
                 <td>{{ item.county }}</td>
-                <td>{{ item.businessItems || '—' }}</td>
+                <td :title="item.businessItems">{{ businessItemsLabel(item.businessItems) }}</td>
                 <td>{{ animalTypeLabel(item.animalType) }}</td>
                 <td class="cell-address" :title="item.address">{{ item.address }}</td>
                 <td class="cell-mono">{{ item.permitNumber || '—' }}</td>
@@ -172,6 +181,15 @@
             </button>
           </div>
         </div>
+
+        <button
+          v-if="hasActiveOfficialFilters"
+          type="button" class="btn-clear-filters"
+          title="清除所有篩選條件，回到未篩選狀態"
+          @click="clearOfficialFilters"
+        >
+          <span class="mdi mdi-filter-remove-outline" /> 清除篩選
+        </button>
 
         <span v-if="store.isLoadingOfficialLostPetPosts" class="loading-hint">
           <span class="loading-spinner-sm" />載入中...
@@ -243,7 +261,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import CitySelector from '@/components/CitySelector.vue'
 import PagerBar from '@/components/PagerBar.vue'
 import { usePetStore } from '@/stores/pet'
@@ -313,6 +331,23 @@ const legalSortByOptions: { value: LegalSpecificPetSortByValue; label: string }[
   { value: 'RankGrade',       label: '依評鑑等級' },
 ]
 
+// 五個篩選條件疊加後，要退回未篩選狀態得逐一改回「全部」，很容易漏掉其中一個而看不懂
+// 為什麼筆數還是很少。集中判斷有沒有任何條件生效，並提供一次清空的出口。
+// 排序不算篩選條件（它不影響筆數，只影響順序），所以不在清除範圍內。
+const hasActiveLegalFilters = computed(() =>
+  Boolean(legalCounty.value || legalAnimalType.value || legalRankGrade.value ||
+          legalStateFlag.value || legalBusinessItem.value)
+)
+
+function clearLegalFilters() {
+  // 逐一清空即可，上面那個 watch 會偵測到變動、自動重置頁碼並重查一次
+  legalCounty.value = ''
+  legalAnimalType.value = ''
+  legalRankGrade.value = ''
+  legalStateFlag.value = ''
+  legalBusinessItem.value = ''
+}
+
 const legalPage = usePagination({
   storageKey: 'legalSpecificPets.pageSize',
   totalPages: () => store.legalSpecificPetsPage?.totalPages,
@@ -343,6 +378,17 @@ watch(
     fetchLegal()
   }
 )
+
+/**
+ * BusinessItems 是 "ABC" 這種代碼組合字串，直接印出來使用者看不懂是什麼意思
+ * （篩選下拉選單早就有中文對照，但表格欄位漏了套用——跟評鑑等級徽章當初是同一種疏漏）。
+ * 逐字元翻譯後用頓號串起；遇到對照表沒有的代碼保留原字元，不吞掉未知資料。
+ */
+function businessItemsLabel(items: string | null | undefined): string {
+  if (!items) return '—'
+  const map: Record<string, string> = { A: '繁殖', B: '買賣', C: '寄養' }
+  return [...items].map(ch => map[ch] ?? ch).join('、')
+}
 
 function animalTypeLabel(t: string): string {
   return { Dog: '狗', Cat: '貓', Both: '貓狗皆可', Other: '其他' }[t] ?? t
@@ -415,6 +461,18 @@ watch(
   }
 )
 
+// 篩選條件比合法業者那頁少，但一鍵清空的價值不在「省下幾次點擊」，而在於提供一個
+// 明確的「回到未篩選狀態」出口——使用者不必逐一回想自己動過哪幾個下拉。
+// 同樣不含排序（排序不影響筆數）。
+const hasActiveOfficialFilters = computed(() =>
+  Boolean(officialCategory.value || officialSex.value)
+)
+
+function clearOfficialFilters() {
+  officialCategory.value = ''
+  officialSex.value = ''
+}
+
 function categoryLabel(c: string): string {
   return { Dog: '狗', Cat: '貓', Other: '其他' }[c] ?? c
 }
@@ -472,6 +530,15 @@ onMounted(fetchLegal)
   color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
 }
 .sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
+
+.btn-clear-filters {
+  display: inline-flex; align-items: center; gap: 5px; align-self: flex-end;
+  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-clear-filters:hover { border-color: var(--red); color: var(--red); background: #fff5f5; }
 
 .loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; }
 .loading-hint.standalone { margin-bottom: 20px; }
