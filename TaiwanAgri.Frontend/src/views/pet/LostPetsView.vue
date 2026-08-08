@@ -359,9 +359,22 @@ async function handleSubmit() {
 }
 
 async function handleDelete(id: number) {
-  if (!confirm('確定要刪除這篇協尋啟事嗎？此操作無法復原。')) return
+  // 正在編輯的那篇被刪掉時，表單會留下一個指向「已不存在資料」的 editingId，
+  // 之後按「儲存變更」會 PUT 到一個已刪除的 id → 後端回 404 → 畫面顯示
+  // 「可能不是你的貼文」這種完全誤導的訊息（實際上是自己剛剛刪掉的）。
+  // 兩道處理：刪除前把後果講清楚、刪除成功後把表單一起關掉，不留孤兒狀態。
+  const isEditingThisPost = editingId.value === id
+
+  const message = isEditingThisPost
+    ? '這篇正在編輯中，刪除後未儲存的編輯內容會一併消失。確定要刪除嗎？此操作無法復原。'
+    : '確定要刪除這篇協尋啟事嗎？此操作無法復原。'
+  if (!confirm(message)) return
+
   const success = await store.deleteLostPetPost(id)
-  if (success) fetchList()
+  if (success) {
+    if (isEditingThisPost) closeForm()
+    fetchList()
+  }
 }
 
 onMounted(fetchList)

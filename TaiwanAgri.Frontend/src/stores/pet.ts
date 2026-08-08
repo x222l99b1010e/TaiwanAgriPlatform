@@ -156,9 +156,14 @@ export const usePetStore = defineStore('pet', () => {
       await petApi.updateLostPetPost(id, request)
       return true
     } catch (e) {
-      saveLostPetPostError.value = axios.isAxiosError(e) && e.response?.status === 400
-        ? '電話與 Email 至少填一項，才能讓拾獲者聯絡到你'
-        : '更新失敗，請稍後再試（可能不是你的貼文）'
+      // 後端對「查無此貼文」與「不是本人」一律回 404（刻意不洩漏存在與否），前端無法區分這兩者；
+      // 但使用者能走到這一步，代表當初是從 isOwner 為 true 才渲染出來的編輯按鈕進來的，
+      // 實務上 404 幾乎都是「這篇剛剛被刪掉了」，訊息要照這個情境寫才不會誤導
+      const status = axios.isAxiosError(e) ? e.response?.status : undefined
+      saveLostPetPostError.value =
+        status === 400 ? '電話與 Email 至少填一項，才能讓拾獲者聯絡到你'
+        : status === 404 ? '這篇貼文已不存在（可能已被刪除），請重新整理清單'
+        : '更新失敗，請稍後再試'
       console.error(e)
       return false
     } finally {
