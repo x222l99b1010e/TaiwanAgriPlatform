@@ -175,11 +175,23 @@ export interface UpdateLostPetPostRequest extends CreateLostPetPostRequest {
 // ─── API 呼叫函式 ───────────────────────────────────────────────────────────
 
 export const petApi = {
-  /** GET /api/pet/shelter-animals — 刻意不分頁，MarkerCluster 需要篩選後的完整清單才能正確聚合 */
-  getShelterAnimals(params: GetShelterAnimalsParams): Promise<ShelterAnimalResponseDto[]> {
+  /**
+   * GET /api/pet/shelter-animals — 刻意不分頁，地圖需要篩選後的完整清單。
+   *
+   * 端點有防禦性上限，結果可能被截斷。**是否截斷由後端用 `X-Result-Truncated` 標頭直接告知**，
+   * 前端不自行拿筆數去比對一份複製的上限常數——上限值只存在後端一處，日後調整不必同步改前端。
+   * ⚠ 跨網域部署時該標頭需要後端 CORS 的 `WithExposedHeaders` 放行（已設定）。
+   */
+  getShelterAnimals(
+    params: GetShelterAnimalsParams
+  ): Promise<{ items: ShelterAnimalResponseDto[]; truncated: boolean }> {
     return apiClient
       .get<ShelterAnimalResponseDto[]>('/api/pet/shelter-animals', { params })
-      .then(res => res.data)
+      .then(res => ({
+        items: res.data,
+        // 標頭缺席時（舊版後端／代理層剝掉）一律當作沒有截斷，寧可不提示也不要誤報
+        truncated: String(res.headers['x-result-truncated']).toLowerCase() === 'true',
+      }))
   },
 
   /** GET /api/pet/official-lost-posts */

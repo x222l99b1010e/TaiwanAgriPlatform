@@ -11,8 +11,28 @@ namespace TaiwanAgri.Modules.Pet.Services
 {
 	public class PetService(PetDbContext context, TimeProvider timeProvider) : IPetService
 	{
-		/// <summary>地圖用防禦性上限——正常情況下（篩選後）不會踩到，純粹防查詢失控爆量</summary>
-		private const int MapMarkerSafetyLimit = 2000;
+		/// <summary>
+		/// 地圖用防禦性上限——只防「未篩選的失控爆量」，篩選後不應該踩到。
+		/// <para>
+		/// 2026-08-08 W23 實機驗收實測後由 2000 上修為 3000：原值把自己的前提踩破了——
+		/// 最大的新北市單一縣市就有 2588 筆，只選縣市不選種類時會被安靜截斷，
+		/// 也就是「篩選後不會踩到」這句話當時並不成立。3000 讓所有縣市的單一縣市查詢
+		/// 都落在上限內（對今日最大值有約 16% 餘裕）。
+		/// </para>
+		/// <para>
+		/// ⚠ 這個值與前端 ShelterMapView.vue 的 MAP_MARKER_LIMIT 必須一致——前端靠
+		/// 「回傳筆數 == 上限」判斷是否被截斷並提示使用者，兩邊不同步會讓提示失效或誤報。
+		/// 未篩選查詢（全台約 8600 筆）仍會被截斷，這是預期行為，由前端提示引導使用者篩選。
+		/// 根本解法是改用「收容所＋動物數量」的聚合端點（上萬筆標記其實只落在 30 個座標點上），
+		/// 已列為技術債；在那之前若有任何縣市逼近 3000，要回頭重新評估這個值。
+		/// </para>
+		/// </summary>
+		/// <remarks>
+		/// 公開給 Controller 判斷「這次結果是否被截斷」用。前端不需要知道這個數字是多少，
+		/// 只需要知道有沒有被截斷——所以由 Controller 比對後以回應標頭回覆布林結果，
+		/// 前端不再自行維護一份同樣的常數（否則兩邊各改各的會讓截斷提示失效或誤報）。
+		/// </remarks>
+		public const int MapMarkerSafetyLimit = 3000;
 
 		public async Task<List<ShelterAnimalResponseDto>> GetShelterAnimalsAsync(ShelterAnimalQueryDto queryDto)
 		{

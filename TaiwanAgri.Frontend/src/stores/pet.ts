@@ -28,6 +28,9 @@ export const usePetStore = defineStore('pet', () => {
   const shelterAnimals = ref<ShelterAnimalResponseDto[]>([])
   const isLoadingShelterAnimals = ref(false)
   const shelterAnimalsError = ref<string | null>(null)
+  // 後端以 X-Result-Truncated 標頭告知本次結果是否觸及上限而被截斷；
+  // 前端不複製一份上限常數，避免兩邊各改各的導致提示失效或誤報
+  const shelterAnimalsTruncated = ref(false)
   const shelterAnimalsRequest = useLatestRequest()
 
   async function fetchShelterAnimals(params: GetShelterAnimalsParams) {
@@ -37,7 +40,8 @@ export const usePetStore = defineStore('pet', () => {
     try {
       const result = await petApi.getShelterAnimals(params)
       if (!shelterAnimalsRequest.isLatest(mySeq)) return
-      shelterAnimals.value = result
+      shelterAnimals.value = result.items
+      shelterAnimalsTruncated.value = result.truncated
     } catch (e) {
       if (!shelterAnimalsRequest.isLatest(mySeq)) return
       shelterAnimalsError.value = '載入收容動物資料失敗，請稍後再試'
@@ -192,6 +196,7 @@ export const usePetStore = defineStore('pet', () => {
     shelterAnimals,
     isLoadingShelterAnimals,
     shelterAnimalsError,
+    shelterAnimalsTruncated,
     fetchShelterAnimals,
     // 官方遺失啟事
     officialLostPetPostsPage,
