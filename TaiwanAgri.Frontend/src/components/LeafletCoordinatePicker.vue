@@ -160,7 +160,7 @@ onUnmounted(() => {
 .btn-clear:hover { border-color: var(--red); color: var(--red); }
 
 .map-container {
-  height: 320px;
+  height: 600px;
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--border);
