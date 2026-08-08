@@ -19,13 +19,17 @@ import PestDecadeView  from '@/views/weather/PestDecadeView.vue'
 import LoginView       from '@/views/auth/LoginView.vue'
 import ProfileView     from '@/views/ProfileView.vue'
 import WatchlistView   from '@/views/WatchlistView.vue'
-import PlaceholderView from '@/views/PlaceholderView.vue'
 
 import FoodSafetyView    from '@/views/FoodSafetyView.vue'
 import TodayVegView      from '@/views/food-safety/TodayVegView.vue'
 import TraceabilityView  from '@/views/food-safety/TraceabilityView.vue'
 import ViolationWallView from '@/views/food-safety/ViolationWallView.vue'
 import OrganicCertView from '@/views/food-safety/OrganicCertView.vue'
+
+import PetView            from '@/views/PetView.vue'
+import ShelterMapView     from '@/views/pet/ShelterMapView.vue'
+import LostPetsView       from '@/views/pet/LostPetsView.vue'
+import LegalBusinessView  from '@/views/pet/LegalBusinessView.vue'
 
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -74,7 +78,17 @@ const router = createRouter({
       ]
     },
 
-    { path: '/pet', component: PlaceholderView },
+    // 寵物（模組 3：毛小孩守護地圖，公開，巢狀）
+    {
+      path: '/pet',
+      component: PetView,
+      children: [
+        { path: '',               redirect: '/pet/shelter-map' },
+        { path: 'shelter-map',    component: ShelterMapView },
+        { path: 'lost-pets',      component: LostPetsView },
+        { path: 'legal-business', component: LegalBusinessView },
+      ]
+    },
 
     // ✅ 受保護路由：需登入才能訪問
     { path: '/profile',   name: 'profile',   component: ProfileView,   meta: { requiresAuth: true } },

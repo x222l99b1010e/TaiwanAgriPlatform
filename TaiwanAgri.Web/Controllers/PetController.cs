@@ -13,10 +13,20 @@ namespace TaiwanAgri.Web.Controllers
 	{
 		// ── 查詢層：三支 Worker 同步進來的資料，未登入即可查（唯讀） ──────────
 
+		/// <summary>回應標頭：本次結果是否因為觸及地圖標記上限而被截斷（"true"／"false"）</summary>
+		private const string ResultTruncatedHeader = "X-Result-Truncated";
+
 		[HttpGet("shelter-animals")]
 		public async Task<IActionResult> GetShelterAnimals([FromQuery] ShelterAnimalQueryDto queryDto)
 		{
 			var result = await petService.GetShelterAnimalsAsync(queryDto);
+
+			// 這支端點刻意不分頁（地圖要完整清單），但有防禦上限，回傳筆數觸頂就代表資料被切掉了。
+			// 由後端直接回答「有沒有被截斷」而不是讓前端拿筆數去比對一份自己維護的上限常數——
+			// 上限值只存在於後端一處，日後調整不需要同步修改前端，也不會有兩邊走鐘的風險。
+			Response.Headers[ResultTruncatedHeader] =
+				(result.Count >= PetService.MapMarkerSafetyLimit).ToString().ToLowerInvariant();
+
 			return Ok(result);
 		}
 
@@ -54,14 +64,16 @@ namespace TaiwanAgri.Web.Controllers
 			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
 				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
 
-			var result = await petService.GetLostPetPostsAsync(queryDto);
+			var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			var result = await petService.GetLostPetPostsAsync(queryDto, currentUserId);
 			return Ok(result);
 		}
 
 		[HttpGet("lost-pet-posts/{id:int}")]
 		public async Task<IActionResult> GetLostPetPostById(int id)
 		{
-			var result = await petService.GetLostPetPostByIdAsync(id);
+			var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			var result = await petService.GetLostPetPostByIdAsync(id, currentUserId);
 			return result is null ? NotFound() : Ok(result);
 		}
 

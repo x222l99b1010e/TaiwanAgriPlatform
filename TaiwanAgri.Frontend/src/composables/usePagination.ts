@@ -16,6 +16,14 @@ export interface UsePaginationOptions {
   onChange: () => void
   pageSizeOptions?: number[]
   defaultPageSize?: number
+  /**
+   * 頁碼按鈕視窗至少顯示幾個（頁數足夠時），預設 6。貼近頭尾時往另一側平移補滿到這個數字，
+   * 不是縮短（例如目前在第 1 頁、總共 10 頁，會顯示 [1,2,3,4,5,6] 而不是舊版的 [1,2,3]）。
+   * 這是共用邏輯，改這裡全部消費端（ViolationWallView／OrganicCertView／LostPetsView／
+   * LegalBusinessView）都會一起套用，owner 2026-08-06 要求「至少顯示 6 頁」時裁示維持共用、
+   * 不要拆成新舊模組兩套行為。
+   */
+  minVisibleCount?: number
 }
 
 export function usePagination(options: UsePaginationOptions) {
@@ -29,15 +37,23 @@ export function usePagination(options: UsePaginationOptions) {
   const currentPage = ref(1)
   const jumpPageInput = ref<number | null>(null)
 
-  /** 分頁按鈕：最多顯示 5 個頁碼，以目前頁為中心 */
+  const minVisibleCount = options.minVisibleCount ?? 6
+
+  /**
+   * 分頁按鈕視窗：視窗大小固定（頁數足夠時），貼近頭尾時往另一側平移補滿，不是縮短。
+   * 例如目前在第 1 頁、總共 10 頁、minVisibleCount=6，顯示 [1,2,3,4,5,6]；
+   * 目前在最後一頁，顯示會平移到 [5,6,7,8,9,10]，而不是只剩 [8,9,10]。
+   */
   const visiblePages = computed(() => {
     const total = options.totalPages() ?? 0
     const current = currentPage.value
-    const range = 2
-    const start = Math.max(1, current - range)
-    const end = Math.min(total, current + range)
+    if (total <= 0) return []
+
+    const windowSize = Math.min(minVisibleCount, total)
+    let start = current - Math.floor((windowSize - 1) / 2)
+    start = Math.max(1, Math.min(start, total - windowSize + 1))
     const pages: number[] = []
-    for (let i = start; i <= end; i++) pages.push(i)
+    for (let i = 0; i < windowSize; i++) pages.push(start + i)
     return pages
   })
 
