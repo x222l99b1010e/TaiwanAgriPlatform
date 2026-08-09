@@ -50,6 +50,23 @@
         <!-- 註冊額外欄位 -->
         <template v-if="mode === 'register'">
           <div class="field-group">
+            <label class="field-label">確認密碼</label>
+            <input
+              class="field-input"
+              type="password"
+              v-model="confirmPassword"
+              placeholder="請再輸入一次密碼"
+              :disabled="isLoading"
+              @keyup.enter="handleSubmit"
+            />
+            <!-- 只在使用者已經開始輸入這欄之後才提示：一開始兩欄都空、必然「相等」，
+                 這時就跳錯誤字樣會在使用者根本還沒動作時就先罵人，體感很差 -->
+            <p v-if="confirmPassword && password !== confirmPassword" class="field-error">
+              兩次輸入的密碼不一致
+            </p>
+          </div>
+
+          <div class="field-group">
             <label class="field-label">顯示名稱（選填）</label>
             <input
               class="field-input"
@@ -83,7 +100,7 @@
         <!-- 提交按鈕 -->
         <button
           class="btn-submit"
-          :disabled="isLoading || !email || !password"
+          :disabled="isLoading || !email || !password || (mode === 'register' && (!confirmPassword || password !== confirmPassword))"
           @click="handleSubmit"
         >
           <span v-if="isLoading">處理中...</span>
@@ -122,6 +139,7 @@ function translateIdentityError(msg: string): string {
 const mode = ref<'login' | 'register'>('login')
 const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const displayName = ref('')
 const userType = ref('Farmer')
 const isLoading = ref(false)
@@ -130,6 +148,15 @@ const errorMsg = ref('')
 // ─── 提交 ─────────────────────────────────────────────
 async function handleSubmit() {
   errorMsg.value = ''
+
+  // 送出按鈕已經用 :disabled 擋掉這個情況，但 @keyup.enter 是直接呼叫這個函式、
+  // 不會經過按鈕的 disabled 狀態，所以這裡要再擋一次，否則在確認密碼欄位按 Enter
+  // 可以繞過畫面上的擋阻直接送出不一致的密碼
+  if (mode.value === 'register' && password.value !== confirmPassword.value) {
+    errorMsg.value = '兩次輸入的密碼不一致，請重新確認'
+    return
+  }
+
   isLoading.value = true
 
   try {
@@ -286,6 +313,12 @@ async function handleSubmit() {
 .field-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.field-error {
+  font-size: 12.5px;
+  color: var(--red);
+  font-weight: 600;
 }
 
 /* 錯誤訊息 */
