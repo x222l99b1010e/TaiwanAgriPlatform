@@ -10,6 +10,7 @@ import { useLatestRequest } from '@/composables/useLatestRequest'
 import type {
   ShelterAnimalResponseDto,
   GetShelterAnimalsParams,
+  GetShelterAnimalsByShelterParams,
   OfficialLostPetPostResponseDto,
   GetOfficialLostPetPostsParams,
   LegalSpecificPetResponseDto,
@@ -49,6 +50,65 @@ export const usePetStore = defineStore('pet', () => {
     } finally {
       if (shelterAnimalsRequest.isLatest(mySeq)) {
         isLoadingShelterAnimals.value = false
+      }
+    }
+  }
+
+  // ─── 動物詳情頁（單筆） ───────────────────────────────────────────────
+  // 不掛週次分支新增：owner 實機測試後指出收容所詳情頁還缺「單一動物」這一層，
+  // 補齊「地圖→收容所→動物」三層下鑽的最後一層
+
+  const shelterAnimalDetail = ref<ShelterAnimalResponseDto | null>(null)
+  const isLoadingShelterAnimalDetail = ref(false)
+  const shelterAnimalDetailError = ref<string | null>(null)
+  const shelterAnimalDetailRequest = useLatestRequest()
+
+  async function fetchShelterAnimalById(id: number) {
+    const mySeq = shelterAnimalDetailRequest.next()
+    isLoadingShelterAnimalDetail.value = true
+    shelterAnimalDetailError.value = null
+    shelterAnimalDetail.value = null
+    try {
+      const result = await petApi.getShelterAnimalById(id)
+      if (!shelterAnimalDetailRequest.isLatest(mySeq)) return
+      shelterAnimalDetail.value = result
+    } catch (e) {
+      if (!shelterAnimalDetailRequest.isLatest(mySeq)) return
+      shelterAnimalDetailError.value = axios.isAxiosError(e) && e.response?.status === 404
+        ? '找不到這隻動物的資料，可能已經離開收容所（例如已被領養）'
+        : '載入動物資料失敗，請稍後再試'
+      console.error(e)
+    } finally {
+      if (shelterAnimalDetailRequest.isLatest(mySeq)) {
+        isLoadingShelterAnimalDetail.value = false
+      }
+    }
+  }
+
+  // ─── 收容所詳情頁（單一收容所的分頁動物清單） ───────────────────────────
+  // 不掛週次分支新增：popup 摘要「查看全部→」連到獨立頁，這裡是那頁的資料來源，
+  // 跟上面「地圖用、不分頁、跨收容所」的 shelterAnimals 是兩組獨立狀態，不共用
+
+  const shelterAnimalsByShelterPage = ref<PagedResult<ShelterAnimalResponseDto> | null>(null)
+  const isLoadingShelterAnimalsByShelter = ref(false)
+  const shelterAnimalsByShelterError = ref<string | null>(null)
+  const shelterAnimalsByShelterRequest = useLatestRequest()
+
+  async function fetchShelterAnimalsByShelter(shelterId: number, params: GetShelterAnimalsByShelterParams) {
+    const mySeq = shelterAnimalsByShelterRequest.next()
+    isLoadingShelterAnimalsByShelter.value = true
+    shelterAnimalsByShelterError.value = null
+    try {
+      const result = await petApi.getShelterAnimalsByShelter(shelterId, params)
+      if (!shelterAnimalsByShelterRequest.isLatest(mySeq)) return
+      shelterAnimalsByShelterPage.value = result
+    } catch (e) {
+      if (!shelterAnimalsByShelterRequest.isLatest(mySeq)) return
+      shelterAnimalsByShelterError.value = '載入收容所動物清單失敗，請稍後再試'
+      console.error(e)
+    } finally {
+      if (shelterAnimalsByShelterRequest.isLatest(mySeq)) {
+        isLoadingShelterAnimalsByShelter.value = false
       }
     }
   }
@@ -135,6 +195,37 @@ export const usePetStore = defineStore('pet', () => {
     }
   }
 
+  // ─── 遺失啟事詳情頁（單筆） ───────────────────────────────────────────
+  // 不掛週次分支新增：後端 GET /{id} 與前端 getLostPetPostById 原本零使用，這裡接起來
+
+  const lostPetPostDetail = ref<LostPetPostResponseDto | null>(null)
+  const isLoadingLostPetPostDetail = ref(false)
+  const lostPetPostDetailError = ref<string | null>(null)
+  const lostPetPostDetailRequest = useLatestRequest()
+
+  async function fetchLostPetPostById(id: number) {
+    const mySeq = lostPetPostDetailRequest.next()
+    isLoadingLostPetPostDetail.value = true
+    lostPetPostDetailError.value = null
+    lostPetPostDetail.value = null // 切換到不同 id 時先清空，避免短暫顯示上一筆的舊內容
+    try {
+      const result = await petApi.getLostPetPostById(id)
+      if (!lostPetPostDetailRequest.isLatest(mySeq)) return
+      lostPetPostDetail.value = result
+    } catch (e) {
+      if (!lostPetPostDetailRequest.isLatest(mySeq)) return
+      // 404（貼文不存在或已被刪除）跟其他錯誤分開講，訊息才不會誤導使用者去重試一個不會成功的請求
+      lostPetPostDetailError.value = axios.isAxiosError(e) && e.response?.status === 404
+        ? '找不到這篇協尋啟事，可能已被刪除'
+        : '載入協尋啟事失敗，請稍後再試'
+      console.error(e)
+    } finally {
+      if (lostPetPostDetailRequest.isLatest(mySeq)) {
+        isLoadingLostPetPostDetail.value = false
+      }
+    }
+  }
+
   /** 新增遺失啟事；成功後回傳新建的項目，讓表單元件決定接下來要導頁還是留在原地 */
   async function createLostPetPost(request: CreateLostPetPostRequest): Promise<LostPetPostResponseDto | null> {
     isSavingLostPetPost.value = true
@@ -198,6 +289,16 @@ export const usePetStore = defineStore('pet', () => {
     shelterAnimalsError,
     shelterAnimalsTruncated,
     fetchShelterAnimals,
+    // 動物詳情頁
+    shelterAnimalDetail,
+    isLoadingShelterAnimalDetail,
+    shelterAnimalDetailError,
+    fetchShelterAnimalById,
+    // 收容所詳情頁
+    shelterAnimalsByShelterPage,
+    isLoadingShelterAnimalsByShelter,
+    shelterAnimalsByShelterError,
+    fetchShelterAnimalsByShelter,
     // 官方遺失啟事
     officialLostPetPostsPage,
     isLoadingOfficialLostPetPosts,
@@ -215,6 +316,11 @@ export const usePetStore = defineStore('pet', () => {
     isSavingLostPetPost,
     saveLostPetPostError,
     fetchLostPetPosts,
+    // 遺失啟事詳情頁
+    lostPetPostDetail,
+    isLoadingLostPetPostDetail,
+    lostPetPostDetailError,
+    fetchLostPetPostById,
     createLostPetPost,
     updateLostPetPost,
     deleteLostPetPost,

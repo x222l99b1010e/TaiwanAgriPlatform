@@ -59,6 +59,195 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
+		public async Task GetShelterAnimalByIdAsync_ExistingId_ReturnsMappedDtoWithShelterInfo()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：動物詳情頁用的單筆查詢——驗證 Include(Shelter) 帶出的展示欄位（名稱/地址/縣市/座標）
+			// 跟其他兩支查詢（GetShelterAnimalsAsync／GetShelterAnimalsByShelterAsync）行為一致
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_ShelterAnimalById_Found")
+				.Options;
+			var dbContext = new PetDbContext(options);
+
+			var shelter = new Shelter { ShelterPkId = 7, Name = "測試收容所", County = "臺中市", Address = "測試地址" };
+			dbContext.Shelters.Add(shelter);
+			var animal = new ShelterAnimal { AnimalSubId = "T001", ShelterPkId = 7, Kind = AnimalKind.Cat, Sex = AnimalSex.Female };
+			dbContext.ShelterAnimals.Add(animal);
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetShelterAnimalByIdAsync(animal.Id);
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.NotNull(result);
+			Assert.Equal("T001", result!.AnimalSubId);
+			Assert.Equal("測試收容所", result.ShelterName);
+			Assert.Equal("臺中市", result.County);
+			Assert.Equal(7, result.ShelterPkId);
+			Assert.Equal("Cat", result.Kind);
+		}
+
+		[Fact]
+		public async Task GetShelterAnimalByIdAsync_UnknownId_ReturnsNull()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_ShelterAnimalById_NotFound")
+				.Options;
+			var dbContext = new PetDbContext(options);
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetShelterAnimalByIdAsync(999);
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.Null(result);
+		}
+
+		[Fact]
+		public async Task GetShelterAnimalsByShelterAsync_FiltersByShelterAndPaginates_ReturnsOnlyThatShelterInIdOrder()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：驗證收容所詳情頁的下鑽端點——①只回傳指定 ShelterPkId 的動物，不含其他收容所；
+			// ②真的做 Skip/Take 分頁（不是把地圖端點的不分頁清單原封不動搬過來）；③排序穩定可預期。
+			// 排序條件明確指定 AnimalSubId 升冪（而非依賴預設排序），讓這個測試只驗證「分頁機制」
+			// 本身，不會因為日後改動預設排序（見下一個測試：owner 實機測試後改預設依拾獲時間新到舊）
+			// 而連帶失敗——兩個測試的關注點分開，各自穩定
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_ShelterAnimalsByShelter_FilterAndPaginate")
+				.Options;
+			var dbContext = new PetDbContext(options);
+
+			var shelterA = new Shelter { ShelterPkId = 1, Name = "板橋公立動物之家", County = "新北市" };
+			var shelterB = new Shelter { ShelterPkId = 2, Name = "台南收容所", County = "臺南市" };
+			dbContext.Shelters.AddRange(shelterA, shelterB);
+
+			// 收容所 1 有三隻，收容所 2 有一隻（不該出現在結果裡）
+			dbContext.ShelterAnimals.AddRange(
+				new ShelterAnimal { AnimalSubId = "A001", ShelterPkId = 1, Kind = AnimalKind.Dog },
+				new ShelterAnimal { AnimalSubId = "A002", ShelterPkId = 1, Kind = AnimalKind.Cat },
+				new ShelterAnimal { AnimalSubId = "A003", ShelterPkId = 1, Kind = AnimalKind.Dog },
+				new ShelterAnimal { AnimalSubId = "B001", ShelterPkId = 2, Kind = AnimalKind.Dog }
+			);
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+			var sortByAnimalSubIdAsc = new ShelterAnimalsByShelterQueryDto { SortBy = ShelterAnimalSortBy.AnimalSubId, SortDescending = false };
+
+			// ── Act ──────────────────────────────────────────────
+			var page1 = await service.GetShelterAnimalsByShelterAsync(1, new ShelterAnimalsByShelterQueryDto
+			{
+				SortBy = sortByAnimalSubIdAsc.SortBy, SortDescending = sortByAnimalSubIdAsc.SortDescending, Page = 1, PageSize = 2,
+			});
+			var page2 = await service.GetShelterAnimalsByShelterAsync(1, new ShelterAnimalsByShelterQueryDto
+			{
+				SortBy = sortByAnimalSubIdAsc.SortBy, SortDescending = sortByAnimalSubIdAsc.SortDescending, Page = 2, PageSize = 2,
+			});
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.Equal(3, page1.TotalCount); // 只算收容所 1，不含收容所 2 的那一隻
+			Assert.Equal(2, page1.TotalPages);
+			Assert.Equal(["A001", "A002"], page1.Items.Select(x => x.AnimalSubId));
+			Assert.Equal(["A003"], page2.Items.Select(x => x.AnimalSubId));
+			Assert.All(page1.Items, x => Assert.Equal(1, x.ShelterPkId));
+		}
+
+		[Fact]
+		public async Task GetShelterAnimalsByShelterAsync_NoSortSpecified_DefaultsToCreatedTimeDescending()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：釘住「沒帶排序參數時＝依拾獲時間新到舊」這個預設行為，跟其他分頁端點的
+			// 既有慣例（GetLostPetPostsAsync／GetOfficialLostPetPostsAsync 都預設新到舊）一致
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_ShelterAnimalsByShelter_DefaultSort")
+				.Options;
+			var dbContext = new PetDbContext(options);
+
+			var shelter = new Shelter { ShelterPkId = 1, Name = "測試收容所" };
+			dbContext.Shelters.Add(shelter);
+
+			dbContext.ShelterAnimals.AddRange(
+				new ShelterAnimal { AnimalSubId = "早", ShelterPkId = 1, CreatedTime = new DateOnly(2026, 1, 1) },
+				new ShelterAnimal { AnimalSubId = "晚", ShelterPkId = 1, CreatedTime = new DateOnly(2026, 3, 1) },
+				new ShelterAnimal { AnimalSubId = "中", ShelterPkId = 1, CreatedTime = new DateOnly(2026, 2, 1) }
+			);
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetShelterAnimalsByShelterAsync(1, new ShelterAnimalsByShelterQueryDto());
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.Equal(["晚", "中", "早"], result.Items.Select(x => x.AnimalSubId));
+		}
+
+		[Fact]
+		public async Task GetShelterAnimalsByShelterAsync_FilterByKindAndSexAndSortByAnimalSubId_ReturnsOnlyMatchingInOrder()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：收容所詳情頁改版加的 Kind/Sex 篩選＋排序（owner 實機測試後要求比照
+			// LegalBusinessView 改成 datagrid），驗證篩選可疊加、排序切換方向正確
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_ShelterAnimalsByShelter_FilterAndSort")
+				.Options;
+			var dbContext = new PetDbContext(options);
+
+			var shelter = new Shelter { ShelterPkId = 1, Name = "測試收容所" };
+			dbContext.Shelters.Add(shelter);
+
+			dbContext.ShelterAnimals.AddRange(
+				new ShelterAnimal { AnimalSubId = "C001", ShelterPkId = 1, Kind = AnimalKind.Dog, Sex = AnimalSex.Male },
+				new ShelterAnimal { AnimalSubId = "A002", ShelterPkId = 1, Kind = AnimalKind.Dog, Sex = AnimalSex.Female }, // Kind 符合但 Sex 不符合
+				new ShelterAnimal { AnimalSubId = "B003", ShelterPkId = 1, Kind = AnimalKind.Dog, Sex = AnimalSex.Male },
+				new ShelterAnimal { AnimalSubId = "D004", ShelterPkId = 1, Kind = AnimalKind.Cat, Sex = AnimalSex.Male }  // Sex 符合但 Kind 不符合
+			);
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetShelterAnimalsByShelterAsync(1, new ShelterAnimalsByShelterQueryDto
+			{
+				Kind = AnimalKind.Dog,
+				Sex = AnimalSex.Male,
+				SortBy = ShelterAnimalSortBy.AnimalSubId,
+				SortDescending = false,
+			});
+
+			// ── Assert ───────────────────────────────────────────
+			// 只有 Dog+Male 的兩筆符合，依 AnimalSubId 升冪排序
+			Assert.Equal(["B003", "C001"], result.Items.Select(x => x.AnimalSubId));
+		}
+
+		[Fact]
+		public async Task GetShelterAnimalsByShelterAsync_UnknownShelterId_ReturnsEmptyPageNotError()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：分享連結指向的收容所可能已無在養動物（或 id 打錯），端點不應丟例外或回 404，
+			// 統一回傳 TotalCount=0 的空頁，跟其他分頁端點對「查無資料」的處理方式一致
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_ShelterAnimalsByShelter_UnknownShelter")
+				.Options;
+			var dbContext = new PetDbContext(options);
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetShelterAnimalsByShelterAsync(999, new ShelterAnimalsByShelterQueryDto());
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.Equal(0, result.TotalCount);
+			Assert.Empty(result.Items);
+		}
+
+		[Fact]
 		public async Task GetLegalSpecificPetsAsync_FilterByAnimalTypeRankGradeStateFlagAndBusinessItem_ReturnsOnlyMatching()
 		{
 			// ── Arrange ──────────────────────────────────────────
@@ -227,6 +416,59 @@ namespace TaiwanAgri.Tests.Pet
 
 			// ── Assert ───────────────────────────────────────────
 			Assert.Equal(["A", "C", "B"], result.Items.Select(x => x.Title));
+		}
+
+		[Fact]
+		public async Task GetLostPetPostsAsync_OnlyMineTrue_ReturnsOnlyCallersOwnPosts()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：個人管理頁用的 OnlyMine 篩選——只回傳 currentUserId 自己的貼文，
+			// 不會像 IsOwner 只是「標記」，這裡是真的把別人的貼文從結果集裡濾掉
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_LostPetPost_OnlyMine")
+				.Options;
+			var dbContext = new PetDbContext(options);
+
+			dbContext.LostPetPosts.AddRange(
+				new LostPetPost { UserId = "owner-001", Title = "我的第一篇", Description = "d" },
+				new LostPetPost { UserId = "owner-001", Title = "我的第二篇", Description = "d" },
+				new LostPetPost { UserId = "someone-else", Title = "別人的", Description = "d" }
+			);
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var mine = await service.GetLostPetPostsAsync(new LostPetPostQueryDto { OnlyMine = true }, "owner-001");
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.Equal(2, mine.TotalCount);
+			Assert.All(mine.Items, x => Assert.True(x.IsOwner));
+		}
+
+		[Fact]
+		public async Task GetLostPetPostsAsync_OnlyMineTrueWithoutUserId_ReturnsEmpty()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：Controller 已經會用 401 擋掉「OnlyMine 但沒登入」這個情境，這裡驗證
+			// Service 層自己的第二道防呆——就算真的用 null userId 呼叫到這裡，也不會意外
+			// 把全部貼文都當「自己的」吐回去（x.UserId == null 對 not-null 欄位恆假）
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_LostPetPost_OnlyMineNoUser")
+				.Options;
+			var dbContext = new PetDbContext(options);
+			dbContext.LostPetPosts.Add(new LostPetPost { UserId = "owner-001", Title = "任何人的貼文", Description = "d" });
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetLostPetPostsAsync(new LostPetPostQueryDto { OnlyMine = true }, currentUserId: null);
+
+			// ── Assert ───────────────────────────────────────────
+			Assert.Equal(0, result.TotalCount);
 		}
 
 		[Fact]
