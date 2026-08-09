@@ -2,6 +2,14 @@
   <div class="profile-view">
     <h2>農場設定</h2>
 
+    <!-- 個人管理相關的其他頁面入口（不掛週次分支新增：我的協尋貼文）放在這裡，
+         日後若有更多「我的 xxx」功能，這個區塊可以繼續往下加，不需要另外設計導覽結構 -->
+    <RouterLink to="/profile/lost-pets" class="section-link">
+      <span class="mdi mdi-dog-side" />
+      <span>我的協尋貼文</span>
+      <span class="mdi mdi-chevron-right" />
+    </RouterLink>
+
     <div v-if="profileStore.isLoading" class="loading">載入中...</div>
 
     <div v-else class="profile-form">
@@ -200,6 +208,33 @@ h2 {
   padding: 2rem;
   text-align: center;
 }
+
+/* 原本用邊框+一般字重，在部分螢幕/亮度設定下太不顯眼（owner 2026-08-09 實機反應）。
+   改成綠色底色卡片＋粗體放大字＋圖示放進圓底色塊，跟頁面上其他純表單元素拉開視覺層級，
+   一眼就能認出「這是一個可以點的功能入口」而不是說明文字 */
+.section-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid #2e7d32;
+  border-radius: 12px;
+  background: #e8f5e9;
+  color: #1b5e20;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.12);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.section-link:hover { background: #d5ecd6; box-shadow: 0 3px 10px rgba(46, 125, 50, 0.20); }
+.section-link .mdi-dog-side {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; border-radius: 50%;
+  background: #2e7d32; color: white; font-size: 1.1rem; flex-shrink: 0;
+}
+.section-link .mdi-chevron-right { margin-left: auto; font-size: 1.2rem; }
 
 .form-group {
   margin-bottom: 1.5rem;
