@@ -51,6 +51,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 				{
 					Id = x.Id,
 					AnimalSubId = x.AnimalSubId,
+					ShelterPkId = x.ShelterPkId,
 					ShelterName = x.Shelter.Name,
 					ShelterAddress = x.Shelter.Address,
 					County = x.Shelter.County,
@@ -71,6 +72,113 @@ namespace TaiwanAgri.Modules.Pet.Services
 					AlbumFile = x.AlbumFile
 				})
 				.ToListAsync();
+		}
+
+		/// <summary>
+		/// 動物詳情頁用，單筆查詢。投影欄位跟 GetShelterAnimalsAsync／GetShelterAnimalsByShelterAsync
+		/// 刻意重複而不是抽共用方法呼叫——EF Core 無法把一般 C# 方法翻譯進 Select 產生的 SQL
+		/// （跟 LostPetPost 那邊 MapToResponseDto 不能進 Select 是同一個限制，DevLog 已有記錄），
+		/// 三處分別寫 Select 才能讓查詢真的在資料庫端執行，不是各自多餘的重複。
+		/// </summary>
+		public async Task<ShelterAnimalResponseDto?> GetShelterAnimalByIdAsync(int id)
+		{
+			return await context.ShelterAnimals
+				.Include(x => x.Shelter)
+				.Where(x => x.Id == id)
+				.Select(x => new ShelterAnimalResponseDto
+				{
+					Id = x.Id,
+					AnimalSubId = x.AnimalSubId,
+					ShelterPkId = x.ShelterPkId,
+					ShelterName = x.Shelter.Name,
+					ShelterAddress = x.Shelter.Address,
+					County = x.Shelter.County,
+					Latitude = x.Shelter.Latitude,
+					Longitude = x.Shelter.Longitude,
+					Kind = x.Kind.ToString(),
+					Sex = x.Sex.ToString(),
+					BodyType = x.BodyType.ToString(),
+					Age = x.Age.ToString(),
+					Sterilization = x.Sterilization.ToString(),
+					Bacterin = x.Bacterin.ToString(),
+					Variety = x.Variety,
+					Colour = x.Colour,
+					FoundPlace = x.FoundPlace,
+					Remark = x.Remark,
+					OpenDate = x.OpenDate,
+					CreatedTime = x.CreatedTime,
+					AlbumFile = x.AlbumFile
+				})
+				.FirstOrDefaultAsync();
+		}
+
+		/// <summary>
+		/// 收容所詳情頁用：popup 摘要「查看全部」連結的下鑽端點。與地圖端點共用同一顆 ShelterAnimalResponseDto，
+		/// 差別只在這裡有 Where(ShelterPkId) 縮到單一收容所、且真正做 Skip/Take 分頁（地圖端點刻意不分頁，
+		/// 這裡刻意要分頁——兩者的使用情境不同：地圖要完整清單餵 MarkerCluster，這裡是給人看的列表，
+		/// 不分頁的話一間 150 隻的大所又會重演 popup 曾經撞到的「清單太長」問題，只是換到獨立頁面重演一次）。
+		/// </summary>
+		public async Task<PagedResult<ShelterAnimalResponseDto>> GetShelterAnimalsByShelterAsync(int shelterId, ShelterAnimalsByShelterQueryDto queryDto)
+		{
+			var query = context.ShelterAnimals.Include(x => x.Shelter).Where(x => x.ShelterPkId == shelterId);
+
+			if (queryDto.Kind.HasValue)
+				query = query.Where(x => x.Kind == queryDto.Kind.Value);
+
+			if (queryDto.Sex.HasValue)
+				query = query.Where(x => x.Sex == queryDto.Sex.Value);
+
+			var totalCount = await query.CountAsync();
+
+			// ThenBy(Id) 當 tie-breaker：CreatedTime 是 DateOnly，同一天拾獲的動物很常見，
+			// 沒有次要排序鍵的話同一天的相對順序不保證穩定（分頁時可能同一筆在兩頁都出現或都不出現）
+			IOrderedQueryable<ShelterAnimal> orderedQuery = queryDto.SortBy switch
+			{
+				ShelterAnimalSortBy.AnimalSubId => queryDto.SortDescending
+					? query.OrderByDescending(x => x.AnimalSubId).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.AnimalSubId).ThenByDescending(x => x.Id),
+				_ => queryDto.SortDescending
+					? query.OrderByDescending(x => x.CreatedTime).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.CreatedTime).ThenByDescending(x => x.Id),
+			};
+
+			var items = await orderedQuery
+				.Skip((queryDto.Page - 1) * queryDto.PageSize)
+				.Take(queryDto.PageSize)
+				.Select(x => new ShelterAnimalResponseDto
+				{
+					Id = x.Id,
+					AnimalSubId = x.AnimalSubId,
+					ShelterPkId = x.ShelterPkId,
+					ShelterName = x.Shelter.Name,
+					ShelterAddress = x.Shelter.Address,
+					County = x.Shelter.County,
+					Latitude = x.Shelter.Latitude,
+					Longitude = x.Shelter.Longitude,
+					Kind = x.Kind.ToString(),
+					Sex = x.Sex.ToString(),
+					BodyType = x.BodyType.ToString(),
+					Age = x.Age.ToString(),
+					Sterilization = x.Sterilization.ToString(),
+					Bacterin = x.Bacterin.ToString(),
+					Variety = x.Variety,
+					Colour = x.Colour,
+					FoundPlace = x.FoundPlace,
+					Remark = x.Remark,
+					OpenDate = x.OpenDate,
+					CreatedTime = x.CreatedTime,
+					AlbumFile = x.AlbumFile
+				})
+				.ToListAsync();
+
+			return new PagedResult<ShelterAnimalResponseDto>
+			{
+				Items = items,
+				TotalCount = totalCount,
+				Page = queryDto.Page,
+				PageSize = queryDto.PageSize,
+				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
+			};
 		}
 
 		public async Task<PagedResult<OfficialLostPetPostResponseDto>> GetOfficialLostPetPostsAsync(OfficialLostPetPostQueryDto queryDto)
@@ -218,6 +326,13 @@ namespace TaiwanAgri.Modules.Pet.Services
 
 			if (!string.IsNullOrWhiteSpace(queryDto.County))
 				query = query.Where(x => x.County == queryDto.County);
+
+			// OnlyMine 沒登入時形同「查我自己但我是誰都不知道」，這裡不噴例外，直接讓查詢條件
+			// 變成「UserId 等於一個不存在的值」（永遠查不到），Controller 早已用 401 擋掉這個情境，
+			// 這裡是第二層防呆，不完全依賴呼叫端做對——currentUserId is null 時 x.UserId == null
+			// 恆假（UserId 是 not-null 欄位），效果等同回傳空清單
+			if (queryDto.OnlyMine)
+				query = query.Where(x => x.UserId == currentUserId);
 
 			var totalCount = await query.CountAsync();
 

@@ -10,6 +10,13 @@ namespace TaiwanAgri.Modules.Pet.Services
 		/// <summary>地圖用，不分頁——回傳篩選後的完整清單，供前端 MarkerCluster 聚合</summary>
 		Task<List<ShelterAnimalResponseDto>> GetShelterAnimalsAsync(ShelterAnimalQueryDto queryDto);
 
+		/// <summary>動物詳情頁用，單筆查詢。找不到回傳 null（id 打錯或資料已被同步流程移除）</summary>
+		Task<ShelterAnimalResponseDto?> GetShelterAnimalByIdAsync(int id);
+
+		/// <summary>收容所詳情頁用，分頁列出單一收容所的全部在養動物。shelterId 不存在或該所目前無在養動物時，
+		/// 回傳 TotalCount=0 的空頁（與其他分頁端點對「查無資料」的一貫處理方式相同，不視為錯誤）</summary>
+		Task<PagedResult<ShelterAnimalResponseDto>> GetShelterAnimalsByShelterAsync(int shelterId, ShelterAnimalsByShelterQueryDto queryDto);
+
 		Task<PagedResult<OfficialLostPetPostResponseDto>> GetOfficialLostPetPostsAsync(OfficialLostPetPostQueryDto queryDto);
 
 		Task<PagedResult<LegalSpecificPetResponseDto>> GetLegalSpecificPetsAsync(LegalSpecificPetQueryDto queryDto);

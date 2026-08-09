@@ -30,6 +30,29 @@ namespace TaiwanAgri.Web.Controllers
 			return Ok(result);
 		}
 
+		/// <summary>動物詳情頁用：單筆查詢，收容所詳情頁表格列點進去看這裡</summary>
+		[HttpGet("shelter-animals/{id:int}")]
+		public async Task<IActionResult> GetShelterAnimalById(int id)
+		{
+			var result = await petService.GetShelterAnimalByIdAsync(id);
+			return result is null ? NotFound() : Ok(result);
+		}
+
+		/// <summary>收容所詳情頁用：地圖 popup「查看全部」連結下鑽到這裡，分頁列出單一收容所的全部在養動物。
+		/// shelterId 不存在或該所目前無在養動物一律回傳空頁（TotalCount=0），不視為錯誤——
+		/// 跟其他分頁端點對「查無資料」的處理方式一致</summary>
+		[HttpGet("shelters/{shelterId:int}/animals")]
+		public async Task<IActionResult> GetShelterAnimalsByShelter(int shelterId, [FromQuery] ShelterAnimalsByShelterQueryDto queryDto)
+		{
+			if (queryDto.Page <= 0)
+				return BadRequest("頁碼必須大於 0");
+			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
+				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
+
+			var result = await petService.GetShelterAnimalsByShelterAsync(shelterId, queryDto);
+			return Ok(result);
+		}
+
 		[HttpGet("official-lost-posts")]
 		public async Task<IActionResult> GetOfficialLostPetPosts([FromQuery] OfficialLostPetPostQueryDto queryDto)
 		{
@@ -65,6 +88,12 @@ namespace TaiwanAgri.Web.Controllers
 				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
 
 			var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+			// OnlyMine 不登入就查不到「自己」，明確回 401 比默默回空清單清楚——
+			// 空清單會讓使用者以為「我沒發過任何貼文」，401 才講得出「你根本沒登入」這件事
+			if (queryDto.OnlyMine && currentUserId is null)
+				return Unauthorized();
+
 			var result = await petService.GetLostPetPostsAsync(queryDto, currentUserId);
 			return Ok(result);
 		}
