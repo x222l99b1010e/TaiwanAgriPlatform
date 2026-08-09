@@ -58,11 +58,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet.markercluster'
 import CitySelector from '@/components/CitySelector.vue'
 import { usePetStore } from '@/stores/pet'
+import { animalKindLabel } from '@/utils/shelterAnimal'
 import type { AnimalKind, ShelterAnimalResponseDto } from '@/api/pet'
+
+const router = useRouter()
 
 const store = usePetStore()
 
@@ -131,6 +135,7 @@ let clusterGroup: L.MarkerClusterGroup | null = null
  * 而且點中了也沒有意義——它們全是同一間收容所。改成「一間收容所一個標記」才符合資料形狀。
  */
 interface ShelterGroup {
+  shelterPkId: number
   latitude: number
   longitude: number
   shelterName: string
@@ -138,9 +143,6 @@ interface ShelterGroup {
   county: string
   animals: ShelterAnimalResponseDto[]
 }
-
-/** popup 內最多列出幾隻，避免大所一次塞上千個 DOM 節點把 popup 拖垮 */
-const POPUP_ANIMAL_LIMIT = 50
 
 function groupByShelter(animals: ShelterAnimalResponseDto[]): ShelterGroup[] {
   const groups = new Map<string, ShelterGroup>()
@@ -151,6 +153,7 @@ function groupByShelter(animals: ShelterAnimalResponseDto[]): ShelterGroup[] {
     let g = groups.get(key)
     if (!g) {
       g = {
+        shelterPkId: a.shelterPkId,
         latitude: a.latitude, longitude: a.longitude,
         shelterName: a.shelterName, shelterAddress: a.shelterAddress, county: a.county,
         animals: [],
@@ -162,8 +165,15 @@ function groupByShelter(animals: ShelterAnimalResponseDto[]): ShelterGroup[] {
   return [...groups.values()]
 }
 
-/** 用 DOM API 組 popup 內容，不用字串拼 innerHTML——資料來自政府開放資料，
- *  文字內容不可信任，textContent 賦值天生會做 HTML escape，不會有注入疑慮 */
+/**
+ * 用 DOM API 組 popup 內容，不用字串拼 innerHTML——資料來自政府開放資料，
+ * 文字內容不可信任，textContent 賦值天生會做 HTML escape，不會有注入疑慮。
+ *
+ * 不掛週次分支改版：popup 只放摘要＋「查看全部→」連結，原本內嵌的完整動物清單
+ * （曾用 POPUP_ANIMAL_LIMIT=50 截斷）整段移除，改到獨立的收容所詳情頁用 PagerBar 呈現。
+ * owner 的原話：「寫 50 隻跟寫總數沒差異，因為都只看得到前 50 隻」——調高那個數字
+ * 解決不了問題，只要清單有限就一定有人撞到底，popup 應該回歸「快速預覽」定位。
+ */
 function buildShelterPopupContent(group: ShelterGroup): HTMLElement {
   const root = document.createElement('div')
   root.className = 'shelter-popup-content'
@@ -186,60 +196,24 @@ function buildShelterPopupContent(group: ShelterGroup): HTMLElement {
   summary.className = 'popup-summary'
   const parts = [`共 ${group.animals.length} 隻`]
   for (const k of ['Dog', 'Cat', 'Other']) {
-    if (counts[k]) parts.push(`${kindLabel(k)} ${counts[k]}`)
+    if (counts[k]) parts.push(`${animalKindLabel(k)} ${counts[k]}`)
   }
   summary.textContent = parts.join('・')
   root.appendChild(summary)
 
-  const list = document.createElement('div')
-  list.className = 'popup-animal-list'
-  for (const a of group.animals.slice(0, POPUP_ANIMAL_LIMIT)) {
-    const row = document.createElement('div')
-    row.className = 'popup-animal-row'
-
-    const id = document.createElement('span')
-    id.className = 'animal-id'
-    id.textContent = a.animalSubId
-    row.appendChild(id)
-
-    const desc = document.createElement('span')
-    desc.className = 'animal-desc'
-    desc.textContent = [
-      kindLabel(a.kind), sexLabel(a.sex), a.variety || '品種未提供', a.colour || '毛色未提供',
-    ].join('・')
-    row.appendChild(desc)
-
-    if (/^https?:\/\//i.test(a.albumFile)) {
-      const link = document.createElement('a')
-      link.href = a.albumFile
-      link.target = '_blank'
-      link.rel = 'noopener noreferrer'
-      link.textContent = '相簿'
-      link.className = 'popup-link'
-      row.appendChild(link)
-    }
-
-    list.appendChild(row)
-  }
-  root.appendChild(list)
-
-  if (group.animals.length > POPUP_ANIMAL_LIMIT) {
-    const more = document.createElement('div')
-    more.className = 'popup-more'
-    more.textContent =
-      `僅列出前 ${POPUP_ANIMAL_LIMIT} 隻，另有 ${group.animals.length - POPUP_ANIMAL_LIMIT} 隻未列出；` +
-      `可用上方的動物種類篩選縮小範圍`
-    root.appendChild(more)
-  }
+  // href 保留正常連結行為（可右鍵開新分頁／可被爬蟲或無障礙工具讀到是個連結），
+  // click 再攔截改用 router.push 做 SPA 內部導頁，避免整頁重新載入
+  const viewAllLink = document.createElement('a')
+  viewAllLink.href = `/pet/shelter-map/${group.shelterPkId}`
+  viewAllLink.className = 'popup-view-all'
+  viewAllLink.textContent = `查看全部 ${group.animals.length} 隻 →`
+  viewAllLink.addEventListener('click', (e) => {
+    e.preventDefault()
+    router.push(`/pet/shelter-map/${group.shelterPkId}`)
+  })
+  root.appendChild(viewAllLink)
 
   return root
-}
-
-function kindLabel(kind: string): string {
-  return { Dog: '狗', Cat: '貓', Other: '其他' }[kind] ?? kind
-}
-function sexLabel(sex: string): string {
-  return { Male: '公', Female: '母', Other: '其他', Unknown: '不明' }[sex] ?? sex
 }
 
 /** 篩選條件或資料變動時，清空重建整個 MarkerCluster 圖層（分組後最多約 30 個標記，重建成本極低） */
@@ -374,21 +348,10 @@ onUnmounted(() => {
   border-top: 1px solid rgba(26,40,32,0.12); border-bottom: 1px solid rgba(26,40,32,0.12);
 }
 
-/* 大所可能有上千隻，清單自己捲動，不要把 popup 撐到超出地圖高度 */
-.shelter-popup-content .popup-animal-list { max-height: 240px; overflow-y: auto; margin-top: 6px; }
-.shelter-popup-content .popup-animal-row {
-  display: flex; align-items: baseline; gap: 8px;
-  padding: 4px 0; border-bottom: 1px dashed rgba(26,40,32,0.10);
+/* popup 只放摘要＋這顆連結，完整清單在獨立詳情頁（不掛週次分支改版） */
+.shelter-popup-content .popup-view-all {
+  display: block; margin-top: 8px; color: #1565c0; font-size: 13px; font-weight: 700;
+  text-decoration: none;
 }
-.shelter-popup-content .animal-id {
-  font-family: monospace; font-size: 11.5px; color: rgba(26,40,32,0.55); flex-shrink: 0;
-}
-.shelter-popup-content .animal-desc { color: #1a2820; font-size: 12.5px; }
-
-.shelter-popup-content .popup-more {
-  margin-top: 8px; font-size: 11.5px; color: rgba(26,40,32,0.60); line-height: 1.5;
-}
-.shelter-popup-content .popup-link {
-  margin-left: auto; color: #1565c0; font-size: 11.5px; font-weight: 600; flex-shrink: 0;
-}
+.shelter-popup-content .popup-view-all:hover { text-decoration: underline; }
 </style>
