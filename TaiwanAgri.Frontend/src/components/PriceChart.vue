@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
   Filler,
+  type ChartDataset, type Scale, type TooltipItem,
 } from 'chart.js'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
 
@@ -52,7 +53,7 @@ function calcMA(values: number[], window = 7): number[] {
 // ── 核心 computed：平鋪 prices → Chart.js datasets ────
 // 這是 PriceChart.vue 的主要職責，類比 Controller 的 View Model 整理
 const chartData = computed(() => {
-  if (!props.prices.length) return { labels: [] as string[], datasets: [] as any[] }
+  if (!props.prices.length) return { labels: [] as string[], datasets: [] as ChartDataset<'line'>[] }
 
   // 1. 收集所有日期作為 X 軸 labels
   const labels = Array.from(new Set(props.prices.map(p => p.transDate))).sort()
@@ -66,7 +67,7 @@ const chartData = computed(() => {
   }
 
   // 3. 每個 cropCode → 兩條線（主線 + MA 虛線）
-  const datasets: any[] = []
+  const datasets: ChartDataset<'line'>[] = []
   let ci = 0
   for (const [, g] of Object.entries(groups)) {
     const color = getColor(ci++)
@@ -210,8 +211,8 @@ function buildChart() {
             maxTicksLimit: 12,
              color: 'rgba(26,40,32,0.75)',  // 從 0.45 → 0.75
             font: { size: 12 },            // 從 11 → 12
-            callback(val: unknown, index: number) {
-              return (this as any).getLabelForValue(index) ?? String(val)
+            callback(this: Scale, val: unknown, index: number) {
+              return this.getLabelForValue(index) ?? String(val)
             },
           },
           grid:   { color: 'rgba(0,0,0,0.05)' },
@@ -236,7 +237,7 @@ function buildChart() {
           borderWidth: 1,
           padding: 12,
           callbacks: {
-            label: (ctx: any) =>
+            label: (ctx: TooltipItem<'line'>) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
           },
         },
