@@ -26,10 +26,14 @@ export interface PagedResult<T> {
 // 不要預期數字（專案未全域註冊 JsonStringEnumConverter，這是既有慣例）
 
 export type AnimalKind = 'Dog' | 'Cat' | 'Other'
+export type AnimalSex = 'Male' | 'Female' | 'Other' | 'Unknown'
 
 export interface ShelterAnimalResponseDto {
   id: number
   animalSubId: string
+  // 收容所人工維護的真實 PK（37 筆種子資料），收容所詳情頁 /pet/shelter-map/:shelterId
+  // 用這個欄位組連結——不掛週次分支新增，地圖端點原本沒有回傳這個欄位（只回傳名稱/地址等展示用資訊）
+  shelterPkId: number
   shelterName: string
   shelterAddress: string
   county: string
@@ -53,6 +57,18 @@ export interface ShelterAnimalResponseDto {
 export interface GetShelterAnimalsParams {
   county?: string
   kind?: AnimalKind
+}
+
+export type ShelterAnimalSortByValue = 'CreatedTime' | 'AnimalSubId'
+
+/** 收容所詳情頁用：單一收容所的分頁查詢（不掛週次分支新增，見 shelters/{shelterId}/animals） */
+export interface GetShelterAnimalsByShelterParams {
+  kind?: AnimalKind
+  sex?: AnimalSex
+  sortBy?: ShelterAnimalSortByValue
+  sortDescending?: boolean
+  page: number
+  pageSize: number
 }
 
 // ─── 官方遺失啟事：型別（唯讀表格，無座標欄位） ─────────────────────────────
@@ -151,6 +167,9 @@ export type LostPetPostSortByValue = 'CreatedAt' | 'UpdatedAt'
 export interface GetLostPetPostsParams {
   status?: LostPetPostStatusValue
   county?: string
+  /** 個人管理頁用（不掛週次分支新增）：true 時只回傳目前登入者自己的貼文，
+   *  必須用 authClient 帶著 token 呼叫才有意義，未登入時後端回 401 */
+  onlyMine?: boolean
   sortBy?: LostPetPostSortByValue
   sortDescending?: boolean
   page: number
@@ -192,6 +211,27 @@ export const petApi = {
         // 標頭缺席時（舊版後端／代理層剝掉）一律當作沒有截斷，寧可不提示也不要誤報
         truncated: String(res.headers['x-result-truncated']).toLowerCase() === 'true',
       }))
+  },
+
+  /**
+   * GET /api/pet/shelters/{shelterId}/animals — 收容所詳情頁用，分頁列出該所全部在養動物。
+   * 與 getShelterAnimals（地圖用、不分頁、跨收容所）刻意分開：這支端點是「查一間」，
+   * 真正做 Skip/Take 分頁，不會像 popup 那樣被 POPUP_ANIMAL_LIMIT 這種前端常數截斷。
+   */
+  getShelterAnimalsByShelter(
+    shelterId: number,
+    params: GetShelterAnimalsByShelterParams
+  ): Promise<PagedResult<ShelterAnimalResponseDto>> {
+    return apiClient
+      .get<PagedResult<ShelterAnimalResponseDto>>(`/api/pet/shelters/${shelterId}/animals`, { params })
+      .then(res => res.data)
+  },
+
+  /** GET /api/pet/shelter-animals/{id} — 動物詳情頁用，單筆查詢 */
+  getShelterAnimalById(id: number): Promise<ShelterAnimalResponseDto> {
+    return apiClient
+      .get<ShelterAnimalResponseDto>(`/api/pet/shelter-animals/${id}`)
+      .then(res => res.data)
   },
 
   /** GET /api/pet/official-lost-posts */

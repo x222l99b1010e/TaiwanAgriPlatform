@@ -97,6 +97,7 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend, Filler,
+  type ChartDataset, type Scale,
 } from 'chart.js'
 import { weatherApi, type RainfallResponseDto } from '@/api/weather'
 import CitySelector from '@/components/CitySelector.vue'
@@ -153,7 +154,7 @@ const maxHour24 = computed(() => {
 // X 軸：把 observedAt 截成 YYYY-MM-DD HH:mm，去重後排序
 // 每條線：同一測站的雨量值按 X 軸順序對齊
 const chartData = computed(() => {
-  if (!records.value.length) return { labels: [] as string[], datasets: [] as any[] }
+  if (!records.value.length) return { labels: [] as string[], datasets: [] as ChartDataset<'line'>[] }
 
   const metric = activeMetric.value
 
@@ -210,8 +211,8 @@ function buildChart() {
             maxTicksLimit: 10,
             color: 'rgba(26,40,32,0.70)',   // 從 0.45 → 0.70
             font: { size: 12 },              // 從 11 → 12
-            callback(val, index) {
-              return (this as any).getLabelForValue(index) ?? String(val)
+            callback(this: Scale, val, index) {
+              return this.getLabelForValue(index) ?? String(val)
             },
           },
           grid:   { color: 'rgba(0,0,0,0.05)' },

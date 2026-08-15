@@ -28,7 +28,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-const props = withDefaults(defineProps<{ startDate?: string; endDate?: string }>(), {
+withDefaults(defineProps<{ startDate?: string; endDate?: string }>(), {
   startDate: '', endDate: '',
 })
 const emit = defineEmits<{

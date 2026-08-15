@@ -101,6 +101,7 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend,
+  type ChartDataset, type Scale,
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PorkResponseDto } from '@/api/market'
@@ -167,7 +168,7 @@ const minPrice = computed(() => {
 //   2. 按 marketName 分組，每個市場建立 { 日期 → 數值 } 的 map
 //   3. 每個市場對應一條線（一個 dataset），data[] 按 labels 日期順序對齊
 const chartData = computed(() => {
-  if (!filteredData.value.length) return { labels: [] as string[], datasets: [] as any[] }
+  if (!filteredData.value.length) return { labels: [] as string[], datasets: [] as ChartDataset<'line'>[] }
 
   const metric = activeMetric.value
 
@@ -220,8 +221,8 @@ function buildChart() {
             maxTicksLimit: 12,
             color: 'rgba(26,40,32,0.75)',
             font: { size: 12 },
-            callback(val, index) {
-              return (this as any).getLabelForValue(index) ?? String(val)
+            callback(this: Scale, val, index) {
+              return this.getLabelForValue(index) ?? String(val)
             },
           },
           grid:   { color: 'rgba(0,0,0,0.05)' },

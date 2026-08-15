@@ -3,6 +3,7 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import axios from 'axios'
 import { watchlistApi } from '@/api/watchlist'
 import type { WatchlistEnrichedItemDto, AddWatchlistRequest } from '@/api/watchlist'
 
@@ -36,8 +37,8 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     try {
       await watchlistApi.addItem(request)
       await fetchItems()
-    } catch (err: any) {
-      if (err?.response?.status === 409) {
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
         errorMessage.value = '此作物與市場組合已在監看清單中'
       } else {
         errorMessage.value = '新增失敗，請稍後再試'

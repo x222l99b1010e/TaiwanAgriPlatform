@@ -107,6 +107,7 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend,
+  type ChartDataset, type Scale,
 } from 'chart.js'
 import { weatherApi, type PestDecadeResponseDto } from '@/api/weather'
 
@@ -157,7 +158,7 @@ function densityLevel(val: number | null) {
 // X 軸：年-月-旬 組合，排序後去重
 // 每條線：同一城市的 average 值
 const chartData = computed(() => {
-  if (!records.value.length) return { labels: [] as string[], datasets: [] as any[] }
+  if (!records.value.length) return { labels: [] as string[], datasets: [] as ChartDataset<'line'>[] }
 
   // 組合 X 軸標籤
   const labelSet = new Set(
@@ -212,8 +213,8 @@ function buildChart() {
             maxTicksLimit: 10,
             color: 'rgba(26,40,32,0.70)',
             font: { size: 12 },
-            callback(val, index) {
-              return (this as any).getLabelForValue(index) ?? String(val)
+            callback(this: Scale, val, index) {
+              return this.getLabelForValue(index) ?? String(val)
             },
           },
           grid:   { color: 'rgba(0,0,0,0.05)' },

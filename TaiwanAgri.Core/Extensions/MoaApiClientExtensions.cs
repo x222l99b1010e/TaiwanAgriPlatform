@@ -17,7 +17,7 @@ namespace TaiwanAgri.Core.Extensions
 			services.AddHttpClient(ClientName, client =>
 			{
 				client.BaseAddress = new Uri("https://data.moa.gov.tw/");
-				client.Timeout = TimeSpan.FromSeconds(120);
+				client.Timeout = Timeout.InfiniteTimeSpan;
 				client.DefaultRequestHeaders.Add(
 					"User-Agent",
 					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
