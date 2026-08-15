@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { fetchNavModules, type NavModule } from '@/api/nav'
-import { useRoute } from 'vue-router'
 
 export const useNavStore = defineStore('nav', () => {
   const modules = ref<NavModule[]>([])

@@ -17,7 +17,7 @@ export const useProfileStore = defineStore('profile', () => {
     errorMessage.value = null
     try {
       farmProfile.value = await profileApi.getFarmProfile()
-    } catch (e) {
+    } catch {
       errorMessage.value = '載入農場設定失敗'
     } finally {
       isLoading.value = false
@@ -38,7 +38,7 @@ export const useProfileStore = defineStore('profile', () => {
       successMessage.value = '儲存成功'
       // 儲存完重新 fetch，確保畫面顯示的是資料庫裡的資料
       await fetchFarmProfile()
-    } catch (e) {
+    } catch {
       errorMessage.value = '儲存失敗，請稍後再試'
     } finally {
       isSaving.value = false
