@@ -33,3 +33,34 @@ jobs:
 
       - name: Test
         run: dotnet test TaiwanAgri.Tests/TaiwanAgri.Tests.csproj --no-build --no-restore --configuration Release --verbosity normal
+
+  frontend:
+    name: Frontend Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: TaiwanAgri.Frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: TaiwanAgri.Frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: TaiwanAgri.Frontend
+        run: npm run lint
+
+      - name: Test
+        working-directory: TaiwanAgri.Frontend
+        run: npx vitest run
+
+      - name: Build
+        working-directory: TaiwanAgri.Frontend
+        run: npm run build
