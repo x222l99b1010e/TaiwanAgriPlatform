@@ -7,8 +7,9 @@ namespace TaiwanAgri.Modules.Pet.Services
 {
 	public interface IPetService
 	{
-		/// <summary>地圖用，不分頁——回傳篩選後的完整清單，供前端 MarkerCluster 聚合</summary>
-		Task<List<ShelterAnimalResponseDto>> GetShelterAnimalsAsync(ShelterAnimalQueryDto queryDto);
+		/// <summary>地圖用，一間收容所一筆聚合摘要（含 Dog/Cat/Other 拆分計數），取代原本逐隻動物的
+		/// 不分頁清單——結果集本身只有約 30 筆，不需要分頁也不需要防禦性上限</summary>
+		Task<List<ShelterAnimalSummaryDto>> GetShelterAnimalSummaryAsync(ShelterAnimalQueryDto queryDto);
 
 		/// <summary>動物詳情頁用，單筆查詢。找不到回傳 null（id 打錯或資料已被同步流程移除）</summary>
 		Task<ShelterAnimalResponseDto?> GetShelterAnimalByIdAsync(int id);

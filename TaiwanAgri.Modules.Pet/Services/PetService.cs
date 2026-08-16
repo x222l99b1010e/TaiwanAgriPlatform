@@ -12,31 +12,19 @@ namespace TaiwanAgri.Modules.Pet.Services
 	public class PetService(PetDbContext context, TimeProvider timeProvider) : IPetService
 	{
 		/// <summary>
-		/// 地圖用防禦性上限——只防「未篩選的失控爆量」，篩選後不應該踩到。
+		/// 地圖用聚合查詢：一間收容所一筆摘要，取代原本逐隻動物的不分頁清單。
 		/// <para>
-		/// 2026-08-08 W23 實機驗收實測後由 2000 上修為 3000：原值把自己的前提踩破了——
-		/// 最大的新北市單一縣市就有 2588 筆，只選縣市不選種類時會被安靜截斷，
-		/// 也就是「篩選後不會踩到」這句話當時並不成立。3000 讓所有縣市的單一縣市查詢
-		/// 都落在上限內（對今日最大值有約 16% 餘裕）。
-		/// </para>
-		/// <para>
-		/// ⚠ 這個值與前端 ShelterMapView.vue 的 MAP_MARKER_LIMIT 必須一致——前端靠
-		/// 「回傳筆數 == 上限」判斷是否被截斷並提示使用者，兩邊不同步會讓提示失效或誤報。
-		/// 未篩選查詢（全台約 8600 筆）仍會被截斷，這是預期行為，由前端提示引導使用者篩選。
-		/// 根本解法是改用「收容所＋動物數量」的聚合端點（上萬筆標記其實只落在 30 個座標點上），
-		/// 已列為技術債；在那之前若有任何縣市逼近 3000，要回頭重新評估這個值。
+		/// 上萬筆動物其實只落在約 30 個收容所座標上（同一間收容所的所有動物共用該收容所的經緯度）——
+		/// 舊版直接回傳逐隻動物清單，資料形狀與地圖標記需求不合，撞到 3000 筆防禦上限只是把
+		/// 根本問題（傳輸量與資料形狀不合）延後發作。這裡改成兩段查詢：先在篩選後的 ShelterAnimals
+		/// 上依 (ShelterPkId, Kind) 分組計數（最多 30 所 × 3 種類＝90 列），再用一次全表等級的
+		/// Shelters 查詢補回收容所展示欄位，在記憶體 reshape 成一所一筆。結果集本身只有約 30 筆，
+		/// 不需要分頁，也不需要 3000 那種防禦性上限與截斷標頭。
 		/// </para>
 		/// </summary>
-		/// <remarks>
-		/// 公開給 Controller 判斷「這次結果是否被截斷」用。前端不需要知道這個數字是多少，
-		/// 只需要知道有沒有被截斷——所以由 Controller 比對後以回應標頭回覆布林結果，
-		/// 前端不再自行維護一份同樣的常數（否則兩邊各改各的會讓截斷提示失效或誤報）。
-		/// </remarks>
-		public const int MapMarkerSafetyLimit = 3000;
-
-		public async Task<List<ShelterAnimalResponseDto>> GetShelterAnimalsAsync(ShelterAnimalQueryDto queryDto)
+		public async Task<List<ShelterAnimalSummaryDto>> GetShelterAnimalSummaryAsync(ShelterAnimalQueryDto queryDto)
 		{
-			var query = context.ShelterAnimals.Include(x => x.Shelter).AsQueryable();
+			var query = context.ShelterAnimals.AsQueryable();
 
 			if (!string.IsNullOrWhiteSpace(queryDto.County))
 				query = query.Where(x => x.Shelter.County == queryDto.County);
@@ -44,34 +32,41 @@ namespace TaiwanAgri.Modules.Pet.Services
 			if (queryDto.Kind.HasValue)
 				query = query.Where(x => x.Kind == queryDto.Kind.Value);
 
-			return await query
-				.OrderBy(x => x.Id)
-				.Take(MapMarkerSafetyLimit)
-				.Select(x => new ShelterAnimalResponseDto
-				{
-					Id = x.Id,
-					AnimalSubId = x.AnimalSubId,
-					ShelterPkId = x.ShelterPkId,
-					ShelterName = x.Shelter.Name,
-					ShelterAddress = x.Shelter.Address,
-					County = x.Shelter.County,
-					Latitude = x.Shelter.Latitude,
-					Longitude = x.Shelter.Longitude,
-					Kind = x.Kind.ToString(),
-					Sex = x.Sex.ToString(),
-					BodyType = x.BodyType.ToString(),
-					Age = x.Age.ToString(),
-					Sterilization = x.Sterilization.ToString(),
-					Bacterin = x.Bacterin.ToString(),
-					Variety = x.Variety,
-					Colour = x.Colour,
-					FoundPlace = x.FoundPlace,
-					Remark = x.Remark,
-					OpenDate = x.OpenDate,
-					CreatedTime = x.CreatedTime,
-					AlbumFile = x.AlbumFile
-				})
+			var counts = await query
+				.GroupBy(x => new { x.ShelterPkId, x.Kind })
+				.Select(g => new { g.Key.ShelterPkId, g.Key.Kind, Count = g.Count() })
 				.ToListAsync();
+
+			var shelterIds = counts.Select(x => x.ShelterPkId).Distinct().ToList();
+			var shelters = await context.Shelters
+				.Where(x => shelterIds.Contains(x.ShelterPkId))
+				.ToDictionaryAsync(x => x.ShelterPkId);
+
+			return counts
+				.GroupBy(x => x.ShelterPkId)
+				.Select(g =>
+				{
+					var shelter = shelters[g.Key];
+					var dogCount = g.Where(x => x.Kind == AnimalKind.Dog).Sum(x => x.Count);
+					var catCount = g.Where(x => x.Kind == AnimalKind.Cat).Sum(x => x.Count);
+					var otherCount = g.Where(x => x.Kind == AnimalKind.Other).Sum(x => x.Count);
+
+					return new ShelterAnimalSummaryDto
+					{
+						ShelterPkId = shelter.ShelterPkId,
+						ShelterName = shelter.Name,
+						ShelterAddress = shelter.Address,
+						County = shelter.County,
+						Latitude = shelter.Latitude,
+						Longitude = shelter.Longitude,
+						DogCount = dogCount,
+						CatCount = catCount,
+						OtherCount = otherCount,
+						TotalCount = dogCount + catCount + otherCount
+					};
+				})
+				.OrderBy(x => x.ShelterPkId)
+				.ToList();
 		}
 
 		/// <summary>

@@ -19,14 +19,14 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalsAsync_FilterByCountyAndKind_ReturnsOnlyMatching()
+		public async Task GetShelterAnimalSummaryAsync_FilterByCounty_ReturnsOnlyThatCountyWithPerKindBreakdown()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：驗證縣市篩選能透過 Shelter 導覽屬性正確運作（ShelterAnimal 本身沒有 County 欄位），
-			// 且 Kind 篩選是精確 enum 比對，兩個條件同時套用時只留下都符合的那一筆
+			// 且聚合結果依 Kind 拆分計數（Dog/Cat/Other）正確，TotalCount 是三者之和
 
 			var options = new DbContextOptionsBuilder<PetDbContext>()
-				.UseInMemoryDatabase("TestDb_ShelterAnimals_FilterByCountyAndKind")
+				.UseInMemoryDatabase("TestDb_ShelterAnimalSummary_FilterByCounty")
 				.Options;
 			var dbContext = new PetDbContext(options);
 
@@ -35,27 +35,65 @@ namespace TaiwanAgri.Tests.Pet
 			var shelterTainan = new Shelter { ShelterPkId = 2, Name = "台南收容所", County = "臺南市", Address = "地址2" };
 			dbContext.Shelters.AddRange(shelterTaipei, shelterTainan);
 
-			// 三隻動物：台北的狗（應該被篩到）、台北的貓（縣市符合但 Kind 不符合，應被排除）、
-			// 台南的狗（Kind 符合但縣市不符合，應被排除）
+			// 台北收容所：2 狗 1 貓；台南收容所：1 狗（不該出現在結果裡）
 			dbContext.ShelterAnimals.AddRange(
 				new ShelterAnimal { AnimalSubId = "A001", ShelterPkId = 1, Kind = AnimalKind.Dog },
-				new ShelterAnimal { AnimalSubId = "A002", ShelterPkId = 1, Kind = AnimalKind.Cat },
-				new ShelterAnimal { AnimalSubId = "A003", ShelterPkId = 2, Kind = AnimalKind.Dog }
+				new ShelterAnimal { AnimalSubId = "A002", ShelterPkId = 1, Kind = AnimalKind.Dog },
+				new ShelterAnimal { AnimalSubId = "A003", ShelterPkId = 1, Kind = AnimalKind.Cat },
+				new ShelterAnimal { AnimalSubId = "B001", ShelterPkId = 2, Kind = AnimalKind.Dog }
 			);
 			await dbContext.SaveChangesAsync();
 
 			var service = new PetService(dbContext, TimeProvider.System);
-			var queryDto = new ShelterAnimalQueryDto { County = "臺北市", Kind = AnimalKind.Dog };
+			var queryDto = new ShelterAnimalQueryDto { County = "臺北市" };
 
 			// ── Act ──────────────────────────────────────────────
-			var result = await service.GetShelterAnimalsAsync(queryDto);
+			var result = await service.GetShelterAnimalSummaryAsync(queryDto);
 
 			// ── Assert ───────────────────────────────────────────
-			// 只有台北+狗那一筆同時符合兩個條件
 			var item = Assert.Single(result);
-			Assert.Equal("A001", item.AnimalSubId);
+			Assert.Equal(1, item.ShelterPkId);
 			Assert.Equal("臺北市", item.County);
-			Assert.Equal("Dog", item.Kind);
+			Assert.Equal(2, item.DogCount);
+			Assert.Equal(1, item.CatCount);
+			Assert.Equal(0, item.OtherCount);
+			Assert.Equal(3, item.TotalCount);
+		}
+
+		[Fact]
+		public async Task GetShelterAnimalSummaryAsync_FilterByKind_ExcludesSheltersWithNoMatchingAnimals()
+		{
+			// ── Arrange ──────────────────────────────────────────
+			// 目標：篩選種類時聚合數字要跟著變（地圖篩選列的硬需求）；篩選後某收容所完全沒有
+			// 符合條件的動物時，該收容所不該出現在結果裡（跟舊版逐隻動物清單篩選後的行為一致）
+
+			var options = new DbContextOptionsBuilder<PetDbContext>()
+				.UseInMemoryDatabase("TestDb_ShelterAnimalSummary_FilterByKind")
+				.Options;
+			var dbContext = new PetDbContext(options);
+
+			var shelterA = new Shelter { ShelterPkId = 1, Name = "收容所A", County = "臺北市" };
+			var shelterB = new Shelter { ShelterPkId = 2, Name = "收容所B（只有貓）", County = "新北市" };
+			dbContext.Shelters.AddRange(shelterA, shelterB);
+
+			dbContext.ShelterAnimals.AddRange(
+				new ShelterAnimal { AnimalSubId = "A001", ShelterPkId = 1, Kind = AnimalKind.Dog },
+				new ShelterAnimal { AnimalSubId = "A002", ShelterPkId = 1, Kind = AnimalKind.Cat },
+				new ShelterAnimal { AnimalSubId = "B001", ShelterPkId = 2, Kind = AnimalKind.Cat }
+			);
+			await dbContext.SaveChangesAsync();
+
+			var service = new PetService(dbContext, TimeProvider.System);
+
+			// ── Act ──────────────────────────────────────────────
+			var result = await service.GetShelterAnimalSummaryAsync(new ShelterAnimalQueryDto { Kind = AnimalKind.Dog });
+
+			// ── Assert ───────────────────────────────────────────
+			// 只有收容所A 有符合 Kind=Dog 的動物，收容所B（只有貓）篩選後應完全不出現
+			var item = Assert.Single(result);
+			Assert.Equal(1, item.ShelterPkId);
+			Assert.Equal(1, item.DogCount);
+			Assert.Equal(1, item.TotalCount);
 		}
 
 		[Fact]
