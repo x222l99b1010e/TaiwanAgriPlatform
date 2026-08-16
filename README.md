@@ -629,7 +629,9 @@ npm test
 
 | Method | URL | 說明 | 認證 |
 |--------|-----|------|------|
-| GET | `/api/pet/shelter-animals?county=&kind=` | 收容動物地圖查詢（**不分頁**，含收容所座標） | 不需要 |
+| GET | `/api/pet/shelters/summary?county=&kind=` | 收容動物地圖聚合查詢（**一間收容所一筆**，含 Dog/Cat/Other 拆分計數） | 不需要 |
+| GET | `/api/pet/shelters/{shelterId}/animals?kind=&sex=&sortBy=&sortDescending=&page=&pageSize=` | 收容所詳情頁：單一收容所的分頁動物清單 | 不需要 |
+| GET | `/api/pet/shelter-animals/{id}` | 單筆動物詳情 | 不需要 |
 | GET | `/api/pet/official-lost-posts?category=&sex=&sortBy=&sortDescending=&page=&pageSize=` | 官方遺失啟事（分頁，無座標） | 不需要 |
 | GET | `/api/pet/legal-specific-pets?county=&animalType=&rankGrade=&stateFlag=&businessItem=&sortBy=&sortDescending=&page=&pageSize=` | 合法特定寵物業查詢（分頁，無座標，五條件可疊加） | 不需要 |
 | GET | `/api/pet/lost-pet-posts?status=&county=&sortBy=&sortDescending=&page=&pageSize=` | 自建遺失啟事列表（分頁，含座標） | 不需要（登入時額外回傳 `IsOwner`） |
@@ -638,7 +640,11 @@ npm test
 | PUT | `/api/pet/lost-pet-posts/{id}` | 修改自己的啟事（非本人回 404） | **需要 JWT** |
 | DELETE | `/api/pet/lost-pet-posts/{id}` | 刪除自己的啟事（非本人回 404） | **需要 JWT** |
 
-> **`shelter-animals` 為何不分頁**：前端用 leaflet.markercluster 做標記聚合，聚合是拿「瀏覽器記憶體裡目前已有的點」計算的。若分頁，圓圈上的數字會變成「剛好落在這一頁的有幾隻」而非「這個縣市有幾隻」，是會誤導人的假數字。改以篩選條件 + 防禦性 `Take(3000)`（W23 由 2000 調高）上限確保查詢不失控，並以回應標頭 `X-Result-Truncated: true/false` 告知前端這次結果是否被截斷——前端不需要知道上限數字本身，只需要知道有沒有被截斷，於是前後端不必再各存一份上限常數。**已知技術債**：全台上萬筆動物僅落在約 30 個收容所座標上，正解是改用「收容所＋動物數量」聚合端點，見 SA/SD §9.5。
+> **`shelters/summary` 為何一間收容所一筆**：全台上萬筆動物其實只落在約 30 個收容所座標上（同一間
+> 收容所的所有動物共用該收容所的經緯度）。舊版直接回傳逐隻動物清單（不分頁＋防禦性 `Take(3000)`
+> 上限＋`X-Result-Truncated` 截斷標頭），資料形狀與地圖標記需求不合，撞到上限只是把問題延後發作。
+> 改成後端先依 `(ShelterPkId, Kind)` 分組計數、reshape 成一所一筆摘要後，結果集本身只有約 30 筆，
+> 不會被截斷，也不需要分頁或上限機制。
 
 ### 使用者個人化
 
