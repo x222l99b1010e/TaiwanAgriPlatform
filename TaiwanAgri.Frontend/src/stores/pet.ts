@@ -9,6 +9,7 @@ import { petApi } from '@/api/pet'
 import { useLatestRequest } from '@/composables/useLatestRequest'
 import type {
   ShelterAnimalResponseDto,
+  ShelterAnimalSummaryDto,
   GetShelterAnimalsParams,
   GetShelterAnimalsByShelterParams,
   OfficialLostPetPostResponseDto,
@@ -24,32 +25,29 @@ import type {
 
 export const usePetStore = defineStore('pet', () => {
   // ─── 收容動物地圖 ─────────────────────────────────────────────────────
-  // 不分頁，MarkerCluster 需要篩選後的完整清單
+  // 一間收容所一筆聚合摘要，結果集本身只有約 30 筆，不分頁也不會被截斷
+  // （取代原本逐隻動物的不分頁清單＋3000 筆防禦上限＋截斷標頭那整套機制）
 
-  const shelterAnimals = ref<ShelterAnimalResponseDto[]>([])
-  const isLoadingShelterAnimals = ref(false)
-  const shelterAnimalsError = ref<string | null>(null)
-  // 後端以 X-Result-Truncated 標頭告知本次結果是否觸及上限而被截斷；
-  // 前端不複製一份上限常數，避免兩邊各改各的導致提示失效或誤報
-  const shelterAnimalsTruncated = ref(false)
-  const shelterAnimalsRequest = useLatestRequest()
+  const shelterAnimalSummary = ref<ShelterAnimalSummaryDto[]>([])
+  const isLoadingShelterAnimalSummary = ref(false)
+  const shelterAnimalSummaryError = ref<string | null>(null)
+  const shelterAnimalSummaryRequest = useLatestRequest()
 
-  async function fetchShelterAnimals(params: GetShelterAnimalsParams) {
-    const mySeq = shelterAnimalsRequest.next()
-    isLoadingShelterAnimals.value = true
-    shelterAnimalsError.value = null
+  async function fetchShelterAnimalSummary(params: GetShelterAnimalsParams) {
+    const mySeq = shelterAnimalSummaryRequest.next()
+    isLoadingShelterAnimalSummary.value = true
+    shelterAnimalSummaryError.value = null
     try {
-      const result = await petApi.getShelterAnimals(params)
-      if (!shelterAnimalsRequest.isLatest(mySeq)) return
-      shelterAnimals.value = result.items
-      shelterAnimalsTruncated.value = result.truncated
+      const result = await petApi.getShelterAnimalSummary(params)
+      if (!shelterAnimalSummaryRequest.isLatest(mySeq)) return
+      shelterAnimalSummary.value = result
     } catch (e) {
-      if (!shelterAnimalsRequest.isLatest(mySeq)) return
-      shelterAnimalsError.value = '載入收容動物資料失敗，請稍後再試'
+      if (!shelterAnimalSummaryRequest.isLatest(mySeq)) return
+      shelterAnimalSummaryError.value = '載入收容動物資料失敗，請稍後再試'
       console.error(e)
     } finally {
-      if (shelterAnimalsRequest.isLatest(mySeq)) {
-        isLoadingShelterAnimals.value = false
+      if (shelterAnimalSummaryRequest.isLatest(mySeq)) {
+        isLoadingShelterAnimalSummary.value = false
       }
     }
   }
@@ -87,7 +85,7 @@ export const usePetStore = defineStore('pet', () => {
 
   // ─── 收容所詳情頁（單一收容所的分頁動物清單） ───────────────────────────
   // 不掛週次分支新增：popup 摘要「查看全部→」連到獨立頁，這裡是那頁的資料來源，
-  // 跟上面「地圖用、不分頁、跨收容所」的 shelterAnimals 是兩組獨立狀態，不共用
+  // 跟上面「地圖用、跨收容所的聚合摘要」shelterAnimalSummary 是兩組獨立狀態，不共用
 
   const shelterAnimalsByShelterPage = ref<PagedResult<ShelterAnimalResponseDto> | null>(null)
   const isLoadingShelterAnimalsByShelter = ref(false)
@@ -284,11 +282,10 @@ export const usePetStore = defineStore('pet', () => {
 
   return {
     // 收容動物地圖
-    shelterAnimals,
-    isLoadingShelterAnimals,
-    shelterAnimalsError,
-    shelterAnimalsTruncated,
-    fetchShelterAnimals,
+    shelterAnimalSummary,
+    isLoadingShelterAnimalSummary,
+    shelterAnimalSummaryError,
+    fetchShelterAnimalSummary,
     // 動物詳情頁
     shelterAnimalDetail,
     isLoadingShelterAnimalDetail,
