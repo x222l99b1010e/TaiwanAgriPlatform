@@ -59,6 +59,23 @@ export interface GetShelterAnimalsParams {
   kind?: AnimalKind
 }
 
+/**
+ * 對應後端 ShelterAnimalSummaryDto——收容動物地圖聚合端點用，一間收容所一筆摘要，
+ * 取代原本逐隻動物的不分頁清單。結果集本身只有約 30 筆，不會被截斷，也不需要分頁。
+ */
+export interface ShelterAnimalSummaryDto {
+  shelterPkId: number
+  shelterName: string
+  shelterAddress: string
+  county: string
+  latitude: number | null
+  longitude: number | null
+  totalCount: number
+  dogCount: number
+  catCount: number
+  otherCount: number
+}
+
 export type ShelterAnimalSortByValue = 'CreatedTime' | 'AnimalSubId'
 
 /** 收容所詳情頁用：單一收容所的分頁查詢（不掛週次分支新增，見 shelters/{shelterId}/animals） */
@@ -195,22 +212,15 @@ export interface UpdateLostPetPostRequest extends CreateLostPetPostRequest {
 
 export const petApi = {
   /**
-   * GET /api/pet/shelter-animals — 刻意不分頁，地圖需要篩選後的完整清單。
+   * GET /api/pet/shelters/summary — 收容動物地圖用，一間收容所一筆聚合摘要。
    *
-   * 端點有防禦性上限，結果可能被截斷。**是否截斷由後端用 `X-Result-Truncated` 標頭直接告知**，
-   * 前端不自行拿筆數去比對一份複製的上限常數——上限值只存在後端一處，日後調整不必同步改前端。
-   * ⚠ 跨網域部署時該標頭需要後端 CORS 的 `WithExposedHeaders` 放行（已設定）。
+   * 取代原本逐隻動物的不分頁清單（曾有 3000 筆防禦上限與 X-Result-Truncated 截斷標頭那整套
+   * 機制，資料源頭問題解決後一併移除）：結果集本身只有約 30 筆，不會被截斷，也不需要分頁。
    */
-  getShelterAnimals(
-    params: GetShelterAnimalsParams
-  ): Promise<{ items: ShelterAnimalResponseDto[]; truncated: boolean }> {
+  getShelterAnimalSummary(params: GetShelterAnimalsParams): Promise<ShelterAnimalSummaryDto[]> {
     return apiClient
-      .get<ShelterAnimalResponseDto[]>('/api/pet/shelter-animals', { params })
-      .then(res => ({
-        items: res.data,
-        // 標頭缺席時（舊版後端／代理層剝掉）一律當作沒有截斷，寧可不提示也不要誤報
-        truncated: String(res.headers['x-result-truncated']).toLowerCase() === 'true',
-      }))
+      .get<ShelterAnimalSummaryDto[]>('/api/pet/shelters/summary', { params })
+      .then(res => res.data)
   },
 
   /**
