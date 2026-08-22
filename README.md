@@ -44,12 +44,13 @@
 - 旬密度查詢（害蟲旬別密度折線圖，支援城市多線切換）
 - 智慧病蟲害提示：規則引擎偵測閾值與事件型規則，主動推送通知
 - 通知鈴鐺：未讀紅點 + Dropdown 無限捲動 + 一鍵全部已讀
+- 農藥查詢（W24）：輸入成分俗名／英文名查詢許可證狀態、適用作物與安全採收期，即時打農業部 API 不落地
 
 ### 🔐 身分驗證 + RBAC + 動態 Navbar（W11~W15 完成）
 
 - ASP.NET Core Identity + JWT（SignInManager + UserManager + JwtSecurityTokenHandler）
 - 登入 / 註冊（後端驗證訊息中文翻譯）
-- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，目前 20 筆：4 個頂層模組 + 16 個子功能）
+- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，目前 21 筆：4 個頂層模組 + 17 個子功能）
 - RoleModulePermission 複合 PK Entity（RoleId × ModuleId，Guest / Admin 各一列）
 - NavController `[AllowAnonymous]`：訪客直接取得 Guest 可見模組清單，無需 JWT
 - Vue 3 TopNav：頂層 tabs + hover dropdown 子功能渲染
@@ -329,7 +330,8 @@ TaiwanAgriPlatform/
 │   │   │   │   ├── StationView.vue   # 農場氣象（卡片格）
 │   │   │   │   ├── RainfallView.vue  # 雨量趨勢（折線圖 + 明細表格）
 │   │   │   │   ├── PestAlertsView.vue # 病蟲害警報牆（可展開）
-│   │   │   │   └── PestDecadeView.vue # 旬密度趨勢（折線圖 + 全選切換）
+│   │   │   │   ├── PestDecadeView.vue # 旬密度趨勢（折線圖 + 全選切換）
+│   │   │   │   └── PesticideSearchView.vue # 農藥查詢（三層巢狀：成分 → 劑型 → 用途/許可證）
 │   │   │   ├── pet/
 │   │   │   │   ├── ShelterMapView.vue    # 收容動物地圖（Leaflet + MarkerCluster + 依收容所分組渲染）
 │   │   │   │   ├── LostPetsView.vue      # 遺失啟事列表 + 登記表單（IsOwner 按鈕、地圖點選座標）
@@ -621,6 +623,7 @@ npm test
 | GET | `/api/Pest/alerts?cityName=臺北市&page=1` | 病蟲害警報（分頁 20 筆） | 不需要 |
 | GET | `/api/Pest/pest-names` | 所有害蟲名稱清單 | 不需要 |
 | GET | `/api/Pest/decade-density?pestName=東方果實蠅` | 旬密度歷史資料 | 不需要 |
+| GET | `/api/Weather/pesticides?keyword=亞滅培` | 農藥查詢（中英文名擇一或併用，含 includeRevoked 參數） | 不需要 |
 | GET | `/api/Notification/list?page=1` | 使用者通知列表 | **需要 JWT** |
 | GET | `/api/Notification/unread-count` | 未讀通知數 | **需要 JWT** |
 | PATCH | `/api/Notification/{id}/read` | 標記單筆已讀 | **需要 JWT** |
@@ -696,6 +699,7 @@ npm test
 | W21 | 模組 1（食安） | FoodSafetyDbContext + 模組骨架；今日菜價快覽 + 全站菜價輪播（W21a）；農產品追溯查詢（W21b）；農藥違規警示牆 + PesticideViolationSyncWorker（W21c）；有機農產品驗證查詢 + OrganicCertificationSyncWorker（W21d）（GitHub PR #5–#8） | ✅ 完成 |
 | —（不掛週次） | Code Review 修正批次 | TimeProvider 時鐘注入 + 台灣時區日界；ScheduledSyncWorkerBase / DbSyncHelper / MoaPagedFetcher 抽共用；Watchlist N+1 批次化；分頁排序穩定性；(CropCode, MarketCode, TransDate DESC) 索引；前端 vitest 導入 + useLatestRequest/usePagination（PR #045–046，GitHub PR #10–#12） | ✅ 完成 |
 | W22–23 | 模組 3（寵物地圖） | **後端**：三支同步 Worker（收容動物回填 8187 筆 + 官方遺失啟事 + 合法業者 upsert）、五張資料表、33 間收容所座標種子、PetController 7 支端點、49→65 測試（PR #048）。**前端**：`ShelterMapView`（Leaflet + MarkerCluster，並依收容所座標分組渲染一所一標記）、`LostPetsView`（遺失啟事 CRUD、`IsOwner` 按鈕、地圖點選座標）、`LegalBusinessView`（五條件疊加篩選 + 三種排序 + 業務項目中文化），65→75 後端測試、8→27 前端測試（PR #049）。前端串接期間回頭修正後端四處介面不一致（`IsOwner`／`[FromBody]` enum／篩選排序／標記上限與截斷標頭）（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ✅ 完成 |
+| W24 | 模組 2（農藥查詢） | GET /api/Weather/pesticides：中英文成分名查詢（可併用，英文名字元白名單防護）；即時打農業部 PesticideDataQueryType，不落地；三層回應（成分 → 劑型 → 用途/許可證），使用範圍依 (成分,含量,劑型) 去重後並行抓取；PesticideForms 劑型代碼對照表（5246 張許可證實測校正）；PesticideSearchView.vue 前端畫面；NavModules 補入口。84→151 測試（GitHub PR 待開） | ✅ 完成 |
 
 ---
 
