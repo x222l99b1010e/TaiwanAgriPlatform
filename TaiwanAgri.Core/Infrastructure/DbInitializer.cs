@@ -53,6 +53,8 @@ namespace TaiwanAgri.Core.Infrastructure
 						new() { Name = "旬報查詢",   Route = "/weather/pest-decade",   Icon = "mdi-file-chart",      IsActive = true, SortOrder = 4 },
 						// 智慧提示暫停用（IsActive = false），與正式環境 DB 現況一致（2026-07-11 同步）
 						new() { Name = "智慧提示",   Route = "/weather/notifications", Icon = "mdi-bell-ring",       IsActive = false, SortOrder = 5 },
+						// W24 農藥查詢：SortOrder 排在停用的「智慧提示」之後，維持既有項目的順序不動
+						new() { Name = "農藥查詢",   Route = "/weather/pesticides",    Icon = "mdi-spray-bottle",    IsActive = true, SortOrder = 6 },
 					}
 				},
 				new() { Name = "食安透明網", Route = "/food-safety", Icon = "mdi-shield-check",   IsActive = true, SortOrder = 3, Children = new List<NavModule>
