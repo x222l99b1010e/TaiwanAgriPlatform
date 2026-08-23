@@ -19,6 +19,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
+    <!-- PesticideService 直接使用 IHttpClientFactory：目前雖可經由其他套件遞移取得，
+         但直接用到的型別應該明確宣告來源，避免上游套件調整相依時無預警編譯失敗（比照 FoodSafety 模組） -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TaiwanAgri.Tests" />
   </ItemGroup>
 
   <ItemGroup>

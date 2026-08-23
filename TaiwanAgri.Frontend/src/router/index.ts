@@ -15,6 +15,7 @@ import StationView     from '@/views/weather/StationView.vue'
 import RainfallView    from '@/views/weather/RainfallView.vue'
 import PestAlertsView  from '@/views/weather/PestAlertsView.vue'
 import PestDecadeView  from '@/views/weather/PestDecadeView.vue'
+import PesticideSearchView from '@/views/weather/PesticideSearchView.vue'
 
 import LoginView       from '@/views/auth/LoginView.vue'
 import ProfileView     from '@/views/ProfileView.vue'
@@ -66,6 +67,7 @@ const router = createRouter({
         { path: 'rainfall',    component: RainfallView },
         { path: 'pest-alerts', component: PestAlertsView },
         { path: 'pest-decade', component: PestDecadeView },
+        { path: 'pesticides',  component: PesticideSearchView },
       ]
     },
 

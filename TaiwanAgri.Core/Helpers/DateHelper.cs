@@ -123,6 +123,40 @@ namespace TaiwanAgri.Core.Helpers
 			return null;
 		}
 		/// <summary>
+		/// 解析「分隔符不固定的民國日期字串」，回傳西元 DateOnly；任何無法解析的輸入一律回傳 null，不拋例外。
+		/// 接受 '.'、'-'、'/' 三種分隔符。
+		/// 輸入："120-02-19"　→　輸出：DateOnly(2031, 2, 19)
+		/// 輸入："079/05/03"　→　輸出：DateOnly(1990, 5, 3)
+		/// 輸入："   /  /  " / null / ""　→　輸出：null
+		///
+		/// 為什麼需要這支而不沿用 ParseRocDate：農藥許可證資料（PesticideDataQueryType）的兩個日期欄位
+		/// 分隔符不一致——ExpireDate 用短橫線（120-02-19）、RevocationDate 用斜線（079/05/03）——
+		/// 且 RevocationDate 的「無值」不是空字串或 null，而是含空白的 "   /  /  "。
+		/// ParseRocDate 只吃 '.' 且格式不符就拋 FormatException，外部資料每筆都套用會直接中斷整批。
+		/// 這裡採「單筆無法解析就當作沒有這個日期」的欄位級容忍策略（比照 §12.35.4）。
+		/// </summary>
+		public static DateOnly? ParseRocSeparatedDate(string? input)
+		{
+			if (string.IsNullOrWhiteSpace(input)) return null;
+
+			string[] parts = input.Split('.', '-', '/');
+			if (parts.Length != 3) return null;
+
+			if (!int.TryParse(parts[0].Trim(), out int rocYear) ||
+				!int.TryParse(parts[1].Trim(), out int month) ||
+				!int.TryParse(parts[2].Trim(), out int day))
+			{
+				return null;
+			}
+
+			// 民國年必須為正數：西元年 = 民國年 + 1911，rocYear <= 0 代表資料本身有問題
+			if (rocYear <= 0) return null;
+
+			try { return new DateOnly(rocYear + 1911, month, day); }
+			catch { return null; }
+		}
+
+		/// <summary>
 		/// 將民國年、月、日三個整數轉換為西元 DateOnly；日期無效時回傳 null，不拋例外。
 		/// 輸入：(107, 7, 15)　→　輸出：DateOnly(2018, 7, 15)
 		/// 輸入：(107, 2, 30)　→　輸出：null（2 月沒有 30 日）
