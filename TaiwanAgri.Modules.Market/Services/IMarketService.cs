@@ -5,8 +5,17 @@ namespace TaiwanAgri.Modules.Market.Services
 	public interface IMarketService
 	{
 		Task<List<PorkResponseDto>> GetPorkAsync(
-			string? marketName, 
-			DateOnly? startDate, 
+			string? marketName,
+			DateOnly? startDate,
+			DateOnly? endDate);
+
+		/// <summary>
+		/// 家禽行情查詢。metricCodes 為 null 或空陣列時回傳全部 17 個指標；
+		/// 回傳含價格為 null 的資料點（狀態由 PriceStatus 表達），不在此層過濾
+		/// </summary>
+		Task<List<PoultryResponseDto>> GetPoultryAsync(
+			string[]? metricCodes,
+			DateOnly? startDate,
 			DateOnly? endDate);
 		Task<List<RestDayResponseDto>> GetRestDaysAsync(
 		string marketCode,
