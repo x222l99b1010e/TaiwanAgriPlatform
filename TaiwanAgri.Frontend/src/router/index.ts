@@ -9,6 +9,7 @@ import PricesView      from '@/views/market/PricesView.vue'
 import DisastersView   from '@/views/market/DisastersView.vue'
 import RestDaysView    from '@/views/market/RestDaysView.vue'
 import PorkView        from '@/views/market/PorkView.vue'
+import PoultryView     from '@/views/market/PoultryView.vue'
 
 import WeatherView     from '@/views/WeatherView.vue'
 import StationView     from '@/views/weather/StationView.vue'
@@ -54,6 +55,7 @@ const router = createRouter({
         { path: 'disasters', component: DisastersView },
         { path: 'rest-days', component: RestDaysView },
         { path: 'pork',      component: PorkView },
+        { path: 'poultry',   component: PoultryView },
       ]
     },
 

@@ -54,6 +54,25 @@ export interface PorkResponseDto{
   excludeFreezerCount: number
 }
 
+// W25 家禽行情：長表設計，一筆對應「某天、某指標」的一個資料點
+// PriceStatus 七態：Normal／Empty／Closed／NotQuoted／Negotiated／RangeQuote／Unrecognized
+// Price 只有 Normal 才有值，其餘為 null；DisplayName 由後端 PoultryMetrics.cs 帶出，
+// 前端不需自備中文對照表（單一真相來源在後端）
+export interface PoultryResponseDto {
+  transDate: string
+  metricCode: string
+  displayName: string
+  price: number | null
+  priceStatus: string
+  rawValue: string | null
+}
+
+// GET /api/market/poultry/metrics 回傳的指標清單（用來畫指標勾選區，查詢前就要有）
+export interface PoultryMetricDto {
+  metricCode: string
+  displayName: string
+}
+
 // ─── Request 參數型別 ──────────────────────────────────────────────────────
 
 export type MarketType = 'Veg' | 'Fruit' | 'Flower'
@@ -136,5 +155,29 @@ export const marketApi = {
     return apiClient
     .get<PorkResponseDto[]>('/api/market/pork', {params})
       .then(res =>res.data)
-  }
+  },
+
+  /** GET /api/market/poultry?metricCodes=A&metricCodes=B&startDate=...&endDate=... */
+  getPoultry(params: {
+    metricCodes?: string[]
+    startDate?: string
+    endDate?: string
+  }): Promise<PoultryResponseDto[]> {
+    // metricCodes 是陣列，比照 getPrices 的 cropCodes 用 URLSearchParams 才能產生重複參數
+    const searchParams = new URLSearchParams()
+    params.metricCodes?.forEach(code => searchParams.append('metricCodes', code))
+    if (params.startDate) searchParams.append('startDate', params.startDate)
+    if (params.endDate) searchParams.append('endDate', params.endDate)
+
+    return apiClient
+      .get<PoultryResponseDto[]>('/api/market/poultry', { params: searchParams })
+      .then(res => res.data)
+  },
+
+  /** GET /api/market/poultry/metrics：指標清單，查詢前就要用來畫勾選區 */
+  getPoultryMetrics(): Promise<PoultryMetricDto[]> {
+    return apiClient
+      .get<PoultryMetricDto[]>('/api/market/poultry/metrics')
+      .then(res => res.data)
+  },
 }
