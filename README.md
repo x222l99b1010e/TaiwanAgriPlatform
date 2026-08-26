@@ -592,7 +592,7 @@ npm test
 >
 > **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V34.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -838,7 +838,7 @@ Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistri
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V34.docx` | SA/SD 完整設計文件（W1–W24 全部實戰開發紀錄 + Code Review 修正批次與模組 3 收尾批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V35.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + Code Review 修正批次與模組 3 收尾批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -858,4 +858,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-08-26 ｜ 對應 SA/SD 文件版本 V34（W25 的 V35 升版進行中）｜ W25 模組 4 家禽行情完成（長表設計、7 態 PriceStatus、四組獨立 SyncState、回填 88,236 列，後端 185 測試 + 前端 27 測試）*
+*最後更新：2026-08-27 ｜ 對應 SA/SD 文件版本 V35 ｜ W25 模組 4 家禽行情完成（長表設計、7 態 PriceStatus、四組獨立 SyncState、回填 88,236 列，後端 185 測試 + 前端 27 測試）*
