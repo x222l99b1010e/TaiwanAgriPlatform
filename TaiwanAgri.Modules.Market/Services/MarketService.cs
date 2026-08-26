@@ -238,6 +238,51 @@ namespace TaiwanAgri.Modules.Market.Services
 			return porkList;
 		}
 
+		public async Task<List<PoultryResponseDto>> GetPoultryAsync(
+			string[]? metricCodes = null,
+			DateOnly? startDate = null,
+			DateOnly? endDate = null)
+		{
+			// 預設區間比照 GetPorkAsync：未指定就給最近一年
+			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
+			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+
+			// null 或空陣列＝不篩選指標（回傳全部 17 個）。
+			// Controller 已用 PoultryMetrics.IsValid 擋掉無效代碼，這裡不重複驗證
+			var filterCodes = metricCodes is { Length: > 0 } ? metricCodes : null;
+
+			var rows = await _context.PoultryTrans
+				.Where(p => p.TransDate >= finalStart && p.TransDate <= finalEnd)
+				.Where(p => filterCodes == null || filterCodes.Contains(p.MetricCode))
+				// 排序放在投影前、且一定要有（V30 教訓：Skip/Take 或 Take 前必加 OrderBy）。
+				// 先依指標分組再依日期排，前端多線折線圖可直接依序切線，不必自己重排
+				.OrderBy(p => p.MetricCode)
+				.ThenBy(p => p.TransDate)
+				.Select(p => new
+				{
+					p.TransDate,
+					p.MetricCode,
+					p.Price,
+					p.PriceStatus,
+					p.RawValue
+				})
+				.ToListAsync();
+
+			// DisplayName 在記憶體端補上：PoultryMetrics.DisplayNames 是 C# 字典，
+			// 放進 Select 會讓 EF 無法轉譯（比照 DevLog 條目 289 MapToResponseDto 的教訓）
+			return rows.Select(p => new PoultryResponseDto
+			{
+				TransDate = p.TransDate,
+				MetricCode = p.MetricCode,
+				DisplayName = PoultryMetrics.DisplayNames.TryGetValue(p.MetricCode, out var name)
+					? name
+					: p.MetricCode,
+				Price = p.Price,
+				PriceStatus = p.PriceStatus.ToString(),
+				RawValue = p.RawValue
+			}).ToList();
+		}
+
 		public async Task<List<LatestPriceDto>> GetLatestPricesAsync(
 			IEnumerable<(string CropCode, string MarketCode)> keys)
 		{

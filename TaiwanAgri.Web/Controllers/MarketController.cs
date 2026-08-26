@@ -30,6 +30,42 @@ namespace TaiwanAgri.Web.Controllers
 			var result = await _marketService.GetPorkAsync(marketName, start, end);
 			return Ok(result);
 		}
+		[HttpGet("poultry")]
+		public async Task<IActionResult> GetPoultry(
+			[FromQuery] string[]? metricCodes = null,
+			[FromQuery] string? startDate = null,
+			[FromQuery] string? endDate = null)
+		{
+			// 白名單驗證：不合法的代碼直接擋下，不讓它安靜地回空陣列
+			// （安靜回空是最難查的錯誤——打錯字跟「這段期間真的沒資料」看起來一樣）
+			if (metricCodes is { Length: > 0 })
+			{
+				var invalid = metricCodes.Where(c => !PoultryMetrics.IsValid(c)).ToArray();
+				if (invalid.Length > 0)
+					return BadRequest($"不支援的 metricCodes：{string.Join(", ", invalid)}");
+			}
+
+			var start = DateHelper.ParseIsoDate(startDate);
+			var end = DateHelper.ParseIsoDate(endDate);
+			if (startDate != null && start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
+			if (endDate != null && end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
+
+			var result = await _marketService.GetPoultryAsync(metricCodes, start, end);
+			return Ok(result);
+		}
+
+		[HttpGet("poultry/metrics")]
+		public IActionResult GetPoultryMetrics()
+		{
+			// 指標清單與中文顯示名的單一真相來源在後端，前端不必自備一份對照表
+			// （前端硬編一份會與 PoultryMetrics.cs 分岔，日後加指標時漏改其中一邊）
+			var metrics = PoultryMetrics.DisplayNames
+				.Select(kv => new { MetricCode = kv.Key, DisplayName = kv.Value })
+				.ToList();
+
+			return Ok(metrics);
+		}
+
 		[HttpGet("rest-days")]
 		public async Task<IActionResult> GetRestDays(
 			[FromQuery] string marketCode,

@@ -70,6 +70,7 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<AgriProductsTransSyncWorker>();
 			builder.Services.AddHostedService<DebrisAlertRecordSyncWorker>();
 			builder.Services.AddHostedService<PorkTransSyncWorker>();
+			builder.Services.AddHostedService<PoultryTransSyncWorker>();
 			//FoodSafety 註冊
 			builder.Services.AddHostedService<PesticideViolationSyncWorker>();
 			builder.Services.AddHostedService<OrganicCertificationSyncWorker>();
