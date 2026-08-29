@@ -32,6 +32,7 @@
 - 休市日標記（排除統計陷阱）— 已完成（32,149 筆休市記錄同步完畢）
 - 數據 CSV 匯出（純函式 exportCsv.ts，含 UTF-8 BOM）
 - 毛豬行情查詢（多線折線圖、指標切換、市場下拉 computed 動態萃取）
+- 家禽行情查詢（W25）：白肉雞／雞蛋／紅羽土雞／黑羽土雞／肉鵝／番鴨／鴨蛋共 17 個指標分組勾選、多線折線圖、非常態報價明細表、CSV 與圖片匯出
 - 前台已完成：Vue 3 + Pinia + api/Store/Component 三層架構，Promise.all 並行兩支 API
 
 ### 🌤️ 模組 2：智慧青農戰情室（後端已完成，前台已完成）
@@ -50,7 +51,7 @@
 
 - ASP.NET Core Identity + JWT（SignInManager + UserManager + JwtSecurityTokenHandler）
 - 登入 / 註冊（後端驗證訊息中文翻譯）
-- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，目前 21 筆：4 個頂層模組 + 17 個子功能）
+- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，目前 22 筆：4 個頂層模組 + 18 個子功能）
 - RoleModulePermission 複合 PK Entity（RoleId × ModuleId，Guest / Admin 各一列）
 - NavController `[AllowAnonymous]`：訪客直接取得 Guest 可見模組清單，無需 JWT
 - Vue 3 TopNav：頂層 tabs + hover dropdown 子功能渲染
@@ -116,7 +117,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                  TaiwanAgri.Worker                          │
 │    .NET Worker Service + Serilog                            │
-│    16 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼     │
+│    17 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼     │
 │    依模組分資料夾（Weather / Market / FoodSafety / Pet）      │
 │    落地共用 DbSyncHelper（InsertNewByKey / UpsertByKey）     │
 └──────────┬────────────────────────┬─────────────────────────┘
@@ -141,7 +142,7 @@
      │   2022     │         │   ApplicationDbContext               │
      └────────────┘         │   (繼承 IdentityDbContext)            │
                             │   GlobalExceptionMiddleware           │
-                            │   MarketController  (6 支端點)        │
+                            │   MarketController  (8 支端點)        │
                             │   FoodSafetyController (4 支端點)     │
                             │   PetController     (10 支端點)       │
                             │   NavController [AllowAnonymous]      │
@@ -169,7 +170,7 @@ TaiwanAgriPlatform/
 │
 ├── TaiwanAgri.Core/                  # 共用 Interface / DTO / Enum / Entity
 │   ├── Constants/
-│   │   └── MoaApiEndpoints.cs        # 實際串接的 23 支端點路徑集中定義（含 3 支舊制 TransService 通道）
+│   │   └── MoaApiEndpoints.cs        # 實際串接的 27 支端點路徑集中定義（含 3 支舊制 TransService 通道）
 │   ├── Entities/
 │   │   ├── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
 │   │   ├── NavModule.cs              # 自參照樹狀 Entity（ParentId 自參照 FK）
@@ -191,7 +192,7 @@ TaiwanAgriPlatform/
 │   └── Infrastructure/
 │       ├── Data/
 │       │   └── CoreDbContext.cs      # SyncStates + NavModules + RoleModulePermissions
-│       └── DbInitializer.cs          # Seed NavModules（4 頂層 + 17 子功能）+ RoleModulePermissions
+│       └── DbInitializer.cs          # Seed NavModules（4 頂層 + 18 子功能）+ RoleModulePermissions
 │
 ├── TaiwanAgri.Modules.Weather/       # 模組 2：氣象 + 病蟲害 + 農藥查詢
 │   ├── Constants/
@@ -201,15 +202,19 @@ TaiwanAgriPlatform/
 ├── TaiwanAgri.Modules.Market/        # 模組 4 + 1：行情分析
 │   ├── Constants/
 │   │   ├── CacheKeys.cs              # Redis Cache Key 前綴常數
-│   │   └── MarketTypeMapping.cs      # MarketType ↔ TcType 對應（單一真相來源）
+│   │   ├── MarketTypeMapping.cs      # MarketType ↔ TcType 對應（單一真相來源）
+│   │   └── PoultryMetrics.cs         # 家禽 MetricCode ↔ 中文名對照（W25，17 個指標的單一真相來源）
 │   ├── Data/
 │   │   └── MarketDbContext.cs        # ConfigureConventions decimal(8,2)
 │   ├── Dtos/
 │   │   ├── WorkerResponses/          # Worker 從 MOA API 反序列化用 DTO
 │   │   └── ApiResponses/             # Service 輸出給前端的 DTO
 │   ├── Entities/
-│   │   └── (MarketRestDay / MarketInfo / CropInfo / AgriProductsTrans
-│   │         / DebrisAlertRecord / PorkTrans)
+│   │   ├── (MarketRestDay / MarketInfo / CropInfo / AgriProductsTrans
+│   │   │     / DebrisAlertRecord / PorkTrans / PoultryTrans)
+│   │   └── Enums/PriceStatus.cs      # 家禽價格 7 態（W25，全歷史窮舉後定案）
+│   ├── Helpers/
+│   │   └── PoultryPriceParser.cs     # 家禽價格字串 → PriceStatus + RawValue（W25）
 │   └── Services/
 │       ├── IMarketService.cs
 │       └── MarketService.cs          # 三表 JOIN、GroupBy 聚合、Cache-Aside
@@ -257,16 +262,17 @@ TaiwanAgriPlatform/
 │       ├── IPetService.cs
 │       └── PetService.cs             # 地圖聚合查詢（一所一筆）+ 四支分頁/單筆查詢（W23 補篩選排序）+ CRUD 越權防禦
 │
-├── TaiwanAgri.Worker/                # 入口層：16 支排程 Worker + DI 組裝（依模組分資料夾）
+├── TaiwanAgri.Worker/                # 入口層：17 支排程 Worker + DI 組裝（依模組分資料夾）
 │   ├── ScheduledSyncWorkerBase.cs    # 排程外殼基底（SyncAsync/Interval/LogPrefix + 0–30s 啟動 jitter）
-│   ├── Weather/ Market/ FoodSafety/  # 既有 13 支 Worker
+│   ├── Weather/ Market/ FoodSafety/  # 既有 14 支 Worker（Market 含 W25 的 PoultryTransSyncWorker，
+│   │                                 #   單一 Worker 服務四條獨立資料流、四組 SyncState）
 │   └── Pet/                          # AnimalRecognition / PetLoseList / LegalSpecificPet 三支
 │
 ├── TaiwanAgri.Web/                   # 入口層：Web API + DI 組裝
 │   ├── Controllers/
 │   │   ├── AuthController.cs         # POST /api/auth/login、POST /api/auth/register
 │   │   ├── FoodSafetyController.cs   # 今日菜價 / 追溯 / 違規牆 / 有機驗證（4 支端點）
-│   │   ├── MarketController.cs       # 6 支端點（含 /pork）
+│   │   ├── MarketController.cs       # 8 支端點（含 /pork、/poultry、/poultry/metrics）
 │   │   ├── NavController.cs          # [AllowAnonymous] GET /api/nav/modules
 │   │   ├── NotificationController.cs # [Authorize] 通知列表 / 未讀數 / 標記已讀
 │   │   ├── PetController.cs          # 寵物模組 10 支端點（GET 公開，CRUD [Authorize]）
@@ -369,7 +375,7 @@ TaiwanAgriPlatform/
 │   │       └── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 151 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 185 個測試案例）
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
@@ -493,7 +499,7 @@ Update-Database -Context ApplicationDbContext -StartupProject TaiwanAgri.Web
 # 2. 氣象 + 病蟲害模組
 Update-Database -Context WeatherDbContext -StartupProject TaiwanAgri.Worker
 
-# 3. 行情模組（MarketRestDays / MarketInfos / CropInfos / AgriProductsTrans / PorkTrans / DebrisAlertRecords）
+# 3. 行情模組（MarketRestDays / MarketInfos / CropInfos / AgriProductsTrans / PorkTrans / PoultryTrans / DebrisAlertRecords）
 Update-Database -Context MarketDbContext -StartupProject TaiwanAgri.Worker
 
 # 4. 跨模組基礎設施（SyncStates + NavModules + RoleModulePermissions）
@@ -542,7 +548,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 151 個測試案例）
+# 後端（xUnit + Moq，共 185 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -551,7 +557,7 @@ cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Helpers / Market / User / Watchlist / FoodSafety / Weather / Pet / Worker 八個面向；前端涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）與 `usePagination`（分頁視窗計算與跳頁邊界，19 個測試）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather / Pet / Worker 八個面向；前端涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）與 `usePagination`（分頁視窗計算與跳頁邊界，19 個測試）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -566,7 +572,7 @@ npm test
 `WeatherObservations` | `RainfallStations` | `RainfallObservations` | `PestAlerts` | `PestAlertCities` | `PestAlertCrops` | `PestDecadeSummaries` | `PestRuleConfigs` | `UserNotifications`
 
 **MarketDbContext**（`TaiwanAgri.Modules.Market`，schema: market）：
-`MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans` | `DebrisAlertRecords`
+`MarketRestDays` | `MarketInfos` | `CropInfos` | `AgriProductsTrans` | `PorkTrans` | `PoultryTrans`（長表設計，見下方說明）| `DebrisAlertRecords`
 
 **CoreDbContext**（`TaiwanAgri.Core`，schema: core）：
 `SyncStates`（增量同步進度追蹤）| `NavModules`（自參照樹狀導覽主檔）| `RoleModulePermissions`（角色模組可見度，複合 PK）
@@ -583,8 +589,10 @@ npm test
 > **跨 DbContext FK 說明**：`RoleModulePermissions.RoleId` 指向 `AspNetRoles.Id`（GUID），以 `nvarchar(450)` 邏輯 FK 處理，無物理 FOREIGN KEY CONSTRAINT。`UserFarmCrop.CropName` 為跨 DbContext 快照欄位，寫入時從 MarketDbContext 複製，不做即時 JOIN。`LostPetPost.UserId` 同樣是跨 DbContext 邏輯 FK（指向 `AspNetUsers`，無導覽屬性）。
 >
 > **enum 儲存慣例**：`PetDbContext` 的所有 enum 屬性皆設 `HasConversion<string>()`，資料庫存可讀字串而非數字——好處是新增列舉成員不需要 Migration，也讓直接查 DB 時看得懂。
+>
+> **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V34.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -613,6 +621,18 @@ npm test
 | GET | `/api/market/disasters` | 天災警戒事件清單（GroupBy 去重） | 不需要 |
 | GET | `/api/market/rest-days` | 市場休市日清單 | 不需要 |
 | GET | `/api/market/pork` | 毛豬行情（依日期區間 + 市場篩選） | 不需要 |
+| GET | `/api/market/poultry` | 家禽行情（依日期區間 + 指標篩選，長表一列一資料點） | 不需要 |
+| GET | `/api/market/poultry/metrics` | 家禽 17 個指標代碼與中文名對照 | 不需要 |
+
+#### GET /api/market/poultry 參數
+
+| 參數 | 型別 | 必填 | 說明 |
+|------|------|------|------|
+| metricCodes | string[] | — | 不傳則回傳全部 17 個指標（`&metricCodes=Egg_Producer&metricCodes=...`）；代碼須通過 `PoultryMetrics` 白名單，無效代碼回 400 而非安靜回空陣列 |
+| startDate | string | — | yyyy-MM-dd，預設今天往前 365 天 |
+| endDate | string | — | yyyy-MM-dd，預設今天 |
+
+> 回應**刻意完整回傳非 `Normal` 的資料點**（`Price` 為 null、`PriceStatus` 標明原因、`RawValue` 保留原文），不在查詢層過濾——濾掉的話前端無法分辨「這個指標本來就少報價」（紅羽土雞南區兩條線超過三分之一天數未報價、雞蛋產地價 94% 無數值）與「同步壞掉了」。
 
 #### GET /api/market/prices 參數
 
@@ -689,7 +709,7 @@ npm test
 
 > **重要限制**：免費帳號分頁 API 只回傳第一頁資料（每頁最多 1,000 筆）。程式碼中保留分頁迴圈，當 API 回傳 `RS: "ERROR"` 時會優雅地 `break`，不影響正常運作。
 
-本專案**實際串接的 23 支端點**路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
+本專案**實際串接的 27 支端點**路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
 （其中 3 支走農業部舊制 `TransService` 通道：土石流警戒、收容動物一次性回填、合法特定寵物業一次性回填）。
 探勘後判定不採用的候選端點，在該檔以註解記錄排除理由，避免日後重複探勘。
 
@@ -722,6 +742,7 @@ npm test
 | W22–23 | 模組 3（寵物地圖） | **後端**：三支同步 Worker（收容動物回填 8187 筆 + 官方遺失啟事 + 合法業者 upsert）、五張資料表、33 間收容所座標種子、PetController 7 支端點、49→65 測試（PR #048）。**前端**：`ShelterMapView`（Leaflet + MarkerCluster，並依收容所座標分組渲染一所一標記）、`LostPetsView`（遺失啟事 CRUD、`IsOwner` 按鈕、地圖點選座標）、`LegalBusinessView`（五條件疊加篩選 + 三種排序 + 業務項目中文化），65→75 後端測試、8→27 前端測試（PR #049）。前端串接期間回頭修正後端四處介面不一致（`IsOwner`／`[FromBody]` enum／篩選排序／標記上限與截斷標頭）（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ✅ 完成 |
 | —（不掛週次） | 模組 3 收尾與技術債 | 三支詳情頁 + 我的遺失啟事管理頁 + 註冊確認密碼、`LostPetPostForm` 抽共用元件（PR #050，GitHub PR #21）；前端 lint 16 個錯誤修正 + CI 補 `frontend` job + `MoaApiClient` Timeout 修正（PR #051，GitHub PR #22）；收容動物地圖改用聚合端點 `GET /api/pet/shelters/summary`，移除 3000 筆上限與截斷標頭整套機制（PR #052，GitHub PR #24）。75→84 測試 | ✅ 完成 |
 | W24 | 模組 2（農藥查詢） | GET /api/Weather/pesticides：中英文成分名查詢（可併用，英文名字元白名單防護）；即時打農業部 PesticideDataQueryType，不落地；三層回應（成分 → 劑型 → 用途/許可證），使用範圍依 (成分,含量,劑型) 去重後並行抓取；PesticideForms 劑型代碼對照表（5246 張許可證實測校正）；PesticideSearchView.vue 前端畫面；NavModules 補入口。84→151 測試（GitHub PR #26／#27） | ✅ 完成 |
+| W25 | 模組 4（家禽行情） | 四支來源 API（白肉雞/雞蛋、紅羽土雞、黑羽土雞、肉鵝/番鴨/鴨蛋）串接完成畜禽面板的家禽半邊。`PoultryTrans` 長表設計取代寬表；價格拆成 7 態 `PriceStatus` + `RawValue`（全歷史窮舉 8 種非數值字串後定案）；四組獨立 `SyncState`（四支歷史起點不一致：2010/10/07 與 2014/04/01）；逐年切塊抓取讓回填與日常增量共用同一段程式碼。Worker 實跑回填 88,236 列，七態分布與探勘預估逐一吻合。`PoultryView.vue` 17 指標分組勾選 + 斷線呈現 + 完整度徽章 + 非常態明細表。151→185 測試 | ✅ 完成 |
 
 ---
 
@@ -770,13 +791,22 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 「今天」的定義統一為台灣時區（`TaiwanTime.Today(TimeProvider)`），查詢服務的時鐘一律走 `TimeProvider` 注入而非直接呼叫 `DateTime.Now`，讓日界邏輯可測試、跨時區部署不出錯。
 
 **Worker 排程外殼與落地流水線抽象**
-16 支排程 Worker（15 支資料同步 + `PestRuleEngineWorker` 規則引擎）統一繼承 `ScheduledSyncWorkerBase`（只需實作 SyncAsync / Interval / LogPrefix，基底含 0–30 秒啟動 jitter 錯開啟動風暴）；資料落地共用 `DbSyncHelper.InsertNewByKeyAsync`（以既有鍵視窗掃描防重複）與 `DbSyncHelper.UpsertByKeyAsync`（來源資料會變動時用）；MOA 分頁抓取共用 `MoaPagedFetcher`。Worker 檔案依模組分資料夾（Weather / Market / FoodSafety / Pet）。新 Worker 依此慣例撰寫。
+17 支排程 Worker（16 支資料同步 + `PestRuleEngineWorker` 規則引擎）統一繼承 `ScheduledSyncWorkerBase`（只需實作 SyncAsync / Interval / LogPrefix，基底含 0–30 秒啟動 jitter 錯開啟動風暴）；資料落地共用 `DbSyncHelper.InsertNewByKeyAsync`（以既有鍵視窗掃描防重複）與 `DbSyncHelper.UpsertByKeyAsync`（來源資料會變動時用）；MOA 分頁抓取共用 `MoaPagedFetcher`。Worker 檔案依模組分資料夾（Weather / Market / FoodSafety / Pet）。新 Worker 依此慣例撰寫。
 
 **同一批資料的新舊兩條 API 路徑：按「執行次數」拆分**
 農業部部分資料集同時存在官方文件登記的新制端點（有分頁上限）與未登記文件的舊制端點（無限制、一次拿完）。兩者不是二選一，而是按時間維度拆開：**一次性的初始回填走舊制**（效率最高），**長期每日增量走新制**（穩定性有文件保障）。這讓舊制「可能被默默關掉」的風險從長期生產風險降級為一次性風險——回填當下若失敗，重跑即可，不影響任何已上線的排程。
 
 **落地策略由「來源資料會不會變」決定**
 `DbSyncHelper` 提供 `InsertNewByKeyAsync`（只新增）與 `UpsertByKeyAsync`（新增或逐欄位更新）兩種語意相反、不可混用的落地方式。事件型資料（收容個案、遺失啟事，登記後不再變動）用前者；主檔型資料（合法業者的評鑑等級、營業狀態會隨時間改變）必須用後者，否則資料會在不知不覺間過期失真，而 log 還顯示「略過 N 筆重複」看起來一切正常。`UpsertByKeyAsync` 採「先查出被追蹤的實體再逐欄位覆寫」，讓 EF Core 得以比對原始快照、**沒變動的欄位完全不產生 UPDATE**。
+
+**寬表 vs 長表：由「來源欄位集穩不穩定」決定，不是照抄同類型的既有表**
+`PorkTrans`（毛豬）用 36 欄寬表，`PoultryTrans`（家禽）同屬行情資料卻刻意改用長表（`TransDate` / `MetricCode` / `Price` 三欄恆定），差別在來源形狀：毛豬只有一支 API、欄位集固定；家禽有四支來源 API，欄位數分別是 5/6/2/4 且互不相同，寬表得開 17 個 nullable 欄位、日後接第五支來源還要改 Schema 並跑 Migration。長表把「有哪些指標」從結構問題降級成資料問題。代價是查詢時要自己 GroupBy、單日多指標會是多列而非一列，這在「畫多線折線圖」這個實際用途下反而更好用。`PorkTrans` 沒有跟著改——既有設計在它自己的來源形狀下是對的，一致性不足以構成重寫的理由。
+
+**外部資料的「非數值」要先窮舉再設計，不是遇到一個處理一個**
+家禽價格在原始 API 是字串，開工規劃只預期「空字串 → null」。實際窮舉全歷史 20,614 天後發現 8 種非數值型態（休市、未報價、議價、`41-42` 這類區間報價、甚至一筆鍵入錯誤），佔全部儲存格 14.1%，其中紅羽土雞南區兩條線超過三分之一天數、雞蛋產地價 94% 沒有數值。若沿用「TryParse 失敗就 null」，這 14% 全部塌縮成同一種「沒有資料」，前端無從分辨「這個指標本來就少報價」與「同步壞掉了」。最終設計為 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底，`Unrecognized` 只承接真正沒見過的型態（全歷史僅 1 筆），維持它作為示警信號而非雜物櫃的定位。**先窮舉再定列舉**是這個決策的可重複部分——列舉成員該有哪幾個，是資料回答的問題，不是設計者憑空決定的。
+
+**一支 Worker 服務多條資料流時：共用機械邏輯，不共用本質知識**
+`PoultryTransSyncWorker` 是全案第一支同時服務四條獨立資料流的 Worker。四支來源的歷史起點不同（2010/10/07 與 2014/04/01），共用單一游標必然造成漏抓或空打，因此配置**四組獨立 `SyncState`**。程式碼切法上，「年度切塊 + 游標推進 + 落地」四支等價且容易寫出差一錯誤 → 抽成共用的 `SyncSourceAsync`；「怎麼抓、怎麼攤平成長表」四支本質不同 → 各自獨立方法以委派傳入。這與專案既有共用抽象（`ScheduledSyncWorkerBase` / `DbSyncHelper` / `MoaPagedFetcher`）的判準一致：只抽真的到處一樣、且容易犯錯的部分。另外此 API 支援日期區間參數（不像 `PorkTrans` 只吃單一日期被迫逐日），因此改為逐年切塊，一年 ≤366 天遠低於分頁上限，**回填與日常增量得以共用同一段程式碼**，不需要兩套分支。
 
 **地圖端點的形狀由「用途」決定，不是由「分頁 vs 不分頁」二選一**
 地圖端點最初設計成不分頁的完整動物清單：分頁是為「人一頁一頁瀏覽」設計的，不是為「電腦計算完整地理分布」設計的，MarkerCluster 的聚合數字若建立在部分資料上會產生誤導。但「不分頁」帶來的失控風險當時是用防禦性 `Take(3000)` 上限 + `X-Result-Truncated` 截斷標頭壓住，實測全台加總已逼近上限，等於把問題延後發作。真正的解法是換資料形狀：全台上萬筆動物只落在約 30 個收容所座標上，後端先依 `(ShelterPkId, Kind)` 分組計數、reshape 成一所一筆摘要，結果集本身只有約 30 筆——不分頁、不設上限、不需要截斷標頭，三個機制一起消失。**「加上限」是在錯誤的資料形狀上補防禦，「換形狀」才是解決問題。**
@@ -808,7 +838,7 @@ Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistri
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V34.docx` | SA/SD 完整設計文件（W1–W24 全部實戰開發紀錄 + Code Review 修正批次與模組 3 收尾批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V35.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + Code Review 修正批次與模組 3 收尾批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -828,4 +858,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-08-23 ｜ 對應 SA/SD 文件版本 V34 ｜ W24 模組 2 農藥查詢完成（即時查詢不落地、三層巢狀回應、劑型代碼對照表，後端 151 測試 + 前端 27 測試）*
+*最後更新：2026-08-27 ｜ 對應 SA/SD 文件版本 V35 ｜ W25 模組 4 家禽行情完成（長表設計、7 態 PriceStatus、四組獨立 SyncState、回填 88,236 列，後端 185 測試 + 前端 27 測試）*

@@ -28,6 +28,17 @@ namespace TaiwanAgri.Core.Constants
 		// 模組 4：行情
 		public const string AgriProductsTrans = "api/v1/AgriProductsTransType/";
 		public const string PorkTrans = "api/v1/PorkTransType/";
+		// 家禽行情（W25）：四支各自獨立的端點，欄位集互不相同，共同點只有
+		// TransDate/LunarCalendar 與 RS/Data/Next 外殼。日期參數 Start_time/End_time
+		// 與回傳的 TransDate 都是「西元 yyyy/MM/dd」，與 PorkTrans 的民國 YYYMMDD 不同，
+		// 不可套用 DateHelper 的 ROC 轉換。
+		// 各支的歷史起點不同（實測）：BoiledChicken_Eggs 與 Goose_Duck_Duckegg 自
+		// 2010/10/07 起，RedFeather 與 BlackFeather 自 2014/04/01 起——四支共用單一
+		// 同步游標會漏抓前者 2010-2014 的資料，故 Worker 內為四支各配一組 SyncState。
+		public const string PoultryBoiledChickenEggs = "api/v1/PoultryTransType_BoiledChicken_Eggs/";
+		public const string PoultryRedFeather = "api/v1/PoultryTransType_RedFeather/";
+		public const string PoultryBlackFeather = "api/v1/PoultryTransType_BlackFeather/";
+		public const string PoultryGooseDuckDuckegg = "api/v1/PoultryTransType_Goose_Duck_Duckegg/";
 		// 土石流警戒走農業部舊制 TransService 通道（非 api/v1 REST 形態）：
 		// 該資料集未上架新版 OpenData API，只能以 UnitId 參數呼叫舊端點
 		public const string DebrisAlert = "Service/OpenData/TransService.aspx?UnitId=kRam3LShuWSv";

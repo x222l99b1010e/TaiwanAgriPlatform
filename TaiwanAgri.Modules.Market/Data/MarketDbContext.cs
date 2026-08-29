@@ -20,6 +20,7 @@ namespace TaiwanAgri.Modules.Market.Data
 		public DbSet<CropInfo> CropInfos => Set<CropInfo>();
 		public DbSet<DebrisAlertRecord> DebrisAlertRecords => Set<DebrisAlertRecord>();
 		public DbSet<PorkTrans> PorkTrans => Set<PorkTrans>();
+		public DbSet<PoultryTrans> PoultryTrans => Set<PoultryTrans>();
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
@@ -93,6 +94,21 @@ namespace TaiwanAgri.Modules.Market.Data
 				entity.HasIndex(e => new { e.TransDate, e.MarketName })
 					  .HasDatabaseName("IX_PorkTrans_TransDate_MarketName")
 					  .IsUnique();
+			});
+
+			modelBuilder.Entity<PoultryTrans>(entity =>
+			{
+				entity.ToTable("PoultryTrans", schema: "market");
+
+				// (TransDate, MetricCode) 是這張長表的業務唯一鍵；PK 仍用 Id 代理鍵
+				// （交易明細表慣例，理由見 W25 設計討論：未來若有功能需要單獨引用某一列，
+				// 單欄 FK 遠比複合欄位好用，代價只是多一個 int 欄位）
+				entity.HasIndex(e => new { e.TransDate, e.MetricCode })
+					  .HasDatabaseName("IX_PoultryTrans_TransDate_MetricCode")
+					  .IsUnique();
+
+				// PriceStatus 存成字串而非數字，資料庫內容可直接讀懂，比對其他 enum 欄位的專案慣例
+				entity.Property(e => e.PriceStatus).HasConversion<string>().HasMaxLength(20);
 			});
 		}
 	}
