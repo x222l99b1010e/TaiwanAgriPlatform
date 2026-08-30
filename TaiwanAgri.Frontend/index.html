@@ -1,10 +1,20 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="zh-Hant-TW">
   <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <meta name="description" content="整合農業部開放資料的農業資訊平台：作物與畜禽行情、農場氣象與病蟲害警報、食安追溯查詢、收容動物地圖。">
+
+    <!-- 正文字型。base.css 的 font-family 宣告了 Noto Sans TC，但先前沒有任何載入點，
+         全站實際是落到系統預設字型。Google Fonts 會依 unicode-range 分段供應，
+         中文字集不會一次下載完，這是 CJK 字型優於自行 host 完整檔的主因。 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+
+    <title>台灣農業平台</title>
   </head>
   <body>
     <div id="app"></div>
