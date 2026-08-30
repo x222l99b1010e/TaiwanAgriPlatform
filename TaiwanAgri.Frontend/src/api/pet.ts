@@ -2,13 +2,8 @@
 // 職責：封裝所有對後端 /api/pet/* 的 HTTP 呼叫
 // 模組 3（毛小孩守護地圖）：收容動物地圖／官方遺失啟事／合法寵物業／自建遺失啟事 CRUD
 
-import axios from 'axios'
+import apiClient from './apiClient'
 import authClient from './authClient'
-
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-})
 
 // ─── 共用型別 ───────────────────────────────────────────────────────────────
 

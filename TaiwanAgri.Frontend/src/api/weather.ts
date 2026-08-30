@@ -1,10 +1,5 @@
-import axios from 'axios'
+import apiClient from './apiClient'
 import authClient from '@/api/authClient'
-
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-})
 
 // ─── Response DTO 型別 ────────────────────────────────
 

@@ -14,6 +14,9 @@ namespace TaiwanAgri.Worker.Pet
 {
 	public class AnimalRecognitionSyncWorker : ScheduledSyncWorkerBase
 	{
+		// SyncState 的識別鍵。查詢與初始化各用一次，抽成常數避免改一處漏另一處
+		// （漏改會查不到既有進度、另建一筆 SyncState，安靜地從頭重抓一次全歷史）
+		private const string SyncKey = "Pet_AnimalRecognition";
 		private readonly ILogger<AnimalRecognitionSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _scopeFactory;
@@ -38,7 +41,7 @@ namespace TaiwanAgri.Worker.Pet
 			var dbCore = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
 
 			var lastSyncState = await dbCore.SyncStates
-				.FirstOrDefaultAsync(s => s.SyncKey == "Pet_AnimalRecognition", cancellationToken: stoppingToken);
+				.FirstOrDefaultAsync(s => s.SyncKey == SyncKey, cancellationToken: stoppingToken);
 
 			if (lastSyncState == null)
 			{
@@ -84,7 +87,7 @@ namespace TaiwanAgri.Worker.Pet
 				// 只是白白多打一次 API，不會弄壞資料正確性）。
 				lastSyncState = new SyncState
 				{
-					SyncKey = "Pet_AnimalRecognition",
+					SyncKey = SyncKey,
 					LastSyncedDate = TaiwanTime.Today(_timeProvider).AddDays(-15), // 15 天緩衝
 					UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime
 				};

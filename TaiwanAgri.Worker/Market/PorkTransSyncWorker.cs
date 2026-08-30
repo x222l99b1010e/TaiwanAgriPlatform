@@ -13,15 +13,20 @@ namespace TaiwanAgri.Worker.Market
 {
 	public class PorkTransSyncWorker : ScheduledSyncWorkerBase
 	{
+		// SyncState 的識別鍵。查詢與初始化各用一次，抽成常數避免改一處漏另一處
+		// （漏改會查不到既有進度、另建一筆 SyncState，安靜地從頭重抓一次全歷史）
+		private const string SyncKey = "Market_PorkTrans";
 		private readonly ILogger<PorkTransSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _serviceScopeFactory;
-		public PorkTransSyncWorker(ILogger<PorkTransSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory serviceScopeFactory)
+		private readonly TimeProvider _timeProvider;
+		public PorkTransSyncWorker(ILogger<PorkTransSyncWorker> logger, IHttpClientFactory httpClientFactory, IServiceScopeFactory serviceScopeFactory, TimeProvider timeProvider)
 			: base(logger)
 		{
 			_logger = logger;
 			_httpClient = httpClientFactory.CreateClient("MoaApi");
 			_serviceScopeFactory = serviceScopeFactory;
+			_timeProvider = timeProvider;
 		}
 		protected override TimeSpan Interval => TimeSpan.FromHours(12); // 每12小時執行一次
 		protected override string LogPrefix => "[PorkTransSyncWorker]";
@@ -33,14 +38,14 @@ namespace TaiwanAgri.Worker.Market
 			var dbCore = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
 
 			// 取得同步狀態，若無則初始化
-			var lastSyncState = await dbCore.SyncStates.FirstOrDefaultAsync(s => s.SyncKey == "Market_PorkTrans", cancellationToken: stoppingToken);
+			var lastSyncState = await dbCore.SyncStates.FirstOrDefaultAsync(s => s.SyncKey == SyncKey, cancellationToken: stoppingToken);
 			// 若無同步狀態，則初始化為0981126
 			if (lastSyncState == null)
 			{
 				// 初始化同步狀態
 				lastSyncState = new SyncState
 				{
-					SyncKey = "Market_PorkTrans",
+					SyncKey = SyncKey,
 					LastSyncedDate = new DateOnly(2009, 11, 26),
 					UpdatedAt = DateTime.UtcNow
 				};
@@ -48,14 +53,10 @@ namespace TaiwanAgri.Worker.Market
 				await dbCore.SaveChangesAsync(stoppingToken);
 			}
 			DateOnly startDate = lastSyncState.LastSyncedDate.AddDays(1);
-			// 1. 取得台灣時區 (台北標準時間)
-			// 注意：在 Windows 上是 "Taipei Standard Time"，在 Linux/macOS 上通常是 "Asia/Taipei"
-			// 2. 取得目前的台灣時間 (先抓 UTC 再轉換，這最準確)
-			// 3. 取得「昨天」
-			// 4. 轉換成 DateOnly (如果你資料庫存的是 DateOnly)
-			DateOnly yesterdayDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
-			TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Taipei Standard Time" : "Asia/Taipei")).AddDays(-1));
-			
+			// 日界一律以台灣時區為準（來源資料的日期就是台灣日期，用 UTC 會在日界前後差一天）。
+			// 時區換算與時區物件快取都在 TaiwanTime 內，時鐘走 TimeProvider 注入以便測試固定時刻。
+			DateOnly yesterdayDate = TaiwanTime.Today(_timeProvider).AddDays(-1);
+
 			var allDtos = new List<PorkTransTypeDto>();
 			DateOnly lastSuccessfulDate = lastSyncState.LastSyncedDate;
 			for (DateOnly currentDate = startDate; currentDate <= yesterdayDate; currentDate = currentDate.AddDays(1))

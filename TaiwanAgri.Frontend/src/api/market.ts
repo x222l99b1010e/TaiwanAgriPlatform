@@ -2,14 +2,7 @@
 // 職責：封裝所有對後端 /api/market/* 的 HTTP 呼叫
 // 只負責「打出去、回傳資料」，不管理任何狀態
 
-import axios from 'axios'
-
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
+import apiClient from './apiClient'
 
 // ─── Response DTO 型別（對應後端 ApiResponses/） ───────────────────────────
 
