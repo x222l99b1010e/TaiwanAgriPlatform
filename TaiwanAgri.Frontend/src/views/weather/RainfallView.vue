@@ -1,6 +1,6 @@
 <!-- src/views/weather/RainfallView.vue -->
 <template>
-  <div class="rainfall-view">
+  <div class="page rainfall-view">
     <h1>雨量趨勢</h1>
 
     <section class="filter-section">
@@ -315,7 +315,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.rainfall-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
+.rainfall-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 

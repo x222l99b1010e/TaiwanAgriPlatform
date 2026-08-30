@@ -1,6 +1,6 @@
 <!-- src/views/weather/PestAlertsView.vue -->
 <template>
-  <div class="pest-alerts-view">
+  <div class="page pest-alerts-view">
     <h1>病蟲害警報</h1>
 
     <section class="filter-section">
@@ -149,7 +149,7 @@ onMounted(fetchAlerts)
 </script>
 
 <style scoped>
-.pest-alerts-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
+.pest-alerts-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 

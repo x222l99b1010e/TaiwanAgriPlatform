@@ -1,5 +1,5 @@
 <template>
-  <div class="restdays-view">
+  <div class="page restdays-view">
     <h1>休市日查詢</h1>
 
     <section class="filter-section">
@@ -135,7 +135,7 @@ onMounted(() => loadMarkets())
 </script>
 
 <style scoped>
-.restdays-view { width: 100%; min-width: 960px; padding: 36px 56px; box-sizing: border-box; }
+.restdays-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="legal-business-view">
+  <div class="page legal-business-view">
     <div class="page-header">
       <h2 class="section-title">合法寵物業查詢</h2>
       <p class="section-subtitle">合法寵物業者評鑑資料與農業部官方遺失啟事，皆無座標資料，僅提供表格查詢</p>
@@ -487,7 +487,6 @@ onMounted(fetchLegal)
 </script>
 
 <style scoped>
-.legal-business-view { padding: 36px 56px; width: 100%; box-sizing: border-box; }
 
 .page-header { margin-bottom: 20px; }
 .section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }

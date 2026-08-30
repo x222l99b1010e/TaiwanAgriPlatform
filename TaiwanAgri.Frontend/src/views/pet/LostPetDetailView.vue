@@ -6,7 +6,7 @@
   抽到共用元件與 utils 的那份，這頁只負責「單筆抓取＋版面排列」，不重新發明卡片渲染。
 -->
 <template>
-  <div class="lost-pet-detail-view">
+  <div class="page lost-pet-detail-view">
     <RouterLink to="/pet/lost-pets" class="back-link">
       <span class="mdi mdi-arrow-left" /> 回協尋列表
     </RouterLink>
@@ -150,7 +150,6 @@ async function handleDelete() {
 </script>
 
 <style scoped>
-.lost-pet-detail-view { padding: 36px 56px; max-width: 760px; margin: 0 auto; box-sizing: border-box; }
 
 .back-link {
   display: inline-flex; align-items: center; gap: 4px;
@@ -158,6 +157,11 @@ async function handleDelete() {
   text-decoration: none;
 }
 .back-link:hover { color: var(--green); }
+
+/* 詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
+   所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
+.state-box,
+.detail-card { max-width: var(--container-sm); }
 
 /* ── 狀態容器（載入中／錯誤，跟 LostPetsView 同一套視覺語彙） ── */
 .state-box {

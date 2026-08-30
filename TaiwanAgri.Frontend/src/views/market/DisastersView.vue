@@ -1,5 +1,5 @@
 <template>
-  <div class="disasters-view">
+  <div class="page disasters-view">
     <h1>天災警戒紀錄</h1>
 
     <section class="filter-section">
@@ -133,7 +133,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.disasters-view { width: 100%; min-width: 960px; padding: 36px 56px; box-sizing: border-box; }
+.disasters-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 

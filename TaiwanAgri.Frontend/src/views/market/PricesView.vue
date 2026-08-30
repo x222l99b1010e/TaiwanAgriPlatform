@@ -1,5 +1,5 @@
 <template>
-  <div class="prices-view">
+  <div class="page prices-view">
     <h1>作物行情查詢</h1>
 
     <section class="filter-section">
@@ -140,7 +140,7 @@ function handleExportCsv() {
 </script>
 
 <style scoped>
-.prices-view { width: 100%; min-width: 960px; padding: 36px 56px; box-sizing: border-box; }
+.prices-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 

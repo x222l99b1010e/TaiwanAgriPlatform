@@ -1,5 +1,5 @@
 <template>
-  <div class="poultry-view">
+  <div class="page poultry-view">
     <h1>家禽行情查詢</h1>
 
     <!-- 篩選區 -->
@@ -466,7 +466,7 @@ function exportChartImage() {
 </script>
 
 <style scoped>
-.poultry-view { width: 100%; min-width: 960px; padding: 36px 56px; box-sizing: border-box; }
+.poultry-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 

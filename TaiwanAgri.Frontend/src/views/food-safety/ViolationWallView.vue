@@ -1,5 +1,5 @@
 <template>
-  <div class="violation-wall-view">
+  <div class="page violation-wall-view">
 
     <!-- 頁首 -->
     <div class="page-header">
@@ -308,12 +308,6 @@ function isUrl(value: string): boolean {
 </script>
 
 <style scoped>
-.violation-wall-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* ── 頁首 ── */
 .page-header { margin-bottom: 20px; }
 

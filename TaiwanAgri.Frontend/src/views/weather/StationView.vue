@@ -1,6 +1,6 @@
 <!-- src/views/weather/StationView.vue -->
 <template>
-  <div class="station-view">
+  <div class="page station-view">
     <h1>農場氣象</h1>
 
     <section class="filter-section">
@@ -77,7 +77,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.station-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
+.station-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 

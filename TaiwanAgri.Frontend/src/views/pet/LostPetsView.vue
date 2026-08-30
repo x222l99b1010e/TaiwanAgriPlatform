@@ -1,5 +1,5 @@
 <template>
-  <div class="lost-pets-view">
+  <div class="page lost-pets-view">
     <div class="page-header">
       <h2 class="section-title">遺失啟事協尋</h2>
       <p class="section-subtitle">使用者自行張貼的走失／拾獲協尋，登入後可管理自己的貼文</p>
@@ -304,7 +304,6 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-.lost-pets-view { padding: 36px 56px; width: 100%; box-sizing: border-box; }
 
 .page-header { margin-bottom: 20px; }
 .section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }

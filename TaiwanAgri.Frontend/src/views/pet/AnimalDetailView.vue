@@ -8,7 +8,7 @@
   自建內容，前端本來就不該有寫入動作。
 -->
 <template>
-  <div class="animal-detail-view">
+  <div class="page animal-detail-view">
     <RouterLink :to="backLink" class="back-link">
       <span class="mdi mdi-arrow-left" /> 回收容所詳情
     </RouterLink>
@@ -99,7 +99,6 @@ watch(() => props.animalId, fetchDetail)
 </script>
 
 <style scoped>
-.animal-detail-view { padding: 36px 56px; max-width: 760px; margin: 0 auto; box-sizing: border-box; }
 
 .back-link {
   display: inline-flex; align-items: center; gap: 4px;
@@ -107,6 +106,11 @@ watch(() => props.animalId, fetchDetail)
   text-decoration: none;
 }
 .back-link:hover { color: var(--green); }
+
+/* 詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
+   所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
+.state-box,
+.detail-card { max-width: var(--container-sm); }
 
 /* ── 狀態容器（跟 LostPetDetailView／ShelterDetailView 同一套視覺語彙） ── */
 .state-box {

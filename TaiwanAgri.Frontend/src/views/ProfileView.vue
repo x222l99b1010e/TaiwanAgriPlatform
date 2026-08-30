@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-view">
+  <div class="page profile-view">
     <h2>農場設定</h2>
 
     <!-- 個人管理相關的其他頁面入口（不掛週次分支新增：我的協尋貼文）放在這裡，
@@ -190,11 +190,10 @@ async function handleSave() {
 </script>
 
 <style scoped>
-.profile-view {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 2rem;
-}
+/* 單欄表單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
+.section-link,
+.loading,
+.profile-form { max-width: var(--container-sm); }
 
 h2 {
   font-size: 1.5rem;

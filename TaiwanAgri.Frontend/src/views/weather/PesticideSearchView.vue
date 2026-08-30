@@ -1,5 +1,5 @@
 <template>
-  <div class="pesticide-view">
+  <div class="page pesticide-view">
 
     <!-- 頁首 -->
     <div class="page-header">
@@ -387,12 +387,6 @@ async function handleSearch() {
 </script>
 
 <style scoped>
-.pesticide-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* ── 頁首 ── */
 .page-header { margin-bottom: 24px; }
 

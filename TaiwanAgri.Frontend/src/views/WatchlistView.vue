@@ -1,5 +1,5 @@
 <template>
-  <div class="watchlist-view">
+  <div class="page watchlist-view">
     <h1>監看清單</h1>
 
     <!-- ── 新增區 ──────────────────────────────────── -->
@@ -253,7 +253,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.watchlist-view { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
+/* 單欄清單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
+.add-section,
+.list-section { max-width: var(--container-sm); }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 28px; }
 

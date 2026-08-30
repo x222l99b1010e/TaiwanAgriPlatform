@@ -1,5 +1,5 @@
 <template>
-  <div class="today-veg-view">
+  <div class="page today-veg-view">
     <div class="page-header">
       <h2 class="section-title">今日民生蔬菜均價</h2>
       <p class="section-subtitle">
@@ -87,12 +87,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.today-veg-view {
-  padding: 40px 48px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* ── 頁首 ── */
 .page-header { margin-bottom: 32px; }
 

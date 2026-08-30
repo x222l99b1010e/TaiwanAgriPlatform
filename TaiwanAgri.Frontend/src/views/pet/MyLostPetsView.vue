@@ -9,7 +9,7 @@
   編輯入口互相打架。新增貼文則直接用同一份共用表單，這裡也能直接張貼，不用先跳到公開列表頁。
 -->
 <template>
-  <div class="my-lost-pets-view">
+  <div class="page my-lost-pets-view">
     <RouterLink to="/profile" class="back-link">
       <span class="mdi mdi-arrow-left" /> 回個人資料
     </RouterLink>
@@ -185,7 +185,6 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-.my-lost-pets-view { padding: 36px 56px; width: 100%; box-sizing: border-box; }
 
 .back-link {
   display: inline-flex; align-items: center; gap: 4px;

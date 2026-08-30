@@ -1,5 +1,5 @@
 <template>
-  <div class="organic-cert-view">
+  <div class="page organic-cert-view">
     <!-- 側邊篩選欄 -->
     <aside class="filter-sidebar">
       <h3 class="filter-title">篩選條件</h3>
@@ -274,9 +274,6 @@ onMounted(() => {
 .organic-cert-view {
   display: flex;
   gap: 24px;
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 /* ── 側邊篩選欄 ── */

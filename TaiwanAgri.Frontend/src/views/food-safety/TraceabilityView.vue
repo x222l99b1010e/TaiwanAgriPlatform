@@ -1,5 +1,5 @@
 <template>
-  <div class="traceability-view">
+  <div class="page traceability-view">
 
     <!-- 頁首 -->
     <div class="page-header">
@@ -257,11 +257,12 @@ function handleSearch() {
 </script>
 
 <style scoped>
-.traceability-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
+/* 查詢區是單一輸入框＋一顆按鈕，撐滿頁面容器只會讓 10 碼追溯碼的輸入框長達
+   一千多像素。頁面容器不縮，改由說明、查詢列與狀態框自己限寬並靠左
+   （見 base.css .page）；查詢結果卡片維持全寬，因為裡面是多欄資訊格。 */
+.info-hint,
+.search-bar,
+.state-box { max-width: var(--container-sm); }
 
 /* ── 頁首 ── */
 .page-header { margin-bottom: 24px; }

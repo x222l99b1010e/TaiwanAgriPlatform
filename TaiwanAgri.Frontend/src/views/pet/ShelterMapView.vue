@@ -1,5 +1,5 @@
 <template>
-  <div class="shelter-map-view">
+  <div class="page shelter-map-view">
     <div class="page-header">
       <h2 class="section-title">收容動物地圖</h2>
       <p class="section-subtitle">
@@ -216,12 +216,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.shelter-map-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 .page-header { margin-bottom: 20px; }
 .section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
 .section-subtitle { font-size: 13px; color: var(--text-muted); }

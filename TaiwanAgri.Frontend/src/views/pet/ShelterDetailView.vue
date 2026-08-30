@@ -11,7 +11,7 @@
   （跟合法寵物業查詢／官方遺失啟事當初選表格是同一個判準）。
 -->
 <template>
-  <div class="shelter-detail-view">
+  <div class="page shelter-detail-view">
     <RouterLink to="/pet/shelter-map" class="back-link">
       <span class="mdi mdi-arrow-left" /> 回收容動物地圖
     </RouterLink>
@@ -254,7 +254,6 @@ watch(() => props.shelterId, () => {
 </script>
 
 <style scoped>
-.shelter-detail-view { padding: 36px 56px; width: 100%; box-sizing: border-box; }
 
 .back-link {
   display: inline-flex; align-items: center; gap: 4px;

@@ -1,6 +1,6 @@
 <!-- src/views/weather/PestAlertsView.vue -->
 <template>
-  <div class="pest-view">
+  <div class="page pest-view">
     <h1>病蟲害警報</h1>
 
     <section class="filter-section">
@@ -309,7 +309,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.pest-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
+.pest-view { min-width: 960px; }
 
 h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
 
