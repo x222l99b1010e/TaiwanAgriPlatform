@@ -49,18 +49,14 @@ namespace TaiwanAgri.Tests.FoodSafety
 				Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
 			};
 
-		private static FoodSafetyService CreateService(RouteHandler handler)
+		private static TraceabilityService CreateService(RouteHandler handler)
 		{
 			var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://data.moa.gov.tw/") };
 			var mockFactory = new Mock<IHttpClientFactory>();
 			mockFactory.Setup(f => f.CreateClient("MoaApi")).Returns(httpClient);
 
-			var options = new DbContextOptionsBuilder<FoodSafetyDbContext>()
-				.UseInMemoryDatabase($"TraceabilityTest_{Guid.NewGuid()}")
-				.Options;
-
-			return new FoodSafetyService(mockFactory.Object, new FoodSafetyDbContext(options),
-				NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
+			// 追溯查詢不落地 DB，被測對象不再需要 DbContext
+			return new TraceabilityService(mockFactory.Object, NullLogger<TraceabilityService>.Instance);
 		}
 
 		// ── NormalizeTracenoStart：純函式，直接驗證 ─────────────────────────
@@ -72,7 +68,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		[InlineData("123", "123")]                     // 不足 4 位：原樣回傳
 		public void NormalizeTracenoStart_ZeroesLastFourDigits(string traceCode, string expected)
 		{
-			Assert.Equal(expected, FoodSafetyService.NormalizeTracenoStart(traceCode));
+			Assert.Equal(expected, TraceabilityService.NormalizeTracenoStart(traceCode));
 		}
 
 		// ── 區間包含比對 ────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ namespace TaiwanAgri.Web.Controllers
 	{
 		private readonly IMarketService _marketService;
 		private readonly IFoodSafetyService _foodSafetyService;
+		private readonly ITraceabilityService _traceabilityService;
 		private readonly string _todayVegMarketCode;
 		private readonly string[] _todayVegCropCodes;
 
@@ -22,10 +23,11 @@ namespace TaiwanAgri.Web.Controllers
 			"LA2", "SE1", "SB1", "LH1", "FJ1",
 			"FI1", "FB1", "LF1", "LD1", "SP1"
 		};
-		public FoodSafetyController(IMarketService marketService, IFoodSafetyService foodSafetyService, IConfiguration configuration)
+		public FoodSafetyController(IMarketService marketService, IFoodSafetyService foodSafetyService, ITraceabilityService traceabilityService, IConfiguration configuration)
 		{
 			_marketService = marketService;
 			_foodSafetyService = foodSafetyService;
+			_traceabilityService = traceabilityService;
 			_todayVegMarketCode = configuration.GetValue<string>("FoodSafety:TodayVeg:MarketCode") ?? "109";
 			_todayVegCropCodes = configuration.GetSection("FoodSafety:TodayVeg:CropCodes").Get<string[]>()
 				?? DefaultVegCropCodes;
@@ -50,7 +52,7 @@ namespace TaiwanAgri.Web.Controllers
 			if (string.IsNullOrWhiteSpace(traceCode))
 				return BadRequest("追溯碼為必填");
 
-			var result = await _foodSafetyService.SearchTraceabilityAsync(traceCode.Trim());
+			var result = await _traceabilityService.SearchTraceabilityAsync(traceCode.Trim());
 			return Ok(result);
 		}
 

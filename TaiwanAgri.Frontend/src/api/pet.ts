@@ -3,17 +3,13 @@
 // 模組 3（毛小孩守護地圖）：收容動物地圖／官方遺失啟事／合法寵物業／自建遺失啟事 CRUD
 
 import apiClient from './apiClient'
+import type { PagedResult } from './pagination'
 import authClient from './authClient'
 
 // ─── 共用型別 ───────────────────────────────────────────────────────────────
 
-export interface PagedResult<T> {
-  items: T[]
-  totalCount: number
-  page: number
-  pageSize: number
-  totalPages: number
-}
+// 分頁契約型別集中於 pagination.ts；re-export 以維持既有 import 路徑
+export type { PagedResult }
 
 // ─── 收容動物地圖：型別 ─────────────────────────────────────────────────────
 // 對應後端 ShelterAnimalResponseDto。enum 欄位（kind/sex/bodyType/age/sterilization/

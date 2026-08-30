@@ -17,6 +17,7 @@ namespace TaiwanAgri.Web.Extensions
 			services.AddMoaApiClient();
 
 			services.AddScoped<IFoodSafetyService, FoodSafetyService>();
+			services.AddScoped<ITraceabilityService, TraceabilityService>();
 
 			return services;
 		}

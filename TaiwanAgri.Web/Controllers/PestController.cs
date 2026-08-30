@@ -14,9 +14,9 @@ namespace TaiwanAgri.Web.Controllers
 			_pestService = pestService;
 		}
 		[HttpGet("alerts")]
-		public async Task<IActionResult> GetPestAlertsByCity([FromQuery] string? cityName = null, [FromQuery] int page = 1)
+		public async Task<IActionResult> GetPestAlertsByCity([FromQuery] string? cityName = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
 		{
-			var pestAlerts = await _pestService.GetPestAlertsByCityAsync(cityName, page);
+			var pestAlerts = await _pestService.GetPestAlertsByCityAsync(cityName, page, pageSize);
 			return Ok(pestAlerts);
 		}
 

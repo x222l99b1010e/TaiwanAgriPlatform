@@ -65,36 +65,51 @@
           </div>
         </div>
 
-        <!-- 分頁 -->
-        <div class="pagination">
-          <button
-            class="page-btn"
-            :disabled="page === 1"
-            @click="changePage(page - 1)"
-          >‹ 上一頁</button>
-          <span class="page-info">第 {{ page }} 頁</span>
-          <button
-            class="page-btn"
-            :disabled="alerts.length < 20"
-            @click="changePage(page + 1)"
-          >下一頁 ›</button>
-        </div>
+        <!-- 分頁控制：沿用 usePagination 共用邏輯 + PagerBar 共用元件 -->
+        <PagerBar
+          v-if="alertsPage && alertsPage.totalPages > 1"
+          :current-page="currentPage"
+          :total-pages="alertsPage.totalPages"
+          :total-count="alertsPage.totalCount"
+          :visible-pages="visiblePages"
+          :jump-page-input="jumpPageInput"
+          @change="changePage"
+          @update:jump-page-input="jumpPageInput = $event"
+          @jump="handleJumpPage"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import { weatherApi, type PestAlertResponseDto } from '@/api/weather'
+import { ref, computed, watch, onMounted } from 'vue'
+import { weatherApi, type PestAlertResponseDto, type PagedResult } from '@/api/weather'
 import CitySelector from '@/components/CitySelector.vue'
+import PagerBar from '@/components/PagerBar.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const selectedCity = ref('臺北市')
-const alerts       = ref<PestAlertResponseDto[]>([])
+const alertsPage   = ref<PagedResult<PestAlertResponseDto> | null>(null)
 const isLoading    = ref(false)
 const errorMsg     = ref('')
-const page         = ref(1)
 const expandedId   = ref<number | null>(null)
+
+// template 沿用 alerts 這個名稱迭代卡片，改為由分頁結果投影
+const alerts = computed(() => alertsPage.value?.items ?? [])
+
+const {
+  currentPage,
+  pageSize,
+  jumpPageInput,
+  visiblePages,
+  changePage,
+  handleJumpPage,
+} = usePagination({
+  storageKey: 'pestAlerts.pageSize',
+  totalPages: () => alertsPage.value?.totalPages,
+  onChange: fetchAlerts,
+})
 
 function toggleExpand(id: number) {
   expandedId.value = expandedId.value === id ? null : id
@@ -102,19 +117,20 @@ function toggleExpand(id: number) {
 
 function clearCity() {
   selectedCity.value = ''
-  page.value = 1
+  currentPage.value = 1
   fetchAlerts()
 }
 
 async function fetchAlerts() {
   isLoading.value = true
   errorMsg.value = ''
-  alerts.value = []
+  alertsPage.value = null
   expandedId.value = null
   try {
-    alerts.value = await weatherApi.getPestAlerts(
+    alertsPage.value = await weatherApi.getPestAlerts(
       selectedCity.value || undefined,
-      page.value
+      currentPage.value,
+      pageSize.value
     )
   } catch {
     errorMsg.value = '載入失敗，請稍後再試'
@@ -123,14 +139,9 @@ async function fetchAlerts() {
   }
 }
 
-function changePage(p: number) {
-  page.value = p
-  fetchAlerts()
-}
-
 // 切換城市時回到第一頁重查
 watch(selectedCity, () => {
-  page.value = 1
+  currentPage.value = 1
   fetchAlerts()
 })
 
@@ -277,17 +288,5 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
   margin: 0;
 }
 
-.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 0 4px; }
-
-/* 分頁按鈕 */
-.page-btn {
-  padding: 8px 22px; border-radius: 8px;
-  border: 1px solid var(--border); background: var(--surface);
-  color: rgba(26,40,32,0.65);
-  font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
-}
-.page-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text-primary); }
-.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.page-info { font-size: 14px; color: rgba(26,40,32,0.55); }
+/* 分頁列的樣式由 PagerBar 元件自帶（scoped），此處不再重複一份 */
 </style>
