@@ -1,4 +1,4 @@
-import axios from 'axios'
+import apiClient from './apiClient'
 
 export interface NavChild {
   name: string
@@ -16,6 +16,6 @@ export interface NavModule {
 }
 
 export async function fetchNavModules(): Promise<NavModule[]> {
-  const res = await axios.get<NavModule[]>('/api/nav/modules')
+  const res = await apiClient.get<NavModule[]>('/api/nav/modules')
   return res.data
 }
