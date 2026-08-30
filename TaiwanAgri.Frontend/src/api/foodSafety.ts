@@ -3,6 +3,7 @@
 // 只負責「打出去、回傳資料」，不管理任何狀態
 
 import apiClient from './apiClient'
+import type { PagedResult } from './pagination'
 import type { PriceResponseDto } from './market'
 
 // 補充型別定義
@@ -67,13 +68,8 @@ export interface ViolationResult {
   note: string
 }
 
-export interface PagedResult<T> {
-  items: T[]
-  totalCount: number
-  page: number
-  pageSize: number
-  totalPages: number
-}
+// 分頁契約型別集中於 pagination.ts；re-export 以維持既有 import 路徑
+export type { PagedResult }
 
 // ─── 有機農產品驗證查詢：新增型別 ──────────────────────────────────────────
 
