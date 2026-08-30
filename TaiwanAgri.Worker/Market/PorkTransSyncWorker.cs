@@ -13,6 +13,9 @@ namespace TaiwanAgri.Worker.Market
 {
 	public class PorkTransSyncWorker : ScheduledSyncWorkerBase
 	{
+		// SyncState 的識別鍵。查詢與初始化各用一次，抽成常數避免改一處漏另一處
+		// （漏改會查不到既有進度、另建一筆 SyncState，安靜地從頭重抓一次全歷史）
+		private const string SyncKey = "Market_PorkTrans";
 		private readonly ILogger<PorkTransSyncWorker> _logger;
 		private readonly HttpClient _httpClient;
 		private readonly IServiceScopeFactory _serviceScopeFactory;
@@ -35,14 +38,14 @@ namespace TaiwanAgri.Worker.Market
 			var dbCore = scope.ServiceProvider.GetRequiredService<CoreDbContext>();
 
 			// 取得同步狀態，若無則初始化
-			var lastSyncState = await dbCore.SyncStates.FirstOrDefaultAsync(s => s.SyncKey == "Market_PorkTrans", cancellationToken: stoppingToken);
+			var lastSyncState = await dbCore.SyncStates.FirstOrDefaultAsync(s => s.SyncKey == SyncKey, cancellationToken: stoppingToken);
 			// 若無同步狀態，則初始化為0981126
 			if (lastSyncState == null)
 			{
 				// 初始化同步狀態
 				lastSyncState = new SyncState
 				{
-					SyncKey = "Market_PorkTrans",
+					SyncKey = SyncKey,
 					LastSyncedDate = new DateOnly(2009, 11, 26),
 					UpdatedAt = DateTime.UtcNow
 				};
