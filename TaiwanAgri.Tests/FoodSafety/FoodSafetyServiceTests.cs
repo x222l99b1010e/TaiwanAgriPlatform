@@ -79,14 +79,8 @@ namespace TaiwanAgri.Tests.FoodSafety
 			await dbContext.OrganicCertifications.AddRangeAsync(entities);
 			await dbContext.SaveChangesAsync();
 
-			// 3. Mock IHttpClientFactory（建構子需要，但這個方法不會用到，給空殼即可）
-			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
-			mockHttpClientFactory
-				.Setup(f => f.CreateClient("MoaApi"))
-				.Returns(new HttpClient());
-
 			// 4. 建立被測對象
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
+			var service = new FoodSafetyService(dbContext, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 
@@ -145,9 +139,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 			await dbContext.OrganicCertifications.AddRangeAsync(entities);
 			await dbContext.SaveChangesAsync();
 
-			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
-			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
+			var service = new FoodSafetyService(dbContext, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 			// 傳完整字串「業者A」，只會篩出這一筆；若傳部分字串「業者」會篩出全部3筆
@@ -178,9 +170,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 			await dbContext.OrganicCertifications.AddRangeAsync(entities);
 			await dbContext.SaveChangesAsync();
 
-			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
-			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
+			var service = new FoodSafetyService(dbContext, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 			// OperatorName="業者"（部分比對，符合全部3筆）
@@ -220,9 +210,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 			await dbContext.OrganicCertifications.AddRangeAsync(entities);
 			await dbContext.SaveChangesAsync();
 
-			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
-			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
+			var service = new FoodSafetyService(dbContext, TimeProvider.System);
 
 			// ── Act ──────────────────────────────────────────────
 			// 「玉米」只存在於業者A的 ContainCrops（水稻、玉米），Products 沒有 → 驗證 ContainCrops 這條 OR 分支
@@ -261,9 +249,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 		private static FoodSafetyService CreateService(FoodSafetyDbContext dbContext)
 		{
-			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
-			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			return new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, TimeProvider.System);
+			return new FoodSafetyService(dbContext, TimeProvider.System);
 		}
 
 		[Fact]
@@ -327,9 +313,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 				new PesticideViolation { Id = 2, Number = "V-OUT", SamplingDate = new DateOnly(2026, 7, 9), ProductName = "小白菜", ProducerName = "產戶B", SamplingLocation = "新北市", InspectResult = "不合格", Note = "" });
 			dbContext.SaveChanges();
 
-			var mockHttpClientFactory = new Mock<IHttpClientFactory>();
-			mockHttpClientFactory.Setup(f => f.CreateClient("MoaApi")).Returns(new HttpClient());
-			var service = new FoodSafetyService(mockHttpClientFactory.Object, dbContext, NullLogger<FoodSafetyService>.Instance, clock);
+			var service = new FoodSafetyService(dbContext, clock);
 
 			// ── Act ──────────────────────────────────────────────
 			// Days=1 → fromDate = 台灣今天(7/11) - 1 = 7/10
