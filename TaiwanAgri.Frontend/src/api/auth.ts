@@ -1,12 +1,7 @@
 // src/api/auth.ts
 // 職責：封裝所有對後端 /api/auth/* 的 HTTP 呼叫
 
-import axios from 'axios'
-
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-})
+import apiClient from './apiClient'
 
 // ─── DTO 型別 ───────────────────────────────────────────
 

@@ -1,10 +1,8 @@
-import axios from 'axios'
+import apiClient from './apiClient'
 import authClient from '@/api/authClient'
+import type { PagedResult } from './pagination'
 
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-})
+export type { PagedResult }
 
 // ─── Response DTO 型別 ────────────────────────────────
 
@@ -155,13 +153,13 @@ export const weatherApi = {
       .then(res => res.data)
   },
 
-  /** GET /api/Pest/alerts?cityName=臺北市&page=1
-   *  cityName 可省略（省略 = 全台）
-   *  每頁固定 20 筆，page 從 1 開始
+  /** GET /api/Pest/alerts?cityName=臺北市&page=1&pageSize=20
+   *  cityName 可省略（省略 = 全台）；page 從 1 開始；
+   *  回傳 PagedResult，含總筆數與總頁數供分頁列使用
    */
-  getPestAlerts(cityName?: string, page = 1): Promise<PestAlertResponseDto[]> {
+  getPestAlerts(cityName?: string, page = 1, pageSize = 20): Promise<PagedResult<PestAlertResponseDto>> {
     return apiClient
-      .get<PestAlertResponseDto[]>('/api/Pest/alerts', { params: { cityName, page } })
+      .get<PagedResult<PestAlertResponseDto>>('/api/Pest/alerts', { params: { cityName, page, pageSize } })
       .then(res => res.data)
   },
 

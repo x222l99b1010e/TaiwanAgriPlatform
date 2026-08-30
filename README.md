@@ -592,7 +592,7 @@ npm test
 >
 > **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35_2.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -743,6 +743,7 @@ npm test
 | —（不掛週次） | 模組 3 收尾與技術債 | 三支詳情頁 + 我的遺失啟事管理頁 + 註冊確認密碼、`LostPetPostForm` 抽共用元件（PR #050，GitHub PR #21）；前端 lint 16 個錯誤修正 + CI 補 `frontend` job + `MoaApiClient` Timeout 修正（PR #051，GitHub PR #22）；收容動物地圖改用聚合端點 `GET /api/pet/shelters/summary`，移除 3000 筆上限與截斷標頭整套機制（PR #052，GitHub PR #24）。75→84 測試 | ✅ 完成 |
 | W24 | 模組 2（農藥查詢） | GET /api/Weather/pesticides：中英文成分名查詢（可併用，英文名字元白名單防護）；即時打農業部 PesticideDataQueryType，不落地；三層回應（成分 → 劑型 → 用途/許可證），使用範圍依 (成分,含量,劑型) 去重後並行抓取；PesticideForms 劑型代碼對照表（5246 張許可證實測校正）；PesticideSearchView.vue 前端畫面；NavModules 補入口。84→151 測試（GitHub PR #26／#27） | ✅ 完成 |
 | W25 | 模組 4（家禽行情） | 四支來源 API（白肉雞/雞蛋、紅羽土雞、黑羽土雞、肉鵝/番鴨/鴨蛋）串接完成畜禽面板的家禽半邊。`PoultryTrans` 長表設計取代寬表；價格拆成 7 態 `PriceStatus` + `RawValue`（全歷史窮舉 8 種非數值字串後定案）；四組獨立 `SyncState`（四支歷史起點不一致：2010/10/07 與 2014/04/01）；逐年切塊抓取讓回填與日常增量共用同一段程式碼。Worker 實跑回填 88,236 列，七態分布與探勘預估逐一吻合。`PoultryView.vue` 17 指標分組勾選 + 斷線呈現 + 完整度徽章 + 非常態明細表。151→185 測試 | ✅ 完成 |
+| —（不掛週次） | 全專案 Code Review | 四個功能模組首次全部完成後的跨模組一致性盤點（後端 294 個 `.cs` 檔／26,264 行＋前端全案）。核心結論：技術債形態不是「寫錯」，而是「共用抽象建立後沒有回頭替換掉原地舊寫法」，橫跨 Worker 層、查詢層、前端與模組邊界共六例。**批次 B**（內部慣例、行為不變）：`ScheduledSyncWorkerBase` 就緒等待納入例外保護；蔬果/毛豬 Worker 日界改用 `TaiwanTime`；三支 Worker 的 `SyncKey` 抽常數；前端公開端點抽出共用 `apiClient`（GitHub PR #32）。**批次 A**（動契約與 UI）：病蟲害警報改用 `PagedResult` 分頁契約與共用 `PagerBar`；追溯碼查詢自 `FoodSafetyService` 拆出 `TraceabilityService`（GitHub PR #33）。185 測試全過（不新增案例） | ✅ 完成 |
 
 ---
 
@@ -838,7 +839,7 @@ Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistri
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V35.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + Code Review 修正批次與模組 3 收尾批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V35_2.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + 全專案 Code Review 與模組 3 收尾批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -858,4 +859,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-08-27 ｜ 對應 SA/SD 文件版本 V35 ｜ W25 模組 4 家禽行情完成（長表設計、7 態 PriceStatus、四組獨立 SyncState、回填 88,236 列，後端 185 測試 + 前端 27 測試）*
+*最後更新：2026-08-30 ｜ 對應 SA/SD 文件版本 V35.2 ｜ 全專案 Code Review 完成（四模組首次全部完成後的跨模組一致性盤點，六例「共用抽象未回頭統一」修正完畢，GitHub PR #32／#33，後端 185 測試全過）*

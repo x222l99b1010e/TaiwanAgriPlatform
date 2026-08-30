@@ -7,7 +7,8 @@ namespace TaiwanAgri.Core.Helpers
 	/// </summary>
 	public static class TaiwanTime
 	{
-		// Windows 時區 ID 與 Linux/macOS 不同（比照 AgriProductsTransSyncWorker 的處理）
+		// Windows 時區 ID 與 Linux/macOS 不同，兩邊都要對應；
+		// 查詢一次後快取，不在每次呼叫時重新 FindSystemTimeZoneById
 		private static readonly TimeZoneInfo TaipeiTimeZone =
 			TimeZoneInfo.FindSystemTimeZoneById(
 				OperatingSystem.IsWindows() ? "Taipei Standard Time" : "Asia/Taipei");

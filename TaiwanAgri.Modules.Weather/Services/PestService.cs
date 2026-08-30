@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using TaiwanAgri.Core.Dtos;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Dtos.ApiResponses;
 
@@ -12,15 +13,20 @@ namespace TaiwanAgri.Modules.Weather.Services
 			_context = context;
 		}
 
-		public async Task<List<PestAlertResponseDto>> GetPestAlertsByCityAsync(string? cityName = null, int page = 1)
+		public async Task<PagedResult<PestAlertResponseDto>> GetPestAlertsByCityAsync(string? cityName = null, int page = 1, int pageSize = 20)
 		{
-			var pestAlerts = await _context.PestAlerts
+			var query = _context.PestAlerts
 				.Include(pa => pa.Cities)
 				.Include(pa => pa.Crops)
-				.Where(a => cityName == null || a.Cities.Any(c => c.CityName == cityName))
+				.Where(a => cityName == null || a.Cities.Any(c => c.CityName == cityName));
+
+			// 總筆數要在套 Skip/Take 之前算，前端才有總頁數可用（比照 FoodSafetyService）
+			var totalCount = await query.CountAsync();
+
+			var items = await query
 				.OrderByDescending(pa => pa.PubDate)
-				.Skip((page - 1) * 20) //分頁需要 Skip + Take 搭配——page=1 跳過 0 筆，page=2 跳過 20 筆，以此類推。
-				.Take(20)
+				.Skip((page - 1) * pageSize)
+				.Take(pageSize)
 				.Select(pa => new PestAlertResponseDto
 				{
 					Id = pa.Id,
@@ -34,7 +40,14 @@ namespace TaiwanAgri.Modules.Weather.Services
 				})
 				.ToListAsync();
 
-			return pestAlerts;
+			return new PagedResult<PestAlertResponseDto>
+			{
+				Items = items,
+				TotalCount = totalCount,
+				Page = page,
+				PageSize = pageSize,
+				TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+			};
 		}
 
 		public async Task<List<PestDecadeSummaryResponseDto>> GetPestDecadeDensityByPestNameAsync(string pestName)
