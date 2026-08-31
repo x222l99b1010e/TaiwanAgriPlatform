@@ -1,30 +1,32 @@
 <template>
   <div class="page pork-view">
-    <h1>毛豬行情查詢</h1>
+    <PageHeader
+      title="毛豬行情查詢"
+      subtitle="毛豬拍賣的成交均價、交易頭數與平均重量，查詢後可再依單一市場篩選"
+    />
 
-    <!-- 篩選區 -->
-    <section class="filter-section">
+    <FilterCard layout="stack">
       <div class="filter-row">
         <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
 
-    <div class="field-group">
-    <label class="field-label">市場</label>
-    <select class="market-select" v-model="selectedMarket" :disabled="!hasQueried">
-        <option value="">全部市場</option>
-        <option v-for="name in availableMarkets" :key="name" :value="name">
-        {{ name }}
-        </option>
-    </select>
-    <!-- 提示放在 select 正下方 -->
-    <div class="query-hint" v-if="!hasQueried">
-        <span class="mdi mdi-information-outline hint-icon" />
-        請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
-    </div>
-    <div class="query-hint success" v-else-if="availableMarkets.length > 0">
-        <span class="mdi mdi-check-circle-outline hint-icon" />
-        已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
-    </div>
-    </div>
+        <div class="field-group">
+          <label class="field-label">市場</label>
+          <select class="market-select" v-model="selectedMarket" :disabled="!hasQueried">
+            <option value="">全部市場</option>
+            <option v-for="name in availableMarkets" :key="name" :value="name">
+              {{ name }}
+            </option>
+          </select>
+          <!-- 提示放在 select 正下方 -->
+          <div class="query-hint" v-if="!hasQueried">
+            <span class="mdi mdi-information-outline hint-icon" />
+            請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
+          </div>
+          <div class="query-hint success" v-else-if="availableMarkets.length > 0">
+            <span class="mdi mdi-check-circle-outline hint-icon" />
+            已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
+          </div>
+        </div>
 
         <div class="metric-tabs">
           <button
@@ -38,24 +40,40 @@
       </div>
 
       <div class="action-row">
-        <button class="btn-query" :disabled="isLoading" @click="handleQuery">
+        <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
           {{ isLoading ? '查詢中...' : '查詢行情' }}
-        </button>
-        <button v-if="rawData.length > 0" class="btn-export" @click="handleExportCsv">
+        </Btn>
+        <Btn v-if="rawData.length > 0" variant="secondary" icon="mdi-file-chart" @click="handleExportCsv">
           匯出 CSV
-        </button>
-        <button v-if="rawData.length > 0 && selectedMarket" class="btn-reset" @click="selectedMarket = ''">
-          顯示全部市場
-        </button>
+        </Btn>
+        <Btn
+          v-if="rawData.length > 0 && selectedMarket"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
+          @click="selectedMarket = ''"
+        >顯示全部市場</Btn>
       </div>
+    </FilterCard>
 
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+    <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間後按下查詢行情" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="chartData.datasets.length === 0"
+      state="empty"
+      message="查無資料"
+      hint="請調整日期區間或市場篩選後重試"
+    />
 
-    <!-- 查詢後區塊 -->
-    <div v-if="hasQueried">
+    <div v-else>
       <!-- 摘要統計列 -->
-      <div class="summary-bar" v-if="chartData.datasets.length > 0">
+      <div class="summary-bar">
         <div class="stat-card">
           <span class="stat-label">市場數</span>
           <span class="stat-value">{{ availableMarkets.length }}</span>
@@ -75,20 +93,18 @@
       </div>
 
       <!-- 圖表 -->
-      <div class="chart-card" v-if="chartData.datasets.length > 0">
+      <div class="chart-card">
         <div class="chart-toolbar">
           <span class="chart-title">
             {{ metricOptions.find(m => m.key === activeMetric)?.label }} 趨勢
           </span>
-          <button class="btn-export-img" @click="exportChartImage">匯出圖片</button>
+          <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
+            匯出圖片
+          </Btn>
         </div>
         <div class="canvas-wrap">
           <canvas ref="canvasRef" />
         </div>
-      </div>
-
-      <div class="empty-hint" v-else-if="!isLoading">
-        查無資料，請調整篩選條件後重試
       </div>
     </div>
   </div>
@@ -105,6 +121,10 @@ import {
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PorkResponseDto } from '@/api/market'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -340,16 +360,7 @@ function exportChartImage() {
 
 <style scoped>
 .pork-view { min-width: 960px; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
 /* 篩選區 */
-.filter-section {
-  display: flex; flex-direction: column; gap: 16px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 28px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
 .filter-row { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
 .action-row { display: flex; align-items: center; gap: 10px; }
 
@@ -385,55 +396,6 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
 .metric-tab.active { background: #e8f5e9; color: var(--green); font-weight: 700; }
 
 /* 按鈕 */
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.btn-export {
-  padding: 9px 20px; border-radius: 999px;
-  border: 1px solid #005f6b;
-  background: linear-gradient(180deg, #00bcd4 0%, #0097a7 40%, #006978 100%);
-  color: white; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-export:hover {
-  background: linear-gradient(180deg, #26c6da 0%, #00acc1 40%, #0097a7 100%);
-}
-.btn-export:active {
-  background: linear-gradient(180deg, #006978 0%, #0097a7 60%, #00acc1 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-
-.btn-reset {
-  padding: 9px 18px; border-radius: 999px;
-  border: 1px solid #9e9e9e;
-  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 40%, #bdbdbd 100%);
-  color: #1a2820; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.80), inset 0 -2px 4px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-reset:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #eeeeee 40%, #e0e0e0 100%);
-}
-.btn-reset:active {
-  background: linear-gradient(180deg, #bdbdbd 0%, #e0e0e0 60%, #eeeeee 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.20), 0 1px 3px rgba(0,0,0,0.12);
-}
-
 /* 摘要列 */
 .summary-bar {
   display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap;
@@ -461,31 +423,7 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
   margin-bottom: 24px;
 }
 .chart-title { font-size: 15px; font-weight: 700; color: rgba(26,40,32,0.80); }
-
-.btn-export-img {
-  padding: 9px 20px; border-radius: 999px;
-  border: 1px solid #4a148c;
-  background: linear-gradient(180deg, #ab47bc 0%, #7b1fa2 40%, #4a148c 100%);
-  color: white; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-export-img:hover {
-  background: linear-gradient(180deg, #ba68c8 0%, #8e24aa 40%, #6a1b9a 100%);
-}
-.btn-export-img:active {
-  background: linear-gradient(180deg, #4a148c 0%, #7b1fa2 60%, #8e24aa 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-
 .canvas-wrap { position: relative; height: 500px; width: 100%; }
-
-.error-msg { font-size: 13px; color: var(--red); }
-.empty-hint {
-  font-size: 14px; color: var(--text-muted);
-  text-align: center; padding: 60px 0;
-}
-
 .query-hint {
   display: flex;
   align-items: center;

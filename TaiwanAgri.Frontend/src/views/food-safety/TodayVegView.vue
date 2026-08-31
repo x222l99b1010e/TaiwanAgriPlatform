@@ -1,31 +1,27 @@
 <template>
   <div class="page today-veg-view">
-    <div class="page-header">
-      <h2 class="section-title">今日民生蔬菜均價</h2>
-      <p class="section-subtitle">
+    <PageHeader title="今日民生蔬菜均價">
+      <template #subtitle>
         資料來源：台北一果菜市場（市場代號 109）
         <span v-if="latestDate" class="data-date">｜ 最新交易日：{{ latestDate }}</span>
-      </p>
-    </div>
+      </template>
+    </PageHeader>
 
-    <!-- 載入中 -->
-    <div v-if="store.isLoadingTodayVeg" class="state-box">
-      <div class="loading-spinner" />
-      <span class="state-text">資料載入中...</span>
-    </div>
-
-    <!-- 錯誤 -->
-    <div v-else-if="store.todayVegError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.todayVegError }}</span>
-      <button class="btn-retry" @click="store.fetchTodayVegPrices()">重試</button>
-    </div>
-
-    <!-- 無資料 -->
-    <div v-else-if="store.todayVegPrices.length === 0 && store.todayVegHasFetched" class="state-box">
-      <span class="mdi mdi-calendar-remove state-icon" />
-      <span class="state-text">今日無菜價資料（可能為休市日）</span>
-    </div>
+    <StateBlock v-if="store.isLoadingTodayVeg" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="store.todayVegError"
+      state="error"
+      :message="store.todayVegError"
+      retryable
+      @retry="store.fetchTodayVegPrices()"
+    />
+    <StateBlock
+      v-else-if="store.todayVegPrices.length === 0 && store.todayVegHasFetched"
+      state="empty"
+      icon="mdi-calendar-remove"
+      message="今日無菜價資料"
+      hint="可能是休市日，明天再回來看看"
+    />
 
     <!-- 資料卡片：一列兩張 -->
     <div v-else class="price-grid">
@@ -73,6 +69,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
 
 const store = useFoodSafetyStore()
 
@@ -88,75 +86,10 @@ onMounted(() => {
 
 <style scoped>
 /* ── 頁首 ── */
-.page-header { margin-bottom: 32px; }
-
-.section-title {
-  font-size: 24px;
-  font-weight: 800;
-  color: #1b5e20;
-  margin-bottom: 8px;
-  letter-spacing: -0.01em;
-}
-
-.section-subtitle {
-  font-size: 13px;
-  color: #555;
-}
-
 .data-date {
   font-weight: 600;
   color: #2e7d32;
 }
-
-/* ── 狀態容器（載入／錯誤／無資料） ── */
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 64px 32px;
-  background: #f9faf9;
-  border: 1px solid #dce8dc;
-  border-radius: 16px;
-}
-
-.state-icon {
-  font-size: 36px;
-  color: #aaa;
-}
-
-.state-text {
-  font-size: 15px;
-  color: #666;
-}
-
-.error-box .state-icon { color: #c62828; }
-.error-box .state-text { color: #c62828; }
-
-.loading-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid #c8e6c9;
-  border-top-color: #2e7d32;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.btn-retry {
-  padding: 8px 24px;
-  border-radius: 999px;
-  border: 1.5px solid #c62828;
-  background: transparent;
-  color: #c62828;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-retry:hover { background: #fff5f5; }
 
 /* ── 卡片格狀：一列兩張 ── */
 .price-grid {

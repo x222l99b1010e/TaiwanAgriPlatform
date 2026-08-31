@@ -13,16 +13,15 @@
       <span class="mdi mdi-arrow-left" /> 回收容所詳情
     </RouterLink>
 
-    <div v-if="store.isLoadingShelterAnimalDetail" class="state-box">
-      <div class="loading-spinner" />
-      <span class="state-text">資料載入中...</span>
-    </div>
-
-    <div v-else-if="store.shelterAnimalDetailError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.shelterAnimalDetailError }}</span>
-      <button class="btn-retry" @click="fetchDetail">重試</button>
-    </div>
+    <StateBlock v-if="store.isLoadingShelterAnimalDetail" class="content-sm" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="store.shelterAnimalDetailError"
+      class="content-sm"
+      state="error"
+      :message="store.shelterAnimalDetailError"
+      retryable
+      @retry="fetchDetail"
+    />
 
     <article v-else-if="animal" class="detail-card">
       <div class="detail-header">
@@ -73,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import StateBlock from '@/components/ui/StateBlock.vue'
 import { computed, onMounted, watch } from 'vue'
 import { usePetStore } from '@/stores/pet'
 import {
@@ -107,32 +107,11 @@ watch(() => props.animalId, fetchDetail)
 }
 .back-link:hover { color: var(--green); }
 
-/* 詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
+/* ── 內容卡片 ──
+   詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
    所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
-.state-box,
-.detail-card { max-width: var(--container-sm); }
-
-/* ── 狀態容器（跟 LostPetDetailView／ShelterDetailView 同一套視覺語彙） ── */
-.state-box {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 56px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-}
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.error-box { background: #fff5f5; border-color: #ffcdd2; color: #c62828; }
-.loading-spinner {
-  width: 36px; height: 36px; border: 3px solid #c8e6c9; border-top-color: var(--green);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.btn-retry {
-  padding: 8px 24px; border-radius: 999px; border: 1.5px solid #c62828;
-  background: transparent; color: #c62828; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
-/* ── 內容卡片 ── */
 .detail-card {
+  max-width: var(--container-sm);
   display: flex; flex-direction: column; gap: 14px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   padding: 28px 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);

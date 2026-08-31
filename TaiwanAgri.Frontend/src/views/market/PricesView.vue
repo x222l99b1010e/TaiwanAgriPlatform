@@ -1,33 +1,58 @@
 <template>
   <div class="page prices-view">
-    <h1>作物行情查詢</h1>
+    <PageHeader
+      title="作物行情查詢"
+      subtitle="蔬菜、水果、花卉在各批發市場的每日交易均價，可同時比較多項作物並疊上同期天災警戒"
+    />
 
-    <section class="filter-section">
-      <div class="filter-row">
-        <MarketFilter />
-      </div>
+    <FilterCard layout="stack">
+      <MarketFilter />
       <div class="filter-bottom">
         <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
         <div class="action-row">
-          <button
-            class="btn-query"
-            :disabled="store.selectedCropCodes.length === 0 || isLoading"
+          <Btn
+            icon="mdi-magnify"
+            :loading="isLoading"
+            :disabled="store.selectedCropCodes.length === 0"
             @click="handleQuery"
-          >{{ isLoading ? '查詢中...' : '查詢價格' }}</button>
-          <button v-if="prices.length > 0" class="btn-export" @click="handleExportCsv">匯出 CSV</button>
-          <button v-if="store.selectedCropCodes.length > 0" class="btn-clear" @click="store.$patch({ selectedCropCodes: [] })">清空作物</button>
+          >{{ isLoading ? '查詢中...' : '查詢價格' }}</Btn>
+          <Btn
+            v-if="prices.length > 0"
+            variant="secondary"
+            icon="mdi-file-chart"
+            @click="handleExportCsv"
+          >匯出 CSV</Btn>
+          <Btn
+            v-if="store.selectedCropCodes.length > 0"
+            variant="secondary"
+            icon="mdi-filter-remove-outline"
+            @click="store.$patch({ selectedCropCodes: [] })"
+          >清空作物</Btn>
         </div>
         <p v-if="validationMsg" class="validation-msg">{{ validationMsg }}</p>
       </div>
-    </section>
+    </FilterCard>
 
-    <div class="bottom-grid" v-if="hasQueried">
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇作物與日期區間後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+
+    <div class="bottom-grid" v-else>
       <section class="chart-section" v-if="prices.length > 0">
         <PriceChart :prices="prices" :disasters="rawDisasters" />
       </section>
-      <section class="chart-section empty-section" v-else-if="!isLoading">
-        <p class="result-hint">查無資料，請確認篩選條件後重試</p>
-      </section>
+      <StateBlock
+        v-else
+        state="empty"
+        message="查無價格資料"
+        hint="請確認作物、市場與日期區間後重試"
+      />
 
       <section class="disaster-section">
         <div class="disaster-header">
@@ -64,6 +89,10 @@ import { useMarketStore } from '@/stores/market'
 import { marketApi } from '@/api/market'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
 import { exportPricesToCsv } from '@/utils/exportCsv'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const store = useMarketStore()
 const today = new Date().toISOString().split('T')[0]!
@@ -75,6 +104,9 @@ const prices = ref<PriceResponseDto[]>([])
 const rawDisasters = ref<DisasterResponseDto[]>([])
 const isLoading = ref(false)
 const hasQueried = ref(false)
+// 先前查詢失敗只 console.error，畫面上完全沒有任何訊息——使用者只會看到「查無資料」，
+// 分不出是真的沒有資料還是請求失敗。改成跟其他頁一樣走 StateBlock 的錯誤狀態。
+const errorMsg = ref('')
 
 const disasterEvents = computed(() => {
   const map = new Map<string, {
@@ -113,6 +145,7 @@ async function handleQuery() {
   hasQueried.value = true
   prices.value = []
   rawDisasters.value = []
+  errorMsg.value = ''
   try {
     const [priceResult, disasterResult] = await Promise.all([
       marketApi.getPrices({
@@ -128,6 +161,7 @@ async function handleQuery() {
     rawDisasters.value = disasterResult
   } catch (e) {
     console.error('查詢失敗', e)
+    errorMsg.value = '查詢失敗，請稍後再試'
   } finally {
     isLoading.value = false
   }
@@ -141,15 +175,6 @@ function handleExportCsv() {
 
 <style scoped>
 .prices-view { min-width: 960px; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; flex-direction: column; gap: 16px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 28px; margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
 .filter-bottom { display: flex; align-items: flex-start; gap: 28px; flex-wrap: wrap; }
 
 .bottom-grid {
@@ -162,8 +187,6 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
   border-radius: 14px; padding: 28px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-.empty-section { display: flex; align-items: center; justify-content: center; min-height: 200px; }
-
 .disaster-section {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 22px;
@@ -189,59 +212,5 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
 .disaster-counties { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
 
 .action-row { display: flex; align-items: center; gap: 10px; }
-
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 4px rgba(0,0,0,0.20), 0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.btn-export {
-  padding: 9px 20px; border-radius: 999px;
-  border: 1px solid #005f6b;
-  background: linear-gradient(180deg, #00bcd4 0%, #0097a7 40%, #006978 100%);
-  color: white; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-export:hover {
-  background: linear-gradient(180deg, #26c6da 0%, #00acc1 40%, #0097a7 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-export:active {
-  background: linear-gradient(180deg, #006978 0%, #0097a7 60%, #00acc1 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-
-.btn-clear {
-  padding: 9px 18px; border-radius: 999px;
-  border: 1px solid #6a1010;
-  background: linear-gradient(180deg, #ff6f43 0%, #e64a19 40%, #bf360c 100%);
-  color: white; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-clear:hover {
-  background: linear-gradient(180deg, #ff8a65 0%, #f4511e 40%, #e64a19 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-clear:active {
-  background: linear-gradient(180deg, #bf360c 0%, #e64a19 60%, #f4511e 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-
 .validation-msg { font-size: 13px; color: var(--red); }
-.result-hint { font-size: 13px; color: var(--text-muted); text-align: center; }
 </style>

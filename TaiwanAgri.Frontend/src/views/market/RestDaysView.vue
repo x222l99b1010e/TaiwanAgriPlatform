@@ -1,8 +1,11 @@
 <template>
   <div class="page restdays-view">
-    <h1>休市日查詢</h1>
+    <PageHeader
+      title="休市日查詢"
+      subtitle="各農產品批發市場的休市日期，請先選擇市場再查詢"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <div class="field-group">
         <label class="field-label">選擇市場</label>
         <select class="market-select" v-model="selectedMarketCode" :disabled="isLoadingMarkets">
@@ -14,15 +17,34 @@
         <span v-if="isLoadingMarkets" class="loading-hint">載入中...</span>
       </div>
       <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
-      <button class="btn-query" :disabled="!selectedMarketCode || isLoading" @click="handleQuery">
-        {{ isLoading ? '查詢中...' : '查詢休市日' }}
-      </button>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      <Btn
+        icon="mdi-magnify"
+        :loading="isLoading"
+        :disabled="!selectedMarketCode"
+        @click="handleQuery"
+      >{{ isLoading ? '查詢中...' : '查詢休市日' }}</Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried">
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇市場與日期區間後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="restDays.length === 0"
+      state="empty"
+      icon="mdi-calendar-remove"
+      message="查詢區間內無休市紀錄"
+      hint="這個市場在所選期間內每天都有交易"
+    />
+
+    <div v-else>
       <!-- 摘要列 -->
-      <div class="summary-bar" v-if="restDays.length > 0">
+      <div class="summary-bar">
         <div class="stat-card">
           <span class="stat-label">休市天數</span>
           <span class="stat-value">{{ restDays.length }}</span>
@@ -33,12 +55,8 @@
         </div>
       </div>
 
-      <div class="empty-hint" v-if="restDays.length === 0 && !isLoading">
-        查詢區間內無休市紀錄
-      </div>
-
       <!-- 按月份分組 -->
-      <div class="month-groups" v-if="groupedByMonth.length > 0">
+      <div class="month-groups">
         <div class="month-group" v-for="group in groupedByMonth" :key="group.label">
           <div class="month-label">
             <span class="mdi mdi-calendar-month" />
@@ -62,6 +80,10 @@ import { ref, computed, onMounted } from 'vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi } from '@/api/market'
 import type { RestDayResponseDto, MarketResponseDto } from '@/api/market'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const today = new Date().toISOString().split('T')[0]!
 const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
@@ -136,16 +158,6 @@ onMounted(() => loadMarkets())
 
 <style scoped>
 .restdays-view { min-width: 960px; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
@@ -159,28 +171,6 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
 .market-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .loading-hint { font-size: 12px; color: var(--text-muted); }
-
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 60px 0; }
-
 /* 摘要列 */
 .summary-bar { display: flex; gap: 14px; margin-bottom: 28px; }
 .stat-card {

@@ -1,91 +1,105 @@
 <!-- src/views/weather/RainfallView.vue -->
 <template>
   <div class="page rainfall-view">
-    <h1>雨量趨勢</h1>
+    <PageHeader
+      title="雨量趨勢"
+      subtitle="指定縣市與區間內，各測站的 24 小時累積雨量走勢"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <CitySelector v-model="selectedCity" />
       <DateRangePicker
         v-model:startDate="startDate"
         v-model:endDate="endDate"
       />
-      <button class="btn-query" :disabled="isLoading" @click="handleQuery">
+      <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
         {{ isLoading ? '查詢中...' : '查詢' }}
-      </button>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      </Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried && !isLoading">
-      <p v-if="records.length === 0" class="empty-hint">查無資料</p>
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇縣市與日期區間後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="records.length === 0"
+      state="empty"
+      message="查無資料"
+      hint="這個縣市在所選區間內沒有雨量觀測紀錄，可以把區間拉長再試"
+    />
 
-      <div v-else>
-        <!-- 摘要統計 -->
-        <div class="summary-bar">
-          <div class="stat-card">
-            <span class="stat-label">測站數</span>
-            <span class="stat-value">{{ stationCount }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">資料筆數</span>
-            <span class="stat-value">{{ records.length }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">最高 24h 雨量</span>
-            <span class="stat-value">{{ maxHour24 }} mm</span>
-          </div>
+    <div v-else>
+      <!-- 摘要統計 -->
+      <div class="summary-bar">
+        <div class="stat-card">
+          <span class="stat-label">測站數</span>
+          <span class="stat-value">{{ stationCount }}</span>
         </div>
-
-        <!-- 折線圖 -->
-        <div class="chart-card">
-            <div class="chart-toolbar">
-            <span class="chart-title">24h 累積雨量趨勢</span>
-            <div class="toolbar-right">
-                <button class="btn-toggle-all" @click="toggleAllSeries">
-                {{ allVisible ? '全不選' : '全選' }}
-                </button>
-                <div class="metric-tabs">
-                <button
-                    v-for="m in metricOptions"
-                    :key="m.key"
-                    class="metric-tab"
-                    :class="{ active: activeMetric === m.key }"
-                    @click="activeMetric = m.key"
-                >{{ m.label }}</button>
-                </div>
-            </div>
-            </div>
-          <div class="canvas-wrap">
-            <canvas ref="canvasRef" />
-          </div>
+        <div class="stat-card">
+          <span class="stat-label">資料筆數</span>
+          <span class="stat-value">{{ records.length }}</span>
         </div>
-
-        <!-- 明細表格 -->
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>測站</th>
-                <th>觀測時間</th>
-                <th class="num">3h (mm)</th>
-                <th class="num">6h (mm)</th>
-                <th class="num">12h (mm)</th>
-                <th class="num">24h (mm)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(r, i) in records" :key="i" :class="{ heavy: (r.hour24 ?? 0) >= 80 }">
-                <td class="station-cell">{{ r.stationName }}</td>
-                <td class="time-cell">{{ r.observedAt.replace('T', ' ').slice(0, 16) }}</td>
-                <td class="num">{{ r.hour3 ?? '—' }}</td>
-                <td class="num">{{ r.hour6 ?? '—' }}</td>
-                <td class="num">{{ r.hour12 ?? '—' }}</td>
-                <td class="num rain-24" :class="rainLevel(r.hour24)">{{ r.hour24 ?? '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="stat-card">
+          <span class="stat-label">最高 24h 雨量</span>
+          <span class="stat-value">{{ maxHour24 }} mm</span>
         </div>
-        <p class="hint">※ 24h 雨量 ≥ 80mm 標記為大雨（橘色）</p>
       </div>
+
+      <!-- 折線圖 -->
+      <div class="chart-card">
+          <div class="chart-toolbar">
+          <span class="chart-title">24h 累積雨量趨勢</span>
+          <div class="toolbar-right">
+              <button class="btn-toggle-all" @click="toggleAllSeries">
+              {{ allVisible ? '全不選' : '全選' }}
+              </button>
+              <div class="metric-tabs">
+              <button
+                  v-for="m in metricOptions"
+                  :key="m.key"
+                  class="metric-tab"
+                  :class="{ active: activeMetric === m.key }"
+                  @click="activeMetric = m.key"
+              >{{ m.label }}</button>
+              </div>
+          </div>
+          </div>
+        <div class="canvas-wrap">
+          <canvas ref="canvasRef" />
+        </div>
+      </div>
+
+      <!-- 明細表格 -->
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>測站</th>
+              <th>觀測時間</th>
+              <th class="num">3h (mm)</th>
+              <th class="num">6h (mm)</th>
+              <th class="num">12h (mm)</th>
+              <th class="num">24h (mm)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(r, i) in records" :key="i" :class="{ heavy: (r.hour24 ?? 0) >= 80 }">
+              <td class="station-cell">{{ r.stationName }}</td>
+              <td class="time-cell">{{ r.observedAt.replace('T', ' ').slice(0, 16) }}</td>
+              <td class="num">{{ r.hour3 ?? '—' }}</td>
+              <td class="num">{{ r.hour6 ?? '—' }}</td>
+              <td class="num">{{ r.hour12 ?? '—' }}</td>
+              <td class="num rain-24" :class="rainLevel(r.hour24)">{{ r.hour24 ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">※ 24h 雨量 ≥ 80mm 標記為大雨（橘色）</p>
     </div>
   </div>
 </template>
@@ -102,6 +116,10 @@ import {
 import { weatherApi, type RainfallResponseDto } from '@/api/weather'
 import CitySelector from '@/components/CitySelector.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
@@ -316,54 +334,6 @@ async function handleQuery() {
 
 <style scoped>
 .rainfall-view { min-width: 960px; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(
-    180deg,
-    #4caf50 0%,
-    #2e7d32 40%,
-    #1b5e20 100%
-  );
-  color: white;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    inset 2px 0 6px rgba(255,255,255,0.08),
-    0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    inset 2px 0 6px rgba(255,255,255,0.10),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    inset 0 -1px 0 rgba(255,255,255,0.15),
-    0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg  { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
-
 .summary-bar { display: flex; gap: 14px; margin-bottom: 20px; }
 
 .stat-card {

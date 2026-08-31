@@ -1,9 +1,9 @@
 <template>
   <div class="page legal-business-view">
-    <div class="page-header">
-      <h2 class="section-title">合法寵物業查詢</h2>
-      <p class="section-subtitle">合法寵物業者評鑑資料與農業部官方遺失啟事，皆無座標資料，僅提供表格查詢</p>
-    </div>
+    <PageHeader
+      title="合法寵物業查詢"
+      subtitle="合法寵物業者評鑑資料與農業部官方遺失啟事，皆無座標資料，僅提供表格查詢"
+    />
 
     <div class="tab-switch">
       <button class="tab-btn" :class="{ active: activeTab === 'legal' }" @click="switchTab('legal')">
@@ -16,7 +16,7 @@
 
     <!-- ── Tab 1：合法寵物業查詢 ── -->
     <section v-if="activeTab === 'legal'">
-      <div class="filter-bar">
+      <FilterCard>
         <CitySelector v-model="legalCounty" include-all />
 
         <div class="field-group">
@@ -62,30 +62,33 @@
           </div>
         </div>
 
-        <button
+        <Btn
           v-if="hasActiveLegalFilters"
-          type="button" class="btn-clear-filters"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
           title="清除所有篩選條件，回到未篩選狀態"
           @click="clearLegalFilters"
-        >
-          <span class="mdi mdi-filter-remove-outline" /> 清除篩選
-        </button>
+        >清除篩選</Btn>
 
         <span v-if="store.isLoadingLegalSpecificPets" class="loading-hint">
           <span class="loading-spinner-sm" />載入中...
         </span>
-      </div>
+      </FilterCard>
 
-      <div v-if="store.legalSpecificPetsError" class="state-box error-box">
-        <span class="mdi mdi-alert-circle state-icon" />
-        <span class="state-text">{{ store.legalSpecificPetsError }}</span>
-        <button class="btn-retry" @click="fetchLegal">重試</button>
-      </div>
-
-      <div v-else-if="store.legalSpecificPetsPage && store.legalSpecificPetsPage.items.length === 0" class="state-box">
-        <span class="mdi mdi-store-search-outline state-icon" />
-        <span class="state-text">此縣市查無合法寵物業資料</span>
-      </div>
+      <StateBlock
+        v-if="store.legalSpecificPetsError"
+        state="error"
+        :message="store.legalSpecificPetsError"
+        retryable
+        @retry="fetchLegal"
+      />
+      <StateBlock
+        v-else-if="store.legalSpecificPetsPage && store.legalSpecificPetsPage.items.length === 0"
+        state="empty"
+        icon="mdi-store-search-outline"
+        message="此縣市查無合法寵物業資料"
+        hint="可以把篩選條件放寬，或換一個縣市再看看"
+      />
 
       <div v-else-if="store.legalSpecificPetsPage" class="table-section">
         <div class="table-wrapper">
@@ -152,7 +155,7 @@
 
     <!-- ── Tab 2：官方遺失啟事 ── -->
     <section v-else>
-      <div class="filter-bar">
+      <FilterCard>
         <div class="field-group">
           <label class="field-label">動物類別</label>
           <select v-model="officialCategory" class="filter-select">
@@ -182,30 +185,33 @@
           </div>
         </div>
 
-        <button
+        <Btn
           v-if="hasActiveOfficialFilters"
-          type="button" class="btn-clear-filters"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
           title="清除所有篩選條件，回到未篩選狀態"
           @click="clearOfficialFilters"
-        >
-          <span class="mdi mdi-filter-remove-outline" /> 清除篩選
-        </button>
+        >清除篩選</Btn>
 
         <span v-if="store.isLoadingOfficialLostPetPosts" class="loading-hint">
           <span class="loading-spinner-sm" />載入中...
         </span>
-      </div>
+      </FilterCard>
 
-      <div v-if="store.officialLostPetPostsError" class="state-box error-box">
-        <span class="mdi mdi-alert-circle state-icon" />
-        <span class="state-text">{{ store.officialLostPetPostsError }}</span>
-        <button class="btn-retry" @click="fetchOfficial">重試</button>
-      </div>
-
-      <div v-else-if="store.officialLostPetPostsPage && store.officialLostPetPostsPage.items.length === 0" class="state-box">
-        <span class="mdi mdi-clipboard-search-outline state-icon" />
-        <span class="state-text">目前查無官方遺失啟事資料</span>
-      </div>
+      <StateBlock
+        v-if="store.officialLostPetPostsError"
+        state="error"
+        :message="store.officialLostPetPostsError"
+        retryable
+        @retry="fetchOfficial"
+      />
+      <StateBlock
+        v-else-if="store.officialLostPetPostsPage && store.officialLostPetPostsPage.items.length === 0"
+        state="empty"
+        icon="mdi-clipboard-search-outline"
+        message="目前查無官方遺失啟事資料"
+        hint="可以把篩選條件放寬，或換一個縣市再看看"
+      />
 
       <div v-else-if="store.officialLostPetPostsPage" class="table-section">
         <div class="table-wrapper">
@@ -266,6 +272,10 @@ import CitySelector from '@/components/CitySelector.vue'
 import PagerBar from '@/components/PagerBar.vue'
 import { usePetStore } from '@/stores/pet'
 import { usePagination } from '@/composables/usePagination'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 import type {
   LegalPetAnimalType, LegalPetRankGrade, LegalPetStateFlag, LegalSpecificPetSortByValue,
   AnimalKind, OfficialLostPetPostSortByValue,
@@ -487,11 +497,6 @@ onMounted(fetchLegal)
 </script>
 
 <style scoped>
-
-.page-header { margin-bottom: 20px; }
-.section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
-.section-subtitle { font-size: 13px; color: var(--text-muted); }
-
 .tab-switch {
   display: flex; gap: 6px; margin-bottom: 20px;
   background: var(--surface-2); border: 1px solid var(--border);
@@ -503,12 +508,6 @@ onMounted(fetchLegal)
 }
 .tab-btn:hover { color: var(--green); }
 .tab-btn.active { background: var(--green); color: white; }
-
-.filter-bar {
-  display: flex; align-items: flex-end; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
-  padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-}
-
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
   font-size: 12px; color: var(--text-muted); font-weight: 600;
@@ -529,16 +528,6 @@ onMounted(fetchLegal)
   color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
 }
 .sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-
-.btn-clear-filters {
-  display: inline-flex; align-items: center; gap: 5px; align-self: flex-end;
-  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-secondary);
-  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  transition: all 0.15s;
-}
-.btn-clear-filters:hover { border-color: var(--red); color: var(--red); background: #fff5f5; }
-
 .loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; }
 .loading-hint.standalone { margin-bottom: 20px; }
 .loading-spinner-sm {
@@ -546,20 +535,6 @@ onMounted(fetchLegal)
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.state-box {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 56px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-}
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.error-box { background: #fff5f5; border-color: #ffcdd2; color: #c62828; }
-.btn-retry {
-  padding: 8px 24px; border-radius: 999px; border: 1.5px solid #c62828;
-  background: transparent; color: #c62828; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
 .table-section { display: flex; flex-direction: column; gap: 16px; }
 .table-wrapper {
   background: var(--surface); border: 1px solid var(--border); border-radius: 16px;

@@ -1,9 +1,12 @@
-<!-- src/views/weather/PestAlertsView.vue -->
+<!-- src/views/weather/PestDecadeView.vue -->
 <template>
   <div class="page pest-view">
-    <h1>病蟲害警報</h1>
+    <PageHeader
+      title="病蟲害旬報查詢"
+      subtitle="依害蟲名稱查詢各縣市鄉鎮的旬別發生率統計"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <!-- 害蟲選擇 -->
       <div class="field-group">
         <label class="field-label">選擇害蟲</label>
@@ -21,80 +24,94 @@
         </select>
       </div>
 
-      <button class="btn-query" :disabled="isLoading || !selectedPest" @click="handleQuery">
-        {{ isLoading ? '查詢中...' : '查詢' }}
-      </button>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      <Btn
+        icon="mdi-magnify"
+        :loading="isLoading"
+        :disabled="!selectedPest"
+        @click="handleQuery"
+      >{{ isLoading ? '查詢中...' : '查詢' }}</Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried && !isLoading">
-      <p v-if="records.length === 0" class="empty-hint">查無資料</p>
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇害蟲後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="records.length === 0"
+      state="empty"
+      message="查無資料"
+      hint="這種害蟲沒有旬報統計紀錄，可換一種害蟲再查"
+    />
 
-      <div v-else>
-        <!-- 摘要 -->
-        <div class="summary-bar">
-          <div class="stat-card">
-            <span class="stat-label">害蟲名稱</span>
-            <span class="stat-value pest-name">{{ selectedPest }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">城市數</span>
-            <span class="stat-value">{{ cityCount }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">資料筆數</span>
-            <span class="stat-value">{{ records.length }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">最高密度</span>
-            <span class="stat-value">{{ maxAverage }}</span>
+    <div v-else>
+      <!-- 摘要 -->
+      <div class="summary-bar">
+        <div class="stat-card">
+          <span class="stat-label">害蟲名稱</span>
+          <span class="stat-value pest-name">{{ selectedPest }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">城市數</span>
+          <span class="stat-value">{{ cityCount }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">資料筆數</span>
+          <span class="stat-value">{{ records.length }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">最高密度</span>
+          <span class="stat-value">{{ maxAverage }}</span>
+        </div>
+      </div>
+
+      <!-- 折線圖 -->
+      <div class="chart-card">
+        <div class="chart-toolbar">
+          <span class="chart-title">旬密度趨勢（按城市）</span>
+          <div class="toolbar-right">
+            <button class="btn-toggle-all" @click="toggleAllSeries">
+              {{ allVisible ? '全不選' : '全選' }}
+            </button>
           </div>
         </div>
-
-        <!-- 折線圖 -->
-        <div class="chart-card">
-          <div class="chart-toolbar">
-            <span class="chart-title">旬密度趨勢（按城市）</span>
-            <div class="toolbar-right">
-              <button class="btn-toggle-all" @click="toggleAllSeries">
-                {{ allVisible ? '全不選' : '全選' }}
-              </button>
-            </div>
-          </div>
-          <div class="canvas-wrap">
-            <canvas ref="canvasRef" />
-          </div>
+        <div class="canvas-wrap">
+          <canvas ref="canvasRef" />
         </div>
+      </div>
 
-        <!-- 明細表格 -->
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>城市</th>
-                <th>鄉鎮</th>
-                <th class="num">年</th>
-                <th class="num">月</th>
-                <th class="num">旬</th>
-                <th class="num">平均密度</th>
-                <th class="num">全島比例</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(r, i) in records" :key="i" :class="densityLevel(r.average)">
-                <td class="city-cell">{{ r.city }}</td>
-                <td class="town-cell">{{ r.town }}</td>
-                <td class="num">{{ r.year }}</td>
-                <td class="num">{{ r.month }}</td>
-                <td class="num">{{ tenDaysLabel(r.tenDays) }}</td>
-                <td class="num density-val" :class="densityLevel(r.average)">
-                  {{ r.average ?? '—' }}
-                </td>
-                <td class="num">{{ r.proportionIsland != null ? (r.proportionIsland * 100).toFixed(1) + '%' : '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <!-- 明細表格 -->
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>城市</th>
+              <th>鄉鎮</th>
+              <th class="num">年</th>
+              <th class="num">月</th>
+              <th class="num">旬</th>
+              <th class="num">平均密度</th>
+              <th class="num">全島比例</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(r, i) in records" :key="i" :class="densityLevel(r.average)">
+              <td class="city-cell">{{ r.city }}</td>
+              <td class="town-cell">{{ r.town }}</td>
+              <td class="num">{{ r.year }}</td>
+              <td class="num">{{ r.month }}</td>
+              <td class="num">{{ tenDaysLabel(r.tenDays) }}</td>
+              <td class="num density-val" :class="densityLevel(r.average)">
+                {{ r.average ?? '—' }}
+              </td>
+              <td class="num">{{ r.proportionIsland != null ? (r.proportionIsland * 100).toFixed(1) + '%' : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -110,6 +127,10 @@ import {
   type ChartDataset, type Scale,
 } from 'chart.js'
 import { weatherApi, type PestDecadeResponseDto } from '@/api/weather'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -310,15 +331,6 @@ async function handleQuery() {
 
 <style scoped>
 .pest-view { min-width: 960px; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
@@ -331,39 +343,6 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
 .pest-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
 
 /* 查詢按鈕金屬反光 */
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    inset 2px 0 6px rgba(255,255,255,0.08),
-    0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    inset 2px 0 6px rgba(255,255,255,0.10),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    inset 0 -1px 0 rgba(255,255,255,0.15),
-    0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg  { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
-
 .summary-bar { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
 
 .stat-card {

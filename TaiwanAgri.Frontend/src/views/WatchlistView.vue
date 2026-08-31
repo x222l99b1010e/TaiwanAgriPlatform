@@ -1,6 +1,9 @@
 <template>
   <div class="page watchlist-view">
-    <h1>監看清單</h1>
+    <PageHeader
+      title="監看清單"
+      subtitle="追蹤指定作物與市場的最新成交價，價格更新時可在通知中看到"
+    />
 
     <!-- ── 新增區 ──────────────────────────────────── -->
     <section class="add-section">
@@ -79,14 +82,14 @@
     <section class="list-section">
       <div class="list-header">
         <h2 class="section-title">我的監看清單</h2>
-        <button
+        <Btn
           v-if="selectedIds.length > 0"
-          class="btn-delete"
+          variant="danger"
+          size="sm"
+          icon="mdi-trash-can-outline"
           :disabled="store.isSaving"
           @click="handleRemove"
-        >
-          刪除已選 ({{ selectedIds.length }}{{ selectedIds.length >= 50 ? '，已達上限' : '' }})
-        </button>
+        >刪除已選 ({{ selectedIds.length }}{{ selectedIds.length >= 50 ? '，已達上限' : '' }})</Btn>
       </div>
 
       <div v-if="store.isLoading" class="hint">載入中...</div>
@@ -128,11 +131,13 @@
 </template>
 
 <script setup lang="ts">
+import Btn from '@/components/ui/Btn.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { marketApi } from '@/api/market'
 import type { CropResponseDto, MarketResponseDto } from '@/api/market'
 import type { MarketType } from '@/api/watchlist'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const store = useWatchlistStore()
 
@@ -256,9 +261,6 @@ onMounted(async () => {
 /* 單欄清單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
 .add-section,
 .list-section { max-width: var(--container-sm); }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 28px; }
-
 .section-title {
   font-size: 14px; font-weight: 700;
   color: var(--text-secondary);
@@ -359,18 +361,6 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
 }
 
 .list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-
-.btn-delete {
-  padding: 7px 18px; border-radius: 999px;
-  border: 1px solid #6a1010;
-  background: linear-gradient(180deg, #ff6f43 0%, #e64a19 40%, #bf360c 100%);
-  color: white; font-size: 13px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-delete:hover:not(:disabled) { background: linear-gradient(180deg, #ff8a65 0%, #f4511e 40%, #e64a19 100%); }
-.btn-delete:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
 .hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 32px 0; }
 
 .item-list { display: flex; flex-direction: column; gap: 8px; }

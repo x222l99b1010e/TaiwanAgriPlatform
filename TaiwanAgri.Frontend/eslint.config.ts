@@ -20,6 +20,17 @@ export default defineConfigWithVueTs(
   ...pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
 
+  // 共用基礎元件（src/components/ui）允許單字命名。
+  // vue/multi-word-component-names 的用意是避免元件與現有或未來的原生 HTML 元素撞名，
+  // 而這個資料夾裡的名稱（Btn）不對應任何原生元素、也不會出現在自訂元素註冊路徑上。
+  // 這幾個是全站每一頁都會用到的基礎元件，短名稱在使用端可讀性明顯較好，
+  // 例外範圍因此限定在這一個資料夾，其餘檔案仍受規則約束。
+  {
+    name: 'app/ui-primitives-allow-single-word-names',
+    files: ['src/components/ui/**/*.vue'],
+    rules: { 'vue/multi-word-component-names': 'off' },
+  },
+
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
   skipFormatting,

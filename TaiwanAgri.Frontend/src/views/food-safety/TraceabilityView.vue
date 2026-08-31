@@ -1,11 +1,10 @@
 <template>
   <div class="page traceability-view">
 
-    <!-- 頁首 -->
-    <div class="page-header">
-      <h2 class="section-title">農產品追溯查詢</h2>
-      <p class="section-subtitle">輸入追溯碼，查詢蔬果、雞蛋、禽肉的產地與生產者資訊</p>
-    </div>
+    <PageHeader
+      title="農產品追溯查詢"
+      subtitle="輸入追溯碼，查詢蔬果、雞蛋、禽肉的產地與生產者資訊"
+    />
 
     <!-- 說明區塊 -->
     <div class="info-hint">
@@ -41,28 +40,30 @@
         placeholder="請輸入追溯碼，例如：0101000005"
         @keyup.enter="handleSearch"
       />
-      <button
-        class="btn-search"
-        :disabled="store.isSearching || !traceCode.trim()"
+      <Btn
+        icon="mdi-magnify"
+        :loading="store.isSearching"
+        :disabled="!traceCode.trim()"
         @click="handleSearch"
-      >
-        <span v-if="store.isSearching" class="mdi mdi-loading spin" />
-        <span v-else class="mdi mdi-magnify" />
-        {{ store.isSearching ? '查詢中...' : '查詢' }}
-      </button>
+      >{{ store.isSearching ? '查詢中...' : '查詢' }}</Btn>
     </div>
 
-    <!-- 錯誤 -->
-    <div v-if="store.searchError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle" />
-      {{ store.searchError }}
-    </div>
-
-    <!-- 無結果 -->
-    <div v-else-if="store.traceabilityResult && !hasAnyResult" class="state-box">
-      <span class="mdi mdi-database-off-outline state-icon" />
-      <span class="state-text">查無此追溯碼的相關資料</span>
-    </div>
+    <StateBlock v-if="store.isSearching" class="content-sm" state="loading" message="查詢中..." />
+    <StateBlock
+      v-else-if="store.searchError"
+      class="content-sm"
+      state="error"
+      :message="store.searchError"
+      retryable
+      @retry="handleSearch"
+    />
+    <StateBlock
+      v-else-if="store.traceabilityResult && !hasAnyResult"
+      class="content-sm"
+      state="empty"
+      message="查無此追溯碼的相關資料"
+      hint="請確認號碼是否正確；禽肉批次碼有時效性，較舊的批次可能已不在查詢範圍內"
+    />
 
     <!-- 結果區塊 -->
     <div v-else-if="hasAnyResult" class="result-section">
@@ -224,10 +225,14 @@
     </div>
 
     <!-- 初始提示（尚未查詢） -->
-    <div v-else class="state-box hint-box">
-      <span class="mdi mdi-barcode-scan state-icon" />
-      <span class="state-text">請輸入追溯碼開始查詢</span>
-    </div>
+    <StateBlock
+      v-else
+      class="content-sm"
+      state="hint"
+      icon="mdi-barcode-scan"
+      message="請輸入追溯碼開始查詢"
+      hint="上方有三組範例碼可以直接點來試"
+    />
 
   </div>
 </template>
@@ -235,6 +240,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const store = useFoodSafetyStore()
 const traceCode = ref('')
@@ -261,23 +269,7 @@ function handleSearch() {
    一千多像素。頁面容器不縮，改由說明、查詢列與狀態框自己限寬並靠左
    （見 base.css .page）；查詢結果卡片維持全寬，因為裡面是多欄資訊格。 */
 .info-hint,
-.search-bar,
-.state-box { max-width: var(--container-sm); }
-
-/* ── 頁首 ── */
-.page-header { margin-bottom: 24px; }
-
-.section-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.section-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-}
+.search-bar { max-width: var(--container-sm); }
 
 /* ── 說明區塊 ── */
 .info-hint {
@@ -397,68 +389,7 @@ function handleSearch() {
   border-color: var(--green);
   box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
 }
-
-.btn-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 26px;
-  border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-
-.btn-search:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-}
-
-.btn-search:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-
-.btn-search:disabled {
-  background: #c8d8c8;
-  color: #999;
-  border-color: #b0c8b0;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { display: inline-block; animation: spin 0.8s linear infinite; }
-
 /* ── 狀態容器 ── */
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 56px 32px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-
-.error-box {
-  background: #fff5f5;
-  border-color: #ffcdd2;
-  color: #c62828;
-  font-size: 14px;
-}
-
-.hint-box .state-icon { color: #c8e6c9; }
-
 /* ── 結果卡片 ── */
 .result-section {
   display: flex;

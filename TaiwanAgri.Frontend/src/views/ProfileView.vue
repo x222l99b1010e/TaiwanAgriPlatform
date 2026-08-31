@@ -1,6 +1,9 @@
 <template>
   <div class="page profile-view">
-    <h2>農場設定</h2>
+    <PageHeader
+      title="農場設定"
+      subtitle="設定所在縣市與顯示名稱，並管理密碼"
+    />
 
     <!-- 個人管理相關的其他頁面入口（不掛週次分支新增：我的協尋貼文）放在這裡，
          日後若有更多「我的 xxx」功能，這個區塊可以繼續往下加，不需要另外設計導覽結構 -->
@@ -99,6 +102,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useProfileStore } from '../stores/profile'
 import type { CropItem } from '../api/profile'
 import { getAllCrops } from '../api/cropApi'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const profileStore = useProfileStore()
 
@@ -194,14 +198,6 @@ async function handleSave() {
 .section-link,
 .loading,
 .profile-form { max-width: var(--container-sm); }
-
-h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 2rem;
-}
-
 .loading {
   color: var(--color-text-secondary);
   padding: 2rem;
