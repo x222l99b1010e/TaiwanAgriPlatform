@@ -13,9 +13,9 @@
         <span class="mdi mdi-cursor-default-click-outline" />
         點擊地圖上的位置，設定走失／拾獲地點座標
       </span>
-      <button v-if="hasCoordinate" type="button" class="btn-clear" @click="clearCoordinate">
+      <Btn v-if="hasCoordinate" variant="danger" size="sm" icon="mdi-close-circle-outline" @click="clearCoordinate">
         清除座標
-      </button>
+      </Btn>
     </div>
 
     <div ref="mapContainer" class="map-container" />
@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import L from 'leaflet'
+import Btn from '@/components/ui/Btn.vue'
 
 const props = defineProps<{
   latitude: number | null
@@ -146,18 +147,6 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--text-muted);
 }
-
-.btn-clear {
-  padding: 4px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-clear:hover { border-color: var(--red); color: var(--red); }
 
 .map-container {
   height: 600px;

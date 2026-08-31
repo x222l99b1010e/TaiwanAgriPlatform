@@ -16,14 +16,12 @@
         <div class="metric-groups-toolbar">
           <span class="group-label">指標（{{ selectedMetrics.length }}／{{ metricsList.length }}）</span>
           <div class="metric-bulk-actions">
-            <button type="button" class="btn-select-all" @click="selectAllMetrics">
-              <span class="mdi mdi-checkbox-multiple-marked-outline" />
+            <Btn variant="secondary" size="sm" icon="mdi-checkbox-multiple-marked-outline" @click="selectAllMetrics">
               全選
-            </button>
-            <button type="button" class="btn-clear-all" @click="clearAllMetrics">
-              <span class="mdi mdi-close-circle-outline" />
+            </Btn>
+            <Btn variant="secondary" size="sm" icon="mdi-close-circle-outline" @click="clearAllMetrics">
               清空
-            </button>
+            </Btn>
           </div>
         </div>
         <p v-if="hasQueried && completenessByMetric.size > 0" class="badge-legend">
@@ -128,6 +126,9 @@
 
       <!-- 非常態資料明細 -->
       <div class="abnormal-card" v-if="abnormalPoints.length > 0">
+        <!-- 刻意不轉 Btn：這是整列可點的展開/收合標頭（width:100%、文字左對齊、
+             chevron 隨狀態換向），跟 Btn 的定寬藥丸鈕在結構上不同類，跟分頁/tab
+             一樣屬於「有自己選取態與排列邏輯」的排除範圍（見 Btn.vue 檔頭註解）。 -->
         <button class="btn-toggle-abnormal" @click="showAbnormalTable = !showAbnormalTable">
           <span class="mdi" :class="showAbnormalTable ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
           {{ showAbnormalTable ? '收合' : '展開' }}非常態資料明細（{{ abnormalPoints.length }} 筆）
@@ -500,33 +501,6 @@ function exportChartImage() {
 }
 .metric-bulk-actions { display: flex; gap: 10px; }
 
-/* 全選／清空刻意做成跟頁面其他主要按鈕同等視覺重量（實心漸層＋陰影），
-   不是弱化成細邊框小連結——這兩個按鈕在 17 條指標的情境下是高頻操作，
-   要讓使用者掃過畫面就注意到，不能等他細看才發現 */
-.btn-select-all, .btn-clear-all {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 18px; border-radius: 999px;
-  font-size: 13px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.20), 0 2px 6px rgba(0,0,0,0.16);
-  transition: all 0.15s;
-}
-.btn-select-all .mdi, .btn-clear-all .mdi { font-size: 15px; }
-
-.btn-select-all {
-  border: 1px solid #005f6b; color: white;
-  background: linear-gradient(180deg, #00bcd4 0%, #0097a7 40%, #006978 100%);
-}
-.btn-select-all:hover {
-  background: linear-gradient(180deg, #26c6da 0%, #00acc1 40%, #0097a7 100%);
-}
-
-.btn-clear-all {
-  border: 1px solid #b0442e; color: white;
-  background: linear-gradient(180deg, #ff8a65 0%, #e5673f 40%, #bf360c 100%);
-}
-.btn-clear-all:hover {
-  background: linear-gradient(180deg, #ffab91 0%, #ff7043 40%, #d84315 100%);
-}
 .metric-group { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .group-label {
   font-size: 12px; color: var(--text-muted); font-weight: 600;

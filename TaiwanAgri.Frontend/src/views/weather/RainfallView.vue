@@ -55,9 +55,9 @@
           <div class="chart-toolbar">
           <span class="chart-title">24h 累積雨量趨勢</span>
           <div class="toolbar-right">
-              <button class="btn-toggle-all" @click="toggleAllSeries">
+              <Btn variant="secondary" size="sm" @click="toggleAllSeries">
               {{ allVisible ? '全不選' : '全選' }}
-              </button>
+              </Btn>
               <div class="metric-tabs">
               <button
                   v-for="m in metricOptions"
@@ -371,16 +371,6 @@ async function handleQuery() {
 }
 
 .toolbar-right { display: flex; align-items: center; gap: 10px; }
-
-/* 切換按鈕文字 */
-.btn-toggle-all {
-  padding: 5px 14px; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--surface);
-  color: rgba(26,40,32,0.65);   /* 從 text-secondary → 深一點 */
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
-}
-.btn-toggle-all:hover { background: var(--surface-2); color: var(--text-primary); }
 
 .metric-tabs {
   display: flex; gap: 4px;

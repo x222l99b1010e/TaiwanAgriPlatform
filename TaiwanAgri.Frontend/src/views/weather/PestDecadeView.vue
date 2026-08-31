@@ -74,9 +74,9 @@
         <div class="chart-toolbar">
           <span class="chart-title">旬密度趨勢（按城市）</span>
           <div class="toolbar-right">
-            <button class="btn-toggle-all" @click="toggleAllSeries">
+            <Btn variant="secondary" size="sm" @click="toggleAllSeries">
               {{ allVisible ? '全不選' : '全選' }}
-            </button>
+            </Btn>
           </div>
         </div>
         <div class="canvas-wrap">
@@ -380,16 +380,6 @@ async function handleQuery() {
   letter-spacing: 0.04em;
 }
 .toolbar-right { display: flex; align-items: center; gap: 10px; }
-
-/* 全不選按鈕 */
-.btn-toggle-all {
-  padding: 5px 14px; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--surface);
-  color: rgba(26,40,32,0.65);
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
-}
-.btn-toggle-all:hover { background: var(--surface-2); color: var(--text-primary); }
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
