@@ -6,21 +6,20 @@
   抽到共用元件與 utils 的那份，這頁只負責「單筆抓取＋版面排列」，不重新發明卡片渲染。
 -->
 <template>
-  <div class="lost-pet-detail-view">
+  <div class="page lost-pet-detail-view">
     <RouterLink to="/pet/lost-pets" class="back-link">
       <span class="mdi mdi-arrow-left" /> 回協尋列表
     </RouterLink>
 
-    <div v-if="store.isLoadingLostPetPostDetail" class="state-box">
-      <div class="loading-spinner" />
-      <span class="state-text">資料載入中...</span>
-    </div>
-
-    <div v-else-if="store.lostPetPostDetailError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.lostPetPostDetailError }}</span>
-      <button class="btn-retry" @click="fetchDetail">重試</button>
-    </div>
+    <StateBlock v-if="store.isLoadingLostPetPostDetail" class="content-sm" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="store.lostPetPostDetailError"
+      class="content-sm"
+      state="error"
+      :message="store.lostPetPostDetailError"
+      retryable
+      @retry="fetchDetail"
+    />
 
     <!--
       isOwner 時可以原地編輯：owner 2026-08-09 裁定改掉原本「詳情頁唯讀、導回列表頁編輯」的設計
@@ -77,12 +76,14 @@
 
       <div v-if="post.isOwner" class="owner-actions-block">
         <div class="owner-actions">
-          <button class="btn-edit" @click="openEdit">
-            <span class="mdi mdi-pencil-outline" /> 編輯
-          </button>
-          <button class="btn-delete" :disabled="store.isSavingLostPetPost" @click="handleDelete">
-            <span class="mdi mdi-trash-can-outline" /> 刪除
-          </button>
+          <Btn variant="secondary" size="sm" icon="mdi-pencil-outline" @click="openEdit">編輯</Btn>
+          <Btn
+            variant="danger"
+            size="sm"
+            icon="mdi-trash-can-outline"
+            :disabled="store.isSavingLostPetPost"
+            @click="handleDelete"
+          >刪除</Btn>
         </div>
         <p v-if="store.saveLostPetPostError" class="error-msg">{{ store.saveLostPetPostError }}</p>
       </div>
@@ -91,6 +92,8 @@
 </template>
 
 <script setup lang="ts">
+import Btn from '@/components/ui/Btn.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePetStore } from '@/stores/pet'
@@ -150,7 +153,6 @@ async function handleDelete() {
 </script>
 
 <style scoped>
-.lost-pet-detail-view { padding: 36px 56px; max-width: 760px; margin: 0 auto; box-sizing: border-box; }
 
 .back-link {
   display: inline-flex; align-items: center; gap: 4px;
@@ -159,27 +161,11 @@ async function handleDelete() {
 }
 .back-link:hover { color: var(--green); }
 
-/* ── 狀態容器（載入中／錯誤，跟 LostPetsView 同一套視覺語彙） ── */
-.state-box {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 56px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-}
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.error-box { background: #fff5f5; border-color: #ffcdd2; color: #c62828; }
-.loading-spinner {
-  width: 36px; height: 36px; border: 3px solid #c8e6c9; border-top-color: var(--green);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.btn-retry {
-  padding: 8px 24px; border-radius: 999px; border: 1.5px solid #c62828;
-  background: transparent; color: #c62828; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
-/* ── 內容卡片 ── */
+/* ── 內容卡片 ──
+   詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
+   所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
 .detail-card {
+  max-width: var(--container-sm);
   display: flex; flex-direction: column; gap: 14px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   padding: 28px 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
@@ -223,16 +209,5 @@ async function handleDelete() {
 
 .owner-actions-block { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
 .owner-actions { display: flex; gap: 8px; }
-.btn-edit, .btn-delete {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-edit { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); }
-.btn-edit:hover { border-color: var(--green); color: var(--green); }
-.btn-delete { border: 1px solid rgba(198,40,40,0.30); background: transparent; color: var(--red); }
-.btn-delete:hover:not(:disabled) { background: #fff5f5; }
-.btn-delete:disabled { opacity: 0.5; cursor: not-allowed; }
-
 .error-msg { margin-top: 8px; font-size: 13px; color: var(--red); font-weight: 600; }
 </style>

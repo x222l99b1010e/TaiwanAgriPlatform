@@ -1,5 +1,6 @@
 <!-- src/components/PriceChart.vue -->
 <script setup lang="ts">
+import Btn from '@/components/ui/Btn.vue'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import {
   Chart,
@@ -319,7 +320,7 @@ function exportChartImage() {
       </div>
       <!-- 圖表右上角 -->
       <div class="chart-header">
-        <button class="btn-export" @click="exportChartImage">匯出圖片</button>
+        <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">匯出圖片</Btn>
       </div>
     </div>
 
@@ -401,46 +402,4 @@ function exportChartImage() {
 }
 
 .chart-header { margin-left: auto; }
-
-.btn-export {
-  padding: 9px 20px; border-radius: 999px;
-  border: 1px solid #4a148c;
-  background: linear-gradient(
-    180deg,
-    #ab47bc 0%,
-    #7b1fa2 40%,
-    #4a148c 100%
-  );
-  color: white;
-  font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-export:hover {
-  background: linear-gradient(
-    180deg,
-    #ba68c8 0%,
-    #8e24aa 40%,
-    #6a1b9a 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-export:active {
-  background: linear-gradient(
-    180deg,
-    #4a148c 0%,
-    #7b1fa2 60%,
-    #8e24aa 100%
-  );
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    inset 0 -1px 0 rgba(255,255,255,0.15),
-    0 1px 3px rgba(0,0,0,0.15);
-}
 </style>

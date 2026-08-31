@@ -1,11 +1,10 @@
 <template>
-  <div class="pesticide-view">
+  <div class="page pesticide-view">
 
-    <!-- 頁首 -->
-    <div class="page-header">
-      <h2 class="section-title">農藥查詢</h2>
-      <p class="section-subtitle">輸入農藥成分名稱，查詢許可證狀態、適用作物與安全採收期</p>
-    </div>
+    <PageHeader
+      title="農藥查詢"
+      subtitle="輸入農藥成分名稱，查詢許可證狀態、適用作物與安全採收期"
+    />
 
     <!-- 說明區塊 -->
     <div class="info-hint">
@@ -56,15 +55,12 @@
         />
         <span v-if="englishNameError" class="field-error">{{ englishNameError }}</span>
       </div>
-      <button
-        class="btn-search"
-        :disabled="isSearching || !canSearch"
+      <Btn
+        icon="mdi-magnify"
+        :loading="isSearching"
+        :disabled="!canSearch"
         @click="handleSearch"
-      >
-        <span v-if="isSearching" class="mdi mdi-loading spin" />
-        <span v-else class="mdi mdi-magnify" />
-        {{ isSearching ? '查詢中...' : '查詢' }}
-      </button>
+      >{{ isSearching ? '查詢中...' : '查詢' }}</Btn>
     </div>
 
     <label class="revoked-toggle">
@@ -72,18 +68,20 @@
       <span>一併顯示已廢止的許可證</span>
     </label>
 
-    <!-- 錯誤 -->
-    <div v-if="searchError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle" />
-      {{ searchError }}
-    </div>
-
-    <!-- 無結果 -->
-    <div v-else-if="result && result.ingredients.length === 0" class="state-box">
-      <span class="mdi mdi-database-off-outline state-icon" />
-      <span class="state-text">查無符合的農藥成分</span>
-      <span class="state-sub">請確認輸入的是成分名稱而非商品名，或試著只輸入前兩個字</span>
-    </div>
+    <StateBlock v-if="isSearching" state="loading" message="查詢中..." />
+    <StateBlock
+      v-else-if="searchError"
+      state="error"
+      :message="searchError"
+      retryable
+      @retry="handleSearch"
+    />
+    <StateBlock
+      v-else-if="result && result.ingredients.length === 0"
+      state="empty"
+      message="查無符合的農藥成分"
+      hint="請確認輸入的是成分名稱而非商品名，或試著只輸入前兩個字"
+    />
 
     <!-- 結果 -->
     <div v-else-if="result" class="result-section">
@@ -249,10 +247,13 @@
     </div>
 
     <!-- 初始提示 -->
-    <div v-else class="state-box hint-box">
-      <span class="mdi mdi-flask-outline state-icon" />
-      <span class="state-text">請輸入農藥成分名稱開始查詢</span>
-    </div>
+    <StateBlock
+      v-else
+      state="hint"
+      icon="mdi-flask-outline"
+      message="請輸入農藥成分名稱開始查詢"
+      hint="上方有三組範例可以直接點來試"
+    />
 
   </div>
 </template>
@@ -262,6 +263,9 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 import { weatherApi, type PesticideSearchResult, type PesticideUsage } from '@/api/weather'
 import { useLatestRequest } from '@/composables/useLatestRequest'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 // 模組 2 既有的四個 view（測站／雨量／病蟲害預警／旬密度）都是直接呼叫 weatherApi、
 // 不經過 Pinia store——這些畫面的資料是「查一次、只有本頁用、離開就丟」，
@@ -387,24 +391,7 @@ async function handleSearch() {
 </script>
 
 <style scoped>
-.pesticide-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* ── 頁首 ── */
-.page-header { margin-bottom: 24px; }
-
-.section-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.section-subtitle { font-size: 13px; color: var(--text-muted); }
-
 /* ── 說明區塊 ── */
 .info-hint {
   background: #e3f2fd;
@@ -525,39 +512,6 @@ async function handleSearch() {
 .search-input--invalid:focus { border-color: #c62828; box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12); }
 
 .field-error { font-size: 11px; color: #c62828; }
-
-.btn-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 26px;
-  border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-
-.btn-search:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-}
-
-.btn-search:disabled {
-  background: #c8d8c8;
-  color: #999;
-  border-color: #b0c8b0;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { display: inline-block; animation: spin 0.8s linear infinite; }
-
 .revoked-toggle {
   display: inline-flex;
   align-items: center;
@@ -569,33 +523,6 @@ async function handleSearch() {
 }
 
 /* ── 狀態容器 ── */
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 56px 32px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.state-sub { font-size: 12px; color: var(--text-muted); }
-
-.error-box {
-  background: #fff5f5;
-  border-color: #ffcdd2;
-  color: #c62828;
-  font-size: 14px;
-  flex-direction: row;
-  padding: 20px 24px;
-  justify-content: center;
-}
-
-.hint-box .state-icon { color: #c8e6c9; }
-
 /* ── 結果 ── */
 .result-section { display: flex; flex-direction: column; gap: 20px; }
 

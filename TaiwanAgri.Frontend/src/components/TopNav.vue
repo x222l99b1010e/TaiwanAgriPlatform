@@ -1,54 +1,56 @@
 <template>
   <header class="top-nav">
-    <div class="logo">
-      <span class="mdi mdi-sprout logo-icon" />
-      <span class="logo-text">台灣農業平台</span>
-    </div>
-
-    <nav class="module-tabs">
-      <div
-        v-for="mod in navStore.modules"
-        :key="mod.route"
-        class="tab-wrapper"
-        @mouseenter="hoveredRoute = mod.route"
-        @mouseleave="hoveredRoute = null"
-      >
-        <router-link :to="mod.route" class="tab" :class="{ active: isActive(mod.route) }">
-          <span :class="`mdi ${mod.icon}`" />
-          {{ mod.name }}
-        </router-link>
-
-        <div
-          class="tab-dropdown"
-          v-if="mod.children && mod.children.length > 0 && hoveredRoute === mod.route"
-        >
-          <router-link
-            v-for="child in mod.children"
-            :key="child.route"
-            :to="child.route"
-            class="dropdown-item"
-            :class="{ active: route.path === child.route }"
-          >
-            <span :class="`mdi ${child.icon}`" />
-            {{ child.name }}
-          </router-link>
-        </div>
+    <div class="top-nav-inner">
+      <div class="logo">
+        <span class="mdi mdi-sprout logo-icon" />
+        <span class="logo-text">台灣農業平台</span>
       </div>
-    </nav>
 
-    <div class="top-right">
-      <NotificationBell />
+      <nav class="module-tabs">
+        <div
+          v-for="mod in navStore.modules"
+          :key="mod.route"
+          class="tab-wrapper"
+          @mouseenter="hoveredRoute = mod.route"
+          @mouseleave="hoveredRoute = null"
+        >
+          <router-link :to="mod.route" class="tab" :class="{ active: isActive(mod.route) }">
+            <span :class="`mdi ${mod.icon}`" />
+            {{ mod.name }}
+          </router-link>
 
-      <!-- 已登入：顯示名稱 + 登出 -->
-      <template v-if="authStore.isLoggedIn">
-        <span class="user-name">{{ authStore.displayName }}</span>
-        <router-link to="/profile" class="login-btn">農場設定</router-link>
-        <router-link to="/watchlist" class="login-btn">監看清單</router-link>
-        <button class="login-btn" @click="handleLogout">登出</button>
-      </template>
+          <div
+            class="tab-dropdown"
+            v-if="mod.children && mod.children.length > 0 && hoveredRoute === mod.route"
+          >
+            <router-link
+              v-for="child in mod.children"
+              :key="child.route"
+              :to="child.route"
+              class="dropdown-item"
+              :class="{ active: route.path === child.route }"
+            >
+              <span :class="`mdi ${child.icon}`" />
+              {{ child.name }}
+            </router-link>
+          </div>
+        </div>
+      </nav>
 
-      <!-- 未登入：登入按鈕 -->
-      <button v-else class="login-btn" @click="router.push('/login')">登入</button>
+      <div class="top-right">
+        <NotificationBell />
+
+        <!-- 已登入：顯示名稱 + 登出 -->
+        <template v-if="authStore.isLoggedIn">
+          <span class="user-name">{{ authStore.displayName }}</span>
+          <router-link to="/profile" class="login-btn">農場設定</router-link>
+          <router-link to="/watchlist" class="login-btn">監看清單</router-link>
+          <button class="login-btn" @click="handleLogout">登出</button>
+        </template>
+
+        <!-- 未登入：登入按鈕 -->
+        <button v-else class="login-btn" @click="router.push('/login')">登入</button>
+      </div>
     </div>
   </header>
 </template>
@@ -78,17 +80,26 @@ function handleLogout() {
 </script>
 
 <style scoped>
+/* 底色滿版、內容不滿版：外層只負責背景與高度，實際的排列與左右留白交給
+   .top-nav-inner，寬度上限與頁面容器（base.css 的 .page）同一組 token，
+   logo 的左邊界因此與各頁頁首標題落在同一條垂直線上。 */
 .top-nav {
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
   height: 56px;
   background: #1b5e20;
   color: white;
-  gap: 24px;
   position: relative;
   z-index: 100;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.top-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 100%;
+  max-width: var(--container-lg);
+  margin-inline: auto;
+  padding-inline: var(--page-padding-x);
 }
 
 .logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: bold; }

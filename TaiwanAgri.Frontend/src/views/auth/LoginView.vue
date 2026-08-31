@@ -98,20 +98,19 @@
         </div>
 
         <!-- 提交按鈕 -->
-        <button
-          class="btn-submit"
-          :disabled="isLoading || !email || !password || (mode === 'register' && (!confirmPassword || password !== confirmPassword))"
+        <Btn
+          class="login-submit"
+          :loading="isLoading"
+          :disabled="!email || !password || (mode === 'register' && (!confirmPassword || password !== confirmPassword))"
           @click="handleSubmit"
-        >
-          <span v-if="isLoading">處理中...</span>
-          <span v-else>{{ mode === 'login' ? '登入' : '註冊並登入' }}</span>
-        </button>
+        >{{ isLoading ? '處理中...' : (mode === 'login' ? '登入' : '註冊並登入') }}</Btn>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import Btn from '@/components/ui/Btn.vue'
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
@@ -352,38 +351,10 @@ async function handleSubmit() {
   margin: 0;
 }
 
-/* 提交按鈕 */
-.btn-submit {
-  padding: 12px 0;
-  border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
-    0 2px 6px rgba(0, 0, 0, 0.20);
-  transition: all 0.15s;
-  margin-top: 4px;
-}
-
-.btn-submit:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-}
-
-.btn-submit:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-
-.btn-submit:disabled {
-  background: #c8d8c8;
-  color: #999;
-  border-color: #b0c8b0;
-  box-shadow: none;
-  cursor: not-allowed;
+/* 提交按鈕：外觀走共用的 Btn，這裡只補登入卡片特有的滿寬與高度——
+   登入頁只有一個動作，按鈕撐滿卡片寬度是這個版面的刻意設計，不是通用樣式。 */
+.login-submit {
+  width: 100%;
+  padding-block: var(--space-3);
 }
 </style>

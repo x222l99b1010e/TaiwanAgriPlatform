@@ -1,15 +1,14 @@
 <template>
-  <div class="shelter-map-view">
-    <div class="page-header">
-      <h2 class="section-title">收容動物地圖</h2>
-      <p class="section-subtitle">
+  <div class="page shelter-map-view">
+    <PageHeader title="收容動物地圖">
+      <template #subtitle>
         全台收容所在養動物。一個標記代表一間收容所，點開可看該所目前的在養動物；
         相鄰的收容所會自動聚合成數字圓圈，拉近後展開
-      </p>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- 篩選列 -->
-    <div class="filter-bar">
+    <FilterCard>
       <CitySelector v-model="selectedCounty" include-all />
 
       <div class="field-group">
@@ -38,7 +37,7 @@
           </span>
         </span>
       </div>
-    </div>
+    </FilterCard>
 
     <!-- 地圖本體：Leaflet 需要一個有明確高度的容器 DOM 元素才能掛載 -->
     <div ref="mapContainer" class="map-container" />
@@ -51,6 +50,8 @@ import { useRouter } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet.markercluster'
 import CitySelector from '@/components/CitySelector.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
 import { usePetStore } from '@/stores/pet'
 import { animalKindLabel } from '@/utils/shelterAnimal'
 import type { AnimalKind, ShelterAnimalSummaryDto } from '@/api/pet'
@@ -216,29 +217,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.shelter-map-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.page-header { margin-bottom: 20px; }
-.section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
-.section-subtitle { font-size: 13px; color: var(--text-muted); }
-
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding: 20px 24px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
   font-size: 12px; color: var(--text-muted); font-weight: 600;

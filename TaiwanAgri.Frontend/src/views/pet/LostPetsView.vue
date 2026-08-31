@@ -1,9 +1,9 @@
 <template>
-  <div class="lost-pets-view">
-    <div class="page-header">
-      <h2 class="section-title">遺失啟事協尋</h2>
-      <p class="section-subtitle">使用者自行張貼的走失／拾獲協尋，登入後可管理自己的貼文</p>
-    </div>
+  <div class="page lost-pets-view">
+    <PageHeader
+      title="遺失啟事協尋"
+      subtitle="使用者自行張貼的走失／拾獲協尋，登入後可管理自己的貼文"
+    />
 
     <!--
       本頁全部是使用者自建內容（跟收容動物地圖／合法業者那兩頁的政府開放資料性質完全不同），
@@ -19,7 +19,7 @@
     </div>
 
     <!-- 篩選列 + 張貼入口 -->
-    <div class="filter-bar">
+    <FilterCard>
       <div class="status-tabs">
         <button
           v-for="opt in statusOptions"
@@ -54,36 +54,34 @@
           <RouterLink to="/profile/lost-pets" class="my-posts-link">
             <span class="mdi mdi-account-box-outline" /> 我的協尋貼文
           </RouterLink>
-          <button class="btn-post" @click="openCreateForm">
-            <span class="mdi mdi-plus" /> 張貼協尋啟事
-          </button>
+          <Btn icon="mdi-plus" @click="openCreateForm">張貼協尋啟事</Btn>
         </template>
         <RouterLink v-else class="login-hint" :to="{ name: 'login', query: { redirect: '/pet/lost-pets' } }">
           登入後即可張貼協尋啟事
         </RouterLink>
       </div>
-    </div>
+    </FilterCard>
 
     <!-- 新增／編輯表單：抽成共用元件 LostPetPostForm，詳情頁與個人管理頁也用同一份
          （owner 2026-08-09 裁定共用，不是三處各刻一份表單邏輯） -->
     <LostPetPostForm v-if="isFormOpen" :post="editingPost" @saved="handleFormSaved" @cancel="closeForm" />
 
     <!-- 清單 -->
-    <div v-if="store.isLoadingLostPetPosts" class="state-box">
-      <div class="loading-spinner" />
-      <span class="state-text">資料載入中...</span>
-    </div>
-
-    <div v-else-if="store.lostPetPostsError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.lostPetPostsError }}</span>
-      <button class="btn-retry" @click="fetchList">重試</button>
-    </div>
-
-    <div v-else-if="!store.lostPetPostsPage || store.lostPetPostsPage.items.length === 0" class="state-box">
-      <span class="mdi mdi-dog-side state-icon" />
-      <span class="state-text">目前沒有符合條件的協尋啟事</span>
-    </div>
+    <StateBlock v-if="store.isLoadingLostPetPosts" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="store.lostPetPostsError"
+      state="error"
+      :message="store.lostPetPostsError"
+      retryable
+      @retry="fetchList"
+    />
+    <StateBlock
+      v-else-if="!store.lostPetPostsPage || store.lostPetPostsPage.items.length === 0"
+      state="empty"
+      icon="mdi-dog-side"
+      message="目前沒有符合條件的協尋啟事"
+      hint="可以換一個縣市或狀態再看看"
+    />
 
     <div v-else class="post-grid">
       <article v-for="post in store.lostPetPostsPage.items" :key="post.id" class="post-card">
@@ -138,12 +136,8 @@
         </div>
 
         <div v-if="post.isOwner" class="post-actions">
-          <button class="btn-edit" @click="openEditForm(post)">
-            <span class="mdi mdi-pencil-outline" /> 編輯
-          </button>
-          <button class="btn-delete" @click="handleDelete(post.id)">
-            <span class="mdi mdi-trash-can-outline" /> 刪除
-          </button>
+          <Btn variant="secondary" size="sm" icon="mdi-pencil-outline" @click="openEditForm(post)">編輯</Btn>
+          <Btn variant="danger" size="sm" icon="mdi-trash-can-outline" @click="handleDelete(post.id)">刪除</Btn>
         </div>
       </article>
     </div>
@@ -173,6 +167,10 @@ import PagerBar from '@/components/PagerBar.vue'
 import { usePetStore } from '@/stores/pet'
 import { useAuthStore } from '@/stores/authStore'
 import { usePagination } from '@/composables/usePagination'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 import {
   lostPetPostStatusOptions, lostPetPostStatusLabel, lostPetPostStatusClass, formatLostPetPostDate,
 } from '@/utils/lostPetPost'
@@ -304,19 +302,7 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-.lost-pets-view { padding: 36px 56px; width: 100%; box-sizing: border-box; }
-
-.page-header { margin-bottom: 20px; }
-.section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
-.section-subtitle { font-size: 13px; color: var(--text-muted); }
-
 /* ── 篩選列 ── */
-.filter-bar {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 20px;
-  margin-bottom: 20px; padding: 16px 20px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-}
-
 .status-tabs { display: flex; gap: 6px; }
 .tab-btn {
   padding: 7px 16px; border-radius: 999px; border: 1px solid var(--border);
@@ -359,41 +345,12 @@ onMounted(fetchList)
   transition: all 0.15s;
 }
 .my-posts-link:hover { background: #e8f5e9; }
-
-.btn-post {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 9px 22px; border-radius: 999px; border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-post:hover { background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%); }
-
 .login-hint { font-size: 13px; color: var(--blue); font-weight: 600; text-decoration: none; }
 .login-hint:hover { text-decoration: underline; }
 
 /* 表單面板：markup 與樣式已抽到 LostPetPostForm.vue，這裡不再重複 */
 
 /* ── 狀態容器（載入中／錯誤／空清單） ── */
-.state-box {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 56px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-}
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.error-box { background: #fff5f5; border-color: #ffcdd2; color: #c62828; }
-.loading-spinner {
-  width: 36px; height: 36px; border: 3px solid #c8e6c9; border-top-color: var(--green);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.btn-retry {
-  padding: 8px 24px; border-radius: 999px; border: 1.5px solid #c62828;
-  background: transparent; color: #c62828; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
 /* ── 貼文卡片格線 ── */
 .post-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 18px;
@@ -463,14 +420,4 @@ onMounted(fetchList)
 .contact-missing { color: var(--text-muted); font-style: italic; }
 
 .post-actions { display: flex; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
-
-.btn-edit, .btn-delete {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-edit { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); }
-.btn-edit:hover { border-color: var(--green); color: var(--green); }
-.btn-delete { border: 1px solid rgba(198,40,40,0.30); background: transparent; color: var(--red); }
-.btn-delete:hover { background: #fff5f5; }
 </style>

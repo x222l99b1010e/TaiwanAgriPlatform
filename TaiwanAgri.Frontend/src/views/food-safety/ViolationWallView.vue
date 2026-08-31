@@ -1,16 +1,15 @@
 <template>
-  <div class="violation-wall-view">
+  <div class="page violation-wall-view">
 
-    <!-- 頁首 -->
-    <div class="page-header">
-      <h2 class="section-title">農藥違規警示牆</h2>
-      <p class="section-subtitle">
-        {{ hasSearched ? `近 ${appliedDays} 天農產品農藥殘留抽檢違規紀錄` : '請設定查詢條件並按下查詢' }}
-      </p>
-    </div>
+    <PageHeader
+      title="農藥違規警示牆"
+      :subtitle="hasSearched
+        ? `近 ${appliedDays} 天農產品農藥殘留抽檢違規紀錄`
+        : '農產品農藥殘留抽檢的違規紀錄，可依查詢區間與抽檢結果篩選'"
+    />
 
     <!-- 篩選列 -->
-    <div class="filter-bar">
+    <FilterCard>
       <!-- 查詢區間 -->
       <div class="filter-group">
         <span class="filter-label">查詢區間</span>
@@ -55,36 +54,29 @@
       </div>
 
       <!-- 查詢按鈕 -->
-      <button class="btn-search" @click="triggerSearch">
-        <span class="mdi mdi-magnify" />
-        查詢
-      </button>
-    </div>
+      <Btn icon="mdi-magnify" @click="triggerSearch">查詢</Btn>
+    </FilterCard>
 
-    <!-- 尚未查詢：等待狀態 -->
-    <div v-if="!hasSearched" class="state-box hint-box">
-      <span class="mdi mdi-magnify state-icon" />
-      <span class="state-text">請設定查詢條件，按下查詢按鈕開始查詢</span>
-    </div>
-
-    <!-- 載入中 -->
-    <div v-else-if="store.isLoadingViolations" class="state-box">
-      <div class="loading-spinner" />
-      <span class="state-text">資料載入中...</span>
-    </div>
-
-    <!-- 錯誤 -->
-    <div v-else-if="store.violationsError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.violationsError }}</span>
-      <button class="btn-retry" @click="triggerSearch">重試</button>
-    </div>
-
-    <!-- 無資料 -->
-    <div v-else-if="store.violationsPage && store.violationsPage.items.length === 0" class="state-box">
-      <span class="mdi mdi-shield-check-outline state-icon" />
-      <span class="state-text">此區間查無違規紀錄</span>
-    </div>
+    <StateBlock
+      v-if="!hasSearched"
+      state="hint"
+      message="請設定查詢條件，按下查詢按鈕開始查詢"
+    />
+    <StateBlock v-else-if="store.isLoadingViolations" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="store.violationsError"
+      state="error"
+      :message="store.violationsError"
+      retryable
+      @retry="triggerSearch"
+    />
+    <StateBlock
+      v-else-if="store.violationsPage && store.violationsPage.items.length === 0"
+      state="empty"
+      icon="mdi-shield-check-outline"
+      message="此區間查無違規紀錄"
+      hint="沒有紀錄是好消息；要看更長的期間可以把查詢區間拉大"
+    />
 
     <!-- 資料表格 -->
     <div v-else-if="store.violationsPage" class="table-section">
@@ -210,6 +202,10 @@
 import { ref } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
 import { usePagination } from '@/composables/usePagination'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const store = useFoodSafetyStore()
 
@@ -308,40 +304,8 @@ function isUrl(value: string): boolean {
 </script>
 
 <style scoped>
-.violation-wall-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* ── 頁首 ── */
-.page-header { margin-bottom: 20px; }
-
-.section-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.section-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
 /* ── 篩選列 ── */
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 24px;
-  margin-bottom: 24px;
-  padding: 16px 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
 .filter-group {
   display: flex;
   align-items: center;
@@ -411,69 +375,6 @@ function isUrl(value: string): boolean {
   color: var(--text-primary);
   background: var(--surface);
 }
-
-.btn-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 22px;
-  border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-left: auto;
-}
-
-.btn-search:hover { background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%); }
-
-/* ── 狀態容器 ── */
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 56px 32px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-
-.hint-box .state-icon { color: #c8e6c9; }
-
-.error-box {
-  background: #fff5f5;
-  border-color: #ffcdd2;
-  color: #c62828;
-}
-
-.btn-retry {
-  padding: 8px 24px;
-  border-radius: 999px;
-  border: 1.5px solid #c62828;
-  background: transparent;
-  color: #c62828;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
-.loading-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid #c8e6c9;
-  border-top-color: #2e7d32;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── 表格區塊 ── */
 .table-section {

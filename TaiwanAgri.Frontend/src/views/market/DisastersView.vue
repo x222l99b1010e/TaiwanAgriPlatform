@@ -1,27 +1,44 @@
 <template>
-  <div class="disasters-view">
-    <h1>天災警戒紀錄</h1>
+  <div class="page disasters-view">
+    <PageHeader
+      title="天災警戒紀錄"
+      subtitle="農業部發布的土石流與土石流潛勢警戒，可依日期區間與縣市查詢"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
-      <div class="filter-right">
-        <div class="field-group">
-          <label class="field-label">縣市篩選</label>
-          <select class="county-select" v-model="selectedCounty">
-            <option value="">全台</option>
-            <option v-for="county in counties" :key="county" :value="county">{{ county }}</option>
-          </select>
-        </div>
-        <button class="btn-query" :disabled="isLoading" @click="handleQuery">
-          {{ isLoading ? '查詢中...' : '查詢天災' }}
-        </button>
+      <div class="field-group">
+        <label class="field-label">縣市篩選</label>
+        <select class="county-select" v-model="selectedCounty">
+          <option value="">全台</option>
+          <option v-for="county in counties" :key="county" :value="county">{{ county }}</option>
+        </select>
       </div>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
+        {{ isLoading ? '查詢中...' : '查詢天災' }}
+      </Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried">
+    <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="groupedEvents.length === 0"
+      state="empty"
+      icon="mdi-shield-check-outline"
+      message="查詢區間內無天災警戒紀錄"
+      hint="沒有紀錄是好消息；要看更長的期間可以把起始日往前調"
+    />
+
+    <div v-else>
       <!-- 摘要列 -->
-      <div class="summary-bar" v-if="groupedEvents.length > 0">
+      <div class="summary-bar">
         <div class="stat-card">
           <span class="stat-label">總筆數</span>
           <span class="stat-value">{{ groupedEvents.length }}</span>
@@ -36,11 +53,7 @@
         </div>
       </div>
 
-      <div class="empty-hint" v-if="groupedEvents.length === 0 && !isLoading">
-        查詢區間內無天災警戒紀錄
-      </div>
-
-      <div class="event-list" v-else>
+      <div class="event-list">
         <div class="event-card" v-for="(event, i) in groupedEvents" :key="i">
           <div class="event-header">
             <div class="event-meta">
@@ -70,6 +83,10 @@ import { ref, computed } from 'vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi } from '@/api/market'
 import type { DisasterResponseDto } from '@/api/market'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const today = new Date().toISOString().split('T')[0]!
 const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
@@ -133,18 +150,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.disasters-view { width: 100%; min-width: 960px; padding: 36px 56px; box-sizing: border-box; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.filter-right { display: flex; align-items: flex-end; gap: 14px; }
-
+.disasters-view { min-width: 960px; }
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
@@ -155,28 +161,6 @@ h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-botto
   transition: border-color 0.18s, box-shadow 0.18s;
 }
 .county-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
-
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 60px 0; }
-
 .summary-bar { display: flex; gap: 14px; margin-bottom: 24px; }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
