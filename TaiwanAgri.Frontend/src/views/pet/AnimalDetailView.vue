@@ -25,8 +25,8 @@
 
     <article v-else-if="animal" class="detail-card">
       <div class="detail-header">
-        <span class="kind-badge">{{ animalKindLabel(animal.kind) }}</span>
-        <span class="sex-badge">{{ animalSexLabel(animal.sex) }}</span>
+        <span class="badge kind-badge">{{ animalKindLabel(animal.kind) }}</span>
+        <span class="badge sex-badge">{{ animalSexLabel(animal.sex) }}</span>
       </div>
 
       <h2 class="detail-title">{{ animal.animalSubId }}</h2>
@@ -118,10 +118,8 @@ watch(() => props.animalId, fetchDetail)
 }
 
 .detail-header { display: flex; gap: var(--space-2); }
-.kind-badge, .sex-badge {
-  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-bold);
-  background: var(--green-100); color: var(--green);
-}
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.kind-badge { background: var(--green-100); color: var(--green); }
 .sex-badge { background: var(--info-50); color: var(--info-500); }
 
 .detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--text-primary); font-family: monospace; }

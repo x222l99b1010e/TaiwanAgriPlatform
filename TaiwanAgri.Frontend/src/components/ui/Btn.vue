@@ -5,9 +5,6 @@
   收斂範圍刻意只到「動作按鈕」為止：分頁按鈕、chip、tab、鈴鐺圖示鈕維持各自的寫法，
   它們有自己的選取態與排列邏輯，塞進同一個元件只會讓 API 同時背兩種職責。
 
-  原本這類按鈕在各頁各寫一份（btn-query 7 處、btn-retry 10 處、btn-search／btn-clear／
-  btn-submit／btn-post／btn-edit／btn-delete…），高度、圓角、字級、hover 行為都不一樣。
-
   互動細節集中在這裡，是為了讓後續的視覺精修只要改這一個檔：hover 的位移與陰影、
   按下的回饋、鍵盤 focus 的外框、載入中的轉圈，全部走 base.css 的 --duration-* /
   --ease-* token；使用者若開了「減少動態」，base.css 的全域規則會一併關掉。

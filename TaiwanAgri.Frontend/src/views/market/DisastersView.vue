@@ -57,7 +57,7 @@
         <div class="event-card" v-for="(event, i) in groupedEvents" :key="i">
           <div class="event-header">
             <div class="event-meta">
-              <span class="alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
+              <span class="badge alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
                 {{ event.alertType === 'D' ? '土石流' : '土石流潛勢' }}
               </span>
               <span class="event-name">{{ event.disasterName }}</span>
@@ -68,7 +68,7 @@
             </span>
           </div>
           <div class="county-tags">
-            <span class="county-tag" v-for="county in event.affectedCounties" :key="county">
+            <span class="badge county-tag" v-for="county in event.affectedCounties" :key="county">
               {{ county }}
             </span>
           </div>
@@ -191,14 +191,10 @@ async function handleQuery() {
 .event-name { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--text-primary); }
 .event-date-range { font-size: var(--text-sm); color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: var(--weight-medium); }
 
-.alert-badge { font-size: var(--text-2xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); flex-shrink: 0; font-weight: var(--weight-bold); }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .alert-badge.red { background: var(--danger-50); color: var(--red); border: 1px solid var(--danger-100); }
 .alert-badge.orange { background: var(--warning-50); color: var(--orange); border: 1px solid var(--warning-100); }
 
 .county-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.county-tag {
-  font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  background: var(--info-50); color: var(--blue);
-  border: 1px solid var(--info-100); font-weight: var(--weight-medium);
-}
+.county-tag { background: var(--info-50); color: var(--blue); border: 1px solid var(--info-100); }
 </style>

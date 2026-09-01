@@ -7,11 +7,7 @@
     />
 
     <!-- 說明區塊 -->
-    <div class="info-hint">
-      <div class="info-hint-header">
-        <span class="mdi mdi-information-outline hint-icon" />
-        <span>查詢說明</span>
-      </div>
+    <HintBox title="查詢說明" class="content-sm page-hint">
       <ul class="hint-list">
         <li>本功能支援農產品、洗選蛋、禽肉三類追溯查詢</li>
         <li>洗選蛋與禽肉可輸入包裝上的任意序號，系統自動比對所屬批次</li>
@@ -27,10 +23,10 @@
         </button>
         <button class="example-chip example-chip--warn" @click="fillExample('4203824987')">
           <span class="mdi mdi-food-drumstick chip-icon" />禽肉 4203824987
-          <span class="chip-warn">資料有時效性</span>
+          <span class="badge chip-warn">資料有時效性</span>
         </button>
       </div>
-    </div>
+    </HintBox>
 
     <!-- 搜尋列 -->
     <div class="search-bar">
@@ -86,7 +82,7 @@
           <div class="info-row">
             <span class="info-label">狀態</span>
             <span
-              class="info-value status-badge"
+              class="info-value badge status-badge"
               :class="store.traceabilityResult!.producer.status === '通過' ? 'pass' : 'fail'"
             >
               {{ store.traceabilityResult!.producer.status }}
@@ -243,6 +239,7 @@ import { useFoodSafetyStore } from '@/stores/foodSafety'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 
 const store = useFoodSafetyStore()
 const traceCode = ref('')
@@ -268,103 +265,13 @@ function handleSearch() {
 /* 查詢區是單一輸入框＋一顆按鈕，撐滿頁面容器只會讓 10 碼追溯碼的輸入框長達
    一千多像素。頁面容器不縮，改由說明、查詢列與狀態框自己限寬並靠左
    （見 base.css .page）；查詢結果卡片維持全寬，因為裡面是多欄資訊格。 */
-.info-hint,
+.page-hint,
 .search-bar { max-width: var(--container-sm); }
 
-/* ── 說明區塊 ── */
-.info-hint {
-  background: var(--info-50);
-  border: 1px solid var(--info-100);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
+.page-hint { margin-bottom: var(--space-5); }
 
-.info-hint-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  color: var(--info-500);
-}
-
-.hint-icon { font-size: var(--text-lg); }
-
-.hint-list {
-  margin: 0;
-  padding-left: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.hint-list li {
-  font-size: var(--text-sm);
-  color: var(--info-500);
-  line-height: var(--leading-normal);
-}
-
-.example-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-top: var(--space-1);
-}
-
-.example-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  color: var(--info-500);
-  white-space: nowrap;
-}
-
-.example-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--info-100);
-  background: var(--white-a70);
-  color: var(--info-500);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition: all var(--duration-fast);
-}
-
-.example-chip:hover {
-  background: var(--neutral-0);
-  border-color: var(--info-500);
-  box-shadow: var(--shadow-sm);
-}
-
-.example-chip--warn {
-  border-color: var(--warning-100);
-  color: var(--warning-500);
-}
-
-.example-chip--warn:hover {
-  border-color: var(--warning-500);
-  box-shadow: var(--shadow-sm);
-}
-
-.chip-icon { font-size: var(--text-base); }
-
-.chip-warn {
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-bold);
-  background: var(--warning-50);
-  color: var(--warning-500);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-  margin-left: var(--space-1);
-}
+/* 條列、範例鈕、chip 圖示已收進 base.css 共用 */
+.chip-warn { background: var(--warning-50); color: var(--warning-500); margin-left: var(--space-1); }
 
 /* ── 搜尋列 ── */
 .search-bar {
@@ -462,15 +369,9 @@ function handleSearch() {
 .range-arrow { font-size: var(--text-base); color: var(--text-muted); }
 
 /* ── 狀態徽章 ── */
-.status-badge {
-  display: inline-block;
-  align-self: flex-start;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  flex: unset;
-}
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+/* 這一顆長在資訊格裡，要脫離 .info-value 的等寬欄位規則才不會被拉長 */
+.status-badge { align-self: flex-start; flex: unset; }
 
 .status-badge.pass { background: var(--green-100); color: var(--green-600); }
 .status-badge.fail { background: var(--warning-50); color: var(--warning-500); }

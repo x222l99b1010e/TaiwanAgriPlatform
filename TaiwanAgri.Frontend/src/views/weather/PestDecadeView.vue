@@ -373,28 +373,7 @@ async function handleQuery() {
   border-radius: var(--radius-lg); margin-bottom: var(--space-2);
   box-shadow: var(--shadow-sm);
 }
-.data-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.data-table thead tr { background: var(--surface-2); }
-/* 表格標頭 */
-.data-table th {
-  padding: var(--space-3) var(--space-5); text-align: left;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  color: var(--neutral-600);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-.data-table th.num, .data-table td.num { text-align: right; }
-.data-table tbody tr { border-bottom: 1px solid var(--border); transition: background var(--duration-fast); }
-.data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--surface-2); }
-/* 表格內文 */
-.data-table td {
-  padding: var(--space-3) var(--space-5);
-  color: var(--neutral-700);
-  font-size: var(--text-base);
-}
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
 .city-cell  { font-weight: var(--weight-bold); color: var(--green-800); }
 .town-cell  { color: var(--neutral-500); }

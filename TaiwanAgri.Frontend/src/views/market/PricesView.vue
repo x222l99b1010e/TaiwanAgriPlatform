@@ -67,7 +67,7 @@
               <span v-if="event.lastDate !== event.firstDate"> ～ {{ event.lastDate }}</span>
             </div>
             <div class="disaster-name">
-              <span class="alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
+              <span class="badge alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
                 {{ event.alertType === 'D' ? '土石流' : '土石流潛勢' }}
               </span>
               {{ event.disasterName }}
@@ -206,7 +206,7 @@ function handleExportCsv() {
 .disaster-item { padding: var(--space-3) var(--space-4); background: var(--warning-50); border: 1px solid var(--warning-50); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: var(--space-1); }
 .disaster-date-range { font-size: var(--text-xs); color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: var(--weight-medium); }
 .disaster-name { font-size: var(--text-base); color: var(--text-primary); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--space-2); }
-.alert-badge { font-size: var(--text-2xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); flex-shrink: 0; }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .alert-badge.red { background: var(--danger-50); color: var(--red); border: 1px solid var(--danger-100); }
 .alert-badge.orange { background: var(--warning-50); color: var(--orange); border: 1px solid var(--warning-100); }
 .disaster-counties { font-size: var(--text-xs); color: var(--text-secondary); line-height: var(--leading-normal); }

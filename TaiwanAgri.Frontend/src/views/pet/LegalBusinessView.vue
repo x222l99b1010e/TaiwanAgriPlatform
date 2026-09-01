@@ -133,7 +133,7 @@
                   <span class="rank-badge" :title="item.rankText || undefined">{{ rankGradeLabel(item.rankGrade) }}</span>
                 </td>
                 <td>
-                  <span class="state-badge" :class="stateClass(item.stateFlag)">{{ stateLabel(item.stateFlag) }}</span>
+                  <span class="badge state-badge" :class="stateClass(item.stateFlag)">{{ stateLabel(item.stateFlag) }}</span>
                 </td>
               </tr>
             </tbody>
@@ -541,14 +541,8 @@ onMounted(fetchLegal)
   box-shadow: var(--shadow-md); max-height: 600px; overflow: auto;
 }
 
-.data-table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: var(--text-sm); }
-.data-table thead th {
-  position: sticky; top: 0; background: var(--green-50); text-align: left; padding: var(--space-3) var(--space-4);
-  font-weight: var(--weight-bold); color: var(--green-800); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: var(--z-base);
-}
-.data-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: var(--green-50); }
-.data-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.data-table { min-width: 1100px; }
 
 .cell-name { font-weight: var(--weight-medium); white-space: nowrap; }
 .cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
@@ -584,7 +578,7 @@ onMounted(fetchLegal)
   white-space: normal; word-break: break-word; line-height: var(--leading-tight);
 }
 
-.state-badge { display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-bold); white-space: nowrap; }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .state-badge.ok { background: var(--green-100); color: var(--green); }
 .state-badge.closed { background: var(--neutral-100); color: var(--neutral-500); }
 .state-badge.suspended { background: var(--warning-50); color: var(--warning-500); }

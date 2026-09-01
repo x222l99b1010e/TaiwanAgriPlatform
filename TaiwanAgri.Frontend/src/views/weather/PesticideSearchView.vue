@@ -7,11 +7,7 @@
     />
 
     <!-- 說明區塊 -->
-    <div class="info-hint">
-      <div class="info-hint-header">
-        <span class="mdi mdi-information-outline hint-icon" />
-        <span>查詢說明</span>
-      </div>
+    <HintBox title="查詢說明" class="page-hint">
       <ul class="hint-list">
         <li>查的是「有效成分」的名稱（如「亞滅培」），不是商品名（如「冠天下」）</li>
         <li>同一個成分會有多張許可證＝市面上多個廠牌，但核准用途取決於成分、含量與劑型</li>
@@ -26,12 +22,12 @@
         <button class="example-chip" @click="fillExample('撲殺熱')">
           <span class="mdi mdi-mushroom chip-icon" />撲殺熱（殺菌劑）
         </button>
-        <button class="example-chip example-chip--warn" @click="fillExample('達馬松')">
+        <button class="example-chip example-chip--danger" @click="fillExample('達馬松')">
           <span class="mdi mdi-cancel chip-icon" />達馬松
-          <span class="chip-warn">已禁用</span>
+          <span class="badge chip-warn">已禁用</span>
         </button>
       </div>
-    </div>
+    </HintBox>
 
     <!-- 搜尋列：中英文兩個獨立欄位 -->
     <div class="search-bar">
@@ -165,7 +161,7 @@
               </div>
 
               <div v-else class="table-scroll">
-                <table class="usage-table">
+                <table class="data-table data-table--compact usage-table">
                   <thead>
                     <tr>
                       <th>作物</th>
@@ -209,7 +205,7 @@
               </button>
 
               <div v-if="isLicenseOpen(ingredient.pesticideCode, index)" class="table-scroll">
-                <table class="license-table">
+                <table class="data-table data-table--compact license-table">
                   <thead>
                     <tr>
                       <th>商品名</th>
@@ -266,6 +262,7 @@ import { useLatestRequest } from '@/composables/useLatestRequest'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 
 // 模組 2 既有的四個 view（測站／雨量／病蟲害預警／旬密度）都是直接呼叫 weatherApi、
 // 不經過 Pinia store——這些畫面的資料是「查一次、只有本頁用、離開就丟」，
@@ -391,90 +388,10 @@ async function handleSearch() {
 </script>
 
 <style scoped>
-/* ── 頁首 ── */
-/* ── 說明區塊 ── */
-.info-hint {
-  background: var(--info-50);
-  border: 1px solid var(--info-100);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
+.page-hint { margin-bottom: var(--space-5); }
 
-.info-hint-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  color: var(--info-500);
-}
-
-.hint-icon { font-size: var(--text-lg); }
-
-.hint-list {
-  margin: 0;
-  padding-left: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.hint-list li { font-size: var(--text-sm); color: var(--info-500); line-height: var(--leading-normal); }
-
-.example-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-top: var(--space-1);
-}
-
-.example-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  color: var(--info-500);
-  white-space: nowrap;
-}
-
-.example-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--info-100);
-  background: var(--white-a70);
-  color: var(--info-500);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition: all var(--duration-fast);
-}
-
-.example-chip:hover {
-  background: var(--neutral-0);
-  border-color: var(--info-500);
-  box-shadow: var(--shadow-sm);
-}
-
-.example-chip--warn { border-color: var(--danger-100); color: var(--danger-500); }
-.example-chip--warn:hover { border-color: var(--danger-500); box-shadow: var(--shadow-sm); }
-
-.chip-icon { font-size: var(--text-base); }
-
-.chip-warn {
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-bold);
-  background: var(--danger-50);
-  color: var(--danger-500);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-  margin-left: var(--space-1);
-}
+/* 條列、範例鈕、chip 圖示已收進 base.css 共用 */
+.chip-warn { background: var(--danger-50); color: var(--danger-500); margin-left: var(--space-1); }
 
 /* ── 搜尋列 ── */
 .search-bar {
@@ -566,15 +483,7 @@ async function handleSearch() {
 
 .code-text { font-size: var(--text-xs); color: var(--text-muted); font-family: monospace; }
 
-.badge {
-  display: inline-block;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-bold);
-  white-space: nowrap;
-}
-
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .badge--exact { background: var(--green-100); color: var(--green-600); }
 .badge--category { background: var(--info-50); color: var(--info-500); }
 .badge--type { background: var(--purple-50); color: var(--purple-500); }
@@ -686,30 +595,7 @@ async function handleSearch() {
 /* ── 表格 ── */
 .table-scroll { overflow-x: auto; }
 
-.usage-table, .license-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.usage-table th, .license-table th {
-  text-align: left;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  color: var(--text-muted);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 2px solid var(--border);
-  white-space: nowrap;
-}
-
-.usage-table td, .license-table td {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-primary);
-  vertical-align: top;
-}
-
-.usage-table tbody tr:hover, .license-table tbody tr:hover { background: var(--green-50); }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
 .cell-strong { font-weight: var(--weight-medium); }
 .cell-mono { font-family: monospace; font-size: var(--text-xs); white-space: nowrap; }

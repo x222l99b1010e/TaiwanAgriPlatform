@@ -303,14 +303,8 @@ watch(() => props.shelterId, () => {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md); max-height: 720px; overflow: auto;
 }
-.data-table { width: 100%; min-width: 1020px; border-collapse: collapse; font-size: var(--text-sm); table-layout: fixed; }
-.data-table thead th {
-  position: sticky; top: 0; background: var(--green-50); text-align: left; padding: var(--space-3) var(--space-4);
-  font-weight: var(--weight-bold); color: var(--green-800); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: var(--z-base);
-}
-.data-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: var(--green-50); }
-.data-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.data-table { min-width: 1020px; table-layout: fixed; }
 
 .col-id            { width: 130px; }
 .col-kind          { width: 70px; }

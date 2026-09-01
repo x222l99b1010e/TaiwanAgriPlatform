@@ -2,14 +2,11 @@
   src/components/ui/PageHeader.vue
   職責：頁面最上方的標題區（標題＋一句話說明＋可選的右側動作）。
 
-  在此之前有兩種完全不同的做法：pet／food-safety 家族用
-  `<div class="page-header"><h2 class="section-title">…</h2><p class="section-subtitle">…</p></div>`
-  （.section-title 在 10 個檔各寫一份、margin-bottom 從 16 到 32px 各不相同），
-  market／weather 家族則只有一個裸 `<h1>`、完全沒有說明文字。
-  同一層級的頁面，有的會解釋自己在做什麼、有的不會。
+  每一頁都要有一句說明自己在做什麼的副標——同一層級的頁面有的解釋、有的不解釋，
+  使用者就得自己猜這頁能做什麼。
 
-  標題一律用 h1：一個頁面應該只有一個 h1，先前 h1／h2 混用不只是外觀問題，
-  也讓螢幕閱讀器的標題層級在頁與頁之間跳來跳去。
+  標題一律用 h1：一個頁面只該有一個 h1，混用 h1／h2 會讓螢幕閱讀器的標題層級
+  在頁與頁之間跳來跳去。
 -->
 <template>
   <header class="page-header">

@@ -24,11 +24,10 @@
             </Btn>
           </div>
         </div>
-        <p v-if="hasQueried && completenessByMetric.size > 0" class="badge-legend">
-          <span class="mdi mdi-information-outline hint-icon" />
+        <HintBox v-if="hasQueried && completenessByMetric.size > 0">
           指標名稱右側的百分比 ＝ 該指標在目前區間內「正常報價」天數佔比，數字低是該指標的常態
           （如雞蛋產地價本來就少報價），並非同步異常。
-        </p>
+        </HintBox>
         <div v-for="group in metricGroups" :key="group.name" class="metric-group">
           <span class="group-label">{{ group.name }}</span>
           <div class="metric-chips">
@@ -42,7 +41,7 @@
               {{ m.displayName }}
               <span
                 v-if="hasQueried && completenessByMetric.has(m.metricCode)"
-                class="completeness-badge"
+                class="badge completeness-badge"
                 :class="completenessClass(completenessByMetric.get(m.metricCode)!.pct)"
               >
                 {{ completenessByMetric.get(m.metricCode)!.pct }}%
@@ -51,7 +50,7 @@
           </div>
         </div>
       </div>
-      <p v-else class="query-hint">指標清單載入中...</p>
+      <HintBox v-else>指標清單載入中...</HintBox>
 
       <div class="action-row">
         <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
@@ -62,10 +61,9 @@
         </Btn>
       </div>
 
-      <p v-if="hasQueried && selectedMetrics.length === 0" class="query-hint">
-        <span class="mdi mdi-information-outline hint-icon" />
+      <HintBox v-if="hasQueried && selectedMetrics.length === 0">
         請至少勾選一項指標才會顯示圖表
-      </p>
+      </HintBox>
     </FilterCard>
 
     <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間與指標後按下查詢行情" />
@@ -117,11 +115,10 @@
         <div class="canvas-wrap">
           <canvas ref="canvasRef" />
         </div>
-        <p class="chart-note">
-          <span class="mdi mdi-information-outline hint-icon" />
+        <HintBox class="chart-note">
           線段中斷代表當日休市／未報價／議價（無公定價格），並非資料同步異常。
           不同指標的計價單位可能不同，圖表僅供趨勢比較，非同單位換算。
-        </p>
+        </HintBox>
       </div>
 
       <!-- 非常態資料明細 -->
@@ -134,7 +131,7 @@
           {{ showAbnormalTable ? '收合' : '展開' }}非常態資料明細（{{ abnormalPoints.length }} 筆）
         </button>
         <div class="abnormal-table-wrap" v-if="showAbnormalTable">
-          <table class="abnormal-table">
+          <table class="data-table abnormal-table">
             <thead>
               <tr>
                 <th>日期</th>
@@ -148,7 +145,7 @@
                 <td>{{ p.transDate }}</td>
                 <td>{{ p.displayName }}</td>
                 <td>
-                  <span class="status-chip" :class="statusClass(p.priceStatus)">
+                  <span class="badge status-chip" :class="statusClass(p.priceStatus)">
                     {{ statusLabel(p.priceStatus) }}
                   </span>
                 </td>
@@ -177,6 +174,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 import {
   seriesColor, pointBorderColor, exportBackground,
   axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
@@ -502,25 +500,11 @@ function exportChartImage() {
 .metric-chip:hover { border-color: var(--green-300); }
 .metric-chip.active { background: var(--green-100); border-color: var(--green-300); color: var(--green); }
 
-.completeness-badge {
-  font-size: var(--text-2xs); font-weight: var(--weight-bold); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
-}
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .completeness-badge.high { background: var(--green-100); color: var(--green-600); }
 .completeness-badge.mid  { background: var(--warning-50); color: var(--warning-500); }
 .completeness-badge.low  { background: var(--danger-50); color: var(--danger-700); }
 
-/* 徽章說明：刻意放在勾選區旁邊、跟徽章同時出現，不是只寫在下方圖表卡片的 chart-note
-   裡——使用者第一眼看到「82%」的地方就是這裡，說明要跟著出現在同一個視野內。
-   套用跟 .query-hint 同一套「淺底框＋深色粗體字」規格，說明文字要看得清楚，
-   不能用次要文字才用的低對比灰階色 */
-.badge-legend {
-  display: flex; align-items: flex-start; gap: var(--space-2);
-  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
-  background: var(--info-50); border: 1px solid var(--info-100);
-  color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-normal);
-  margin: 0;
-}
-.badge-legend .hint-icon { font-size: var(--text-lg); margin-top: var(--space-1); flex-shrink: 0; }
 
 /* 按鈕（沿用 PorkView 同一組樣式） */
 /* 摘要列 */
@@ -547,19 +531,8 @@ function exportChartImage() {
 .chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
 .chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700); }
 .canvas-wrap { position: relative; height: 460px; width: 100%; }
-.chart-note {
-  display: flex; align-items: flex-start; gap: var(--space-2);
-  margin-top: var(--space-5); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
-  background: var(--info-50); border: 1px solid var(--info-100);
-  color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-normal);
-}
-.query-hint {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
-  background: var(--info-50); border: 1px solid var(--info-100);
-  color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-normal);
-}
-.hint-icon { font-size: var(--text-lg); flex-shrink: 0; }
+/* 圖表下方的說明與圖表本身留一段距離，不然會像圖的一部分 */
+.chart-note { margin-top: var(--space-5); }
 
 /* 非常態資料明細 */
 .abnormal-card {
@@ -574,22 +547,8 @@ function exportChartImage() {
   padding: var(--space-1) 0; width: 100%; text-align: left;
 }
 .abnormal-table-wrap { margin-top: var(--space-4); max-height: 360px; overflow-y: auto; overflow-x: auto; }
-.abnormal-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.abnormal-table th {
-  position: sticky; top: 0; background: var(--surface-2);
-  text-align: left; padding: var(--space-2) var(--space-3); font-weight: var(--weight-bold);
-  color: var(--neutral-600); border-bottom: 1px solid var(--border);
-}
-.abnormal-table td {
-  padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--neutral-100);
-  color: var(--neutral-700);
-}
-.abnormal-table tbody tr:hover { background: var(--green-50); }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
-.status-chip {
-  font-size: var(--text-2xs); font-weight: var(--weight-bold); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
-  white-space: nowrap;
-}
 .status-empty        { background: var(--neutral-100); color: var(--neutral-600); }
 .status-closed        { background: var(--neutral-100); color: var(--neutral-600); }
 .status-notquoted     { background: var(--warning-50); color: var(--warning-500); }

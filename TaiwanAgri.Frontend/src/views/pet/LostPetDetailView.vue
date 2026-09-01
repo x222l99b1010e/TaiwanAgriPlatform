@@ -31,7 +31,7 @@
 
     <article v-else-if="post" class="detail-card">
       <div class="detail-header">
-        <span class="status-badge" :class="statusClass(post.status)">{{ statusLabel(post.status) }}</span>
+        <span class="badge status-badge" :class="statusClass(post.status)">{{ statusLabel(post.status) }}</span>
         <a
           v-if="post.latitude != null && post.longitude != null"
           class="coord-badge"
@@ -172,10 +172,7 @@ async function handleDelete() {
 }
 
 .detail-header { display: flex; align-items: center; justify-content: space-between; }
-.status-badge {
-  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  font-size: var(--text-xs); font-weight: var(--weight-bold);
-}
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
 .status-badge.found { background: var(--green-100); color: var(--green); }
 .status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }

@@ -81,7 +81,7 @@
     <!-- 資料表格 -->
     <div v-else-if="store.violationsPage" class="table-section">
       <div class="table-wrapper">
-        <table class="violation-table">
+        <table class="data-table violation-table">
           <thead>
             <tr>
               <th>序</th>
@@ -116,7 +116,7 @@
                 </span>
               </td>
               <td>
-                <span class="result-badge" :class="resultClass(item.inspectResult)">
+                <span class="badge result-badge" :class="resultClass(item.inspectResult)">
                   {{ item.inspectResult }}
                 </span>
               </td>
@@ -393,35 +393,8 @@ function isUrl(value: string): boolean {
   overflow: auto;
 }
 
-.violation-table {
-  width: 100%;
-  min-width: 900px;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.violation-table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--green-50);
-  text-align: left;
-  padding: var(--space-3) var(--space-4);
-  font-weight: var(--weight-bold);
-  color: var(--green-800);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  z-index: var(--z-base);
-}
-
-.violation-table td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-primary);
-  vertical-align: top;
-}
-
-.violation-table tbody tr:hover { background: var(--green-50); }
-.violation-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.violation-table { min-width: 900px; }
 
 .cell-index {
   font-family: monospace;
@@ -465,15 +438,7 @@ function isUrl(value: string): boolean {
 
 .cell-note { max-width: 220px; font-size: var(--text-xs); color: var(--text-muted); }
 
-.result-badge {
-  display: inline-block;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  white-space: nowrap;
-}
-
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .result-badge.fail { background: var(--danger-50); color: var(--danger-500); }
 .result-badge.warn { background: var(--warning-50); color: var(--warning-500); }
 .result-badge.pass { background: var(--green-100); color: var(--green-600); }

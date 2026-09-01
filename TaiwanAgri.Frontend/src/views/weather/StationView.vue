@@ -110,7 +110,7 @@ async function handleQuery() {
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--duration-base), border-color var(--duration-base);
 }
-.station-card:hover { box-shadow: var(--shadow-md); border-color: rgba(46,125,50,0.25); }
+.station-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-200); }
 .station-name { color: var(--green); }
 .town-name  { color: var(--text-muted); }
 .card-footer { color: var(--text-muted); border-top: 1px solid var(--border); }

@@ -6,7 +6,7 @@
     <!-- 鈴鐺按鈕 -->
     <button class="bell-btn" @click="toggleDropdown">
       <span class="mdi mdi-bell bell-icon" />
-      <span v-if="store.unreadCount > 0" class="badge">
+      <span v-if="store.unreadCount > 0" class="bell-badge">
         {{ store.unreadCount > 99 ? '99+' : store.unreadCount }}
       </span>
     </button>
@@ -138,8 +138,9 @@ onMounted(() => {
 
 .bell-icon { font-size: var(--text-lg); }
 
-/* 紅點 badge */
-.badge {
+/* 未讀紅點。刻意不用共用的 .badge：它是絕對定位疊在鈴鐺上的計數點，
+   跟頁面裡那種行內的狀態標籤不是同一種東西 */
+.bell-badge {
   position: absolute;
   top: 4px; right: 4px;
   min-width: 16px; height: 16px;

@@ -211,6 +211,6 @@ onMounted(() => loadMarkets())
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
 }
-.rest-chip:hover { box-shadow: var(--shadow-md); border-color: rgba(191,54,12,0.30); }
+.rest-chip:hover { box-shadow: var(--shadow-md); border-color: var(--warning-100); }
 .chip-icon { font-size: var(--text-base); color: var(--orange); }
 </style>

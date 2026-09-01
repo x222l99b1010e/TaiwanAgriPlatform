@@ -71,7 +71,7 @@
     <div v-else class="post-grid">
       <article v-for="post in store.lostPetPostsPage.items" :key="post.id" class="post-card">
         <div class="post-card-header">
-          <span class="status-badge" :class="statusClass(post.status)">{{ statusLabel(post.status) }}</span>
+          <span class="badge status-badge" :class="statusClass(post.status)">{{ statusLabel(post.status) }}</span>
         </div>
 
         <LostPetPostPhoto :photo-url="post.photoUrl" :title="post.title" />
@@ -235,10 +235,7 @@ onMounted(fetchList)
   padding: var(--space-5); box-shadow: var(--shadow-sm);
 }
 .post-card-header { display: flex; align-items: center; }
-.status-badge {
-  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  font-size: var(--text-xs); font-weight: var(--weight-bold);
-}
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
 .status-badge.found { background: var(--green-100); color: var(--green); }
 .status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }

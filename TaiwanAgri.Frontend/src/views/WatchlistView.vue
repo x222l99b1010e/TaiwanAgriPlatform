@@ -66,13 +66,15 @@
           </select>
         </div>
 
-        <button
+        <Btn
           class="btn-add"
-          :disabled="!selectedCrop || store.isSaving"
+          icon="mdi-plus"
+          :disabled="!selectedCrop"
+          :loading="store.isSaving"
           @click="handleAdd"
         >
-          {{ store.isSaving ? '新增中...' : '+ 新增' }}
-        </button>
+          {{ store.isSaving ? '新增中...' : '新增' }}
+        </Btn>
       </div>
 
       <p v-if="store.errorMessage" class="error-msg">{{ store.errorMessage }}</p>
@@ -340,16 +342,8 @@ onMounted(async () => {
 .autocomplete-item:hover { background: var(--green-50); }
 .crop-code { font-size: var(--text-xs); color: var(--text-muted); }
 
-.btn-add {
-  padding: var(--space-2) var(--space-6); border-radius: var(--radius-full);
-  border: 1px solid var(--green-800);
-  background: linear-gradient(180deg, var(--green-500) 0%, var(--green-600) 40%, var(--green-800) 100%);
-  color: var(--neutral-0); font-size: var(--text-base); font-weight: var(--weight-bold); cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all var(--duration-fast); align-self: flex-end;
-}
-.btn-add:hover:not(:disabled) { background: linear-gradient(180deg, var(--green-400) 0%, var(--green-500) 40%, var(--green-600) 100%); }
-.btn-add:disabled { background: var(--neutral-300); color: var(--neutral-400); border-color: var(--neutral-400); box-shadow: none; cursor: not-allowed; }
+/* 新增按鈕改用共用的 Btn，這裡只留它在篩選列裡的位置 */
+.btn-add { align-self: flex-end; }
 
 .error-msg { font-size: var(--text-sm); color: var(--red); margin-top: var(--space-3); }
 

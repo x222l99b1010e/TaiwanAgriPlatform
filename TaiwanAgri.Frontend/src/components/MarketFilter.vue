@@ -30,7 +30,7 @@
       <div class="crop-header">
         <label class="field-label">
           查詢作物
-          <span class="count-badge" :class="{ full: store.selectedCropCodes.length >= 5 }">
+          <span class="badge count-badge" :class="{ full: store.selectedCropCodes.length >= 5 }">
             {{ store.selectedCropCodes.length }} / 5
           </span>
         </label>
@@ -147,12 +147,12 @@ onMounted(() => store.initialize())
   box-shadow: var(--shadow-focus);
 }
 
-/* badge 深色立體 */
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .count-badge {
-  font-size: var(--text-2xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
   background: var(--teal-500);
   color: var(--neutral-0);
-  font-weight: var(--weight-medium); letter-spacing: 0; text-transform: none;
+  letter-spacing: 0;
+  text-transform: none;
   box-shadow: var(--shadow-sm);
 }
 .count-badge.full {

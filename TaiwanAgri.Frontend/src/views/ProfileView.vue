@@ -86,13 +86,9 @@
       </div>
 
       <!-- 儲存按鈕 -->
-      <button
-        class="save-btn"
-        @click="handleSave"
-        :disabled="profileStore.isSaving"
-      >
+      <Btn class="save-btn" icon="mdi-content-save-outline" :loading="profileStore.isSaving" @click="handleSave">
         {{ profileStore.isSaving ? '儲存中...' : '儲存設定' }}
-      </button>
+      </Btn>
     </div>
   </div>
 </template>
@@ -103,6 +99,7 @@ import { useProfileStore } from '../stores/profile'
 import type { CropItem } from '../api/profile'
 import { getAllCrops } from '../api/cropApi'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const profileStore = useProfileStore()
 
@@ -337,46 +334,8 @@ select {
   color: var(--neutral-500);
 }
 
-/* 儲存按鈕 */
-.save-btn {
-  margin-top: var(--space-2);
-  padding: var(--space-2) var(--space-8);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--green-800);
-  background: linear-gradient(180deg, var(--green-500) 0%, var(--green-600) 40%, var(--green-800) 100%);
-  color: var(--neutral-0);
-  font-size: var(--text-base);
-  font-weight: var(--weight-bold);
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    0 2px 6px rgba(0,0,0,0.20);
-  transition: all var(--duration-fast);
-}
-
-.save-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--green-400) 0%, var(--green-500) 40%, var(--green-600) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-
-.save-btn:active:not(:disabled) {
-  background: linear-gradient(180deg, var(--green-800) 0%, var(--green-600) 60%, var(--green-500) 100%);
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    0 1px 3px rgba(0,0,0,0.15);
-}
-
-.save-btn:disabled {
-  background: var(--neutral-300);
-  color: var(--neutral-400);
-  border-color: var(--neutral-400);
-  box-shadow: none;
-  cursor: not-allowed;
-}
+/* 儲存按鈕改用共用的 Btn，這裡只留它在表單裡的位置 */
+.save-btn { margin-top: var(--space-2); align-self: flex-start; }
 
 .error {
   color: var(--danger-500);

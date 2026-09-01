@@ -18,14 +18,12 @@
             </option>
           </select>
           <!-- 提示放在 select 正下方 -->
-          <div class="query-hint" v-if="!hasQueried">
-            <span class="mdi mdi-information-outline hint-icon" />
+          <HintBox v-if="!hasQueried">
             請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
-          </div>
-          <div class="query-hint success" v-else-if="availableMarkets.length > 0">
-            <span class="mdi mdi-check-circle-outline hint-icon" />
+          </HintBox>
+          <HintBox v-else-if="availableMarkets.length > 0" tone="success">
             已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
-          </div>
+          </HintBox>
         </div>
 
         <div class="metric-tabs">
@@ -125,6 +123,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 import {
   seriesColor, pointBorderColor, exportBackground,
   axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
@@ -409,26 +408,4 @@ function exportChartImage() {
 }
 .chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700); }
 .canvas-wrap { position: relative; height: 500px; width: 100%; }
-.query-hint {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--info-50);
-  border: 1px solid var(--info-100);
-  color: var(--info-500);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-normal);
-}
-.query-hint.success {
-  background: var(--green-100);
-  border-color: var(--green-200);
-  color: var(--green);
-}
-.hint-icon {
-  font-size: var(--text-lg);
-  flex-shrink: 0;
-}
 </style>

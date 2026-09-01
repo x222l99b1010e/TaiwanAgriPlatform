@@ -371,30 +371,10 @@ async function handleQuery() {
   border-radius: var(--radius-lg); margin-bottom: var(--space-2);
   box-shadow: var(--shadow-sm);
 }
-.data-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.data-table thead tr { background: var(--surface-2); }
-/* 表格標頭 */
-.data-table th {
-  padding: var(--space-3) var(--space-5); text-align: left;
-  font-size: var(--text-sm);            /* 從 11.5px → 12.5px */
-  font-weight: var(--weight-bold);
-  color: var(--neutral-600);   /* 從 text-muted → 深很多 */
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-.data-table th.num, .data-table td.num { text-align: right; }
-.data-table tbody tr { border-bottom: 1px solid var(--border); transition: background var(--duration-fast); }
-.data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--surface-2); }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+/* 大雨的列整列上色，比在某一格裡標記更容易掃到 */
 .data-table tbody tr.heavy { background: var(--warning-50); }
 .data-table tbody tr.heavy:hover { background: var(--warning-100); }
-/* 表格內文 */
-.data-table td {
-  padding: var(--space-3) var(--space-5);
-  color: var(--neutral-700);   /* 從 text-primary → 更深更實 */
-  font-size: var(--text-base);              /* 從預設 → 明確設 14px */
-}
 
 .station-cell { font-weight: var(--weight-bold); color: var(--green-800); }  /* 深綠不透明 */
 .time-cell    { color: var(--neutral-500); font-variant-numeric: tabular-nums; }

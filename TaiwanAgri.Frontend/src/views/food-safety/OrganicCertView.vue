@@ -86,7 +86,7 @@
           >
             <div class="cert-card-header">
               <span class="cert-sn">{{ item.certOrganicSn }}</span>
-              <span class="status-badge" :class="statusClass(item.status)">
+              <span class="badge status-badge" :class="statusClass(item.status)">
                 {{ item.status }}
               </span>
             </div>
@@ -401,13 +401,7 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
-.status-badge {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-bold);
-}
-
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .status-badge.active { background: var(--green-100); color: var(--green-600); }
 /* .status-badge.inactive { background: var(--neutral-100); color: var(--neutral-500); } */
 .status-badge.inactive { background: var(--neutral-200); color: var(--neutral-700); }

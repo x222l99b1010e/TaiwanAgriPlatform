@@ -52,12 +52,12 @@
           <!-- 標籤列 -->
           <div class="tag-row">
             <span
-              class="tag city-tag"
+              class="badge tag city-tag"
               v-for="c in a.cities"
               :key="c"
             >{{ c }}</span>
             <span
-              class="tag crop-tag"
+              class="badge tag crop-tag"
               v-for="c in a.crops"
               :key="c"
             >{{ c }}</span>
@@ -172,7 +172,7 @@ onMounted(fetchAlerts)
   transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
   box-shadow: var(--shadow-sm);
 }
-.alert-card:hover { box-shadow: var(--shadow-md); border-color: rgba(46,125,50,0.25); }
+.alert-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-200); }
 .alert-card.expanded { border-color: var(--green); background: var(--green-50); }
 
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
@@ -208,8 +208,8 @@ onMounted(fetchAlerts)
 }
 
 .tag-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-/* 標籤 */
-.tag { font-size: var(--text-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); border: 1px solid; font-weight: var(--weight-medium); }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.tag { border: var(--border-width) solid; }
 .city-tag { background: var(--info-50); border-color: var(--info-100); color: var(--info-500); }
 .crop-tag { background: var(--green-100); border-color: var(--green-200); color: var(--green-600); }
 

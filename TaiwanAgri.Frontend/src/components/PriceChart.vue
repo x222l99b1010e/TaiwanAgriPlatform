@@ -290,7 +290,7 @@ function exportChartImage() {
           <span
             v-for="(name, i) in summary.crops"
             :key="i"
-            class="crop-tag"
+            class="badge crop-tag"
             :style="{ borderColor: seriesColor(i), color: seriesColor(i) }"
           >{{ name }}</span>
         </div>
@@ -364,11 +364,9 @@ function exportChartImage() {
 
 .tag-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .crop-tag {
-  font-size: var(--text-2xs);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid;
-  border-radius: var(--radius-full);
+  border: var(--border-width) solid;
   opacity: 0.85;
   transition: opacity var(--duration-base);
 }
