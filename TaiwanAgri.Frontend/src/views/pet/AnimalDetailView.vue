@@ -102,10 +102,10 @@ watch(() => props.animalId, fetchDetail)
 
 .back-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
+.back-link:hover { color: var(--green-600); }
 
 /* ── 內容卡片 ──
    詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
@@ -113,32 +113,32 @@ watch(() => props.animalId, fetchDetail)
 .detail-card {
   max-width: var(--container-sm);
   display: flex; flex-direction: column; gap: var(--space-4);
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
   padding: var(--space-8); box-shadow: var(--shadow-sm);
 }
 
 .detail-header { display: flex; gap: var(--space-2); }
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
-.kind-badge { background: var(--green-100); color: var(--green); }
+.kind-badge { background: var(--green-100); color: var(--green-600); }
 .sex-badge { background: var(--info-50); color: var(--info-500); }
 
-.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--text-primary); font-family: monospace; }
-.detail-meta { font-size: var(--text-sm); color: var(--text-muted); }
-.shelter-link { color: var(--green); font-weight: var(--weight-medium); text-decoration: none; }
+.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--neutral-900); font-family: monospace; }
+.detail-meta { font-size: var(--text-sm); color: var(--neutral-400); }
+.shelter-link { color: var(--green-600); font-weight: var(--weight-medium); text-decoration: none; }
 .shelter-link:hover { text-decoration: underline; }
 
 .info-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3) var(--space-5);
-  padding: var(--space-4) 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: var(--space-4) 0; border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200);
 }
 .info-item { display: flex; flex-direction: column; gap: var(--space-1); }
-.info-label { font-size: var(--text-2xs); color: var(--text-muted); font-weight: var(--weight-medium); letter-spacing: 0.04em; }
-.info-value { font-size: var(--text-base); color: var(--text-primary); font-weight: var(--weight-medium); }
+.info-label { font-size: var(--text-2xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.04em; }
+.info-value { font-size: var(--text-base); color: var(--neutral-900); font-weight: var(--weight-medium); }
 
-.detail-line { font-size: var(--text-base); color: var(--text-primary); }
-.detail-remark { font-size: var(--text-base); color: var(--text-secondary); line-height: var(--leading-normal); white-space: pre-wrap; }
+.detail-line { font-size: var(--text-base); color: var(--neutral-900); }
+.detail-remark { font-size: var(--text-base); color: var(--neutral-500); line-height: var(--leading-normal); white-space: pre-wrap; }
 
-.detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--neutral-200); }
 .action-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
   color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;

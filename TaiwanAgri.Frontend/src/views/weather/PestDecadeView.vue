@@ -317,21 +317,21 @@ async function handleQuery() {
 <style scoped>
 .pest-view { min-width: 960px; }
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-label { font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
+.field-label { font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
 
 .pest-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border);
-  border-radius: var(--radius-md); background: var(--surface);
-  color: var(--text-primary); font-size: var(--text-base); min-width: 200px; cursor: pointer;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); background: var(--neutral-0);
+  color: var(--neutral-900); font-size: var(--text-base); min-width: 200px; cursor: pointer;
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.pest-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
+.pest-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 /* 查詢按鈕金屬反光 */
 .summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
 
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: var(--space-2); min-width: 130px;
   box-shadow: var(--shadow-sm);
@@ -352,7 +352,7 @@ async function handleQuery() {
 .stat-value.pest-name { font-size: var(--text-lg); }
 
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl); padding: var(--space-6) var(--space-8) var(--space-8); margin-bottom: var(--space-6);
   box-shadow: var(--shadow-md);
 }
@@ -369,7 +369,7 @@ async function handleQuery() {
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
 .table-wrap {
-  overflow-x: auto; border: 1px solid var(--border);
+  overflow-x: auto; border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); margin-bottom: var(--space-2);
   box-shadow: var(--shadow-sm);
 }
@@ -379,5 +379,5 @@ async function handleQuery() {
 .town-cell  { color: var(--neutral-500); }
 .density-val { font-weight: var(--weight-bold); }
 .level-mid  { color: var(--warning-500); }
-.level-high { color: var(--red); }
+.level-high { color: var(--danger-500); }
 </style>

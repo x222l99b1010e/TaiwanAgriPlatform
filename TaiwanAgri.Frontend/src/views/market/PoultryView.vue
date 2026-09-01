@@ -478,13 +478,13 @@ function exportChartImage() {
 .metric-groups { display: flex; flex-direction: column; gap: var(--space-3); }
 .metric-groups-toolbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding-bottom: var(--space-3); border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-3); border-bottom: 1px solid var(--neutral-200);
 }
 .metric-bulk-actions { display: flex; gap: var(--space-3); }
 
 .metric-group { display: flex; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; }
 .group-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
   min-width: 108px; padding-top: var(--space-2); flex-shrink: 0;
 }
@@ -492,13 +492,13 @@ function exportChartImage() {
 .metric-chip {
   display: inline-flex; align-items: center; gap: var(--space-2);
   padding: var(--space-2) var(--space-3); border-radius: var(--radius-full);
-  background: var(--surface-2); border: 1px solid var(--border);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
   color: var(--neutral-600); font-size: var(--text-sm); font-weight: var(--weight-medium);
   cursor: pointer; transition: all var(--duration-fast); user-select: none;
 }
-.metric-chip input { accent-color: var(--green); cursor: pointer; }
+.metric-chip input { accent-color: var(--green-600); cursor: pointer; }
 .metric-chip:hover { border-color: var(--green-300); }
-.metric-chip.active { background: var(--green-100); border-color: var(--green-300); color: var(--green); }
+.metric-chip.active { background: var(--green-100); border-color: var(--green-300); color: var(--green-600); }
 
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .completeness-badge.high { background: var(--green-100); color: var(--green-600); }
@@ -510,7 +510,7 @@ function exportChartImage() {
 /* 摘要列 */
 .summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap; }
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: var(--space-2);
   box-shadow: var(--shadow-sm);
@@ -523,7 +523,7 @@ function exportChartImage() {
 
 /* 圖表卡片 */
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl); padding: var(--space-8) var(--space-8) var(--space-8);
   box-shadow: var(--shadow-md);
   margin-bottom: var(--space-6);
@@ -536,7 +536,7 @@ function exportChartImage() {
 
 /* 非常態資料明細 */
 .abnormal-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl); padding: var(--space-5) var(--space-8);
   box-shadow: var(--shadow-md);
 }

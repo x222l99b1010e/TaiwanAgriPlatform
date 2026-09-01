@@ -350,25 +350,25 @@ function exportChartImage() {
 
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .market-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 180px; cursor: pointer;
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .market-select:focus {
-  outline: none; border-color: var(--green);
+  outline: none; border-color: var(--green-600);
   box-shadow: var(--shadow-focus);
 }
 
 /* 指標切換 */
 .metric-tabs {
   display: flex; gap: var(--space-1);
-  background: var(--surface-2); border: 1px solid var(--border);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-md); padding: var(--space-1); align-self: flex-end;
 }
 .metric-tab {
@@ -376,8 +376,8 @@ function exportChartImage() {
   background: transparent; color: var(--neutral-500);
   font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
 }
-.metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: var(--green-100); color: var(--green); font-weight: var(--weight-bold); }
+.metric-tab:hover { color: var(--neutral-900); }
+.metric-tab.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-bold); }
 
 /* 按鈕 */
 /* 摘要列 */
@@ -385,7 +385,7 @@ function exportChartImage() {
   display: flex; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap;
 }
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: var(--space-2);
   box-shadow: var(--shadow-sm);
@@ -398,7 +398,7 @@ function exportChartImage() {
 
 /* 圖表卡片 */
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl); padding: var(--space-8) var(--space-8) var(--space-10);
   box-shadow: var(--shadow-md);
 }

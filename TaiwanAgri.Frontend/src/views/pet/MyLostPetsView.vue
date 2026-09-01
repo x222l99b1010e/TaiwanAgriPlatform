@@ -188,39 +188,39 @@ onMounted(fetchList)
 
 .back-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
+.back-link:hover { color: var(--green-600); }
 /* ── 篩選列（跟 LostPetsView 同一套視覺語彙） ── */
 .status-tabs { display: flex; gap: var(--space-2); }
 .tab-btn {
-  padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--border);
-  background: transparent; color: var(--text-muted); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--neutral-200);
+  background: transparent; color: var(--neutral-400); font-size: var(--text-sm); font-weight: var(--weight-medium);
   cursor: pointer; transition: all var(--duration-fast); white-space: nowrap;
 }
-.tab-btn:hover { border-color: var(--green); color: var(--green); }
-.tab-btn.active { background: var(--green); border-color: var(--green); color: var(--neutral-0); }
+.tab-btn:hover { border-color: var(--green-600); color: var(--green-600); }
+.tab-btn.active { background: var(--green-600); border-color: var(--green-600); color: var(--neutral-0); }
 
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .filter-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
+.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 .sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
 }
-.sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
+.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
 
 .post-entry { margin-left: auto; }
 /* ── 狀態容器 ── */
@@ -231,25 +231,25 @@ onMounted(fetchList)
 }
 .post-card {
   display: flex; flex-direction: column; gap: var(--space-2);
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
   padding: var(--space-5); box-shadow: var(--shadow-sm);
 }
 .post-card-header { display: flex; align-items: center; }
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
-.status-badge.found { background: var(--green-100); color: var(--green); }
+.status-badge.found { background: var(--green-100); color: var(--green-600); }
 .status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }
 
 .post-title-link { text-decoration: none; }
-.post-title-link:hover .post-title { color: var(--green); text-decoration: underline; }
-.post-title { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--text-primary); transition: color var(--duration-fast); }
-.post-meta { font-size: var(--text-sm); color: var(--text-muted); }
+.post-title-link:hover .post-title { color: var(--green-600); text-decoration: underline; }
+.post-title { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--neutral-900); transition: color var(--duration-fast); }
+.post-meta { font-size: var(--text-sm); color: var(--neutral-400); }
 
 .btn-manage {
   display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start;
   margin-top: var(--space-1); padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
-  border: 1px solid var(--border); color: var(--text-secondary);
+  border: 1px solid var(--neutral-200); color: var(--neutral-500);
   font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none; transition: all var(--duration-fast);
 }
-.btn-manage:hover { border-color: var(--green); color: var(--green); }
+.btn-manage:hover { border-color: var(--green-600); color: var(--green-600); }
 </style>

@@ -33,7 +33,7 @@ const cities = [
 
 .field-label {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   font-weight: var(--weight-medium);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -41,10 +41,10 @@ const cities = [
 
 .city-select {
   padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--text-primary);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
   font-size: var(--text-base);
   min-width: 160px;
   cursor: pointer;
@@ -52,7 +52,7 @@ const cities = [
 }
 .city-select:focus {
   outline: none;
-  border-color: var(--green);
+  border-color: var(--green-600);
   box-shadow: var(--shadow-focus);
 }
 </style>

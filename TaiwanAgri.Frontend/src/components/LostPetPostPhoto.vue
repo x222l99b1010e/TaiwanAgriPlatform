@@ -54,18 +54,18 @@ const failed = ref(false)
 */
 .photo-img {
   width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
-  border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--neutral-100);
+  border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); background: var(--neutral-100);
 }
 .photo-img.uncropped {
   aspect-ratio: auto; max-height: 480px; object-fit: contain;
 }
 .photo-failed {
   display: flex; align-items: center; justify-content: center; gap: var(--space-2);
-  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-lg); border: 1px dashed var(--border);
-  background: var(--neutral-50); color: var(--text-muted); font-size: var(--text-sm);
+  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-lg); border: 1px dashed var(--neutral-200);
+  background: var(--neutral-50); color: var(--neutral-400); font-size: var(--text-sm);
 }
 .photo-failed.uncropped { aspect-ratio: 16 / 9; }
-.photo-note { font-size: var(--text-xs); color: var(--text-muted); }
+.photo-note { font-size: var(--text-xs); color: var(--neutral-400); }
 
 /* 縮圖疊一層「看完整圖片」提示，滑過才浮現，避免常駐蓋住照片內容 */
 .photo-link { position: relative; display: block; }

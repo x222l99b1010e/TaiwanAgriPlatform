@@ -315,7 +315,7 @@ function isUrl(value: string): boolean {
 .filter-label {
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   white-space: nowrap;
 }
 
@@ -328,9 +328,9 @@ function isUrl(value: string): boolean {
 .tab-btn {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-full);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--neutral-400);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   cursor: pointer;
@@ -352,7 +352,7 @@ function isUrl(value: string): boolean {
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-full);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   min-width: 130px;
 }
 
@@ -362,18 +362,18 @@ function isUrl(value: string): boolean {
   outline: none;
   font-size: var(--text-sm);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--neutral-900);
 }
 
-.custom-days-unit { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.custom-days-unit { font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 
 .page-size-select {
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   font-size: var(--text-sm);
-  color: var(--text-primary);
-  background: var(--surface);
+  color: var(--neutral-900);
+  background: var(--neutral-0);
 }
 
 /* ── 表格區塊 ── */
@@ -385,8 +385,8 @@ function isUrl(value: string): boolean {
 
 /* 限制在框內、可上下左右捲動的關鍵 CSS */
 .table-wrapper {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   max-height: 560px;
@@ -399,12 +399,12 @@ function isUrl(value: string): boolean {
 .cell-index {
   font-family: monospace;
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   text-align: right;
   white-space: nowrap;
 }
 
-.cell-number { font-family: monospace; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.cell-number { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cell-product { font-weight: var(--weight-medium); }
 
@@ -415,7 +415,7 @@ function isUrl(value: string): boolean {
 .location-text {
   display: block;
   font-size: var(--text-xs);
-  color: var(--text-primary);
+  color: var(--neutral-900);
   white-space: normal;
   word-break: break-word;
   max-width: 380px;
@@ -436,7 +436,7 @@ function isUrl(value: string): boolean {
   text-decoration: underline;
 }
 
-.cell-note { max-width: 220px; font-size: var(--text-xs); color: var(--text-muted); }
+.cell-note { max-width: 220px; font-size: var(--text-xs); color: var(--neutral-400); }
 
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .result-badge.fail { background: var(--danger-50); color: var(--danger-500); }
@@ -454,7 +454,7 @@ function isUrl(value: string): boolean {
 
 .pagination-info {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 
 .pagination-controls {
@@ -469,7 +469,7 @@ function isUrl(value: string): boolean {
   gap: var(--space-2);
   margin-right: var(--space-2);
   padding-right: var(--space-2);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--neutral-200);
 }
 
 .jump-to-page {
@@ -478,12 +478,12 @@ function isUrl(value: string): boolean {
   gap: var(--space-1);
   margin-left: var(--space-2);
   padding-left: var(--space-2);
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--neutral-200);
 }
 
 .jump-label {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   white-space: nowrap;
 }
 
@@ -491,7 +491,7 @@ function isUrl(value: string): boolean {
   width: 50px;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   font-size: var(--text-sm);
   text-align: center;
   outline: none;
@@ -517,9 +517,9 @@ function isUrl(value: string): boolean {
   height: 32px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-primary);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
   font-size: var(--text-sm);
   cursor: pointer;
   display: flex;

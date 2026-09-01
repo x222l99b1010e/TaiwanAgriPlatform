@@ -264,43 +264,43 @@ watch(() => props.shelterId, () => {
 
 .back-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
+.back-link:hover { color: var(--green-600); }
 /* ── 篩選列（沿用 LegalBusinessView 的版面慣例） ── */
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .filter-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
+.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 .sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
 }
-.sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); margin-left: auto; }
+.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); font-size: var(--text-sm); margin-left: auto; }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--text-secondary); font-weight: var(--weight-medium); white-space: nowrap; }
+.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--neutral-500); font-weight: var(--weight-medium); white-space: nowrap; }
 
 /* ── 狀態容器 ── */
 /* ── datagrid（沿用 LegalBusinessView 的表格慣例：高一點的可捲動容器，表頭黏頂） ── */
 .table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md); max-height: 720px; overflow: auto;
 }
 /* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
@@ -317,12 +317,12 @@ watch(() => props.shelterId, () => {
 .col-date          { width: 110px; }
 .col-album         { width: 80px; }
 
-.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--text-muted); white-space: normal; word-break: break-all; }
-.animal-link { color: var(--green); font-weight: var(--weight-bold); text-decoration: none; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: normal; word-break: break-all; }
+.animal-link { color: var(--green-600); font-weight: var(--weight-bold); text-decoration: none; }
 .animal-link:hover { text-decoration: underline; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cell-address { white-space: normal; word-break: break-word; font-size: var(--text-xs); }
-.cell-muted { color: var(--text-muted); }
+.cell-muted { color: var(--neutral-400); }
 
 .album-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .album-link:hover { text-decoration: underline; }

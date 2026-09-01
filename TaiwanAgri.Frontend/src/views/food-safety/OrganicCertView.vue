@@ -288,8 +288,8 @@ onMounted(() => {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   align-self: flex-start;
 }
@@ -297,7 +297,7 @@ onMounted(() => {
 .filter-title {
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--text-primary);
+  color: var(--neutral-900);
   margin: 0;
 }
 
@@ -310,16 +310,16 @@ onMounted(() => {
 .filter-label {
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 
 .filter-input {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   font-size: var(--text-sm);
-  background: var(--surface);
-  color: var(--text-primary);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
   outline: none;
 }
 
@@ -327,7 +327,7 @@ onMounted(() => {
 
 /* .filter-hint {
   font-size: var(--text-2xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   line-height: var(--leading-normal);
   display: flex;
   gap: var(--space-2);
@@ -362,7 +362,7 @@ onMounted(() => {
 
 .result-count {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 
 /* ── 狀態容器（沿用 ViolationWallView 樣式） ── */
@@ -376,8 +376,8 @@ onMounted(() => {
 
 .cert-card {
   padding: var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
@@ -398,7 +398,7 @@ onMounted(() => {
 .cert-sn {
   font-family: monospace;
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
@@ -409,12 +409,12 @@ onMounted(() => {
 .cert-operator {
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--text-primary);
+  color: var(--neutral-900);
 }
 
 .cert-row {
   font-size: var(--text-xs);
-  color: var(--text-primary);
+  color: var(--neutral-900);
   line-height: var(--leading-normal);
 }
 
@@ -430,7 +430,7 @@ onMounted(() => {
 
 .products-text-clamp {
   font-size: var(--text-xs);
-  color: var(--text-primary);
+  color: var(--neutral-900);
   line-height: var(--leading-normal);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -443,7 +443,7 @@ onMounted(() => {
   margin: 0;
   padding-left: var(--space-5);
   font-size: var(--text-xs);
-  color: var(--text-primary);
+  color: var(--neutral-900);
   line-height: var(--leading-normal);
   display: flex;
   flex-direction: column;
@@ -479,7 +479,7 @@ onMounted(() => {
 .cert-label {
   display: inline-block;
   min-width: 60px;
-  color: var(--text-muted);
+  color: var(--neutral-400);
   font-weight: var(--weight-bold);
 }
 
@@ -492,7 +492,7 @@ onMounted(() => {
   gap: var(--space-3);
 }
 
-.pagination-info { font-size: var(--text-xs); color: var(--text-muted); }
+.pagination-info { font-size: var(--text-xs); color: var(--neutral-400); }
 
 .pagination-controls {
   display: flex;
@@ -506,16 +506,16 @@ onMounted(() => {
   gap: var(--space-2);
   margin-right: var(--space-2);
   padding-right: var(--space-2);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--neutral-200);
 }
 
 .page-size-select {
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   font-size: var(--text-sm);
-  color: var(--text-primary);
-  background: var(--surface);
+  color: var(--neutral-900);
+  background: var(--neutral-0);
 }
 
 .jump-to-page {
@@ -524,16 +524,16 @@ onMounted(() => {
   gap: var(--space-1);
   margin-left: var(--space-2);
   padding-left: var(--space-2);
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--neutral-200);
 }
 
-.jump-label { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.jump-label { font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 
 .jump-input {
   width: 50px;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   font-size: var(--text-sm);
   text-align: center;
   outline: none;
@@ -556,9 +556,9 @@ onMounted(() => {
   height: 32px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-primary);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
   font-size: var(--text-sm);
   cursor: pointer;
   display: flex;

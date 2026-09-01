@@ -193,58 +193,25 @@
   --white-a80: rgba(255, 255, 255, 0.80);
   --black-a60: rgba(0, 0, 0, 0.60);
 
-  /* ==========================================================================
-     相容層——建立色階之前就存在的 14 個變數，值維持原樣
-     --------------------------------------------------------------------------
-     還有頁面在用這些名稱，所以暫時保留。逐頁改用上方色階之後這一段會整段刪掉，
-     「grep 不到這 14 個名稱」就是那件事做完的判準。
-     ⚠ 新寫的樣式不要再用這裡的名稱，否則判準永遠達不到。
-     ======================================================================== */
-  --bg:          #f4f5f1;
-  --surface:     #ffffff;
-  --surface-2:   #f8f9f6;
-  --border:      rgba(0, 0, 0, 0.10);
-  --border-hover:rgba(0, 0, 0, 0.22);
-
-  --text-primary:   #1a2820;
-  --text-secondary: rgba(26, 40, 32, 0.65);
-  --text-muted:     rgba(26, 40, 32, 0.40);
-
-  --green:       #2e7d32;
-  --green-hover: #388e3c;
-  --teal:        #00897b;
-  --blue:        #1565c0;
-  --orange:      #bf360c;
-  --red:         #c62828;
 }
 
-/* ⚠ 這條 reset 裡的 font-weight: normal 有一個容易踩到的後果：
-   `*` 會直接命中每一個後代元素，優先級贏過「從 body 繼承」，所以**在 body 上設字重
-   對後代完全沒有作用**。任何沒有自己指定 font-weight 的元素一律是 400。
-   （實測：body 設 500 時，.page-subtitle 與 .hint-list li 的 computed value 仍是 400。）
-
-   要改全站文字的字重，只能改這一條，或是逐個元件指定；改 body 會安靜地失敗。
-   目前沒有拿掉它——移除之後子元素會開始繼承父元素的字重，那是行為變更
-   （實測影響面很小，且幾乎都落在圖示 span 上，但仍該與 P2 逐頁套 token 一起評估）。 */
+/* ⚠ 這裡刻意沒有 font-weight。`*` 會直接命中每一個後代元素、贏過「從 body 繼承」，
+   一旦在這裡設字重，「在容器上設字重讓子元素繼承」這種寫法就會安靜地失效——
+   在卡片上寫 font-weight 卻發現裡面的字沒變粗，而且什麼錯誤訊息都沒有。 */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
-  font-weight: normal;
 }
 
 body {
   min-height: 100vh;
-  background-color: var(--bg);
-  color: var(--text-primary);
+  background-color: var(--neutral-100);
+  color: var(--neutral-900);
   font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
   font-size: var(--text-base);
   line-height: var(--leading-normal);
-  /* 正文 400。先前寫 500（註解是「整體加半粗」），但**那個宣告從來沒有生效過**——
-     上方的 `*` reset 會直接命中每個後代元素，body 的字重根本傳不下去（實測 computed
-     value 全部是 400）。所以改成 400 是把宣告改回與實際呈現一致，畫面不會有變化，
-     不是盤點原本預期的「全站文字質感改變」。
-     取這個值的理由仍然成立：正文 400、強調 500、標題 700 才有三階可用；
-     若寫 500，「強調」與正文同重，階層等於只剩兩階。 */
+  /* 正文 400、強調 500、標題 700 才有三階可用。正文若寫 500，「強調」與正文同重，
+     階層就只剩兩階。 */
   font-weight: var(--weight-normal);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -358,8 +325,10 @@ body {
   gap: var(--space-1);
 }
 
+/* 條列本身是正文，不跟著 HintBox 外框的 medium 字重走——整段說明都半粗會很吵 */
 .hint-list li {
   font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
   line-height: var(--leading-normal);
 }
 

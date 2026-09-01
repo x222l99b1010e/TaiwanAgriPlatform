@@ -159,22 +159,22 @@ onMounted(() => loadMarkets())
 <style scoped>
 .restdays-view { min-width: 960px; }
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-label { font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
+.field-label { font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
 
 .market-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 200px; cursor: pointer;
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.market-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
+.market-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 .market-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.loading-hint { font-size: var(--text-xs); color: var(--text-muted); }
+.loading-hint { font-size: var(--text-xs); color: var(--neutral-400); }
 /* 摘要列 */
 .summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-8); }
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: var(--space-2);
   box-shadow: var(--shadow-sm);
@@ -188,7 +188,7 @@ onMounted(() => loadMarkets())
 
 .month-label {
   display: flex; align-items: center; gap: var(--space-2);
-  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green);
+  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green-600);
   margin-bottom: var(--space-3);
   padding-bottom: var(--space-3);
   border-bottom: 2px solid var(--green-100);
@@ -196,7 +196,7 @@ onMounted(() => loadMarkets())
 
 .month-count {
   font-size: var(--text-xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
-  background: var(--green-100); color: var(--green);
+  background: var(--green-100); color: var(--green-600);
   border: 1px solid var(--green-200);
   font-weight: var(--weight-medium); margin-left: var(--space-1);
 }
@@ -206,11 +206,11 @@ onMounted(() => loadMarkets())
 .rest-chip {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-3) var(--space-5); border-radius: var(--radius-lg);
-  background: var(--surface); border: 1px solid var(--border);
-  font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--text-primary);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--neutral-900);
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
 }
 .rest-chip:hover { box-shadow: var(--shadow-md); border-color: var(--warning-100); }
-.chip-icon { font-size: var(--text-base); color: var(--orange); }
+.chip-icon { font-size: var(--text-base); color: var(--warning-700); }
 </style>

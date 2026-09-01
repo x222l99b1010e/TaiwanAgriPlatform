@@ -219,26 +219,26 @@ onUnmounted(() => {
 <style scoped>
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .kind-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 140px; cursor: pointer;
 }
-.kind-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
+.kind-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 .stat-bar { margin-left: auto; font-size: var(--text-sm); }
-.stat-text { color: var(--text-secondary); }
-.stat-muted { color: var(--text-muted); }
-.stat-error { color: var(--red); font-weight: var(--weight-medium); }
-.stat-loading { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-muted); }
+.stat-text { color: var(--neutral-500); }
+.stat-muted { color: var(--neutral-400); }
+.stat-error { color: var(--danger-500); font-weight: var(--weight-medium); }
+.stat-loading { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); }
 
 .loading-spinner-sm {
   width: 14px; height: 14px;
-  border: 2px solid var(--green-200); border-top-color: var(--green);
+  border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -247,7 +247,7 @@ onUnmounted(() => {
   height: 640px;
   width: 100%;
   border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   box-shadow: var(--shadow-md);
 }
 </style>

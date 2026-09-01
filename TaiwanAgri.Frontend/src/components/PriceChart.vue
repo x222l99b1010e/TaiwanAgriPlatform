@@ -314,8 +314,8 @@ function exportChartImage() {
 
 <style scoped>
 .chart-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl);
   padding: var(--space-8) var(--space-8) var(--space-10);
   animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1);
@@ -336,7 +336,7 @@ function exportChartImage() {
   flex-wrap: wrap;
   margin-bottom: var(--space-8);
   padding-bottom: var(--space-5);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--neutral-200);
 }
 
 .stat { display: flex; flex-direction: column; gap: var(--space-1); }
@@ -350,7 +350,7 @@ function exportChartImage() {
 
 .stat-value {
   font-size: var(--text-base);              /* 從 13px → 14px */
-  color: var(--text-primary);
+  color: var(--neutral-900);
   font-variant-numeric: tabular-nums;
   font-weight: var(--weight-medium);             /* 加粗 */
 }
@@ -358,7 +358,7 @@ function exportChartImage() {
 .sep {
   width: 1px;
   height: 36px;
-  background: var(--border);
+  background: var(--neutral-200);
   flex-shrink: 0;
 }
 

@@ -156,10 +156,10 @@ async function handleDelete() {
 
 .back-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
+.back-link:hover { color: var(--green-600); }
 
 /* ── 內容卡片 ──
    詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
@@ -167,44 +167,44 @@ async function handleDelete() {
 .detail-card {
   max-width: var(--container-sm);
   display: flex; flex-direction: column; gap: var(--space-4);
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
   padding: var(--space-8); box-shadow: var(--shadow-sm);
 }
 
 .detail-header { display: flex; align-items: center; justify-content: space-between; }
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
-.status-badge.found { background: var(--green-100); color: var(--green); }
+.status-badge.found { background: var(--green-100); color: var(--green-600); }
 .status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }
 
 .coord-badge {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  color: var(--green); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
+  color: var(--green-600); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
 }
 .coord-badge:hover { text-decoration: underline; }
 
-.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--text-primary); }
-.detail-meta { font-size: var(--text-sm); color: var(--text-muted); }
+.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--neutral-900); }
+.detail-meta { font-size: var(--text-sm); color: var(--neutral-400); }
 
 .safety-notice {
   display: flex; align-items: flex-start; gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: var(--danger-50); border: 1px solid var(--danger-100); border-left: 4px solid var(--red);
+  background: var(--danger-50); border: 1px solid var(--danger-100); border-left: 4px solid var(--danger-500);
   border-radius: var(--radius-lg);
-  color: var(--red); font-size: var(--text-base); font-weight: var(--weight-bold); line-height: var(--leading-normal);
+  color: var(--danger-500); font-size: var(--text-base); font-weight: var(--weight-bold); line-height: var(--leading-normal);
 }
 .notice-icon { font-size: var(--text-lg); flex-shrink: 0; line-height: var(--leading-normal); }
 
 .detail-description {
-  font-size: var(--text-base); color: var(--text-primary); line-height: var(--leading-loose);
+  font-size: var(--text-base); color: var(--neutral-900); line-height: var(--leading-loose);
   white-space: pre-wrap; /* 保留張貼者輸入的換行，特徵條列才不會被擠成一整段 */
 }
 
-.detail-contact { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--text-base); color: var(--text-primary); }
+.detail-contact { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--text-base); color: var(--neutral-900); }
 .contact-item { display: inline-flex; align-items: center; gap: var(--space-1); }
-.contact-missing { color: var(--text-muted); font-style: italic; }
+.contact-missing { color: var(--neutral-400); font-style: italic; }
 
-.owner-actions-block { margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.owner-actions-block { margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--neutral-200); }
 .owner-actions { display: flex; gap: var(--space-2); }
-.error-msg { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--red); font-weight: var(--weight-medium); }
+.error-msg { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--danger-500); font-weight: var(--weight-medium); }
 </style>

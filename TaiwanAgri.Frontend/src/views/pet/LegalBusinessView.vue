@@ -499,45 +499,45 @@ onMounted(fetchLegal)
 <style scoped>
 .tab-switch {
   display: flex; gap: var(--space-2); margin-bottom: var(--space-5);
-  background: var(--surface-2); border: 1px solid var(--border);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-1); width: fit-content;
 }
 .tab-btn {
   padding: var(--space-2) var(--space-6); border-radius: var(--radius-md); border: none; background: transparent;
-  color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
+  color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
 }
-.tab-btn:hover { color: var(--green); }
-.tab-btn.active { background: var(--green); color: var(--neutral-0); }
+.tab-btn:hover { color: var(--green-600); }
+.tab-btn.active { background: var(--green-600); color: var(--neutral-0); }
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .filter-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
+.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 .sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
 }
-.sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); }
+.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); font-size: var(--text-sm); }
 .loading-hint.standalone { margin-bottom: var(--space-5); }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md); max-height: 600px; overflow: auto;
 }
 
@@ -545,10 +545,10 @@ onMounted(fetchLegal)
 .data-table { min-width: 1100px; }
 
 .cell-name { font-weight: var(--weight-medium); white-space: nowrap; }
-.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cell-address { max-width: 260px; font-size: var(--text-xs); }
-.cell-muted { color: var(--text-muted); }
+.cell-muted { color: var(--neutral-400); }
 
 /* 合法寵物業表格：table-layout: fixed 讓 colgroup 的欄寬真正生效（不然瀏覽器只會把它當參考值，
    還是照內容自動調整）；固定寬度後，內容比欄寬長的儲存格靠 white-space/wrap 決定要不要換行。
@@ -579,7 +579,7 @@ onMounted(fetchLegal)
 }
 
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
-.state-badge.ok { background: var(--green-100); color: var(--green); }
+.state-badge.ok { background: var(--green-100); color: var(--green-600); }
 .state-badge.closed { background: var(--neutral-100); color: var(--neutral-500); }
 .state-badge.suspended { background: var(--warning-50); color: var(--warning-500); }
 .state-badge.revoked { background: var(--danger-50); color: var(--danger-500); }

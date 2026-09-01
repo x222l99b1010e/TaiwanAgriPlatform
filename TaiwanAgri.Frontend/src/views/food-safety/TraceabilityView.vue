@@ -283,17 +283,17 @@ function handleSearch() {
 .search-input {
   flex: 1;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-md);
   font-size: var(--text-base);
-  color: var(--text-primary);
-  background: var(--surface);
+  color: var(--neutral-900);
+  background: var(--neutral-0);
   outline: none;
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .search-input:focus {
-  border-color: var(--green);
+  border-color: var(--green-600);
   box-shadow: var(--shadow-focus);
 }
 /* ── 狀態容器 ── */
@@ -305,8 +305,8 @@ function handleSearch() {
 }
 
 .result-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl);
   padding: var(--space-6) var(--space-8);
   box-shadow: var(--shadow-md);
@@ -321,7 +321,7 @@ function handleSearch() {
   color: var(--green-800);
   margin-bottom: var(--space-5);
   padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--neutral-200);
 }
 
 .card-icon { font-size: var(--text-lg); color: var(--green-500); }
@@ -339,14 +339,14 @@ function handleSearch() {
   width: 90px;
   flex-shrink: 0;
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   font-weight: var(--weight-medium);
   padding-top: var(--space-1);
 }
 
 .info-value {
   font-size: var(--text-base);
-  color: var(--text-primary);
+  color: var(--neutral-900);
   flex: 1;
 }
 
@@ -360,13 +360,13 @@ function handleSearch() {
   font-family: monospace;
   font-size: var(--text-sm);
   background: var(--green-50);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-md);
   padding: var(--space-1) var(--space-3);
   flex: unset;
 }
 
-.range-arrow { font-size: var(--text-base); color: var(--text-muted); }
+.range-arrow { font-size: var(--text-base); color: var(--neutral-400); }
 
 /* ── 狀態徽章 ── */
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
@@ -388,7 +388,7 @@ function handleSearch() {
   flex-direction: column;
   gap: var(--space-1);
   background: var(--green-50);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   min-width: 100px;
@@ -402,20 +402,20 @@ function handleSearch() {
 
 .product-place, .product-mark {
   font-size: var(--text-2xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 
 /* ── 蛋農 / 牧場子區塊 ── */
 .sub-section {
   margin-top: var(--space-5);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--neutral-200);
 }
 
 .sub-title {
   font-size: var(--text-sm);
   font-weight: var(--weight-bold);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   margin-bottom: var(--space-3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -432,7 +432,7 @@ function handleSearch() {
   flex-direction: column;
   gap: var(--space-1);
   background: var(--green-50);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   min-width: 140px;
@@ -452,6 +452,6 @@ function handleSearch() {
 
 .farmer-place {
   font-size: var(--text-2xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 </style>

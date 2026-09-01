@@ -203,15 +203,15 @@ async function handleSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  background: var(--neutral-100);
   padding: var(--space-6);
 }
 
 .login-card {
   width: 100%;
   max-width: 420px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl);
   padding: var(--space-10);
   box-shadow: var(--shadow-lg);
@@ -225,7 +225,7 @@ async function handleSubmit() {
 
 .logo-icon {
   font-size: var(--text-3xl);
-  color: var(--green);
+  color: var(--green-600);
   display: block;
   margin-bottom: var(--space-3);
 }
@@ -233,21 +233,21 @@ async function handleSubmit() {
 .card-title {
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
-  color: var(--text-primary);
+  color: var(--neutral-900);
   margin-bottom: var(--space-2);
 }
 
 .card-subtitle {
   font-size: var(--text-base);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 
 /* Tab 切換 */
 .tab-group {
   display: flex;
   gap: var(--space-1);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   padding: var(--space-1);
   margin-bottom: var(--space-6);
@@ -259,7 +259,7 @@ async function handleSubmit() {
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--neutral-500);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
   cursor: pointer;
@@ -267,8 +267,8 @@ async function handleSubmit() {
 }
 
 .tab-btn.active {
-  background: var(--surface);
-  color: var(--green);
+  background: var(--neutral-0);
+  color: var(--green-600);
   box-shadow: var(--shadow-sm);
 }
 
@@ -287,7 +287,7 @@ async function handleSubmit() {
 
 .field-label {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
   font-weight: var(--weight-medium);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -295,17 +295,17 @@ async function handleSubmit() {
 
 .field-input {
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
-  background: var(--surface);
-  color: var(--text-primary);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
   font-size: var(--text-base);
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .field-input:focus {
   outline: none;
-  border-color: var(--green);
+  border-color: var(--green-600);
   box-shadow: var(--shadow-focus);
 }
 
@@ -316,7 +316,7 @@ async function handleSubmit() {
 
 .field-error {
   font-size: var(--text-sm);
-  color: var(--red);
+  color: var(--danger-500);
   font-weight: var(--weight-medium);
 }
 
@@ -333,7 +333,7 @@ async function handleSubmit() {
 
 .error-icon {
   font-size: var(--text-lg);
-  color: var(--red);
+  color: var(--danger-500);
   flex-shrink: 0;
   margin-top: var(--space-1);
 }
@@ -346,7 +346,7 @@ async function handleSubmit() {
 
 .error-content p {
   font-size: var(--text-sm);
-  color: var(--red);
+  color: var(--danger-500);
   line-height: var(--leading-normal);
   margin: 0;
 }

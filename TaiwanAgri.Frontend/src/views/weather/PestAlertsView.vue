@@ -167,13 +167,13 @@ onMounted(fetchAlerts)
 .alert-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-6); }
 
 .alert-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); cursor: pointer;
   transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
   box-shadow: var(--shadow-sm);
 }
 .alert-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-200); }
-.alert-card.expanded { border-color: var(--green); background: var(--green-50); }
+.alert-card.expanded { border-color: var(--green-600); background: var(--green-50); }
 
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 .card-meta { display: flex; align-items: center; gap: var(--space-3); }
@@ -190,13 +190,13 @@ onMounted(fetchAlerts)
   font-size: var(--text-xs);           /* 從 11px → 12px */
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
-  background: var(--green-100); color: var(--green);
+  background: var(--green-100); color: var(--green-600);
   border: 1px solid var(--green-200);
   font-weight: var(--weight-bold);
 }
 
-.expand-icon { font-size: var(--text-lg); color: var(--text-muted); transition: color var(--duration-fast); }
-.alert-card:hover .expand-icon { color: var(--text-secondary); }
+.expand-icon { font-size: var(--text-lg); color: var(--neutral-400); transition: color var(--duration-fast); }
+.alert-card:hover .expand-icon { color: var(--neutral-500); }
 
 /* 主旨標題 */
 .card-subject {
@@ -214,13 +214,13 @@ onMounted(fetchAlerts)
 .crop-tag { background: var(--green-100); border-color: var(--green-200); color: var(--green-600); }
 
 
-.card-body { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border); }
+.card-body { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--neutral-200); }
 
 /* section 標籤 */
 .section-label {
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
-  color: var(--green);
+  color: var(--green-600);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: var(--space-3);

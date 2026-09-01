@@ -314,7 +314,7 @@ async function handleQuery() {
 .summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-5); }
 
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: var(--space-2); min-width: 130px;
   box-shadow: var(--shadow-sm);
@@ -334,7 +334,7 @@ async function handleQuery() {
 }
 
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl); padding: var(--space-6) var(--space-8) var(--space-8); margin-bottom: var(--space-6);
   box-shadow: var(--shadow-md);
 }
@@ -351,7 +351,7 @@ async function handleQuery() {
 
 .metric-tabs {
   display: flex; gap: var(--space-1);
-  background: var(--surface-2); border: 1px solid var(--border);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-md); padding: var(--space-1);
 }
 .metric-tab {
@@ -361,13 +361,13 @@ async function handleQuery() {
   font-size: var(--text-sm); font-weight: var(--weight-medium);
   cursor: pointer; transition: all var(--duration-fast);
 }
-.metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: var(--green-100); color: var(--green); font-weight: var(--weight-bold); }
+.metric-tab:hover { color: var(--neutral-900); }
+.metric-tab.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-bold); }
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
 .table-wrap {
-  overflow-x: auto; border: 1px solid var(--border);
+  overflow-x: auto; border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); margin-bottom: var(--space-2);
   box-shadow: var(--shadow-sm);
 }
@@ -380,7 +380,7 @@ async function handleQuery() {
 .time-cell    { color: var(--neutral-500); font-variant-numeric: tabular-nums; }
 .rain-24        { font-weight: var(--weight-medium); }
 .level-moderate { color: var(--warning-500); }
-.level-heavy    { color: var(--red); }
+.level-heavy    { color: var(--danger-500); }
 
 .hint { font-size: var(--text-sm); color: var(--neutral-500); margin-top: var(--space-3); }
 </style>

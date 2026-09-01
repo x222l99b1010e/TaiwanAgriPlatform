@@ -108,18 +108,18 @@ onMounted(() => store.initialize())
 .tab-group { display: flex; gap: var(--space-2); }
 .tab-btn {
   padding: var(--space-2) var(--space-5); border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-500);
   font-size: var(--text-sm); cursor: pointer;
   transition: all var(--duration-fast);
 }
 .tab-btn:hover:not(:disabled) {
-  border-color: var(--green); color: var(--green); background: var(--green-50);
+  border-color: var(--green-600); color: var(--green-600); background: var(--green-50);
 }
 .tab-btn.active {
-  background: var(--green-100); border-color: var(--green);
-  color: var(--green); font-weight: var(--weight-medium);
+  background: var(--green-100); border-color: var(--green-600);
+  color: var(--green-600); font-weight: var(--weight-medium);
 }
 .tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -127,7 +127,7 @@ onMounted(() => store.initialize())
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 /* field-label 深一點 */
 .field-label {
-  font-size: var(--text-xs); color: var(--text-secondary);  /* 從 text-muted 改 text-secondary */
+  font-size: var(--text-xs); color: var(--neutral-500);  /* 從 text-muted 改 text-secondary */
   letter-spacing: 0.06em; text-transform: uppercase;
   display: flex; align-items: center; gap: var(--space-2);
   font-weight: var(--weight-bold);  /* 加粗 */
@@ -136,14 +136,14 @@ onMounted(() => store.initialize())
 /* 市場下拉 */
 .select-wrap { display: flex; align-items: center; gap: var(--space-3); }
 .market-select {
-  padding: var(--space-2) var(--space-3); background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-primary); font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3); background: var(--neutral-0);
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  color: var(--neutral-900); font-size: var(--text-sm);
   min-width: 200px; cursor: pointer;
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .market-select:focus {
-  outline: none; border-color: var(--green);
+  outline: none; border-color: var(--green-600);
   box-shadow: var(--shadow-focus);
 }
 
@@ -168,29 +168,29 @@ onMounted(() => store.initialize())
 .crop-btn {
   display: inline-flex; align-items: center; gap: var(--space-1);
   padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-500);
   font-size: var(--text-sm); cursor: pointer; transition: all var(--duration-fast);
   white-space: nowrap;
 }
 .crop-btn:hover:not(.disabled) {
-  border-color: var(--green); color: var(--green); background: var(--green-50);
+  border-color: var(--green-600); color: var(--green-600); background: var(--green-50);
 }
 .crop-btn.selected {
-  background: var(--green-100); border-color: var(--green); color: var(--green);
+  background: var(--green-100); border-color: var(--green-600); color: var(--green-600);
 }
 .crop-btn.disabled { opacity: 0.35; cursor: not-allowed; }
 .check-dot { font-size: var(--text-2xs); font-weight: var(--weight-bold); }
 
-.loading-hint { font-size: var(--text-xs); color: var(--text-muted); }
-.limit-hint { font-size: var(--text-2xs); color: var(--orange); }
-.error-msg  { font-size: var(--text-sm); color: var(--red); }
+.loading-hint { font-size: var(--text-xs); color: var(--neutral-400); }
+.limit-hint { font-size: var(--text-2xs); color: var(--warning-700); }
+.error-msg  { font-size: var(--text-sm); color: var(--danger-500); }
 
 .crop-container {
   max-height: 200px; overflow-y: auto; overflow-x: hidden;
-  border: 1px solid var(--border); border-radius: var(--radius-lg);
-  padding: var(--space-3); background: var(--surface-2);
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
+  padding: var(--space-3); background: var(--neutral-50);
   scrollbar-width: thin; scrollbar-color: var(--neutral-300) transparent;
 }
 .crop-container::-webkit-scrollbar { width: 5px; }
@@ -200,20 +200,20 @@ onMounted(() => store.initialize())
 .crop-search-wrap { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
 .crop-search {
   flex: 1; padding: var(--space-2) var(--space-3);
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-md); color: var(--text-primary); font-size: var(--text-sm);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); color: var(--neutral-900); font-size: var(--text-sm);
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.crop-search::placeholder { color: var(--text-muted); }
-.crop-search:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
+.crop-search::placeholder { color: var(--neutral-400); }
+.crop-search:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
-.search-count { font-size: var(--text-xs); color: var(--teal); white-space: nowrap; }
+.search-count { font-size: var(--text-xs); color: var(--teal-500); white-space: nowrap; }
 .search-clear {
   padding: var(--space-1) var(--space-2); background: transparent;
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  color: var(--text-muted); font-size: var(--text-xs); cursor: pointer;
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  color: var(--neutral-400); font-size: var(--text-xs); cursor: pointer;
   transition: all var(--duration-fast);
 }
-.search-clear:hover { background: var(--surface-2); color: var(--text-primary); }
-.no-result { font-size: var(--text-sm); color: var(--text-muted); padding: var(--space-2) var(--space-1); margin: 0; }
+.search-clear:hover { background: var(--neutral-50); color: var(--neutral-900); }
+.no-result { font-size: var(--text-sm); color: var(--neutral-400); padding: var(--space-2) var(--space-1); margin: 0; }
 </style>

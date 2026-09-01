@@ -145,25 +145,25 @@ onUnmounted(() => {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--neutral-400);
 }
 
 .map-container {
   height: 600px;
   width: 100%;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--neutral-200);
   /* Leaflet 內部用絕對定位排版圖磚，容器沒有明確高度地圖會整個塌陷看不到 */
 }
 
 .picker-coords {
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--neutral-500);
   font-family: monospace;
 }
 
 .coords-empty {
-  color: var(--text-muted);
+  color: var(--neutral-400);
   font-family: inherit;
 }
 </style>

@@ -187,12 +187,12 @@ defineExpose({ panelRef })
 
 <style scoped>
 .post-form-panel {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
   padding: var(--space-6) var(--space-8); margin-bottom: var(--space-6);
   box-shadow: var(--shadow-md);
   display: flex; flex-direction: column; gap: var(--space-4);
 }
-.form-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--text-primary); }
+.form-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-900); }
 
 .form-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4) var(--space-5);
@@ -201,22 +201,22 @@ defineExpose({ panelRef })
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-group.span-2 { grid-column: span 2; }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .field-input, .field-select, .field-textarea {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   font-family: inherit; transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .field-textarea { resize: vertical; min-height: 72px; }
 .field-input:focus, .field-select:focus, .field-textarea:focus {
-  outline: none; border-color: var(--green); box-shadow: var(--shadow-focus);
+  outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus);
 }
 .field-select { cursor: pointer; }
-.field-hint { font-size: var(--text-2xs); color: var(--text-muted); line-height: var(--leading-normal); }
+.field-hint { font-size: var(--text-2xs); color: var(--neutral-400); line-height: var(--leading-normal); }
 
 .form-actions { display: flex; gap: var(--space-3); }
-.error-msg { font-size: var(--text-sm); color: var(--red); font-weight: var(--weight-medium); }
+.error-msg { font-size: var(--text-sm); color: var(--danger-500); font-weight: var(--weight-medium); }
 </style>

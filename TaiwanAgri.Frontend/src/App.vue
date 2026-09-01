@@ -32,5 +32,5 @@ html { width: 100%; scrollbar-gutter: stable both-edges; }
 /* 這裡不再有 padding——頁面留白統一由 base.css 的 .page 負責。
    原本這層 24px 會跟各頁自己的 36px 56px 疊加成 60px / 80px，
    造成「改了頁面裡的數字，量出來卻是別的值」。 */
-.main-content { flex: 1; overflow-y: auto; background: var(--bg); }
+.main-content { flex: 1; overflow-y: auto; background: var(--neutral-100); }
 </style>

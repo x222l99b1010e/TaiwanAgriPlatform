@@ -70,30 +70,30 @@ function toNullableNumber(raw: string): number | null {
 
 <style scoped>
 .pagination-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
-.pagination-info { font-size: var(--text-xs); color: var(--text-muted); }
+.pagination-info { font-size: var(--text-xs); color: var(--neutral-400); }
 .pagination-controls { display: flex; align-items: center; gap: var(--space-1); }
 .page-btn {
   min-width: 32px; height: 32px; padding: 0 var(--space-2); border-radius: var(--radius-md);
-  border: 1px solid var(--border); background: var(--surface); color: var(--text-primary);
+  border: 1px solid var(--neutral-200); background: var(--neutral-0); color: var(--neutral-900);
   font-size: var(--text-sm); cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
-.page-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+.page-btn:hover:not(:disabled) { border-color: var(--green-600); color: var(--green-600); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-btn.active { background: var(--green); border-color: var(--green); color: var(--neutral-0); }
+.page-btn.active { background: var(--green-600); border-color: var(--green-600); color: var(--neutral-0); }
 
 .jump-to-page {
   display: flex; align-items: center; gap: var(--space-1);
-  margin-left: var(--space-2); padding-left: var(--space-2); border-left: 1px solid var(--border);
+  margin-left: var(--space-2); padding-left: var(--space-2); border-left: 1px solid var(--neutral-200);
 }
-.jump-label { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.jump-label { font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 .jump-input {
   width: 50px; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md);
-  border: 1px solid var(--border); font-size: var(--text-sm); text-align: center; outline: none;
+  border: 1px solid var(--neutral-200); font-size: var(--text-sm); text-align: center; outline: none;
 }
-.jump-input:focus { border-color: var(--green); }
+.jump-input:focus { border-color: var(--green-600); }
 .jump-btn {
-  padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--green);
-  background: var(--green); color: var(--neutral-0); font-size: var(--text-xs); font-weight: var(--weight-bold); cursor: pointer;
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--green-600);
+  background: var(--green-600); color: var(--neutral-0); font-size: var(--text-xs); font-weight: var(--weight-bold); cursor: pointer;
 }
-.jump-btn:hover { background: var(--green-hover); }
+.jump-btn:hover { background: var(--green-500); }
 </style>

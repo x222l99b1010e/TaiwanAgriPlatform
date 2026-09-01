@@ -183,12 +183,12 @@ function handleExportCsv() {
 }
 
 .chart-section {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-8);
   box-shadow: var(--shadow-md);
 }
 .disaster-section {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-6);
   max-height: 600px; overflow-y: auto;
   box-shadow: var(--shadow-md);
@@ -197,20 +197,20 @@ function handleExportCsv() {
 .disaster-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: var(--space-4); padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--neutral-200);
 }
-.disaster-title { font-size: var(--text-xs); color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; font-weight: var(--weight-bold); }
+.disaster-title { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.06em; text-transform: uppercase; font-weight: var(--weight-bold); }
 .disaster-count { font-size: var(--text-xs); padding: var(--space-1) var(--space-2); background: var(--warning-50); border: 1px solid var(--warning-100); border-radius: var(--radius-full); color: var(--warning-700); font-weight: var(--weight-bold); }
-.disaster-empty { font-size: var(--text-xs); color: var(--text-muted); text-align: center; padding: var(--space-6) 0; }
+.disaster-empty { font-size: var(--text-xs); color: var(--neutral-400); text-align: center; padding: var(--space-6) 0; }
 .disaster-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .disaster-item { padding: var(--space-3) var(--space-4); background: var(--warning-50); border: 1px solid var(--warning-50); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: var(--space-1); }
 .disaster-date-range { font-size: var(--text-xs); color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: var(--weight-medium); }
-.disaster-name { font-size: var(--text-base); color: var(--text-primary); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--space-2); }
+.disaster-name { font-size: var(--text-base); color: var(--neutral-900); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--space-2); }
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
-.alert-badge.red { background: var(--danger-50); color: var(--red); border: 1px solid var(--danger-100); }
-.alert-badge.orange { background: var(--warning-50); color: var(--orange); border: 1px solid var(--warning-100); }
-.disaster-counties { font-size: var(--text-xs); color: var(--text-secondary); line-height: var(--leading-normal); }
+.alert-badge.red { background: var(--danger-50); color: var(--danger-500); border: 1px solid var(--danger-100); }
+.alert-badge.orange { background: var(--warning-50); color: var(--warning-700); border: 1px solid var(--warning-100); }
+.disaster-counties { font-size: var(--text-xs); color: var(--neutral-500); line-height: var(--leading-normal); }
 
 .action-row { display: flex; align-items: center; gap: var(--space-3); }
-.validation-msg { font-size: var(--text-sm); color: var(--red); }
+.validation-msg { font-size: var(--text-sm); color: var(--danger-500); }
 </style>

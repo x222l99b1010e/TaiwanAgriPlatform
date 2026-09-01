@@ -157,8 +157,8 @@ onMounted(() => {
   top: calc(100% + 8px);
   right: 0;
   width: 340px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
@@ -168,13 +168,13 @@ onMounted(() => {
 .dropdown-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: var(--space-4) var(--space-5) var(--space-3);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--neutral-200);
 }
 
 .dropdown-title {
   font-size: var(--text-base);              /* 從 14px → 16px */
   font-weight: var(--weight-bold);
-  color: var(--text-primary);
+  color: var(--neutral-900);
 }
 
 .btn-mark-all {
@@ -184,7 +184,7 @@ onMounted(() => {
   font-weight: var(--weight-medium);
   transition: color var(--duration-fast);
 }
-.btn-mark-all:hover:not(:disabled) { color: var(--green); }
+.btn-mark-all:hover:not(:disabled) { color: var(--green-600); }
 .btn-mark-all:disabled { color: var(--neutral-400); cursor: not-allowed; }
 
 /* 捲動區 */
@@ -196,16 +196,16 @@ onMounted(() => {
 /* 通知項目 */
 .notification-item {
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--neutral-200);
   cursor: pointer; transition: background var(--duration-fast);
 }
 .notification-item:last-child { border-bottom: none; }
-.notification-item:hover { background: var(--surface-2); }
+.notification-item:hover { background: var(--neutral-50); }
 
 /* 未讀 */
 .notification-item.unread {
   background: var(--teal-50);
-  border-left: 3px solid var(--teal);
+  border-left: 3px solid var(--teal-500);
   padding-left: var(--space-4);
 }
 .notification-item.unread:hover { background: var(--teal-100); }
@@ -215,9 +215,9 @@ onMounted(() => {
   align-items: baseline; margin-bottom: var(--space-1);
 }
 
-.rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--teal); }
-.item-time { font-size: var(--text-2xs); color: var(--text-muted); white-space: nowrap; }
-.item-message { font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-normal); }
+.rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--teal-500); }
+.item-time { font-size: var(--text-2xs); color: var(--neutral-400); white-space: nowrap; }
+.item-message { font-size: var(--text-sm); color: var(--neutral-500); line-height: var(--leading-normal); }
 
 /* 提示文字 */
 .hint {

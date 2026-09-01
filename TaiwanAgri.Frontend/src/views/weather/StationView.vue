@@ -105,28 +105,28 @@ async function handleQuery() {
 }
 
 .station-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg); padding: var(--space-5);
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--duration-base), border-color var(--duration-base);
 }
 .station-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-200); }
-.station-name { color: var(--green); }
-.town-name  { color: var(--text-muted); }
-.card-footer { color: var(--text-muted); border-top: 1px solid var(--border); }
-.metric-value { color: var(--text-primary); }
-.metric-label { color: var(--text-muted); }
+.station-name { color: var(--green-600); }
+.town-name  { color: var(--neutral-400); }
+.card-footer { color: var(--neutral-400); border-top: 1px solid var(--neutral-200); }
+.metric-value { color: var(--neutral-900); }
+.metric-label { color: var(--neutral-400); }
 
 .card-header {
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: var(--space-4); padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--neutral-200);
 }
 /* 站名也加深 */
 .station-name {
   font-size: var(--text-base);        /* 從 15px → 16px */
   font-weight: var(--weight-bold);
-  color: var(--green);
+  color: var(--green-600);
 }
 
 .town-name {
@@ -164,7 +164,7 @@ async function handleQuery() {
   font-size: var(--text-xs);        /* 從 11px → 12px */
   color: var(--neutral-500);  /* 從 0.35 → 0.50 */
   text-align: right;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--neutral-200);
   padding-top: var(--space-3);
 }
 </style>
