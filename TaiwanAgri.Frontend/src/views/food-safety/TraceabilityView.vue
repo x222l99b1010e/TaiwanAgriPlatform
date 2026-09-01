@@ -280,19 +280,19 @@ function handleSearch() {
   margin-bottom: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .info-hint-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   font-weight: var(--weight-bold);
   color: var(--info-500);
 }
 
-.hint-icon { font-size: 17px; }
+.hint-icon { font-size: var(--text-lg); }
 
 .hint-list {
   margin: 0;
@@ -313,7 +313,7 @@ function handleSearch() {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 .example-label {
@@ -326,22 +326,22 @@ function handleSearch() {
 .example-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px var(--space-3);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   border: 1px solid var(--info-100);
   background: var(--white-a70);
   color: var(--info-500);
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .example-chip:hover {
   background: var(--neutral-0);
   border-color: var(--info-500);
-  box-shadow: 0 1px 4px rgba(21, 101, 192, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
 .example-chip--warn {
@@ -351,43 +351,43 @@ function handleSearch() {
 
 .example-chip--warn:hover {
   border-color: var(--warning-500);
-  box-shadow: 0 1px 4px rgba(230, 81, 0, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
-.chip-icon { font-size: 14px; }
+.chip-icon { font-size: var(--text-base); }
 
 .chip-warn {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
   background: var(--warning-50);
   color: var(--warning-500);
-  padding: 1px 6px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
-  margin-left: 2px;
+  margin-left: var(--space-1);
 }
 
 /* ── 搜尋列 ── */
 .search-bar {
   display: flex;
   gap: var(--space-3);
-  margin-bottom: 28px;
+  margin-bottom: var(--space-8);
 }
 
 .search-input {
   flex: 1;
-  padding: 10px var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-primary);
   background: var(--surface);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .search-input:focus {
   border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
+  box-shadow: var(--shadow-focus);
 }
 /* ── 狀態容器 ── */
 /* ── 結果卡片 ── */
@@ -401,15 +401,15 @@ function handleSearch() {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: var(--space-6) 28px;
-  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
+  padding: var(--space-6) var(--space-8);
+  box-shadow: var(--shadow-md);
 }
 
 .card-title {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 16px;
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
   color: var(--green-800);
   margin-bottom: var(--space-5);
@@ -417,7 +417,7 @@ function handleSearch() {
   border-bottom: 1px solid var(--border);
 }
 
-.card-icon { font-size: 20px; color: var(--green-500); }
+.card-icon { font-size: var(--text-lg); color: var(--green-500); }
 
 /* ── 資訊列 ── */
 .info-grid { display: flex; flex-direction: column; gap: var(--space-3); }
@@ -433,39 +433,39 @@ function handleSearch() {
   flex-shrink: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  font-weight: 600;
-  padding-top: 2px;
+  font-weight: var(--weight-medium);
+  padding-top: var(--space-1);
 }
 
 .info-value {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-primary);
   flex: 1;
 }
 
-.description { line-height: 1.7; white-space: pre-wrap; }
+.description { line-height: var(--leading-normal); white-space: pre-wrap; }
 
 /* ── 批次區間 ── */
 .batch-range {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-family: monospace;
   font-size: var(--text-sm);
   background: var(--green-50);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
   flex: unset;
 }
 
-.range-arrow { font-size: 14px; color: var(--text-muted); }
+.range-arrow { font-size: var(--text-base); color: var(--text-muted); }
 
 /* ── 狀態徽章 ── */
 .status-badge {
   display: inline-block;
   align-self: flex-start;
-  padding: 3px var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
@@ -479,22 +479,22 @@ function handleSearch() {
 .product-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .product-tag {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   background: var(--green-50);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px var(--space-4);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
   min-width: 100px;
 }
 
 .product-name {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
   color: var(--green-800);
 }
@@ -523,22 +523,22 @@ function handleSearch() {
 .farmer-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .farmer-tag {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-1);
   background: var(--green-50);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px var(--space-4);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
   min-width: 140px;
 }
 
 .farmer-name {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
   color: var(--green-800);
 }
@@ -546,7 +546,7 @@ function handleSearch() {
 .farmer-type {
   font-size: var(--text-xs);
   color: var(--green-500);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .farmer-place {

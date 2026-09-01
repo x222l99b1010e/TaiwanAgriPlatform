@@ -498,30 +498,30 @@ onMounted(fetchLegal)
 
 <style scoped>
 .tab-switch {
-  display: flex; gap: 6px; margin-bottom: var(--space-5);
+  display: flex; gap: var(--space-2); margin-bottom: var(--space-5);
   background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: var(--space-1); width: fit-content;
+  border-radius: var(--radius-lg); padding: var(--space-1); width: fit-content;
 }
 .tab-btn {
-  padding: var(--space-2) 22px; border-radius: var(--radius-md); border: none; background: transparent;
-  color: var(--text-secondary); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  padding: var(--space-2) var(--space-6); border-radius: var(--radius-md); border: none; background: transparent;
+  color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
 }
 .tab-btn:hover { color: var(--green); }
 .tab-btn.active { background: var(--green); color: var(--neutral-0); }
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .filter-select {
-  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.filter-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
 
-.sort-control { display: flex; align-items: center; gap: 6px; }
+.sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
   border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
@@ -538,7 +538,7 @@ onMounted(fetchLegal)
 .table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
-  box-shadow: 0 2px 8px rgba(46,125,50,0.06); max-height: 600px; overflow: auto;
+  box-shadow: var(--shadow-md); max-height: 600px; overflow: auto;
 }
 
 .data-table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: var(--text-sm); }
@@ -550,7 +550,7 @@ onMounted(fetchLegal)
 .data-table tbody tr:hover { background: var(--green-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
-.cell-name { font-weight: 600; white-space: nowrap; }
+.cell-name { font-weight: var(--weight-medium); white-space: nowrap; }
 .cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cell-address { max-width: 260px; font-size: var(--text-xs); }
@@ -579,12 +579,12 @@ onMounted(fetchLegal)
 .rank-badge {
   /* rankText 有時是簡短代碼（GradeB）、有時是長句（已搬遷至新址，請洽新址辦理註銷許可），
      不能用 nowrap；改成允許換行的圓角色塊，寬度跟著 col-rank 走 */
-  display: inline-block; padding: 3px 10px; border-radius: var(--radius-lg);
+  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-lg);
   background: var(--warning-50); color: var(--warning-500); font-size: var(--text-xs); font-weight: var(--weight-bold);
-  white-space: normal; word-break: break-word; line-height: 1.4;
+  white-space: normal; word-break: break-word; line-height: var(--leading-tight);
 }
 
-.state-badge { display: inline-block; padding: 3px 10px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-bold); white-space: nowrap; }
+.state-badge { display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-bold); white-space: nowrap; }
 .state-badge.ok { background: var(--green-100); color: var(--green); }
 .state-badge.closed { background: var(--neutral-100); color: var(--neutral-500); }
 .state-badge.suspended { background: var(--warning-50); color: var(--warning-500); }

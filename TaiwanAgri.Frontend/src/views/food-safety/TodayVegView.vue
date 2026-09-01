@@ -87,7 +87,7 @@ onMounted(() => {
 <style scoped>
 /* ── 頁首 ── */
 .data-date {
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--green-600);
 }
 
@@ -102,17 +102,17 @@ onMounted(() => {
 .price-card {
   background: var(--neutral-0);
   border: 1.5px solid var(--green-200);
-  border-radius: 18px;
-  padding: 28px var(--space-8);
-  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.08);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  transition: box-shadow 0.18s, transform 0.18s;
+  transition: box-shadow var(--duration-fast), transform var(--duration-fast);
 }
 
 .price-card:hover {
-  box-shadow: 0 8px 28px rgba(46, 125, 50, 0.16);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
@@ -120,7 +120,7 @@ onMounted(() => {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .crop-icon {
@@ -129,8 +129,8 @@ onMounted(() => {
 }
 
 .crop-name {
-  font-size: 20px;
-  font-weight: 800;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   color: var(--green-900);
   letter-spacing: -0.01em;
 }
@@ -139,12 +139,12 @@ onMounted(() => {
 .avg-price-row {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .price-value {
-  font-size: 48px;
-  font-weight: 900;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
   color: var(--green-600);
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -175,14 +175,14 @@ onMounted(() => {
   align-items: center;
   gap: var(--space-1);
   background: var(--green-50);
-  border-radius: 10px;
-  padding: 10px var(--space-2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-2);
 }
 
 .detail-label {
   font-size: var(--text-2xs);
   color: var(--neutral-500);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.04em;
 }
 
@@ -200,14 +200,14 @@ onMounted(() => {
 .card-footer {
   display: none;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--neutral-400);
   font-variant-numeric: tabular-nums;
 }
 
 .footer-icon {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--neutral-400);
 }
 </style>

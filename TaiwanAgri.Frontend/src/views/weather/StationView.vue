@@ -106,11 +106,11 @@ async function handleQuery() {
 
 .station-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: var(--space-5);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  border-radius: var(--radius-lg); padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-base), border-color var(--duration-base);
 }
-.station-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
+.station-card:hover { box-shadow: var(--shadow-md); border-color: rgba(46,125,50,0.25); }
 .station-name { color: var(--green); }
 .town-name  { color: var(--text-muted); }
 .card-footer { color: var(--text-muted); border-top: 1px solid var(--border); }
@@ -124,7 +124,7 @@ async function handleQuery() {
 }
 /* 站名也加深 */
 .station-name {
-  font-size: 16px;        /* 從 15px → 16px */
+  font-size: var(--text-base);        /* 從 15px → 16px */
   font-weight: var(--weight-bold);
   color: var(--green);
 }
@@ -136,7 +136,7 @@ async function handleQuery() {
 
 .card-body {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 14px; margin-bottom: 14px;
+  gap: var(--space-4); margin-bottom: var(--space-4);
 }
 
 .metric { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
@@ -148,7 +148,7 @@ async function handleQuery() {
 
 /* 數值加大加深加粗 */
 .metric-value {
-  font-size: 20px;        /* 從 16px → 20px */
+  font-size: var(--text-lg);        /* 從 16px → 20px */
   font-weight: var(--weight-bold);
   color: var(--neutral-900);         /* 直接用最深色，不透明 */
 }
@@ -156,7 +156,7 @@ async function handleQuery() {
 .metric-label {
   font-size: var(--text-sm);        /* 從 11px → 13px */
   color: var(--neutral-500);  /* 從 text-muted(0.40) → 0.60 */
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 /* 更新時間也深一點 */
@@ -165,6 +165,6 @@ async function handleQuery() {
   color: var(--neutral-500);  /* 從 0.35 → 0.50 */
   text-align: right;
   border-top: 1px solid var(--border);
-  padding-top: 10px;
+  padding-top: var(--space-3);
 }
 </style>

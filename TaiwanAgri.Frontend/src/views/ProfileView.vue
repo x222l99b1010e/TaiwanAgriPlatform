@@ -200,7 +200,7 @@ async function handleSave() {
 .profile-form { max-width: var(--container-sm); }
 .loading {
   color: var(--neutral-500);
-  padding: 2rem;
+  padding: var(--space-8);
   text-align: center;
 }
 
@@ -210,66 +210,66 @@ async function handleSave() {
 .section-link {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
   border: 2px solid var(--green-600);
   border-radius: var(--radius-lg);
   background: var(--green-100);
   color: var(--green-800);
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   text-decoration: none;
-  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.12);
-  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: var(--shadow-md);
+  transition: background var(--duration-fast), box-shadow var(--duration-fast);
 }
-.section-link:hover { background: var(--green-200); box-shadow: 0 3px 10px rgba(46, 125, 50, 0.20); }
+.section-link:hover { background: var(--green-200); box-shadow: var(--shadow-md); }
 .section-link .mdi-dog-side {
   display: inline-flex; align-items: center; justify-content: center;
   width: 2rem; height: 2rem; border-radius: 50%;
-  background: var(--green-600); color: var(--neutral-0); font-size: 1.1rem; flex-shrink: 0;
+  background: var(--green-600); color: var(--neutral-0); font-size: var(--text-lg); flex-shrink: 0;
 }
-.section-link .mdi-chevron-right { margin-left: auto; font-size: 1.2rem; }
+.section-link .mdi-chevron-right { margin-left: auto; font-size: var(--text-lg); }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 label {
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--neutral-900);
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 select {
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--neutral-200);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--neutral-0);
   color: var(--neutral-900);
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 /* 已選作物標籤 */
 .crop-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .crop-tag {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   background: var(--green-100);
   color: var(--green-600);
-  border-radius: 20px;
-  font-size: 0.875rem;
+  border-radius: var(--radius-xl);
+  font-size: var(--text-base);
   font-weight: var(--weight-medium);
 }
 
@@ -279,7 +279,7 @@ select {
   color: var(--green-600);
   cursor: pointer;
   padding: 0;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   line-height: 1;
   opacity: 0.7;
 }
@@ -295,12 +295,12 @@ select {
 
 .crop-search-input {
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--neutral-200);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--neutral-0);
   color: var(--neutral-900);
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   box-sizing: border-box;
 }
 
@@ -311,8 +311,8 @@ select {
   right: 0;
   background: var(--neutral-0);
   border: 1px solid var(--neutral-200);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   z-index: var(--z-dropdown);
   max-height: 240px;
   overflow-y: auto;
@@ -322,9 +322,9 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: var(--neutral-700);
 }
 
@@ -333,26 +333,26 @@ select {
 }
 
 .crop-code {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--neutral-500);
 }
 
 /* 儲存按鈕 */
 .save-btn {
-  margin-top: 0.5rem;
-  padding: 9px 28px;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-8);
   border-radius: var(--radius-full);
   border: 1px solid var(--green-800);
   background: linear-gradient(180deg, var(--green-500) 0%, var(--green-600) 40%, var(--green-800) 100%);
   color: var(--neutral-0);
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
   cursor: pointer;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.35),
     inset 0 -2px 4px rgba(0,0,0,0.25),
     0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .save-btn:hover:not(:disabled) {
@@ -380,13 +380,13 @@ select {
 
 .error {
   color: var(--danger-500);
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
+  font-size: var(--text-base);
+  margin-bottom: var(--space-2);
 }
 
 .success {
   color: var(--green-500);
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
+  font-size: var(--text-base);
+  margin-bottom: var(--space-2);
 }
 </style>

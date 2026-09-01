@@ -66,6 +66,11 @@
   --shadow-md: 0 2px 8px rgba(26, 40, 32, 0.08);
   --shadow-lg: 0 8px 24px rgba(26, 40, 32, 0.10);
 
+  /* 輸入框的焦點光暈。它不是「陰影」而是「焦點指示」，所以不跟著上面三階走：
+     沒有位移、只有擴散，且顏色帶主色——鍵盤使用者要看得出焦點在哪一格。 */
+  --shadow-focus:        0 0 0 3px rgba(46, 125, 50, 0.12);
+  --shadow-focus-danger: 0 0 0 3px rgba(198, 40, 40, 0.12);
+
   /* --- 邊框寬度 --- */
   --border-width: 1px;
 
@@ -235,9 +240,7 @@ body {
   color: var(--text-primary);
   font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
   font-size: var(--text-base);
-  /* 行高維持既有的 1.7，不改成 --leading-normal（1.6）——本次只動字重，
-     行高換值會改變全站的垂直節奏，屬 P2 逐頁套 token 時要一起看的事。 */
-  line-height: 1.7;
+  line-height: var(--leading-normal);
   /* 正文 400。先前寫 500（註解是「整體加半粗」），但**那個宣告從來沒有生效過**——
      上方的 `*` reset 會直接命中每個後代元素，body 的字重根本傳不下去（實測 computed
      value 全部是 400）。所以改成 400 是把宣告改回與實際呈現一致，畫面不會有變化，

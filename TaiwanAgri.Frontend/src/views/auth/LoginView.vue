@@ -212,33 +212,33 @@ async function handleSubmit() {
   max-width: 420px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: var(--space-10) 36px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Header */
 .card-header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: var(--space-8);
 }
 
 .logo-icon {
-  font-size: 40px;
+  font-size: var(--text-3xl);
   color: var(--green);
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
 }
 
 .card-title {
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   color: var(--text-primary);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 .card-subtitle {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }
 
@@ -248,7 +248,7 @@ async function handleSubmit() {
   gap: var(--space-1);
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: var(--space-1);
   margin-bottom: var(--space-6);
 }
@@ -256,20 +256,20 @@ async function handleSubmit() {
 .tab-btn {
   flex: 1;
   padding: var(--space-2) 0;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: all 0.18s;
+  transition: all var(--duration-fast);
 }
 
 .tab-btn.active {
   background: var(--surface);
   color: var(--green);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 表單 */
@@ -282,31 +282,31 @@ async function handleSubmit() {
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .field-label {
   font-size: var(--text-xs);
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .field-input {
-  padding: 10px 14px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 14px;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  font-size: var(--text-base);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .field-input:focus {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
+  box-shadow: var(--shadow-focus);
 }
 
 .field-input:disabled {
@@ -315,27 +315,27 @@ async function handleSubmit() {
 }
 
 .field-error {
-  font-size: 12.5px;
+  font-size: var(--text-sm);
   color: var(--red);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 /* 錯誤訊息 */
 .error-box {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--danger-50);
   border: 1px solid var(--danger-100);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 
 .error-icon {
   font-size: var(--text-lg);
   color: var(--red);
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 .error-content {
@@ -347,7 +347,7 @@ async function handleSubmit() {
 .error-content p {
   font-size: var(--text-sm);
   color: var(--red);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   margin: 0;
 }
 

@@ -264,24 +264,24 @@ watch(() => props.shelterId, () => {
 
 .back-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
 .back-link:hover { color: var(--green); }
 /* ── 篩選列（沿用 LegalBusinessView 的版面慣例） ── */
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .filter-select {
-  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.filter-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
 
-.sort-control { display: flex; align-items: center; gap: 6px; }
+.sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
   border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
@@ -294,14 +294,14 @@ watch(() => props.shelterId, () => {
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--text-secondary); font-weight: var(--weight-medium); white-space: nowrap; }
 
 /* ── 狀態容器 ── */
 /* ── datagrid（沿用 LegalBusinessView 的表格慣例：高一點的可捲動容器，表頭黏頂） ── */
 .table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
-  box-shadow: 0 2px 8px rgba(46,125,50,0.06); max-height: 720px; overflow: auto;
+  box-shadow: var(--shadow-md); max-height: 720px; overflow: auto;
 }
 .data-table { width: 100%; min-width: 1020px; border-collapse: collapse; font-size: var(--text-sm); table-layout: fixed; }
 .data-table thead th {

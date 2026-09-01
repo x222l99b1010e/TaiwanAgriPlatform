@@ -217,23 +217,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .kind-select {
-  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
   min-width: 140px; cursor: pointer;
 }
-.kind-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.kind-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
 
 .stat-bar { margin-left: auto; font-size: var(--text-sm); }
 .stat-text { color: var(--text-secondary); }
 .stat-muted { color: var(--text-muted); }
-.stat-error { color: var(--red); font-weight: 600; }
+.stat-error { color: var(--red); font-weight: var(--weight-medium); }
 .stat-loading { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-muted); }
 
 .loading-spinner-sm {
@@ -248,7 +248,7 @@ onUnmounted(() => {
   width: 100%;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-md);
 }
 </style>
 
@@ -256,11 +256,11 @@ onUnmounted(() => {
      不是 Vue 模板渲染出來的節點，scoped 屬性不會套用到這些節點上，樣式必須寫在全域區塊 -->
 <style>
 .shelter-popup-content { font-size: var(--text-sm); min-width: 260px; }
-.shelter-popup-content .popup-title { font-weight: var(--weight-bold); font-size: 14px; color: var(--green-800); margin-bottom: var(--space-1); }
+.shelter-popup-content .popup-title { font-weight: var(--weight-bold); font-size: var(--text-base); color: var(--green-800); margin-bottom: var(--space-1); }
 .shelter-popup-content .popup-address { color: var(--neutral-500); margin-bottom: var(--space-2); font-size: var(--text-xs); }
 
 .shelter-popup-content .popup-summary {
-  font-weight: var(--weight-bold); color: var(--neutral-900); padding: 6px 0;
+  font-weight: var(--weight-bold); color: var(--neutral-900); padding: var(--space-2) 0;
   border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200);
 }
 

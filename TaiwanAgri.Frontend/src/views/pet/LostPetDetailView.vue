@@ -156,7 +156,7 @@ async function handleDelete() {
 
 .back-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
 .back-link:hover { color: var(--green); }
@@ -166,14 +166,14 @@ async function handleDelete() {
    所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
 .detail-card {
   max-width: var(--container-sm);
-  display: flex; flex-direction: column; gap: 14px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 28px var(--space-8); box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; gap: var(--space-4);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: var(--space-8); box-shadow: var(--shadow-sm);
 }
 
 .detail-header { display: flex; align-items: center; justify-content: space-between; }
 .status-badge {
-  display: inline-block; padding: 3px var(--space-3); border-radius: var(--radius-full);
+  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
   font-size: var(--text-xs); font-weight: var(--weight-bold);
 }
 .status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
@@ -181,33 +181,33 @@ async function handleDelete() {
 .status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }
 
 .coord-badge {
-  display: inline-flex; align-items: center; gap: 3px;
-  color: var(--green); font-size: 13.5px; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  color: var(--green); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
 }
 .coord-badge:hover { text-decoration: underline; }
 
-.detail-title { font-size: 24px; font-weight: var(--weight-bold); color: var(--text-primary); }
-.detail-meta { font-size: 13.5px; color: var(--text-muted); }
+.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--text-primary); }
+.detail-meta { font-size: var(--text-sm); color: var(--text-muted); }
 
 .safety-notice {
   display: flex; align-items: flex-start; gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: var(--danger-50); border: 1px solid var(--danger-100); border-left: 4px solid var(--red);
-  border-radius: 10px;
-  color: var(--red); font-size: 14.5px; font-weight: var(--weight-bold); line-height: var(--leading-normal);
+  border-radius: var(--radius-lg);
+  color: var(--red); font-size: var(--text-base); font-weight: var(--weight-bold); line-height: var(--leading-normal);
 }
-.notice-icon { font-size: var(--text-lg); flex-shrink: 0; line-height: 1.5; }
+.notice-icon { font-size: var(--text-lg); flex-shrink: 0; line-height: var(--leading-normal); }
 
 .detail-description {
-  font-size: var(--text-base); color: var(--text-primary); line-height: 1.75;
+  font-size: var(--text-base); color: var(--text-primary); line-height: var(--leading-loose);
   white-space: pre-wrap; /* 保留張貼者輸入的換行，特徵條列才不會被擠成一整段 */
 }
 
-.detail-contact { display: flex; flex-wrap: wrap; gap: 14px; font-size: var(--text-base); color: var(--text-primary); }
+.detail-contact { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--text-base); color: var(--text-primary); }
 .contact-item { display: inline-flex; align-items: center; gap: var(--space-1); }
 .contact-missing { color: var(--text-muted); font-style: italic; }
 
 .owner-actions-block { margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--border); }
 .owner-actions { display: flex; gap: var(--space-2); }
-.error-msg { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--red); font-weight: 600; }
+.error-msg { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--red); font-weight: var(--weight-medium); }
 </style>

@@ -317,11 +317,11 @@ function exportChartImage() {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 28px var(--space-8) 36px;
+  padding: var(--space-8) var(--space-8) var(--space-10);
   animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
   box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-md);
 }
 
 @keyframes fadeUp {
@@ -334,12 +334,12 @@ function exportChartImage() {
   align-items: center;
   gap: var(--space-6);
   flex-wrap: wrap;
-  margin-bottom: 28px;
+  margin-bottom: var(--space-8);
   padding-bottom: var(--space-5);
   border-bottom: 1px solid var(--border);
 }
 
-.stat { display: flex; flex-direction: column; gap: 5px; }
+.stat { display: flex; flex-direction: column; gap: var(--space-1); }
 
 .stat-label {
   font-size: var(--text-2xs);
@@ -349,10 +349,10 @@ function exportChartImage() {
 }
 
 .stat-value {
-  font-size: 14px;              /* 從 13px → 14px */
+  font-size: var(--text-base);              /* 從 13px → 14px */
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;             /* 加粗 */
+  font-weight: var(--weight-medium);             /* 加粗 */
 }
 
 .sep {
@@ -362,15 +362,15 @@ function exportChartImage() {
   flex-shrink: 0;
 }
 
-.tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
 .crop-tag {
   font-size: var(--text-2xs);
-  padding: 2px 9px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid;
   border-radius: var(--radius-full);
   opacity: 0.85;
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-base);
 }
 .crop-tag:hover { opacity: 1; }
 

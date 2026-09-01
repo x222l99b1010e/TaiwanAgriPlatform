@@ -60,10 +60,10 @@ const animationDuration = computed(() =>
 .ticker-label {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 22px;
+  gap: var(--space-2);
+  padding: 0 var(--space-6);
   font-size: var(--text-sm);
-  font-weight: 800;
+  font-weight: var(--weight-bold);
   color: var(--green-800);
   white-space: nowrap;
   border-right: 2px solid var(--green-300);
@@ -73,7 +73,7 @@ const animationDuration = computed(() =>
 }
 
 .label-icon {
-  font-size: 17px;
+  font-size: var(--text-lg);
   color: var(--green-600);
 }
 
@@ -103,19 +103,19 @@ const animationDuration = computed(() =>
 .ticker-item {
   display: inline-flex;
   align-items: baseline;
-  gap: 5px;
+  gap: var(--space-1);
   padding: 0 var(--space-6);
 }
 
 .ticker-crop {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--green-700);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .ticker-price {
-  font-size: 17px;
-  font-weight: 900;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   color: var(--green-800);
   font-variant-numeric: tabular-nums;
 }
@@ -136,11 +136,11 @@ const animationDuration = computed(() =>
 .ticker-date {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   padding: 0 var(--space-5);
   font-size: var(--text-xs);
   color: var(--green-600);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   white-space: nowrap;
   border-left: 2px solid var(--green-300);
   height: 100%;
@@ -149,7 +149,7 @@ const animationDuration = computed(() =>
 }
 
 .date-icon {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--green-400);
 }
 </style>

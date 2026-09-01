@@ -347,35 +347,35 @@ function exportChartImage() {
 .pork-view { min-width: 960px; }
 /* 篩選區 */
 .filter-row { display: flex; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
-.action-row { display: flex; align-items: center; gap: 10px; }
+.action-row { display: flex; align-items: center; gap: var(--space-3); }
 
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .market-select {
-  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
   min-width: 180px; cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .market-select:focus {
   outline: none; border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+  box-shadow: var(--shadow-focus);
 }
 
 /* 指標切換 */
 .metric-tabs {
   display: flex; gap: var(--space-1);
   background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: var(--radius-md); padding: 3px; align-self: flex-end;
+  border-radius: var(--radius-md); padding: var(--space-1); align-self: flex-end;
 }
 .metric-tab {
-  padding: 6px 14px; border-radius: 6px; border: none;
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); border: none;
   background: transparent; color: var(--neutral-500);
-  font-size: var(--text-sm); font-weight: 600; cursor: pointer; transition: all 0.15s;
+  font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
 }
 .metric-tab:hover { color: var(--text-primary); }
 .metric-tab.active { background: var(--green-100); color: var(--green); font-weight: var(--weight-bold); }
@@ -383,25 +383,25 @@ function exportChartImage() {
 /* 按鈕 */
 /* 摘要列 */
 .summary-bar {
-  display: flex; gap: 14px; margin-bottom: var(--space-6); flex-wrap: wrap;
+  display: flex; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap;
 }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
-  display: flex; flex-direction: column; gap: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; gap: var(--space-2);
+  box-shadow: var(--shadow-sm);
 }
 .stat-label {
   font-size: var(--text-xs); color: var(--neutral-500);
-  letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium);
 }
-.stat-value { font-size: 26px; font-weight: var(--weight-bold); color: var(--green-800); }
+.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--green-800); }
 
 /* 圖表卡片 */
 .chart-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-xl); padding: 28px var(--space-8) 36px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border-radius: var(--radius-xl); padding: var(--space-8) var(--space-8) var(--space-10);
+  box-shadow: var(--shadow-md);
 }
 .chart-toolbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -413,14 +413,14 @@ function exportChartImage() {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 10px var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--info-50);
   border: 1px solid var(--info-100);
   color: var(--info-500);
   font-size: var(--text-sm);
-  font-weight: 600;
-  line-height: 1.5;
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
 }
 .query-hint.success {
   background: var(--green-100);

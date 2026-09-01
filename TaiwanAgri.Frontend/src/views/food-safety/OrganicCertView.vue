@@ -304,7 +304,7 @@ onMounted(() => {
 .filter-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .filter-label {
@@ -330,7 +330,7 @@ onMounted(() => {
   color: var(--text-muted);
   line-height: var(--leading-normal);
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: flex-start;
 } */
 .filter-hint {
@@ -338,12 +338,12 @@ onMounted(() => {
   color: var(--warning-500);
   line-height: var(--leading-normal);
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: flex-start;
   background: var(--warning-50);
   border: 1px solid var(--warning-100);
   border-radius: var(--radius-md);
-  padding: 10px var(--space-3);
+  padding: var(--space-3);
 }
 
 /* ── 右側結果區 ── */
@@ -402,7 +402,7 @@ onMounted(() => {
 }
 
 .status-badge {
-  padding: 2px 10px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
@@ -421,7 +421,7 @@ onMounted(() => {
 .cert-row {
   font-size: var(--text-xs);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
 }
 
 .cert-row-products {
@@ -437,7 +437,7 @@ onMounted(() => {
 .products-text-clamp {
   font-size: var(--text-xs);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -447,20 +447,20 @@ onMounted(() => {
 
 .products-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: var(--space-5);
   font-size: var(--text-xs);
   color: var(--text-primary);
   line-height: var(--leading-normal);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .expand-toggle {
   align-self: flex-start;
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-3);
   border: none;
   border-radius: var(--radius-full);
   background: var(--green-100);
@@ -468,8 +468,8 @@ onMounted(() => {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  transition: background 0.15s;
+  gap: var(--space-1);
+  transition: background var(--duration-fast);
 }
 
 .expand-toggle:hover {
@@ -478,8 +478,8 @@ onMounted(() => {
 }
 
 .expand-toggle .mdi {
-  font-size: 14px;
-  transition: transform 0.15s;
+  font-size: var(--text-base);
+  transition: transform var(--duration-fast);
 }
 
 .cert-label {
@@ -509,14 +509,14 @@ onMounted(() => {
 .page-size-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   margin-right: var(--space-2);
   padding-right: var(--space-2);
   border-right: 1px solid var(--border);
 }
 
 .page-size-select {
-  padding: 5px 10px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   font-size: var(--text-sm);
@@ -537,8 +537,8 @@ onMounted(() => {
 
 .jump-input {
   width: 50px;
-  padding: var(--space-1) 6px;
-  border-radius: 6px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   font-size: var(--text-sm);
   text-align: center;
@@ -546,8 +546,8 @@ onMounted(() => {
 }
 
 .jump-btn {
-  padding: var(--space-1) 10px;
-  border-radius: 6px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
   border: 1px solid var(--green-600);
   background: var(--green-600);
   color: var(--neutral-0);

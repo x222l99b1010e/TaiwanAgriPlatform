@@ -303,29 +303,29 @@ onMounted(fetchList)
 
 <style scoped>
 /* ── 篩選列 ── */
-.status-tabs { display: flex; gap: 6px; }
+.status-tabs { display: flex; gap: var(--space-2); }
 .tab-btn {
-  padding: 7px var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--border);
-  background: transparent; color: var(--text-muted); font-size: var(--text-sm); font-weight: 600;
-  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  cursor: pointer; transition: all var(--duration-fast); white-space: nowrap;
 }
 .tab-btn:hover { border-color: var(--green); color: var(--green); }
 .tab-btn.active { background: var(--green); border-color: var(--green); color: var(--neutral-0); }
 
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .filter-select {
-  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text-primary); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.filter-select:focus { outline: none; border-color: var(--green); box-shadow: var(--shadow-focus); }
 
-.sort-control { display: flex; align-items: center; gap: 6px; }
+.sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
   border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
@@ -339,13 +339,13 @@ onMounted(fetchList)
    改成跟旁邊「張貼協尋啟事」同尺寸的外框藥丸按鈕，用綠色邊框＋字（不填滿底色），
    視覺份量夠但不會搶過主要動作（填滿底色的張貼按鈕） */
 .my-posts-link {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 9px var(--space-5); border-radius: var(--radius-full); border: 2px solid var(--green);
-  color: var(--green); font-size: 13.5px; font-weight: var(--weight-bold); text-decoration: none;
-  transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-5); border-radius: var(--radius-full); border: 2px solid var(--green);
+  color: var(--green); font-size: var(--text-sm); font-weight: var(--weight-bold); text-decoration: none;
+  transition: all var(--duration-fast);
 }
 .my-posts-link:hover { background: var(--green-100); }
-.login-hint { font-size: var(--text-sm); color: var(--blue); font-weight: 600; text-decoration: none; }
+.login-hint { font-size: var(--text-sm); color: var(--blue); font-weight: var(--weight-medium); text-decoration: none; }
 .login-hint:hover { text-decoration: underline; }
 
 /* 表單面板：markup 與樣式已抽到 LostPetPostForm.vue，這裡不再重複 */
@@ -353,20 +353,20 @@ onMounted(fetchList)
 /* ── 狀態容器（載入中／錯誤／空清單） ── */
 /* ── 貼文卡片格線 ── */
 .post-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 18px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: var(--space-5);
   margin-bottom: var(--space-6);
 }
 
 .post-card {
   display: flex; flex-direction: column; gap: var(--space-2);
-  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 18px var(--space-5); box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: var(--space-5); box-shadow: var(--shadow-sm);
 }
 
 .post-card-header { display: flex; align-items: center; justify-content: space-between; }
 
 .status-badge {
-  display: inline-block; padding: 3px var(--space-3); border-radius: var(--radius-full);
+  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
   font-size: var(--text-xs); font-weight: var(--weight-bold);
 }
 .status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
@@ -374,29 +374,29 @@ onMounted(fetchList)
 .status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }
 
 .coord-badge {
-  display: inline-flex; align-items: center; gap: 3px;
-  color: var(--green); font-size: 13.5px; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  color: var(--green); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
 }
 .coord-badge:hover { text-decoration: underline; }
 
 /* ── 使用者自建內容的安全提醒（詐騙防範） ── */
 .safety-notice {
   display: flex; align-items: flex-start; gap: var(--space-2);
-  padding: var(--space-3) var(--space-4); margin-bottom: 18px;
+  padding: var(--space-3) var(--space-4); margin-bottom: var(--space-5);
   background: var(--danger-50); border: 1px solid var(--danger-100); border-left: 4px solid var(--red);
-  border-radius: 10px;
-  color: var(--red); font-size: 14.5px; font-weight: var(--weight-bold); line-height: var(--leading-normal);
+  border-radius: var(--radius-lg);
+  color: var(--red); font-size: var(--text-base); font-weight: var(--weight-bold); line-height: var(--leading-normal);
 }
-.notice-icon { font-size: var(--text-lg); flex-shrink: 0; line-height: 1.5; }
+.notice-icon { font-size: var(--text-lg); flex-shrink: 0; line-height: var(--leading-normal); }
 
 /* 照片（外部圖床連結）：markup 與樣式已抽到 LostPetPostPhoto.vue，這裡不再重複 */
 
 .post-title-link { text-decoration: none; }
 .post-title-link:hover .post-title { color: var(--green); text-decoration: underline; }
-.post-title { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--text-primary); transition: color 0.15s; }
-.post-meta { font-size: 13.5px; color: var(--text-muted); }
+.post-title { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--text-primary); transition: color var(--duration-fast); }
+.post-meta { font-size: var(--text-sm); color: var(--text-muted); }
 .post-description {
-  font-size: 14.5px; color: var(--text-primary); line-height: 1.65;
+  font-size: var(--text-base); color: var(--text-primary); line-height: var(--leading-normal);
   /* line-clamp 標準版本瀏覽器支援仍在普及中，兩個都寫：有標準版本的走標準、
      沒有的（多數現況）retreat 回 -webkit- 前綴版本 */
   display: -webkit-box; line-clamp: 3; -webkit-line-clamp: 3;
@@ -409,13 +409,13 @@ onMounted(fetchList)
 }
 
 .btn-expand {
-  align-self: flex-start; display: inline-flex; align-items: center; gap: 2px;
-  padding: 2px 0; border: none; background: transparent;
-  color: var(--green); font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+  align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: var(--space-1) 0; border: none; background: transparent;
+  color: var(--green); font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer;
 }
 .btn-expand:hover { text-decoration: underline; }
 
-.post-contact { display: flex; flex-wrap: wrap; gap: var(--space-3); font-size: 14px; color: var(--text-primary); }
+.post-contact { display: flex; flex-wrap: wrap; gap: var(--space-3); font-size: var(--text-base); color: var(--text-primary); }
 .contact-item { display: inline-flex; align-items: center; gap: var(--space-1); }
 .contact-missing { color: var(--text-muted); font-style: italic; }
 

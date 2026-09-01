@@ -401,19 +401,19 @@ async function handleSearch() {
   margin-bottom: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .info-hint-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   font-weight: var(--weight-bold);
   color: var(--info-500);
 }
 
-.hint-icon { font-size: 17px; }
+.hint-icon { font-size: var(--text-lg); }
 
 .hint-list {
   margin: 0;
@@ -430,7 +430,7 @@ async function handleSearch() {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 .example-label {
@@ -443,37 +443,37 @@ async function handleSearch() {
 .example-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px var(--space-3);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   border: 1px solid var(--info-100);
   background: var(--white-a70);
   color: var(--info-500);
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .example-chip:hover {
   background: var(--neutral-0);
   border-color: var(--info-500);
-  box-shadow: 0 1px 4px rgba(21, 101, 192, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
 .example-chip--warn { border-color: var(--danger-100); color: var(--danger-500); }
-.example-chip--warn:hover { border-color: var(--danger-500); box-shadow: 0 1px 4px rgba(198, 40, 40, 0.15); }
+.example-chip--warn:hover { border-color: var(--danger-500); box-shadow: var(--shadow-sm); }
 
-.chip-icon { font-size: 14px; }
+.chip-icon { font-size: var(--text-base); }
 
 .chip-warn {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
   background: var(--danger-50);
   color: var(--danger-500);
-  padding: 1px 6px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
-  margin-left: 2px;
+  margin-left: var(--space-1);
 }
 
 /* ── 搜尋列 ── */
@@ -481,10 +481,10 @@ async function handleSearch() {
   display: flex;
   gap: var(--space-3);
   align-items: flex-end;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
 }
 
-.search-field { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.search-field { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); }
 
 .field-label {
   font-size: var(--text-xs);
@@ -493,29 +493,29 @@ async function handleSearch() {
 }
 
 .search-input {
-  padding: 10px var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-primary);
   background: var(--surface);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .search-input:focus {
   border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
+  box-shadow: var(--shadow-focus);
 }
 
 .search-input--invalid { border-color: var(--danger-500); }
-.search-input--invalid:focus { border-color: var(--danger-500); box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12); }
+.search-input--invalid:focus { border-color: var(--danger-500); box-shadow: var(--shadow-focus-danger); }
 
 .field-error { font-size: var(--text-2xs); color: var(--danger-500); }
 .revoked-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--text-muted);
   cursor: pointer;
@@ -532,8 +532,8 @@ async function handleSearch() {
   gap: var(--space-2);
   background: var(--warning-50);
   border: 1px solid var(--warning-100);
-  border-radius: 10px;
-  padding: var(--space-3) 18px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-5);
   font-size: var(--text-sm);
   color: var(--warning-500);
 }
@@ -542,8 +542,8 @@ async function handleSearch() {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: var(--space-6) 28px;
-  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
+  padding: var(--space-6) var(--space-8);
+  box-shadow: var(--shadow-md);
 }
 
 /* ── 成分標頭 ── */
@@ -553,13 +553,13 @@ async function handleSearch() {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding-bottom: 14px;
+  padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
-.ingredient-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ingredient-title { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
 
-.ingredient-name { font-size: 19px; font-weight: var(--weight-bold); color: var(--green-800); }
+.ingredient-name { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--green-800); }
 .ingredient-en { font-size: var(--text-sm); color: var(--text-muted); font-family: monospace; }
 
 .ingredient-meta { display: flex; align-items: center; gap: var(--space-2); }
@@ -568,7 +568,7 @@ async function handleSearch() {
 
 .badge {
   display: inline-block;
-  padding: 2px 10px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
@@ -593,14 +593,14 @@ async function handleSearch() {
 .form-tab {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   align-items: flex-start;
   padding: var(--space-2) var(--space-4);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .form-tab:hover { border-color: var(--green-400); background: var(--green-50); }
@@ -608,14 +608,14 @@ async function handleSearch() {
 .form-tab--active {
   border-color: var(--green-600);
   background: var(--green-50);
-  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.12);
+  box-shadow: var(--shadow-focus);
 }
 
 .form-tab--technical { opacity: 0.75; }
 
 .form-tab-name { font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--green-800); }
 .form-tab-contents { font-size: var(--text-2xs); color: var(--text-muted); font-family: monospace; }
-.form-tab-count { font-size: 10px; color: var(--text-muted); }
+.form-tab-count { font-size: var(--text-2xs); color: var(--text-muted); }
 
 /* ── 劑型面板 ── */
 .form-panel { display: flex; flex-direction: column; gap: var(--space-5); }
@@ -626,8 +626,8 @@ async function handleSearch() {
   gap: var(--space-2);
   background: var(--neutral-100);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
@@ -656,15 +656,15 @@ async function handleSearch() {
 
 .block-count {
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--text-muted);
   background: var(--green-50);
   border-radius: var(--radius-full);
-  padding: 2px var(--space-2);
+  padding: var(--space-1) var(--space-2);
 }
 
 .filter-input {
-  padding: 6px var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
@@ -703,7 +703,7 @@ async function handleSearch() {
 }
 
 .usage-table td, .license-table td {
-  padding: 9px var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
   vertical-align: top;
@@ -711,9 +711,9 @@ async function handleSearch() {
 
 .usage-table tbody tr:hover, .license-table tbody tr:hover { background: var(--green-50); }
 
-.cell-strong { font-weight: 600; }
+.cell-strong { font-weight: var(--weight-medium); }
 .cell-mono { font-family: monospace; font-size: var(--text-xs); white-space: nowrap; }
-.cell-note { color: var(--text-muted); font-size: var(--text-xs); line-height: 1.5; }
+.cell-note { color: var(--text-muted); font-size: var(--text-xs); line-height: var(--leading-normal); }
 
 /* 安全採收期是本功能最關鍵的欄位（用錯會農藥殘留超標），視覺上獨立標示 */
 .col-highlight { background: var(--green-50); }
@@ -734,5 +734,5 @@ async function handleSearch() {
   cursor: pointer;
 }
 
-.block-toggle .mdi { font-size: 20px; }
+.block-toggle .mdi { font-size: var(--text-lg); }
 </style>

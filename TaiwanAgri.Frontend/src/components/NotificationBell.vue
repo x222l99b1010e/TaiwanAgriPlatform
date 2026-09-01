@@ -132,11 +132,11 @@ onMounted(() => {
   background: transparent;
   color: var(--white-a80);
   cursor: pointer;
-  transition: background 0.18s, color 0.18s;
+  transition: background var(--duration-fast), color var(--duration-fast);
 }
 .bell-btn:hover { background: var(--white-a12); color: var(--neutral-0); }
 
-.bell-icon { font-size: 20px; }
+.bell-icon { font-size: var(--text-lg); }
 
 /* 紅點 badge */
 .badge {
@@ -145,7 +145,7 @@ onMounted(() => {
   min-width: 16px; height: 16px;
   padding: 0 var(--space-1); border-radius: var(--radius-full);
   background: var(--danger-500); color: var(--neutral-0);
-  font-size: 10px; font-weight: var(--weight-bold);
+  font-size: var(--text-2xs); font-weight: var(--weight-bold);
   line-height: 16px; text-align: center;
   pointer-events: none;
 }
@@ -158,20 +158,20 @@ onMounted(() => {
   width: 340px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   z-index: var(--z-overlay);
 }
 
 .dropdown-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-3);
   border-bottom: 1px solid var(--border);
 }
 
 .dropdown-title {
-  font-size: 16px;              /* 從 14px → 16px */
+  font-size: var(--text-base);              /* 從 14px → 16px */
   font-weight: var(--weight-bold);
   color: var(--text-primary);
 }
@@ -180,8 +180,8 @@ onMounted(() => {
   font-size: var(--text-sm);              /* 從 12px → 13px */
   color: var(--neutral-500);   /* 從 teal → 深灰 */
   background: none; border: none; cursor: pointer; padding: 0;
-  font-weight: 600;
-  transition: color 0.15s;
+  font-weight: var(--weight-medium);
+  transition: color var(--duration-fast);
 }
 .btn-mark-all:hover:not(:disabled) { color: var(--green); }
 .btn-mark-all:disabled { color: var(--neutral-400); cursor: not-allowed; }
@@ -194,9 +194,9 @@ onMounted(() => {
 
 /* 通知項目 */
 .notification-item {
-  padding: 14px 18px;
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--border);
-  cursor: pointer; transition: background 0.15s;
+  cursor: pointer; transition: background var(--duration-fast);
 }
 .notification-item:last-child { border-bottom: none; }
 .notification-item:hover { background: var(--surface-2); }
@@ -205,7 +205,7 @@ onMounted(() => {
 .notification-item.unread {
   background: var(--teal-50);
   border-left: 3px solid var(--teal);
-  padding-left: 15px;
+  padding-left: var(--space-4);
 }
 .notification-item.unread:hover { background: var(--teal-100); }
 
@@ -214,15 +214,15 @@ onMounted(() => {
   align-items: baseline; margin-bottom: var(--space-1);
 }
 
-.rule-name { font-size: var(--text-xs); font-weight: 600; color: var(--teal); }
+.rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--teal); }
 .item-time { font-size: var(--text-2xs); color: var(--text-muted); white-space: nowrap; }
-.item-message { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
+.item-message { font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-normal); }
 
 /* 提示文字 */
 .hint {
   text-align: center;
   padding: var(--space-6) 0;
-  font-size: 14px;              /* 從 13px → 14px */
+  font-size: var(--text-base);              /* 從 13px → 14px */
   color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.50 */
   font-weight: var(--weight-medium);
 }

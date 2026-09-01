@@ -87,12 +87,12 @@ function toNullableNumber(raw: string): number | null {
 }
 .jump-label { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 .jump-input {
-  width: 50px; padding: var(--space-1) 6px; border-radius: 6px;
+  width: 50px; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md);
   border: 1px solid var(--border); font-size: var(--text-sm); text-align: center; outline: none;
 }
 .jump-input:focus { border-color: var(--green); }
 .jump-btn {
-  padding: var(--space-1) 10px; border-radius: 6px; border: 1px solid var(--green);
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--green);
   background: var(--green); color: var(--neutral-0); font-size: var(--text-xs); font-weight: var(--weight-bold); cursor: pointer;
 }
 .jump-btn:hover { background: var(--green-hover); }
