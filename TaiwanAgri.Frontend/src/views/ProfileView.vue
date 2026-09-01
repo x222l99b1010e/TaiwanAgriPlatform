@@ -214,11 +214,11 @@ async function handleSave() {
   padding: 1rem 1.25rem;
   margin-bottom: 1.5rem;
   border: 2px solid var(--green-600);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--green-100);
   color: var(--green-800);
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   text-decoration: none;
   box-shadow: 0 2px 6px rgba(46, 125, 50, 0.12);
   transition: background 0.15s, box-shadow 0.15s;
@@ -270,7 +270,7 @@ select {
   color: var(--green-600);
   border-radius: 20px;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .crop-tag button {
@@ -313,7 +313,7 @@ select {
   border: 1px solid var(--neutral-200);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 100;
+  z-index: var(--z-dropdown);
   max-height: 240px;
   overflow-y: auto;
 }
@@ -341,12 +341,12 @@ select {
 .save-btn {
   margin-top: 0.5rem;
   padding: 9px 28px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--green-800);
   background: linear-gradient(180deg, var(--green-500) 0%, var(--green-600) 40%, var(--green-800) 100%);
   color: var(--neutral-0);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   cursor: pointer;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.35),

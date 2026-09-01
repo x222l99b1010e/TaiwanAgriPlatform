@@ -346,17 +346,17 @@ function exportChartImage() {
 <style scoped>
 .pork-view { min-width: 960px; }
 /* 篩選區 */
-.filter-row { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.filter-row { display: flex; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
 .action-row { display: flex; align-items: center; gap: 10px; }
 
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .market-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--text-primary); font-size: 14px;
   min-width: 180px; cursor: pointer;
   transition: border-color 0.18s, box-shadow 0.18s;
@@ -368,57 +368,57 @@ function exportChartImage() {
 
 /* 指標切換 */
 .metric-tabs {
-  display: flex; gap: 4px;
+  display: flex; gap: var(--space-1);
   background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 3px; align-self: flex-end;
+  border-radius: var(--radius-md); padding: 3px; align-self: flex-end;
 }
 .metric-tab {
   padding: 6px 14px; border-radius: 6px; border: none;
   background: transparent; color: var(--neutral-500);
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  font-size: var(--text-sm); font-weight: 600; cursor: pointer; transition: all 0.15s;
 }
 .metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: var(--green-100); color: var(--green); font-weight: 700; }
+.metric-tab.active { background: var(--green-100); color: var(--green); font-weight: var(--weight-bold); }
 
 /* 按鈕 */
 /* 摘要列 */
 .summary-bar {
-  display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap;
+  display: flex; gap: 14px; margin-bottom: var(--space-6); flex-wrap: wrap;
 }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 24px;
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .stat-label {
-  font-size: 12px; color: var(--neutral-500);
+  font-size: var(--text-xs); color: var(--neutral-500);
   letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
 }
-.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
+.stat-value { font-size: 26px; font-weight: var(--weight-bold); color: var(--green-800); }
 
 /* 圖表卡片 */
 .chart-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 28px 32px 36px;
+  border-radius: var(--radius-xl); padding: 28px var(--space-8) 36px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .chart-toolbar {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
-.chart-title { font-size: 15px; font-weight: 700; color: var(--neutral-700); }
+.chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700); }
 .canvas-wrap { position: relative; height: 500px; width: 100%; }
 .query-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 8px;
+  gap: var(--space-2);
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-md);
   background: var(--info-50);
   border: 1px solid var(--info-100);
   color: var(--info-500);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   line-height: 1.5;
 }
@@ -428,7 +428,7 @@ function exportChartImage() {
   color: var(--green);
 }
 .hint-icon {
-  font-size: 18px;
+  font-size: var(--text-lg);
   flex-shrink: 0;
 }
 </style>

@@ -473,11 +473,11 @@ function exportChartImage() {
 <style scoped>
 .poultry-view { min-width: 960px; }
 /* 篩選區 */
-.filter-row { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.filter-row { display: flex; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
 .action-row { display: flex; align-items: center; gap: 10px; }
 
 /* 指標勾選區 */
-.metric-groups { display: flex; flex-direction: column; gap: 12px; }
+.metric-groups { display: flex; flex-direction: column; gap: var(--space-3); }
 .metric-groups-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   padding-bottom: 10px; border-bottom: 1px solid var(--border);
@@ -486,16 +486,16 @@ function exportChartImage() {
 
 .metric-group { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .group-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
   letter-spacing: 0.05em; text-transform: uppercase;
   min-width: 108px; padding-top: 7px; flex-shrink: 0;
 }
-.metric-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.metric-chips { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .metric-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: 999px;
+  padding: 6px var(--space-3); border-radius: var(--radius-full);
   background: var(--surface-2); border: 1px solid var(--border);
-  color: var(--neutral-600); font-size: 13px; font-weight: 600;
+  color: var(--neutral-600); font-size: var(--text-sm); font-weight: 600;
   cursor: pointer; transition: all 0.15s; user-select: none;
 }
 .metric-chip input { accent-color: var(--green); cursor: pointer; }
@@ -503,7 +503,7 @@ function exportChartImage() {
 .metric-chip.active { background: var(--green-100); border-color: var(--green-300); color: var(--green); }
 
 .completeness-badge {
-  font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
+  font-size: var(--text-2xs); font-weight: var(--weight-bold); padding: 1px 6px; border-radius: var(--radius-full);
 }
 .completeness-badge.high { background: var(--green-100); color: var(--green-600); }
 .completeness-badge.mid  { background: var(--warning-50); color: var(--warning-500); }
@@ -514,80 +514,80 @@ function exportChartImage() {
    套用跟 .query-hint 同一套「淺底框＋深色粗體字」規格，說明文字要看得清楚，
    不能用次要文字才用的低對比灰階色 */
 .badge-legend {
-  display: flex; align-items: flex-start; gap: 8px;
-  padding: 10px 16px; border-radius: 8px;
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  padding: 10px var(--space-4); border-radius: var(--radius-md);
   background: var(--info-50); border: 1px solid var(--info-100);
-  color: var(--info-500); font-size: 13px; font-weight: 600; line-height: 1.6;
+  color: var(--info-500); font-size: var(--text-sm); font-weight: 600; line-height: var(--leading-normal);
   margin: 0;
 }
 .badge-legend .hint-icon { font-size: 17px; margin-top: 1px; flex-shrink: 0; }
 
 /* 按鈕（沿用 PorkView 同一組樣式） */
 /* 摘要列 */
-.summary-bar { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+.summary-bar { display: flex; gap: 14px; margin-bottom: var(--space-6); flex-wrap: wrap; }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 24px;
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .stat-label {
-  font-size: 12px; color: var(--neutral-500);
+  font-size: var(--text-xs); color: var(--neutral-500);
   letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
 }
-.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
+.stat-value { font-size: 26px; font-weight: var(--weight-bold); color: var(--green-800); }
 
 /* 圖表卡片 */
 .chart-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 28px 32px 30px;
+  border-radius: var(--radius-xl); padding: 28px var(--space-8) 30px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-.chart-title { font-size: 15px; font-weight: 700; color: var(--neutral-700); }
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
+.chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700); }
 .canvas-wrap { position: relative; height: 460px; width: 100%; }
 .chart-note {
-  display: flex; align-items: flex-start; gap: 8px;
-  margin-top: 18px; padding: 10px 16px; border-radius: 8px;
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  margin-top: 18px; padding: 10px var(--space-4); border-radius: var(--radius-md);
   background: var(--info-50); border: 1px solid var(--info-100);
-  color: var(--info-500); font-size: 13px; font-weight: 600; line-height: 1.6;
+  color: var(--info-500); font-size: var(--text-sm); font-weight: 600; line-height: var(--leading-normal);
 }
 .query-hint {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 16px; border-radius: 8px;
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: 10px var(--space-4); border-radius: var(--radius-md);
   background: var(--info-50); border: 1px solid var(--info-100);
-  color: var(--info-500); font-size: 13px; font-weight: 600; line-height: 1.5;
+  color: var(--info-500); font-size: var(--text-sm); font-weight: 600; line-height: 1.5;
 }
-.hint-icon { font-size: 18px; flex-shrink: 0; }
+.hint-icon { font-size: var(--text-lg); flex-shrink: 0; }
 
 /* 非常態資料明細 */
 .abnormal-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 20px 28px;
+  border-radius: var(--radius-xl); padding: var(--space-5) 28px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .btn-toggle-abnormal {
   display: flex; align-items: center; gap: 6px;
   background: none; border: none; cursor: pointer;
-  font-size: 14px; font-weight: 700; color: var(--neutral-700);
-  padding: 4px 0; width: 100%; text-align: left;
+  font-size: 14px; font-weight: var(--weight-bold); color: var(--neutral-700);
+  padding: var(--space-1) 0; width: 100%; text-align: left;
 }
-.abnormal-table-wrap { margin-top: 16px; max-height: 360px; overflow-y: auto; overflow-x: auto; }
-.abnormal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.abnormal-table-wrap { margin-top: var(--space-4); max-height: 360px; overflow-y: auto; overflow-x: auto; }
+.abnormal-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 .abnormal-table th {
   position: sticky; top: 0; background: var(--surface-2);
-  text-align: left; padding: 8px 12px; font-weight: 700;
+  text-align: left; padding: var(--space-2) var(--space-3); font-weight: var(--weight-bold);
   color: var(--neutral-600); border-bottom: 1px solid var(--border);
 }
 .abnormal-table td {
-  padding: 7px 12px; border-bottom: 1px solid var(--neutral-100);
+  padding: 7px var(--space-3); border-bottom: 1px solid var(--neutral-100);
   color: var(--neutral-700);
 }
 .abnormal-table tbody tr:hover { background: var(--green-50); }
 
 .status-chip {
-  font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  font-size: 11.5px; font-weight: var(--weight-bold); padding: 2px var(--space-2); border-radius: var(--radius-full);
   white-space: nowrap;
 }
 .status-empty        { background: var(--neutral-100); color: var(--neutral-600); }

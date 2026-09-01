@@ -101,12 +101,12 @@ async function handleQuery() {
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .station-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 20px;
+  border-radius: 14px; padding: var(--space-5);
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
   transition: box-shadow 0.2s, border-color 0.2s;
 }
@@ -119,18 +119,18 @@ async function handleQuery() {
 
 .card-header {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 16px; padding-bottom: 12px;
+  margin-bottom: var(--space-4); padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border);
 }
 /* 站名也加深 */
 .station-name {
   font-size: 16px;        /* 從 15px → 16px */
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--green);
 }
 
 .town-name {
-  font-size: 13px;        /* 從 12px → 13px */
+  font-size: var(--text-sm);        /* 從 12px → 13px */
   color: var(--neutral-500);  /* 從 text-muted → 深一點 */
 }
 
@@ -139,8 +139,8 @@ async function handleQuery() {
   gap: 14px; margin-bottom: 14px;
 }
 
-.metric { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.metric-icon { font-size: 22px; }
+.metric { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.metric-icon { font-size: var(--text-xl); }
 .temp  { color: var(--danger-500); }
 .humid { color: var(--info-500); }
 .wind  { color: var(--green-500); }
@@ -149,19 +149,19 @@ async function handleQuery() {
 /* 數值加大加深加粗 */
 .metric-value {
   font-size: 20px;        /* 從 16px → 20px */
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--neutral-900);         /* 直接用最深色，不透明 */
 }
 
 .metric-label {
-  font-size: 13px;        /* 從 11px → 13px */
+  font-size: var(--text-sm);        /* 從 11px → 13px */
   color: var(--neutral-500);  /* 從 text-muted(0.40) → 0.60 */
   font-weight: 600;
 }
 
 /* 更新時間也深一點 */
 .card-footer {
-  font-size: 12px;        /* 從 11px → 12px */
+  font-size: var(--text-xs);        /* 從 11px → 12px */
   color: var(--neutral-500);  /* 從 0.35 → 0.50 */
   text-align: right;
   border-top: 1px solid var(--border);

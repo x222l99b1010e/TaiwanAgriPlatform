@@ -159,10 +159,10 @@ onMounted(() => loadMarkets())
 <style scoped>
 .restdays-view { min-width: 960px; }
 .field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.field-label { font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
 .market-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--text-primary); font-size: 14px;
   min-width: 200px; cursor: pointer;
   transition: border-color 0.18s, box-shadow 0.18s;
@@ -170,41 +170,41 @@ onMounted(() => loadMarkets())
 .market-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
 .market-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.loading-hint { font-size: 12px; color: var(--text-muted); }
+.loading-hint { font-size: var(--text-xs); color: var(--text-muted); }
 /* 摘要列 */
 .summary-bar { display: flex; gap: 14px; margin-bottom: 28px; }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 24px;
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
-.stat-label { font-size: 12px; color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
-.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
-.stat-value.name { font-size: 18px; }
+.stat-label { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
+.stat-value { font-size: 26px; font-weight: var(--weight-bold); color: var(--green-800); }
+.stat-value.name { font-size: var(--text-lg); }
 
 /* 月份分組 */
 .month-groups { display: flex; flex-direction: column; gap: 28px; }
 
 .month-label {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 15px; font-weight: 700; color: var(--green);
-  margin-bottom: 12px;
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green);
+  margin-bottom: var(--space-3);
   padding-bottom: 10px;
   border-bottom: 2px solid var(--green-100);
 }
 
 .month-count {
-  font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  font-size: var(--text-xs); padding: 2px var(--space-2); border-radius: var(--radius-full);
   background: var(--green-100); color: var(--green);
   border: 1px solid var(--green-200);
-  font-weight: 600; margin-left: 4px;
+  font-weight: 600; margin-left: var(--space-1);
 }
 
-.day-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.day-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 .rest-chip {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: var(--space-2);
   padding: 10px 18px; border-radius: 10px;
   background: var(--surface); border: 1px solid var(--border);
   font-size: 14px; font-weight: 600; color: var(--text-primary);

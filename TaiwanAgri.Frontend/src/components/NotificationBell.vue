@@ -127,7 +127,7 @@ onMounted(() => {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: none;
   background: transparent;
   color: var(--white-a80);
@@ -143,9 +143,9 @@ onMounted(() => {
   position: absolute;
   top: 4px; right: 4px;
   min-width: 16px; height: 16px;
-  padding: 0 4px; border-radius: 999px;
+  padding: 0 var(--space-1); border-radius: var(--radius-full);
   background: var(--danger-500); color: var(--neutral-0);
-  font-size: 10px; font-weight: 700;
+  font-size: 10px; font-weight: var(--weight-bold);
   line-height: 16px; text-align: center;
   pointer-events: none;
 }
@@ -161,23 +161,23 @@ onMounted(() => {
   border-radius: 14px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   overflow: hidden;
-  z-index: 300;
+  z-index: var(--z-overlay);
 }
 
 .dropdown-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px 12px;
+  padding: 14px 18px var(--space-3);
   border-bottom: 1px solid var(--border);
 }
 
 .dropdown-title {
   font-size: 16px;              /* 從 14px → 16px */
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--text-primary);
 }
 
 .btn-mark-all {
-  font-size: 13px;              /* 從 12px → 13px */
+  font-size: var(--text-sm);              /* 從 12px → 13px */
   color: var(--neutral-500);   /* 從 teal → 深灰 */
   background: none; border: none; cursor: pointer; padding: 0;
   font-weight: 600;
@@ -190,7 +190,7 @@ onMounted(() => {
 .dropdown-body { max-height: 400px; overflow-y: auto; }
 .dropdown-body::-webkit-scrollbar { width: 4px; }
 .dropdown-body::-webkit-scrollbar-track { background: transparent; }
-.dropdown-body::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: 4px; }
+.dropdown-body::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: var(--radius-sm); }
 
 /* 通知項目 */
 .notification-item {
@@ -211,20 +211,20 @@ onMounted(() => {
 
 .item-top {
   display: flex; justify-content: space-between;
-  align-items: baseline; margin-bottom: 4px;
+  align-items: baseline; margin-bottom: var(--space-1);
 }
 
-.rule-name { font-size: 12px; font-weight: 600; color: var(--teal); }
-.item-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-.item-message { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.rule-name { font-size: var(--text-xs); font-weight: 600; color: var(--teal); }
+.item-time { font-size: var(--text-2xs); color: var(--text-muted); white-space: nowrap; }
+.item-message { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
 
 /* 提示文字 */
 .hint {
   text-align: center;
-  padding: 24px 0;
+  padding: var(--space-6) 0;
   font-size: 14px;              /* 從 13px → 14px */
   color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.50 */
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
-.end-hint { padding: 12px 0; font-size: 12px; }
+.end-hint { padding: var(--space-3) 0; font-size: var(--text-xs); }
 </style>

@@ -396,9 +396,9 @@ async function handleSearch() {
 .info-hint {
   background: var(--info-50);
   border: 1px solid var(--info-100);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -408,8 +408,8 @@ async function handleSearch() {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   color: var(--info-500);
 }
 
@@ -417,25 +417,25 @@ async function handleSearch() {
 
 .hint-list {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
-.hint-list li { font-size: 13px; color: var(--info-500); line-height: 1.6; }
+.hint-list li { font-size: var(--text-sm); color: var(--info-500); line-height: var(--leading-normal); }
 
 .example-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   margin-top: 2px;
 }
 
 .example-label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   color: var(--info-500);
   white-space: nowrap;
 }
@@ -444,12 +444,12 @@ async function handleSearch() {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
-  border-radius: 999px;
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-full);
   border: 1px solid var(--info-100);
   background: var(--white-a70);
   color: var(--info-500);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -468,18 +468,18 @@ async function handleSearch() {
 
 .chip-warn {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   background: var(--danger-50);
   color: var(--danger-500);
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   margin-left: 2px;
 }
 
 /* ── 搜尋列 ── */
 .search-bar {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: flex-end;
   margin-bottom: 10px;
 }
@@ -487,15 +487,15 @@ async function handleSearch() {
 .search-field { flex: 1; display: flex; flex-direction: column; gap: 5px; }
 
 .field-label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   color: var(--text-muted);
 }
 
 .search-input {
-  padding: 10px 16px;
+  padding: 10px var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   color: var(--text-primary);
   background: var(--surface);
@@ -511,38 +511,38 @@ async function handleSearch() {
 .search-input--invalid { border-color: var(--danger-500); }
 .search-input--invalid:focus { border-color: var(--danger-500); box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12); }
 
-.field-error { font-size: 11px; color: var(--danger-500); }
+.field-error { font-size: var(--text-2xs); color: var(--danger-500); }
 .revoked-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   cursor: pointer;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 /* ── 狀態容器 ── */
 /* ── 結果 ── */
-.result-section { display: flex; flex-direction: column; gap: 20px; }
+.result-section { display: flex; flex-direction: column; gap: var(--space-5); }
 
 .multi-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   background: var(--warning-50);
   border: 1px solid var(--warning-100);
   border-radius: 10px;
-  padding: 12px 18px;
-  font-size: 13px;
+  padding: var(--space-3) 18px;
+  font-size: var(--text-sm);
   color: var(--warning-500);
 }
 
 .result-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px 28px;
+  border-radius: var(--radius-xl);
+  padding: var(--space-6) 28px;
   box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
 }
 
@@ -552,26 +552,26 @@ async function handleSearch() {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .ingredient-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 
-.ingredient-name { font-size: 19px; font-weight: 700; color: var(--green-800); }
-.ingredient-en { font-size: 13px; color: var(--text-muted); font-family: monospace; }
+.ingredient-name { font-size: 19px; font-weight: var(--weight-bold); color: var(--green-800); }
+.ingredient-en { font-size: var(--text-sm); color: var(--text-muted); font-family: monospace; }
 
-.ingredient-meta { display: flex; align-items: center; gap: 8px; }
+.ingredient-meta { display: flex; align-items: center; gap: var(--space-2); }
 
-.code-text { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+.code-text { font-size: var(--text-xs); color: var(--text-muted); font-family: monospace; }
 
 .badge {
   display: inline-block;
   padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
   white-space: nowrap;
 }
 
@@ -579,15 +579,15 @@ async function handleSearch() {
 .badge--category { background: var(--info-50); color: var(--info-500); }
 .badge--type { background: var(--purple-50); color: var(--purple-500); }
 .badge--valid { background: var(--green-100); color: var(--green-600); }
-.badge--revoked { background: var(--danger-50); color: var(--danger-500); margin-right: 4px; }
+.badge--revoked { background: var(--danger-50); color: var(--danger-500); margin-right: var(--space-1); }
 .badge--expired { background: var(--warning-50); color: var(--warning-500); }
 
 /* ── 劑型分頁 ── */
 .form-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0 20px;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-5);
 }
 
 .form-tab {
@@ -595,7 +595,7 @@ async function handleSearch() {
   flex-direction: column;
   gap: 2px;
   align-items: flex-start;
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -613,22 +613,22 @@ async function handleSearch() {
 
 .form-tab--technical { opacity: 0.75; }
 
-.form-tab-name { font-size: 13px; font-weight: 700; color: var(--green-800); }
-.form-tab-contents { font-size: 11px; color: var(--text-muted); font-family: monospace; }
+.form-tab-name { font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--green-800); }
+.form-tab-contents { font-size: var(--text-2xs); color: var(--text-muted); font-family: monospace; }
 .form-tab-count { font-size: 10px; color: var(--text-muted); }
 
 /* ── 劑型面板 ── */
-.form-panel { display: flex; flex-direction: column; gap: 20px; }
+.form-panel { display: flex; flex-direction: column; gap: var(--space-5); }
 
 .notice-box {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   background: var(--neutral-100);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px 18px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -638,36 +638,36 @@ async function handleSearch() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .block-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
   color: var(--green-800);
 }
 
-.card-icon { font-size: 18px; color: var(--green-500); }
+.card-icon { font-size: var(--text-lg); color: var(--green-500); }
 
 .block-count {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--text-muted);
   background: var(--green-50);
-  border-radius: 999px;
-  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  padding: 2px var(--space-2);
 }
 
 .filter-input {
-  padding: 6px 12px;
+  padding: 6px var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   min-width: 220px;
   outline: none;
   background: var(--surface);
@@ -677,9 +677,9 @@ async function handleSearch() {
 .filter-input:focus { border-color: var(--green); }
 
 .inline-empty {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  padding: 16px 0;
+  padding: var(--space-4) 0;
   text-align: center;
 }
 
@@ -689,21 +689,21 @@ async function handleSearch() {
 .usage-table, .license-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .usage-table th, .license-table th {
   text-align: left;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   color: var(--text-muted);
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   border-bottom: 2px solid var(--border);
   white-space: nowrap;
 }
 
 .usage-table td, .license-table td {
-  padding: 9px 12px;
+  padding: 9px var(--space-3);
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
   vertical-align: top;
@@ -712,24 +712,24 @@ async function handleSearch() {
 .usage-table tbody tr:hover, .license-table tbody tr:hover { background: var(--green-50); }
 
 .cell-strong { font-weight: 600; }
-.cell-mono { font-family: monospace; font-size: 12px; white-space: nowrap; }
-.cell-note { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); white-space: nowrap; }
+.cell-note { color: var(--text-muted); font-size: var(--text-xs); line-height: 1.5; }
 
 /* 安全採收期是本功能最關鍵的欄位（用錯會農藥殘留超標），視覺上獨立標示 */
 .col-highlight { background: var(--green-50); }
 
 /* ── 許可證區塊 ── */
-.license-block { border-top: 1px solid var(--border); padding-top: 16px; }
+.license-block { border-top: 1px solid var(--border); padding-top: var(--space-4); }
 
 .block-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   background: none;
   border: none;
-  padding: 0 0 12px;
-  font-size: 15px;
-  font-weight: 700;
+  padding: 0 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
   color: var(--green-800);
   cursor: pointer;
 }

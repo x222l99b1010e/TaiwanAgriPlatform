@@ -59,13 +59,13 @@ function applyShortcut(days: number) {
 
 <style scoped>
 .date-range-picker {
-  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap;
 }
 
-.date-group { display: flex; flex-direction: column; gap: 4px; }
+.date-group { display: flex; flex-direction: column; gap: var(--space-1); }
 
 .date-group label {
-  font-size: 12px; font-weight: 600;
+  font-size: var(--text-xs); font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -74,7 +74,7 @@ function applyShortcut(days: number) {
 .date-group input[type="date"] {
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-primary);
   font-size: 14px;
@@ -87,17 +87,17 @@ function applyShortcut(days: number) {
   box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
 }
 
-.separator { font-size: 18px; color: var(--text-muted); padding-bottom: 6px; }
+.separator { font-size: var(--text-lg); color: var(--text-muted); padding-bottom: 6px; }
 
 .shortcuts { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 2px; }
 
 .shortcut-btn {
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--text-xs);
   cursor: pointer;
   transition: all 0.18s;
 }

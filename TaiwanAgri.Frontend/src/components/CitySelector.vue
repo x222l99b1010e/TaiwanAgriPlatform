@@ -32,7 +32,7 @@ const cities = [
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 
 .field-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -40,9 +40,9 @@ const cities = [
 }
 
 .city-select {
-  padding: 8px 14px;
+  padding: var(--space-2) 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-primary);
   font-size: 14px;

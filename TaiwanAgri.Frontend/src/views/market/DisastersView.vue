@@ -152,32 +152,32 @@ async function handleQuery() {
 <style scoped>
 .disasters-view { min-width: 960px; }
 .field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.field-label { font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
 .county-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--text-primary); font-size: 14px;
   min-width: 160px; cursor: pointer;
   transition: border-color 0.18s, box-shadow 0.18s;
 }
 .county-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
-.summary-bar { display: flex; gap: 14px; margin-bottom: 24px; }
+.summary-bar { display: flex; gap: 14px; margin-bottom: var(--space-6); }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 24px;
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
-.stat-label { font-size: 12px; color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
-.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
+.stat-label { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
+.stat-value { font-size: 26px; font-weight: var(--weight-bold); color: var(--green-800); }
 .stat-value.red { color: var(--red); }
 .stat-value.orange { color: var(--orange); }
 
-.event-list { display: flex; flex-direction: column; gap: 12px; }
+.event-list { display: flex; flex-direction: column; gap: var(--space-3); }
 
 .event-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 20px 24px;
+  border-radius: 14px; padding: var(--space-5) var(--space-6);
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
   transition: box-shadow 0.18s;
 }
@@ -188,16 +188,16 @@ async function handleQuery() {
   margin-bottom: 14px;
 }
 .event-meta { display: flex; align-items: center; gap: 10px; }
-.event-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-.event-date-range { font-size: 13px; color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: 600; }
+.event-name { font-size: 16px; font-weight: var(--weight-bold); color: var(--text-primary); }
+.event-date-range { font-size: var(--text-sm); color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: 600; }
 
-.alert-badge { font-size: 11px; padding: 3px 9px; border-radius: 6px; flex-shrink: 0; font-weight: 700; }
+.alert-badge { font-size: var(--text-2xs); padding: 3px 9px; border-radius: 6px; flex-shrink: 0; font-weight: var(--weight-bold); }
 .alert-badge.red { background: var(--danger-50); color: var(--red); border: 1px solid var(--danger-100); }
 .alert-badge.orange { background: var(--warning-50); color: var(--orange); border: 1px solid var(--warning-100); }
 
 .county-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .county-tag {
-  font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  font-size: var(--text-xs); padding: 3px 10px; border-radius: var(--radius-full);
   background: var(--info-50); color: var(--blue);
   border: 1px solid var(--info-100); font-weight: 600;
 }

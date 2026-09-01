@@ -101,8 +101,8 @@ watch(() => props.animalId, fetchDetail)
 <style scoped>
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-bottom: 20px; color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
   text-decoration: none;
 }
 .back-link:hover { color: var(--green); }
@@ -114,24 +114,24 @@ watch(() => props.animalId, fetchDetail)
   max-width: var(--container-sm);
   display: flex; flex-direction: column; gap: 14px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 28px 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  padding: 28px var(--space-8); box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
-.detail-header { display: flex; gap: 8px; }
+.detail-header { display: flex; gap: var(--space-2); }
 .kind-badge, .sex-badge {
-  display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  display: inline-block; padding: 3px var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-bold);
   background: var(--green-100); color: var(--green);
 }
 .sex-badge { background: var(--info-50); color: var(--info-500); }
 
-.detail-title { font-size: 24px; font-weight: 700; color: var(--text-primary); font-family: monospace; }
+.detail-title { font-size: 24px; font-weight: var(--weight-bold); color: var(--text-primary); font-family: monospace; }
 .detail-meta { font-size: 13.5px; color: var(--text-muted); }
 .shelter-link { color: var(--green); font-weight: 600; text-decoration: none; }
 .shelter-link:hover { text-decoration: underline; }
 
 .info-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px 20px;
-  padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
 }
 .info-item { display: flex; flex-direction: column; gap: 2px; }
 .info-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.04em; }
@@ -140,7 +140,7 @@ watch(() => props.animalId, fetchDetail)
 .detail-line { font-size: 14.5px; color: var(--text-primary); }
 .detail-remark { font-size: 14px; color: var(--text-secondary); line-height: 1.65; white-space: pre-wrap; }
 
-.detail-actions { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
+.detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--border); }
 .action-link {
   display: inline-flex; align-items: center; gap: 5px;
   color: var(--info-500); font-size: 13.5px; font-weight: 600; text-decoration: none;

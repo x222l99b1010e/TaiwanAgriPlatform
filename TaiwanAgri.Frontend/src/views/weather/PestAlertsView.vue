@@ -164,52 +164,52 @@ onMounted(fetchAlerts)
 
 <style scoped>
 .pest-alerts-view { min-width: 960px; }
-.alert-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.alert-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-6); }
 
 .alert-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 20px 24px; cursor: pointer;
+  border-radius: 14px; padding: var(--space-5) var(--space-6); cursor: pointer;
   transition: box-shadow 0.18s, border-color 0.18s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .alert-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
 .alert-card.expanded { border-color: var(--green); background: var(--green-50); }
 
-.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 .card-meta { display: flex; align-items: center; gap: 10px; }
 
 /* 日期 */
 .pub-date {
-  font-size: 13px;           /* 從 12px → 13px */
+  font-size: var(--text-sm);           /* 從 12px → 13px */
   color: var(--neutral-500);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 /* issue badge */
 .issue-badge {
-  font-size: 12px;           /* 從 11px → 12px */
+  font-size: var(--text-xs);           /* 從 11px → 12px */
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--green-100); color: var(--green);
   border: 1px solid var(--green-200);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
-.expand-icon { font-size: 18px; color: var(--text-muted); transition: color 0.15s; }
+.expand-icon { font-size: var(--text-lg); color: var(--text-muted); transition: color 0.15s; }
 .alert-card:hover .expand-icon { color: var(--text-secondary); }
 
 /* 主旨標題 */
 .card-subject {
   font-size: 17px;           /* 從 15px → 17px */
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--neutral-900);            /* 最深色，不透明 */
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
   line-height: 1.5;
 }
 
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 /* 標籤 */
-.tag { font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid; font-weight: 600; }
+.tag { font-size: var(--text-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); border: 1px solid; font-weight: 600; }
 .city-tag { background: var(--info-50); border-color: var(--info-100); color: var(--info-500); }
 .crop-tag { background: var(--green-100); border-color: var(--green-200); color: var(--green-600); }
 
@@ -218,8 +218,8 @@ onMounted(fetchAlerts)
 
 /* section 標籤 */
 .section-label {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   color: var(--green);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -236,7 +236,7 @@ onMounted(fetchAlerts)
 
 /* 內文 */
 .body-text {
-  font-size: 15px;           /* 從 13.5px → 15px */
+  font-size: var(--text-base);           /* 從 13.5px → 15px */
   color: var(--neutral-700);  /* 從 text-secondary → 深一點 */
   line-height: 1.9;
   white-space: pre-wrap;

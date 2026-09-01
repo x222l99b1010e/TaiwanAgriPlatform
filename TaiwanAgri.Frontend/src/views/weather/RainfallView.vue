@@ -311,17 +311,17 @@ async function handleQuery() {
 
 <style scoped>
 .rainfall-view { min-width: 960px; }
-.summary-bar { display: flex; gap: 14px; margin-bottom: 20px; }
+.summary-bar { display: flex; gap: 14px; margin-bottom: var(--space-5); }
 
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 22px;
+  border-radius: var(--radius-lg); padding: var(--space-4) 22px;
   display: flex; flex-direction: column; gap: 6px; min-width: 130px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 /* 摘要卡片 */
 .stat-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--neutral-500);   /* 從 text-muted → 深一點 */
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -329,20 +329,20 @@ async function handleQuery() {
 }
 .stat-value {
   font-size: 26px;              /* 從 22px → 26px */
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--green-800);               /* 深綠，不透明 */
 }
 
 .chart-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 24px 28px 32px; margin-bottom: 24px;
+  border-radius: var(--radius-xl); padding: var(--space-6) 28px var(--space-8); margin-bottom: var(--space-6);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
 /* 圖表標題 */
 .chart-title {
   font-size: 14px;              /* 從 13px → 14px */
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--neutral-600);   /* 從 text-muted → 深很多 */
   letter-spacing: 0.04em;
 }
@@ -350,34 +350,34 @@ async function handleQuery() {
 .toolbar-right { display: flex; align-items: center; gap: 10px; }
 
 .metric-tabs {
-  display: flex; gap: 4px;
+  display: flex; gap: var(--space-1);
   background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 3px;
+  border-radius: var(--radius-md); padding: 3px;
 }
 .metric-tab {
   padding: 5px 14px; border-radius: 6px; border: none;
   background: transparent;
   color: var(--neutral-500);   /* 從 text-muted → 深一點 */
-  font-size: 13px; font-weight: 600;
+  font-size: var(--text-sm); font-weight: 600;
   cursor: pointer; transition: all 0.15s;
 }
 .metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: var(--green-100); color: var(--green); font-weight: 700; }
+.metric-tab.active { background: var(--green-100); color: var(--green); font-weight: var(--weight-bold); }
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
 .table-wrap {
   overflow-x: auto; border: 1px solid var(--border);
-  border-radius: 12px; margin-bottom: 8px;
+  border-radius: var(--radius-lg); margin-bottom: var(--space-2);
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .data-table thead tr { background: var(--surface-2); }
 /* 表格標頭 */
 .data-table th {
-  padding: 12px 18px; text-align: left;
+  padding: var(--space-3) 18px; text-align: left;
   font-size: 12.5px;            /* 從 11.5px → 12.5px */
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--neutral-600);   /* 從 text-muted → 深很多 */
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -396,11 +396,11 @@ async function handleQuery() {
   font-size: 14px;              /* 從預設 → 明確設 14px */
 }
 
-.station-cell { font-weight: 700; color: var(--green-800); }  /* 深綠不透明 */
+.station-cell { font-weight: var(--weight-bold); color: var(--green-800); }  /* 深綠不透明 */
 .time-cell    { color: var(--neutral-500); font-variant-numeric: tabular-nums; }
 .rain-24        { font-weight: 600; }
 .level-moderate { color: var(--warning-500); }
 .level-heavy    { color: var(--red); }
 
-.hint { font-size: 13px; color: var(--neutral-500); margin-top: 12px; }
+.hint { font-size: var(--text-sm); color: var(--neutral-500); margin-top: var(--space-3); }
 </style>

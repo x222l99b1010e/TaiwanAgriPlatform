@@ -46,7 +46,7 @@ const failed = ref(false)
 </script>
 
 <style scoped>
-.post-photo { display: flex; flex-direction: column; gap: 4px; }
+.post-photo { display: flex; flex-direction: column; gap: var(--space-1); }
 
 /*
   用 aspect-ratio 取代固定 height：卡片寬度是 minmax(400px, 1fr)、會隨視窗伸縮，
@@ -65,15 +65,15 @@ const failed = ref(false)
   background: var(--neutral-50); color: var(--text-muted); font-size: 13.5px;
 }
 .photo-failed.uncropped { aspect-ratio: 16 / 9; }
-.photo-note { font-size: 12px; color: var(--text-muted); }
+.photo-note { font-size: var(--text-xs); color: var(--text-muted); }
 
 /* 縮圖疊一層「看完整圖片」提示，滑過才浮現，避免常駐蓋住照片內容 */
 .photo-link { position: relative; display: block; }
 .photo-zoom-hint {
   position: absolute; right: 8px; bottom: 8px;
   display: inline-flex; align-items: center; gap: 3px;
-  padding: 3px 10px; border-radius: 999px;
-  background: var(--black-a60); color: var(--neutral-0); font-size: 12px; font-weight: 600;
+  padding: 3px 10px; border-radius: var(--radius-full);
+  background: var(--black-a60); color: var(--neutral-0); font-size: var(--text-xs); font-weight: 600;
   opacity: 0; transition: opacity 0.15s;
 }
 .photo-link:hover .photo-zoom-hint { opacity: 1; }

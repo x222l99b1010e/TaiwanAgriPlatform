@@ -204,7 +204,7 @@ async function handleSubmit() {
   align-items: center;
   justify-content: center;
   background: var(--bg);
-  padding: 24px;
+  padding: var(--space-6);
 }
 
 .login-card {
@@ -213,7 +213,7 @@ async function handleSubmit() {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 40px 36px;
+  padding: var(--space-10) 36px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
 }
 
@@ -231,8 +231,8 @@ async function handleSubmit() {
 }
 
 .card-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
   color: var(--text-primary);
   margin-bottom: 6px;
 }
@@ -245,17 +245,17 @@ async function handleSubmit() {
 /* Tab 切換 */
 .tab-group {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 4px;
-  margin-bottom: 24px;
+  padding: var(--space-1);
+  margin-bottom: var(--space-6);
 }
 
 .tab-btn {
   flex: 1;
-  padding: 8px 0;
+  padding: var(--space-2) 0;
   border-radius: 7px;
   border: none;
   background: transparent;
@@ -276,7 +276,7 @@ async function handleSubmit() {
 .form-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .field-group {
@@ -286,7 +286,7 @@ async function handleSubmit() {
 }
 
 .field-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -325,14 +325,14 @@ async function handleSubmit() {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   background: var(--danger-50);
   border: 1px solid var(--danger-100);
   border-radius: 10px;
 }
 
 .error-icon {
-  font-size: 18px;
+  font-size: var(--text-lg);
   color: var(--red);
   flex-shrink: 0;
   margin-top: 2px;
@@ -341,11 +341,11 @@ async function handleSubmit() {
 .error-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .error-content p {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--red);
   line-height: 1.5;
   margin: 0;

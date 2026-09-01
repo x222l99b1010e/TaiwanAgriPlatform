@@ -309,12 +309,12 @@ function isUrl(value: string): boolean {
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .filter-label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -326,12 +326,12 @@ function isUrl(value: string): boolean {
 }
 
 .tab-btn {
-  padding: 6px 16px;
-  border-radius: 999px;
+  padding: 6px var(--space-4);
+  border-radius: var(--radius-full);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -351,7 +351,7 @@ function isUrl(value: string): boolean {
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border);
   min-width: 130px;
 }
@@ -360,18 +360,18 @@ function isUrl(value: string): boolean {
   width: 90px;
   border: none;
   outline: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   background: transparent;
   color: var(--text-primary);
 }
 
-.custom-days-unit { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.custom-days-unit { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 
 .page-size-select {
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-primary);
   background: var(--surface);
 }
@@ -380,14 +380,14 @@ function isUrl(value: string): boolean {
 .table-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 /* 限制在框內、可上下左右捲動的關鍵 CSS */
 .table-wrapper {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
   max-height: 560px;
   overflow: auto;
@@ -397,7 +397,7 @@ function isUrl(value: string): boolean {
   width: 100%;
   min-width: 900px;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .violation-table thead th {
@@ -405,16 +405,16 @@ function isUrl(value: string): boolean {
   top: 0;
   background: var(--green-50);
   text-align: left;
-  padding: 12px 16px;
-  font-weight: 700;
+  padding: var(--space-3) var(--space-4);
+  font-weight: var(--weight-bold);
   color: var(--green-800);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  z-index: 1;
+  z-index: var(--z-base);
 }
 
 .violation-table td {
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
   vertical-align: top;
@@ -425,13 +425,13 @@ function isUrl(value: string): boolean {
 
 .cell-index {
   font-family: monospace;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   text-align: right;
   white-space: nowrap;
 }
 
-.cell-number { font-family: monospace; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.cell-number { font-family: monospace; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cell-product { font-weight: 600; }
 
@@ -441,7 +441,7 @@ function isUrl(value: string): boolean {
 
 .location-text {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-primary);
   white-space: normal;
   word-break: break-word;
@@ -452,8 +452,8 @@ function isUrl(value: string): boolean {
 .location-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
   color: var(--info-500);
   text-decoration: none;
   white-space: nowrap;
@@ -463,14 +463,14 @@ function isUrl(value: string): boolean {
   text-decoration: underline;
 }
 
-.cell-note { max-width: 220px; font-size: 12px; color: var(--text-muted); }
+.cell-note { max-width: 220px; font-size: var(--text-xs); color: var(--text-muted); }
 
 .result-badge {
   display: inline-block;
   padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   white-space: nowrap;
 }
 
@@ -484,50 +484,50 @@ function isUrl(value: string): boolean {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .pagination-info {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .pagination-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .page-size-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-right: 8px;
-  padding-right: 8px;
+  margin-right: var(--space-2);
+  padding-right: var(--space-2);
   border-right: 1px solid var(--border);
 }
 
 .jump-to-page {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-  padding-left: 8px;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  padding-left: var(--space-2);
   border-left: 1px solid var(--border);
 }
 
 .jump-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .jump-input {
   width: 50px;
-  padding: 4px 6px;
+  padding: var(--space-1) 6px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-sm);
   text-align: center;
   outline: none;
 }
@@ -535,13 +535,13 @@ function isUrl(value: string): boolean {
 .jump-input:focus { border-color: var(--green-500); }
 
 .jump-btn {
-  padding: 4px 10px;
+  padding: var(--space-1) 10px;
   border-radius: 6px;
   border: 1px solid var(--green-600);
   background: var(--green-600);
   color: var(--neutral-0);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   cursor: pointer;
 }
 
@@ -550,12 +550,12 @@ function isUrl(value: string): boolean {
 .page-btn {
   min-width: 32px;
   height: 32px;
-  padding: 0 8px;
-  border-radius: 8px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--text-sm);
   cursor: pointer;
   display: flex;
   align-items: center;

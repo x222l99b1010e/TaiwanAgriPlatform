@@ -129,14 +129,14 @@ onUnmounted(() => {
 .coordinate-picker {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .picker-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -144,20 +144,20 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .map-container {
   height: 600px;
   width: 100%;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   /* Leaflet 內部用絕對定位排版圖磚，容器沒有明確高度地圖會整個塌陷看不到 */
 }
 
 .picker-coords {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   font-family: monospace;
 }

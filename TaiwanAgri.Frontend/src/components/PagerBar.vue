@@ -69,31 +69,31 @@ function toNullableNumber(raw: string): number | null {
 </script>
 
 <style scoped>
-.pagination-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.pagination-info { font-size: 12px; color: var(--text-muted); }
-.pagination-controls { display: flex; align-items: center; gap: 4px; }
+.pagination-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
+.pagination-info { font-size: var(--text-xs); color: var(--text-muted); }
+.pagination-controls { display: flex; align-items: center; gap: var(--space-1); }
 .page-btn {
-  min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px;
+  min-width: 32px; height: 32px; padding: 0 var(--space-2); border-radius: var(--radius-md);
   border: 1px solid var(--border); background: var(--surface); color: var(--text-primary);
-  font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: var(--text-sm); cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .page-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .page-btn.active { background: var(--green); border-color: var(--green); color: var(--neutral-0); }
 
 .jump-to-page {
-  display: flex; align-items: center; gap: 4px;
-  margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--space-1);
+  margin-left: var(--space-2); padding-left: var(--space-2); border-left: 1px solid var(--border);
 }
-.jump-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.jump-label { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 .jump-input {
-  width: 50px; padding: 4px 6px; border-radius: 6px;
-  border: 1px solid var(--border); font-size: 13px; text-align: center; outline: none;
+  width: 50px; padding: var(--space-1) 6px; border-radius: 6px;
+  border: 1px solid var(--border); font-size: var(--text-sm); text-align: center; outline: none;
 }
 .jump-input:focus { border-color: var(--green); }
 .jump-btn {
-  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--green);
-  background: var(--green); color: var(--neutral-0); font-size: 12px; font-weight: 700; cursor: pointer;
+  padding: var(--space-1) 10px; border-radius: 6px; border: 1px solid var(--green);
+  background: var(--green); color: var(--neutral-0); font-size: var(--text-xs); font-weight: var(--weight-bold); cursor: pointer;
 }
 .jump-btn:hover { background: var(--green-hover); }
 </style>

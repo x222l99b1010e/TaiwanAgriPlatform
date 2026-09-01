@@ -263,19 +263,19 @@ watch(() => props.shelterId, () => {
 <style scoped>
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-bottom: 20px; color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
   text-decoration: none;
 }
 .back-link:hover { color: var(--green); }
 /* ── 篩選列（沿用 LegalBusinessView 的版面慣例） ── */
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .filter-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--text-primary); font-size: 14px;
   min-width: 130px; cursor: pointer;
 }
@@ -284,31 +284,31 @@ watch(() => props.shelterId, () => {
 .sort-control { display: flex; align-items: center; gap: 6px; }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
   color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
 }
 .sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-.loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; margin-left: auto; }
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); margin-left: auto; }
 .loading-spinner-sm {
   width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.stat-text { margin-left: auto; font-size: 13px; color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
 
 /* ── 狀態容器 ── */
 /* ── datagrid（沿用 LegalBusinessView 的表格慣例：高一點的可捲動容器，表頭黏頂） ── */
-.table-section { display: flex; flex-direction: column; gap: 16px; }
+.table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
   box-shadow: 0 2px 8px rgba(46,125,50,0.06); max-height: 720px; overflow: auto;
 }
-.data-table { width: 100%; min-width: 1020px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.data-table { width: 100%; min-width: 1020px; border-collapse: collapse; font-size: var(--text-sm); table-layout: fixed; }
 .data-table thead th {
-  position: sticky; top: 0; background: var(--green-50); text-align: left; padding: 12px 16px;
-  font-weight: 700; color: var(--green-800); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
+  position: sticky; top: 0; background: var(--green-50); text-align: left; padding: var(--space-3) var(--space-4);
+  font-weight: var(--weight-bold); color: var(--green-800); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: var(--z-base);
 }
-.data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
+.data-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
 .data-table tbody tr:hover { background: var(--green-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
@@ -323,13 +323,13 @@ watch(() => props.shelterId, () => {
 .col-date          { width: 110px; }
 .col-album         { width: 80px; }
 
-.cell-mono { font-family: monospace; font-size: 12px; color: var(--text-muted); white-space: normal; word-break: break-all; }
-.animal-link { color: var(--green); font-weight: 700; text-decoration: none; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--text-muted); white-space: normal; word-break: break-all; }
+.animal-link { color: var(--green); font-weight: var(--weight-bold); text-decoration: none; }
 .animal-link:hover { text-decoration: underline; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.cell-address { white-space: normal; word-break: break-word; font-size: 12px; }
+.cell-address { white-space: normal; word-break: break-word; font-size: var(--text-xs); }
 .cell-muted { color: var(--text-muted); }
 
-.album-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--info-500); text-decoration: none; white-space: nowrap; }
+.album-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .album-link:hover { text-decoration: underline; }
 </style>

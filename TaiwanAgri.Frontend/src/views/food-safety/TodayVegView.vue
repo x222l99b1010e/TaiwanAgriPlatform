@@ -95,7 +95,7 @@ onMounted(() => {
 .price-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 /* ── 單張卡片 ── */
@@ -103,11 +103,11 @@ onMounted(() => {
   background: var(--neutral-0);
   border: 1.5px solid var(--green-200);
   border-radius: 18px;
-  padding: 28px 32px;
+  padding: 28px var(--space-8);
   box-shadow: 0 4px 16px rgba(46, 125, 50, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
   transition: box-shadow 0.18s, transform 0.18s;
 }
 
@@ -124,7 +124,7 @@ onMounted(() => {
 }
 
 .crop-icon {
-  font-size: 22px;
+  font-size: var(--text-xl);
   color: var(--green-500);
 }
 
@@ -151,9 +151,9 @@ onMounted(() => {
 }
 
 .price-unit {
-  font-size: 15px;
+  font-size: var(--text-base);
   color: var(--neutral-600);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 /* ── 分隔線 ── */
@@ -166,29 +166,29 @@ onMounted(() => {
 .price-detail-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .price-detail-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   background: var(--green-50);
   border-radius: 10px;
-  padding: 10px 8px;
+  padding: 10px var(--space-2);
 }
 
 .detail-label {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--neutral-500);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
 
 .detail-value {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
@@ -201,7 +201,7 @@ onMounted(() => {
   display: none;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--neutral-400);
   font-variant-numeric: tabular-nums;
 }

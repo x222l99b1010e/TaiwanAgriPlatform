@@ -187,16 +187,16 @@ onMounted(fetchList)
 <style scoped>
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-bottom: 20px; color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-5); color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
   text-decoration: none;
 }
 .back-link:hover { color: var(--green); }
 /* ── 篩選列（跟 LostPetsView 同一套視覺語彙） ── */
 .status-tabs { display: flex; gap: 6px; }
 .tab-btn {
-  padding: 7px 16px; border-radius: 999px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600;
+  padding: 7px var(--space-4); border-radius: var(--radius-full); border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font-size: var(--text-sm); font-weight: 600;
   cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
 .tab-btn:hover { border-color: var(--green); color: var(--green); }
@@ -204,11 +204,11 @@ onMounted(fetchList)
 
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .filter-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+  padding: var(--space-2) 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface); color: var(--text-primary); font-size: 14px;
   min-width: 130px; cursor: pointer;
 }
@@ -217,7 +217,7 @@ onMounted(fetchList)
 .sort-control { display: flex; align-items: center; gap: 6px; }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
   color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
 }
 .sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
@@ -227,17 +227,17 @@ onMounted(fetchList)
 /* ── 貼文卡片格線 ── */
 .post-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 .post-card {
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: var(--space-2);
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  padding: 18px var(--space-5); box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .post-card-header { display: flex; align-items: center; }
 .status-badge {
-  display: inline-block; padding: 3px 12px; border-radius: 999px;
-  font-size: 12px; font-weight: 700;
+  display: inline-block; padding: 3px var(--space-3); border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: var(--weight-bold);
 }
 .status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
 .status-badge.found { background: var(--green-100); color: var(--green); }
@@ -245,12 +245,12 @@ onMounted(fetchList)
 
 .post-title-link { text-decoration: none; }
 .post-title-link:hover .post-title { color: var(--green); text-decoration: underline; }
-.post-title { font-size: 17px; font-weight: 700; color: var(--text-primary); transition: color 0.15s; }
-.post-meta { font-size: 13px; color: var(--text-muted); }
+.post-title { font-size: 17px; font-weight: var(--weight-bold); color: var(--text-primary); transition: color 0.15s; }
+.post-meta { font-size: var(--text-sm); color: var(--text-muted); }
 
 .btn-manage {
-  display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
-  margin-top: 4px; padding: 6px 14px; border-radius: 8px;
+  display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start;
+  margin-top: var(--space-1); padding: 6px 14px; border-radius: var(--radius-md);
   border: 1px solid var(--border); color: var(--text-secondary);
   font-size: 12.5px; font-weight: 600; text-decoration: none; transition: all 0.15s;
 }

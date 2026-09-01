@@ -62,7 +62,7 @@ const animationDuration = computed(() =>
   align-items: center;
   gap: 7px;
   padding: 0 22px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 800;
   color: var(--green-800);
   white-space: nowrap;
@@ -104,7 +104,7 @@ const animationDuration = computed(() =>
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  padding: 0 24px;
+  padding: 0 var(--space-6);
 }
 
 .ticker-crop {
@@ -121,15 +121,15 @@ const animationDuration = computed(() =>
 }
 
 .ticker-unit {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--green-500);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .ticker-dot {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--green-300);
-  padding-left: 4px;
+  padding-left: var(--space-1);
 }
 
 /* ── 右側日期 ── */
@@ -137,8 +137,8 @@ const animationDuration = computed(() =>
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 20px;
-  font-size: 12px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-xs);
   color: var(--green-600);
   font-weight: 600;
   white-space: nowrap;

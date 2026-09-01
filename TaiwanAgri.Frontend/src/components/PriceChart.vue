@@ -316,8 +316,8 @@ function exportChartImage() {
 .chart-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 28px 32px 36px;
+  border-radius: var(--radius-xl);
+  padding: 28px var(--space-8) 36px;
   animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
   box-sizing: border-box;
@@ -332,17 +332,17 @@ function exportChartImage() {
 .summary-bar {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
   flex-wrap: wrap;
   margin-bottom: 28px;
-  padding-bottom: 20px;
+  padding-bottom: var(--space-5);
   border-bottom: 1px solid var(--border);
 }
 
 .stat { display: flex; flex-direction: column; gap: 5px; }
 
 .stat-label {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.55 */
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -365,16 +365,16 @@ function exportChartImage() {
 .tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .crop-tag {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   padding: 2px 9px;
   border: 1px solid;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   opacity: 0.85;
   transition: opacity 0.2s;
 }
 .crop-tag:hover { opacity: 1; }
 
-.legend-note .stat-label { font-style: italic; font-size: 11px; }
+.legend-note .stat-label { font-style: italic; font-size: var(--text-2xs); }
 
 .canvas-wrap {
   position: relative;

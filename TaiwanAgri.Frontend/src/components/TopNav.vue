@@ -88,28 +88,28 @@ function handleLogout() {
   background: var(--green-800);
   color: var(--neutral-0);
   position: relative;
-  z-index: 100;
+  z-index: var(--z-dropdown);
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .top-nav-inner {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
   height: 100%;
   max-width: var(--container-lg);
   margin-inline: auto;
   padding-inline: var(--page-padding-x);
 }
 
-.logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: bold; }
+.logo { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: bold; }
 .logo-icon { font-size: 24px; }
-.module-tabs { display: flex; gap: 4px; flex: 1; }
+.module-tabs { display: flex; gap: var(--space-1); flex: 1; }
 .tab-wrapper { position: relative; }
 
 .tab {
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 6px;
+  padding: var(--space-2) var(--space-4); border-radius: 6px;
   color: var(--white-a80); text-decoration: none; font-size: 14px;
   transition: background 0.2s;
   white-space: nowrap;
@@ -125,16 +125,16 @@ function handleLogout() {
   background: var(--neutral-0);
   border: 1px solid var(--neutral-200);
   border-radius: 10px;
-  padding: 4px 6px 6px;
+  padding: var(--space-1) 6px 6px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 200;
+  z-index: var(--z-sticky);
 }
 
 .dropdown-item {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: var(--space-2);
   padding: 9px 14px; border-radius: 7px;
   color: var(--neutral-700); text-decoration: none; font-size: 13.5px;
   transition: background 0.15s, color 0.15s;
@@ -143,10 +143,10 @@ function handleLogout() {
 .dropdown-item:hover { background: var(--green-50); color: var(--neutral-900); }
 .dropdown-item.active { background: var(--green-100); color: var(--green-600); font-weight: 600; }
 
-.top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
 
 .login-btn {
-  padding: 6px 16px; border-radius: 6px;
+  padding: 6px var(--space-4); border-radius: 6px;
   border: 1px solid var(--white-a60);
   background: transparent; color: var(--neutral-0); cursor: pointer;
   transition: background 0.15s;

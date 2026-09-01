@@ -275,9 +275,9 @@ function handleSearch() {
 .info-hint {
   background: var(--info-50);
   border: 1px solid var(--info-100);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -287,8 +287,8 @@ function handleSearch() {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   color: var(--info-500);
 }
 
@@ -296,29 +296,29 @@ function handleSearch() {
 
 .hint-list {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .hint-list li {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--info-500);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
 }
 
 .example-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   margin-top: 2px;
 }
 
 .example-label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   color: var(--info-500);
   white-space: nowrap;
 }
@@ -327,12 +327,12 @@ function handleSearch() {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
-  border-radius: 999px;
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-full);
   border: 1px solid var(--info-100);
   background: var(--white-a70);
   color: var(--info-500);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -358,26 +358,26 @@ function handleSearch() {
 
 .chip-warn {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   background: var(--warning-50);
   color: var(--warning-500);
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   margin-left: 2px;
 }
 
 /* ── 搜尋列 ── */
 .search-bar {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   margin-bottom: 28px;
 }
 
 .search-input {
   flex: 1;
-  padding: 10px 16px;
+  padding: 10px var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   color: var(--text-primary);
   background: var(--surface);
@@ -394,44 +394,44 @@ function handleSearch() {
 .result-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-5);
 }
 
 .result-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px 28px;
+  border-radius: var(--radius-xl);
+  padding: var(--space-6) 28px;
   box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
 }
 
 .card-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--green-800);
-  margin-bottom: 20px;
-  padding-bottom: 12px;
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border);
 }
 
 .card-icon { font-size: 20px; color: var(--green-500); }
 
 /* ── 資訊列 ── */
-.info-grid { display: flex; flex-direction: column; gap: 12px; }
+.info-grid { display: flex; flex-direction: column; gap: var(--space-3); }
 
 .info-row {
   display: flex;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
 .info-label {
   width: 90px;
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   font-weight: 600;
   padding-top: 2px;
@@ -451,7 +451,7 @@ function handleSearch() {
   align-items: center;
   gap: 6px;
   font-family: monospace;
-  font-size: 13px;
+  font-size: var(--text-sm);
   background: var(--green-50);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -465,10 +465,10 @@ function handleSearch() {
 .status-badge {
   display: inline-block;
   align-self: flex-start;
-  padding: 3px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   flex: unset;
 }
 
@@ -489,33 +489,33 @@ function handleSearch() {
   background: var(--green-50);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 10px 16px;
+  padding: 10px var(--space-4);
   min-width: 100px;
 }
 
 .product-name {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--green-800);
 }
 
 .product-place, .product-mark {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-muted);
 }
 
 /* ── 蛋農 / 牧場子區塊 ── */
 .sub-section {
-  margin-top: 20px;
-  padding-top: 16px;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border);
 }
 
 .sub-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   color: var(--text-muted);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -533,24 +533,24 @@ function handleSearch() {
   background: var(--green-50);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 10px 16px;
+  padding: 10px var(--space-4);
   min-width: 140px;
 }
 
 .farmer-name {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--green-800);
 }
 
 .farmer-type {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--green-500);
   font-weight: 600;
 }
 
 .farmer-place {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-muted);
 }
 </style>

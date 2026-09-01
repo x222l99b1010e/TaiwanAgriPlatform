@@ -286,17 +286,17 @@ onMounted(() => {
   flex: 0 0 240px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
+  gap: var(--space-4);
+  padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   align-self: flex-start;
 }
 
 .filter-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -308,16 +308,16 @@ onMounted(() => {
 }
 
 .filter-label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   color: var(--text-muted);
 }
 
 .filter-input {
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-sm);
   background: var(--surface);
   color: var(--text-primary);
   outline: none;
@@ -326,24 +326,24 @@ onMounted(() => {
 .filter-input:focus { border-color: var(--green-500); }
 
 /* .filter-hint {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
   display: flex;
   gap: 6px;
   align-items: flex-start;
 } */
 .filter-hint {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--warning-500);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
   display: flex;
   gap: 6px;
   align-items: flex-start;
   background: var(--warning-50);
   border: 1px solid var(--warning-100);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  padding: 10px var(--space-3);
 }
 
 /* ── 右側結果區 ── */
@@ -351,7 +351,7 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
   min-width: 0;
 }
 
@@ -361,7 +361,7 @@ onMounted(() => {
 }
 
 .result-count {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -371,17 +371,17 @@ onMounted(() => {
 .cert-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .cert-card {
-  padding: 16px;
+  padding: var(--space-4);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* 決策：品項可能為多證號合併時，僅用邊框變色提示，不額外加文字標籤 */
@@ -397,15 +397,15 @@ onMounted(() => {
 
 .cert-sn {
   font-family: monospace;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .status-badge {
   padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
 }
 
 .status-badge.active { background: var(--green-100); color: var(--green-600); }
@@ -413,13 +413,13 @@ onMounted(() => {
 .status-badge.inactive { background: var(--neutral-200); color: var(--neutral-700); }
 
 .cert-operator {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
   color: var(--text-primary);
 }
 
 .cert-row {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-primary);
   line-height: 1.5;
 }
@@ -427,7 +427,7 @@ onMounted(() => {
 .cert-row-products {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .cert-row-products .cert-label {
@@ -435,7 +435,7 @@ onMounted(() => {
 }
 
 .products-text-clamp {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-primary);
   line-height: 1.5;
   display: -webkit-box;
@@ -448,9 +448,9 @@ onMounted(() => {
 .products-list {
   margin: 0;
   padding-left: 18px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -458,11 +458,11 @@ onMounted(() => {
 
 .expand-toggle {
   align-self: flex-start;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   padding: 3px 10px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--green-100);
   color: var(--green-600);
   cursor: pointer;
@@ -486,7 +486,7 @@ onMounted(() => {
   display: inline-block;
   min-width: 60px;
   color: var(--text-muted);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 /* ── 分頁列（跟 ViolationWallView 相同結構） ── */
@@ -495,31 +495,31 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
-.pagination-info { font-size: 12px; color: var(--text-muted); }
+.pagination-info { font-size: var(--text-xs); color: var(--text-muted); }
 
 .pagination-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .page-size-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-right: 8px;
-  padding-right: 8px;
+  margin-right: var(--space-2);
+  padding-right: var(--space-2);
   border-right: 1px solid var(--border);
 }
 
 .page-size-select {
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-primary);
   background: var(--surface);
 }
@@ -527,32 +527,32 @@ onMounted(() => {
 .jump-to-page {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-  padding-left: 8px;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  padding-left: var(--space-2);
   border-left: 1px solid var(--border);
 }
 
-.jump-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.jump-label { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 
 .jump-input {
   width: 50px;
-  padding: 4px 6px;
+  padding: var(--space-1) 6px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-sm);
   text-align: center;
   outline: none;
 }
 
 .jump-btn {
-  padding: 4px 10px;
+  padding: var(--space-1) 10px;
   border-radius: 6px;
   border: 1px solid var(--green-600);
   background: var(--green-600);
   color: var(--neutral-0);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   cursor: pointer;
 }
 .jump-btn:hover { background: var(--green-500); }
@@ -560,12 +560,12 @@ onMounted(() => {
 .page-btn {
   min-width: 32px;
   height: 32px;
-  padding: 0 8px;
-  border-radius: 8px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--text-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
