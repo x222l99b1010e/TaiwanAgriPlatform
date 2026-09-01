@@ -394,8 +394,8 @@ async function handleSearch() {
 /* ── 頁首 ── */
 /* ── 說明區塊 ── */
 .info-hint {
-  background: #e3f2fd;
-  border: 1px solid rgba(21, 101, 192, 0.20);
+  background: var(--info-50);
+  border: 1px solid var(--info-100);
   border-radius: 12px;
   padding: 16px 20px;
   margin-bottom: 20px;
@@ -410,7 +410,7 @@ async function handleSearch() {
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  color: #1565c0;
+  color: var(--info-500);
 }
 
 .hint-icon { font-size: 17px; }
@@ -423,7 +423,7 @@ async function handleSearch() {
   gap: 4px;
 }
 
-.hint-list li { font-size: 13px; color: #1565c0; line-height: 1.6; }
+.hint-list li { font-size: 13px; color: var(--info-500); line-height: 1.6; }
 
 .example-row {
   display: flex;
@@ -436,7 +436,7 @@ async function handleSearch() {
 .example-label {
   font-size: 12px;
   font-weight: 700;
-  color: #1565c0;
+  color: var(--info-500);
   white-space: nowrap;
 }
 
@@ -446,9 +446,9 @@ async function handleSearch() {
   gap: 5px;
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(21, 101, 192, 0.30);
-  background: rgba(255, 255, 255, 0.70);
-  color: #1565c0;
+  border: 1px solid var(--info-100);
+  background: var(--white-a70);
+  color: var(--info-500);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -456,21 +456,21 @@ async function handleSearch() {
 }
 
 .example-chip:hover {
-  background: #fff;
-  border-color: #1565c0;
+  background: var(--neutral-0);
+  border-color: var(--info-500);
   box-shadow: 0 1px 4px rgba(21, 101, 192, 0.15);
 }
 
-.example-chip--warn { border-color: rgba(198, 40, 40, 0.30); color: #c62828; }
-.example-chip--warn:hover { border-color: #c62828; box-shadow: 0 1px 4px rgba(198, 40, 40, 0.15); }
+.example-chip--warn { border-color: var(--danger-100); color: var(--danger-500); }
+.example-chip--warn:hover { border-color: var(--danger-500); box-shadow: 0 1px 4px rgba(198, 40, 40, 0.15); }
 
 .chip-icon { font-size: 14px; }
 
 .chip-warn {
   font-size: 10px;
   font-weight: 700;
-  background: rgba(198, 40, 40, 0.12);
-  color: #c62828;
+  background: var(--danger-50);
+  color: var(--danger-500);
   padding: 1px 6px;
   border-radius: 999px;
   margin-left: 2px;
@@ -508,10 +508,10 @@ async function handleSearch() {
   box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
 }
 
-.search-input--invalid { border-color: #e57373; }
-.search-input--invalid:focus { border-color: #c62828; box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12); }
+.search-input--invalid { border-color: var(--danger-500); }
+.search-input--invalid:focus { border-color: var(--danger-500); box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12); }
 
-.field-error { font-size: 11px; color: #c62828; }
+.field-error { font-size: 11px; color: var(--danger-500); }
 .revoked-toggle {
   display: inline-flex;
   align-items: center;
@@ -530,12 +530,12 @@ async function handleSearch() {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fff8e1;
-  border: 1px solid #ffe082;
+  background: var(--warning-50);
+  border: 1px solid var(--warning-100);
   border-radius: 10px;
   padding: 12px 18px;
   font-size: 13px;
-  color: #e65100;
+  color: var(--warning-500);
 }
 
 .result-card {
@@ -559,7 +559,7 @@ async function handleSearch() {
 
 .ingredient-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 
-.ingredient-name { font-size: 19px; font-weight: 700; color: #1b5e20; }
+.ingredient-name { font-size: 19px; font-weight: 700; color: var(--green-800); }
 .ingredient-en { font-size: 13px; color: var(--text-muted); font-family: monospace; }
 
 .ingredient-meta { display: flex; align-items: center; gap: 8px; }
@@ -575,12 +575,12 @@ async function handleSearch() {
   white-space: nowrap;
 }
 
-.badge--exact { background: #e8f5e9; color: #2e7d32; }
-.badge--category { background: #e3f2fd; color: #1565c0; }
-.badge--type { background: #f3e5f5; color: #6a1b9a; }
-.badge--valid { background: #e8f5e9; color: #2e7d32; }
-.badge--revoked { background: #ffebee; color: #c62828; margin-right: 4px; }
-.badge--expired { background: #fff3e0; color: #e65100; }
+.badge--exact { background: var(--green-100); color: var(--green-600); }
+.badge--category { background: var(--info-50); color: var(--info-500); }
+.badge--type { background: var(--purple-50); color: var(--purple-500); }
+.badge--valid { background: var(--green-100); color: var(--green-600); }
+.badge--revoked { background: var(--danger-50); color: var(--danger-500); margin-right: 4px; }
+.badge--expired { background: var(--warning-50); color: var(--warning-500); }
 
 /* ── 劑型分頁 ── */
 .form-tabs {
@@ -603,17 +603,17 @@ async function handleSearch() {
   transition: all 0.15s;
 }
 
-.form-tab:hover { border-color: #81c784; background: #f1f8f1; }
+.form-tab:hover { border-color: var(--green-400); background: var(--green-50); }
 
 .form-tab--active {
-  border-color: #2e7d32;
-  background: #f1f8f1;
+  border-color: var(--green-600);
+  background: var(--green-50);
   box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.12);
 }
 
 .form-tab--technical { opacity: 0.75; }
 
-.form-tab-name { font-size: 13px; font-weight: 700; color: #1b5e20; }
+.form-tab-name { font-size: 13px; font-weight: 700; color: var(--green-800); }
 .form-tab-contents { font-size: 11px; color: var(--text-muted); font-family: monospace; }
 .form-tab-count { font-size: 10px; color: var(--text-muted); }
 
@@ -624,7 +624,7 @@ async function handleSearch() {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f5f5f5;
+  background: var(--neutral-100);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px 18px;
@@ -632,7 +632,7 @@ async function handleSearch() {
   color: var(--text-muted);
 }
 
-.notice-box--warn { background: #fff8e1; border-color: #ffe082; color: #e65100; }
+.notice-box--warn { background: var(--warning-50); border-color: var(--warning-100); color: var(--warning-500); }
 
 .block-header {
   display: flex;
@@ -649,16 +649,16 @@ async function handleSearch() {
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  color: #1b5e20;
+  color: var(--green-800);
 }
 
-.card-icon { font-size: 18px; color: #43a047; }
+.card-icon { font-size: 18px; color: var(--green-500); }
 
 .block-count {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
-  background: #f1f8f1;
+  background: var(--green-50);
   border-radius: 999px;
   padding: 2px 8px;
 }
@@ -709,14 +709,14 @@ async function handleSearch() {
   vertical-align: top;
 }
 
-.usage-table tbody tr:hover, .license-table tbody tr:hover { background: #f9fbf9; }
+.usage-table tbody tr:hover, .license-table tbody tr:hover { background: var(--green-50); }
 
 .cell-strong { font-weight: 600; }
 .cell-mono { font-family: monospace; font-size: 12px; white-space: nowrap; }
 .cell-note { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 
 /* 安全採收期是本功能最關鍵的欄位（用錯會農藥殘留超標），視覺上獨立標示 */
-.col-highlight { background: #f1f8f1; }
+.col-highlight { background: var(--green-50); }
 
 /* ── 許可證區塊 ── */
 .license-block { border-top: 1px solid var(--border); padding-top: 16px; }
@@ -730,7 +730,7 @@ async function handleSearch() {
   padding: 0 0 12px;
   font-size: 15px;
   font-weight: 700;
-  color: #1b5e20;
+  color: var(--green-800);
   cursor: pointer;
 }
 

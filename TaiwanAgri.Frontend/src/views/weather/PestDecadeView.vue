@@ -131,15 +131,14 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import {
+  seriesColor, pointBorderColor, axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
 // ── 色盤 ─────────────────────────────────────────────
-const PALETTE = [
-  '#2e7d32', '#e65100', '#1565c0', '#6a1b9a', '#c77700',
-  '#00695c', '#b71c1c', '#0277bd', '#558b2f', '#f57f17',
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
+
 
 // ── 狀態 ─────────────────────────────────────────────
 const pestNames      = ref<string[]>([])
@@ -200,13 +199,13 @@ const chartData = computed(() => {
   const datasets = Object.entries(groups).map(([city, timeMap], i) => ({
     label: city,
     data: labels.map(l => timeMap[l] ?? null),
-    borderColor: getColor(i),
+    borderColor: seriesColor(i),
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: 3.5,
     pointHoverRadius: 7,
-    pointBackgroundColor: getColor(i),
-    pointBorderColor: 'rgba(0,0,0,0.15)',
+    pointBackgroundColor: seriesColor(i),
+    pointBorderColor: pointBorderColor(),
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
@@ -232,44 +231,30 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 10,
-            color: 'rgba(26,40,32,0.70)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.12)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
-          ticks: {
-            color: 'rgba(26,40,32,0.70)',
-            font: { size: 12 },
-          },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.12)' },
+          ticks: axisTicks(),
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
           },
         },
         legend: {
-          labels: {
-            color: 'rgba(26,40,32,0.85)',
-            font: { size: 13 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -354,7 +339,7 @@ async function handleQuery() {
 /* 摘要卡片 */
 .stat-label {
   font-size: 12px;
-  color: rgba(26,40,32,0.60);
+  color: var(--neutral-500);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   font-weight: 600;
@@ -362,7 +347,7 @@ async function handleQuery() {
 .stat-value {
   font-size: 26px;
   font-weight: 700;
-  color: #1a5c20;
+  color: var(--green-800);
 }
 .stat-value.pest-name { font-size: 18px; }
 
@@ -376,7 +361,7 @@ async function handleQuery() {
 .chart-title {
   font-size: 14px;
   font-weight: 700;
-  color: rgba(26,40,32,0.75);
+  color: var(--neutral-600);
   letter-spacing: 0.04em;
 }
 .toolbar-right { display: flex; align-items: center; gap: 10px; }
@@ -395,7 +380,7 @@ async function handleQuery() {
   padding: 12px 18px; text-align: left;
   font-size: 13px;
   font-weight: 700;
-  color: rgba(26,40,32,0.70);
+  color: var(--neutral-600);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   border-bottom: 1px solid var(--border);
@@ -407,13 +392,13 @@ async function handleQuery() {
 /* 表格內文 */
 .data-table td {
   padding: 11px 18px;
-  color: rgba(26,40,32,0.85);
+  color: var(--neutral-700);
   font-size: 14px;
 }
 
-.city-cell  { font-weight: 700; color: #1a5c20; }
-.town-cell  { color: rgba(26,40,32,0.60); }
+.city-cell  { font-weight: 700; color: var(--green-800); }
+.town-cell  { color: var(--neutral-500); }
 .density-val { font-weight: 700; }
-.level-mid  { color: #c77700; }
+.level-mid  { color: var(--warning-500); }
 .level-high { color: var(--red); }
 </style>

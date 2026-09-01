@@ -120,9 +120,9 @@ watch(() => props.animalId, fetchDetail)
 .detail-header { display: flex; gap: 8px; }
 .kind-badge, .sex-badge {
   display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
-  background: #e8f5e9; color: var(--green);
+  background: var(--green-100); color: var(--green);
 }
-.sex-badge { background: #e3f2fd; color: #1565c0; }
+.sex-badge { background: var(--info-50); color: var(--info-500); }
 
 .detail-title { font-size: 24px; font-weight: 700; color: var(--text-primary); font-family: monospace; }
 .detail-meta { font-size: 13.5px; color: var(--text-muted); }
@@ -143,7 +143,7 @@ watch(() => props.animalId, fetchDetail)
 .detail-actions { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
 .action-link {
   display: inline-flex; align-items: center; gap: 5px;
-  color: #1565c0; font-size: 13.5px; font-weight: 600; text-decoration: none;
+  color: var(--info-500); font-size: 13.5px; font-weight: 600; text-decoration: none;
 }
 .action-link:hover { text-decoration: underline; }
 </style>

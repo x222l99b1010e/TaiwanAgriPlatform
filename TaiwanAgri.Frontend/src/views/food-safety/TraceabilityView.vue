@@ -273,8 +273,8 @@ function handleSearch() {
 
 /* ── 說明區塊 ── */
 .info-hint {
-  background: #e3f2fd;
-  border: 1px solid rgba(21, 101, 192, 0.20);
+  background: var(--info-50);
+  border: 1px solid var(--info-100);
   border-radius: 12px;
   padding: 16px 20px;
   margin-bottom: 20px;
@@ -289,7 +289,7 @@ function handleSearch() {
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  color: #1565c0;
+  color: var(--info-500);
 }
 
 .hint-icon { font-size: 17px; }
@@ -304,7 +304,7 @@ function handleSearch() {
 
 .hint-list li {
   font-size: 13px;
-  color: #1565c0;
+  color: var(--info-500);
   line-height: 1.6;
 }
 
@@ -319,7 +319,7 @@ function handleSearch() {
 .example-label {
   font-size: 12px;
   font-weight: 700;
-  color: #1565c0;
+  color: var(--info-500);
   white-space: nowrap;
 }
 
@@ -329,9 +329,9 @@ function handleSearch() {
   gap: 5px;
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(21, 101, 192, 0.30);
-  background: rgba(255, 255, 255, 0.70);
-  color: #1565c0;
+  border: 1px solid var(--info-100);
+  background: var(--white-a70);
+  color: var(--info-500);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -339,18 +339,18 @@ function handleSearch() {
 }
 
 .example-chip:hover {
-  background: #fff;
-  border-color: #1565c0;
+  background: var(--neutral-0);
+  border-color: var(--info-500);
   box-shadow: 0 1px 4px rgba(21, 101, 192, 0.15);
 }
 
 .example-chip--warn {
-  border-color: rgba(230, 81, 0, 0.30);
-  color: #e65100;
+  border-color: var(--warning-100);
+  color: var(--warning-500);
 }
 
 .example-chip--warn:hover {
-  border-color: #e65100;
+  border-color: var(--warning-500);
   box-shadow: 0 1px 4px rgba(230, 81, 0, 0.15);
 }
 
@@ -359,8 +359,8 @@ function handleSearch() {
 .chip-warn {
   font-size: 10px;
   font-weight: 700;
-  background: rgba(230, 81, 0, 0.12);
-  color: #e65100;
+  background: var(--warning-50);
+  color: var(--warning-500);
   padding: 1px 6px;
   border-radius: 999px;
   margin-left: 2px;
@@ -411,13 +411,13 @@ function handleSearch() {
   gap: 8px;
   font-size: 16px;
   font-weight: 700;
-  color: #1b5e20;
+  color: var(--green-800);
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
-.card-icon { font-size: 20px; color: #43a047; }
+.card-icon { font-size: 20px; color: var(--green-500); }
 
 /* ── 資訊列 ── */
 .info-grid { display: flex; flex-direction: column; gap: 12px; }
@@ -452,7 +452,7 @@ function handleSearch() {
   gap: 6px;
   font-family: monospace;
   font-size: 13px;
-  background: #f1f8f1;
+  background: var(--green-50);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 3px 10px;
@@ -472,8 +472,8 @@ function handleSearch() {
   flex: unset;
 }
 
-.status-badge.pass { background: #e8f5e9; color: #2e7d32; }
-.status-badge.fail { background: #fff3e0; color: #e65100; }
+.status-badge.pass { background: var(--green-100); color: var(--green-600); }
+.status-badge.fail { background: var(--warning-50); color: var(--warning-500); }
 
 /* ── 農產品標籤 ── */
 .product-list {
@@ -486,7 +486,7 @@ function handleSearch() {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #f1f8f1;
+  background: var(--green-50);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 16px;
@@ -496,7 +496,7 @@ function handleSearch() {
 .product-name {
   font-size: 14px;
   font-weight: 700;
-  color: #1b5e20;
+  color: var(--green-800);
 }
 
 .product-place, .product-mark {
@@ -530,7 +530,7 @@ function handleSearch() {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  background: #f1f8f1;
+  background: var(--green-50);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 16px;
@@ -540,12 +540,12 @@ function handleSearch() {
 .farmer-name {
   font-size: 14px;
   font-weight: 700;
-  color: #1b5e20;
+  color: var(--green-800);
 }
 
 .farmer-type {
   font-size: 12px;
-  color: #43a047;
+  color: var(--green-500);
   font-weight: 600;
 }
 

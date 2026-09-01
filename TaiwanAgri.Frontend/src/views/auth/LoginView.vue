@@ -326,8 +326,8 @@ async function handleSubmit() {
   align-items: flex-start;
   gap: 10px;
   padding: 12px 16px;
-  background: rgba(198, 40, 40, 0.06);
-  border: 1px solid rgba(198, 40, 40, 0.20);
+  background: var(--danger-50);
+  border: 1px solid var(--danger-100);
   border-radius: 10px;
 }
 

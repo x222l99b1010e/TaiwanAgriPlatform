@@ -125,15 +125,12 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import {
+  seriesColor, pointBorderColor, exportBackground,
+  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
-
-// ── 色盤 ─────────────────────────────────────────────────────────────────
-const PALETTE = [
-  '#2e7d32', '#e65100', '#1565c0', '#6a1b9a', '#c77700',
-  '#00695c', '#b71c1c', '#0277bd', '#558b2f', '#f57f17',
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 
 // ── 副指標選項 ────────────────────────────────────────────────────────────
 type MetricKey = 'excludeFreezerAvgPrice' | 'excludeFreezerAvgWeight' | 'excludeFreezerCount'
@@ -206,13 +203,13 @@ const chartData = computed(() => {
   const datasets = Object.entries(groups).map(([marketName, dateMap], i) => ({
     label: marketName,
     data: labels.map(date => dateMap[date] ?? null),  // 該日期沒資料 → null（Chart.js 會跳過）
-    borderColor: getColor(i),
+    borderColor: seriesColor(i),
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: labels.length <= 90 ? 3 : 0,
     pointHoverRadius: 7,
-    pointBackgroundColor: getColor(i),
-    pointBorderColor: 'rgba(0,0,0,0.15)',
+    pointBackgroundColor: seriesColor(i),
+    pointBorderColor: pointBorderColor(),
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
@@ -239,33 +236,26 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 12,
-            color: 'rgba(26,40,32,0.75)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
           ticks: {
-            color: 'rgba(26,40,32,0.75)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback: (val) => `${val} ${unit}`,
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} ${unit}` : '',
@@ -273,12 +263,7 @@ function buildChart() {
         },
         legend: {
           position: 'top',
-          labels: {
-            color: 'rgba(26,40,32,0.85)',
-            font: { size: 12 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -346,7 +331,7 @@ function exportChartImage() {
   exportCanvas.height = canvas.height
 
   const ctx = exportCanvas.getContext('2d')!
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = exportBackground()
   ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
   ctx.drawImage(canvas, 0, 0)
 
@@ -389,11 +374,11 @@ function exportChartImage() {
 }
 .metric-tab {
   padding: 6px 14px; border-radius: 6px; border: none;
-  background: transparent; color: rgba(26,40,32,0.60);
+  background: transparent; color: var(--neutral-500);
   font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
 }
 .metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: #e8f5e9; color: var(--green); font-weight: 700; }
+.metric-tab.active { background: var(--green-100); color: var(--green); font-weight: 700; }
 
 /* 按鈕 */
 /* 摘要列 */
@@ -407,10 +392,10 @@ function exportChartImage() {
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .stat-label {
-  font-size: 12px; color: rgba(26,40,32,0.60);
+  font-size: 12px; color: var(--neutral-500);
   letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
 }
-.stat-value { font-size: 26px; font-weight: 700; color: #1a5c20; }
+.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
 
 /* 圖表卡片 */
 .chart-card {
@@ -422,7 +407,7 @@ function exportChartImage() {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 24px;
 }
-.chart-title { font-size: 15px; font-weight: 700; color: rgba(26,40,32,0.80); }
+.chart-title { font-size: 15px; font-weight: 700; color: var(--neutral-700); }
 .canvas-wrap { position: relative; height: 500px; width: 100%; }
 .query-hint {
   display: flex;
@@ -430,16 +415,16 @@ function exportChartImage() {
   gap: 8px;
   padding: 10px 16px;
   border-radius: 8px;
-  background: #e3f2fd;
-  border: 1px solid rgba(21,101,192,0.20);
-  color: #1565c0;
+  background: var(--info-50);
+  border: 1px solid var(--info-100);
+  color: var(--info-500);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
 }
 .query-hint.success {
-  background: #e8f5e9;
-  border-color: rgba(46,125,50,0.20);
+  background: var(--green-100);
+  border-color: var(--green-200);
   color: var(--green);
 }
 .hint-icon {

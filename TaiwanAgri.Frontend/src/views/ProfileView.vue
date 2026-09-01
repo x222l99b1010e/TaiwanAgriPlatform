@@ -199,7 +199,7 @@ async function handleSave() {
 .loading,
 .profile-form { max-width: var(--container-sm); }
 .loading {
-  color: var(--color-text-secondary);
+  color: var(--neutral-500);
   padding: 2rem;
   text-align: center;
 }
@@ -213,21 +213,21 @@ async function handleSave() {
   gap: 0.75rem;
   padding: 1rem 1.25rem;
   margin-bottom: 1.5rem;
-  border: 2px solid #2e7d32;
+  border: 2px solid var(--green-600);
   border-radius: 12px;
-  background: #e8f5e9;
-  color: #1b5e20;
+  background: var(--green-100);
+  color: var(--green-800);
   font-size: 1.05rem;
   font-weight: 700;
   text-decoration: none;
   box-shadow: 0 2px 6px rgba(46, 125, 50, 0.12);
   transition: background 0.15s, box-shadow 0.15s;
 }
-.section-link:hover { background: #d5ecd6; box-shadow: 0 3px 10px rgba(46, 125, 50, 0.20); }
+.section-link:hover { background: var(--green-200); box-shadow: 0 3px 10px rgba(46, 125, 50, 0.20); }
 .section-link .mdi-dog-side {
   display: inline-flex; align-items: center; justify-content: center;
   width: 2rem; height: 2rem; border-radius: 50%;
-  background: #2e7d32; color: white; font-size: 1.1rem; flex-shrink: 0;
+  background: var(--green-600); color: var(--neutral-0); font-size: 1.1rem; flex-shrink: 0;
 }
 .section-link .mdi-chevron-right { margin-left: auto; font-size: 1.2rem; }
 
@@ -240,16 +240,16 @@ async function handleSave() {
 
 label {
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--neutral-900);
   font-size: 0.95rem;
 }
 
 select {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--neutral-200);
   border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-text-primary);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
   font-size: 0.95rem;
 }
 
@@ -266,8 +266,8 @@ select {
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem 0.75rem;
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--green-100);
+  color: var(--green-600);
   border-radius: 20px;
   font-size: 0.875rem;
   font-weight: 500;
@@ -276,7 +276,7 @@ select {
 .crop-tag button {
   background: none;
   border: none;
-  color: #2e7d32;
+  color: var(--green-600);
   cursor: pointer;
   padding: 0;
   font-size: 0.75rem;
@@ -296,10 +296,10 @@ select {
 .crop-search-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--neutral-200);
   border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-text-primary);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
   font-size: 0.95rem;
   box-sizing: border-box;
 }
@@ -309,8 +309,8 @@ select {
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border: 1px solid var(--color-border);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 100;
@@ -325,16 +325,16 @@ select {
   padding: 0.6rem 0.75rem;
   cursor: pointer;
   font-size: 0.9rem;
-  color: #3a4a40;
+  color: var(--neutral-700);
 }
 
 .autocomplete-item:hover {
-  background: #f0f4f0;
+  background: var(--green-50);
 }
 
 .crop-code {
   font-size: 0.75rem;
-  color: #888;
+  color: var(--neutral-500);
 }
 
 /* 儲存按鈕 */
@@ -342,9 +342,9 @@ select {
   margin-top: 0.5rem;
   padding: 9px 28px;
   border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
+  border: 1px solid var(--green-800);
+  background: linear-gradient(180deg, var(--green-500) 0%, var(--green-600) 40%, var(--green-800) 100%);
+  color: var(--neutral-0);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -356,7 +356,7 @@ select {
 }
 
 .save-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
+  background: linear-gradient(180deg, var(--green-400) 0%, var(--green-500) 40%, var(--green-600) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.45),
     inset 0 -2px 4px rgba(0,0,0,0.20),
@@ -364,28 +364,28 @@ select {
 }
 
 .save-btn:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
+  background: linear-gradient(180deg, var(--green-800) 0%, var(--green-600) 60%, var(--green-500) 100%);
   box-shadow:
     inset 0 2px 6px rgba(0,0,0,0.35),
     0 1px 3px rgba(0,0,0,0.15);
 }
 
 .save-btn:disabled {
-  background: #c8d8c8;
-  color: #999;
-  border-color: #b0c8b0;
+  background: var(--neutral-300);
+  color: var(--neutral-400);
+  border-color: var(--neutral-400);
   box-shadow: none;
   cursor: not-allowed;
 }
 
 .error {
-  color: #e53e3e;
+  color: var(--danger-500);
   font-size: 0.9rem;
   margin-bottom: 0.5rem;
 }
 
 .success {
-  color: #38a169;
+  color: var(--green-500);
   font-size: 0.9rem;
   margin-bottom: 0.5rem;
 }

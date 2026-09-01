@@ -115,10 +115,10 @@ onMounted(() => store.initialize())
   transition: all 0.18s;
 }
 .tab-btn:hover:not(:disabled) {
-  border-color: var(--green); color: var(--green); background: #f0f7f0;
+  border-color: var(--green); color: var(--green); background: var(--green-50);
 }
 .tab-btn.active {
-  background: #e8f5e9; border-color: var(--green);
+  background: var(--green-100); border-color: var(--green);
   color: var(--green); font-weight: 600;
 }
 .tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -150,14 +150,14 @@ onMounted(() => store.initialize())
 /* badge 深色立體 */
 .count-badge {
   font-size: 11px; padding: 2px 9px; border-radius: 999px;
-  background: #00897b;
-  color: white;
+  background: var(--teal-500);
+  color: var(--neutral-0);
   font-weight: 600; letter-spacing: 0; text-transform: none;
   box-shadow: 0 1px 3px rgba(0,137,123,0.35);
 }
 .count-badge.full {
-  background: #bf360c;
-  color: white;
+  background: var(--warning-700);
+  color: var(--neutral-0);
   box-shadow: 0 1px 3px rgba(191,54,12,0.35);
 }
 
@@ -175,10 +175,10 @@ onMounted(() => store.initialize())
   white-space: nowrap;
 }
 .crop-btn:hover:not(.disabled) {
-  border-color: var(--green); color: var(--green); background: #f0f7f0;
+  border-color: var(--green); color: var(--green); background: var(--green-50);
 }
 .crop-btn.selected {
-  background: #e8f5e9; border-color: var(--green); color: var(--green);
+  background: var(--green-100); border-color: var(--green); color: var(--green);
 }
 .crop-btn.disabled { opacity: 0.35; cursor: not-allowed; }
 .check-dot { font-size: 11px; font-weight: 700; }
@@ -191,11 +191,11 @@ onMounted(() => store.initialize())
   max-height: 200px; overflow-y: auto; overflow-x: hidden;
   border: 1px solid var(--border); border-radius: 10px;
   padding: 12px; background: var(--surface-2);
-  scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.15) transparent;
+  scrollbar-width: thin; scrollbar-color: var(--neutral-300) transparent;
 }
 .crop-container::-webkit-scrollbar { width: 5px; }
 .crop-container::-webkit-scrollbar-track { background: transparent; }
-.crop-container::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
+.crop-container::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: 999px; }
 
 .crop-search-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .crop-search {

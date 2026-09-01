@@ -200,7 +200,7 @@ onMounted(fetchList)
   cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
 .tab-btn:hover { border-color: var(--green); color: var(--green); }
-.tab-btn.active { background: var(--green); border-color: var(--green); color: white; }
+.tab-btn.active { background: var(--green); border-color: var(--green); color: var(--neutral-0); }
 
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
@@ -239,9 +239,9 @@ onMounted(fetchList)
   display: inline-block; padding: 3px 12px; border-radius: 999px;
   font-size: 12px; font-weight: 700;
 }
-.status-badge.searching { background: #fff3e0; color: #e65100; }
-.status-badge.found { background: #e8f5e9; color: var(--green); }
-.status-badge.withdrawn { background: #f0f0f0; color: #757575; }
+.status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
+.status-badge.found { background: var(--green-100); color: var(--green); }
+.status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }
 
 .post-title-link { text-decoration: none; }
 .post-title-link:hover .post-title { color: var(--green); text-decoration: underline; }

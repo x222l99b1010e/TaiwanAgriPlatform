@@ -131,7 +131,7 @@ async function handleQuery() {
 
 .town-name {
   font-size: 13px;        /* 從 12px → 13px */
-  color: rgba(26,40,32,0.55);  /* 從 text-muted → 深一點 */
+  color: var(--neutral-500);  /* 從 text-muted → 深一點 */
 }
 
 .card-body {
@@ -141,28 +141,28 @@ async function handleQuery() {
 
 .metric { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .metric-icon { font-size: 22px; }
-.temp  { color: #e53935; }
-.humid { color: #1e88e5; }
-.wind  { color: #43a047; }
-.rain  { color: #00acc1; }
+.temp  { color: var(--danger-500); }
+.humid { color: var(--info-500); }
+.wind  { color: var(--green-500); }
+.rain  { color: var(--teal-600); }
 
 /* 數值加大加深加粗 */
 .metric-value {
   font-size: 20px;        /* 從 16px → 20px */
   font-weight: 700;
-  color: #1a2820;         /* 直接用最深色，不透明 */
+  color: var(--neutral-900);         /* 直接用最深色，不透明 */
 }
 
 .metric-label {
   font-size: 13px;        /* 從 11px → 13px */
-  color: rgba(26,40,32,0.60);  /* 從 text-muted(0.40) → 0.60 */
+  color: var(--neutral-500);  /* 從 text-muted(0.40) → 0.60 */
   font-weight: 600;
 }
 
 /* 更新時間也深一點 */
 .card-footer {
   font-size: 12px;        /* 從 11px → 12px */
-  color: rgba(26,40,32,0.50);  /* 從 0.35 → 0.50 */
+  color: var(--neutral-500);  /* 從 0.35 → 0.50 */
   text-align: right;
   border-top: 1px solid var(--border);
   padding-top: 10px;

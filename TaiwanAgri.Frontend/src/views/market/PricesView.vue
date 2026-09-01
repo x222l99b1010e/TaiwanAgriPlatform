@@ -192,7 +192,7 @@ function handleExportCsv() {
   border-radius: 14px; padding: 22px;
   max-height: 600px; overflow-y: auto;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.15) transparent;
+  scrollbar-width: thin; scrollbar-color: var(--neutral-300) transparent;
 }
 .disaster-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -200,15 +200,15 @@ function handleExportCsv() {
   border-bottom: 1px solid var(--border);
 }
 .disaster-title { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
-.disaster-count { font-size: 12px; padding: 2px 9px; background: rgba(191,54,12,0.10); border: 1px solid rgba(191,54,12,0.25); border-radius: 999px; color: #bf360c; font-weight: 700; }
+.disaster-count { font-size: 12px; padding: 2px 9px; background: var(--warning-50); border: 1px solid var(--warning-100); border-radius: 999px; color: var(--warning-700); font-weight: 700; }
 .disaster-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 24px 0; }
 .disaster-list { display: flex; flex-direction: column; gap: 12px; }
-.disaster-item { padding: 12px 14px; background: #fff8f6; border: 1px solid rgba(191,54,12,0.12); border-radius: 10px; display: flex; flex-direction: column; gap: 5px; }
-.disaster-date-range { font-size: 12px; color: #bf360c; font-variant-numeric: tabular-nums; font-weight: 600; }
+.disaster-item { padding: 12px 14px; background: var(--warning-50); border: 1px solid var(--warning-50); border-radius: 10px; display: flex; flex-direction: column; gap: 5px; }
+.disaster-date-range { font-size: 12px; color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: 600; }
 .disaster-name { font-size: 14px; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .alert-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; flex-shrink: 0; }
-.alert-badge.red { background: rgba(198,40,40,0.10); color: var(--red); border: 1px solid rgba(198,40,40,0.20); }
-.alert-badge.orange { background: rgba(191,54,12,0.10); color: var(--orange); border: 1px solid rgba(191,54,12,0.20); }
+.alert-badge.red { background: var(--danger-50); color: var(--red); border: 1px solid var(--danger-100); }
+.alert-badge.orange { background: var(--warning-50); color: var(--orange); border: 1px solid var(--warning-100); }
 .disaster-counties { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
 
 .action-row { display: flex; align-items: center; gap: 10px; }

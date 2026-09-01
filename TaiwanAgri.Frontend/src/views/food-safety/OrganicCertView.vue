@@ -323,7 +323,7 @@ onMounted(() => {
   outline: none;
 }
 
-.filter-input:focus { border-color: #43a047; }
+.filter-input:focus { border-color: var(--green-500); }
 
 /* .filter-hint {
   font-size: 11px;
@@ -335,13 +335,13 @@ onMounted(() => {
 } */
 .filter-hint {
   font-size: 12px;
-  color: #e65100;
+  color: var(--warning-500);
   line-height: 1.6;
   display: flex;
   gap: 6px;
   align-items: flex-start;
-  background: #fff3e0;
-  border: 1px solid #ffcc80;
+  background: var(--warning-50);
+  border: 1px solid var(--warning-100);
   border-radius: 8px;
   padding: 10px 12px;
 }
@@ -386,7 +386,7 @@ onMounted(() => {
 
 /* 決策：品項可能為多證號合併時，僅用邊框變色提示，不額外加文字標籤 */
 .cert-card.ambiguous {
-  border: 2px solid #e65100;
+  border: 2px solid var(--warning-500);
 }
 
 .cert-card-header {
@@ -408,9 +408,9 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.status-badge.active { background: #e8f5e9; color: #2e7d32; }
-/* .status-badge.inactive { background: #f5f5f5; color: #757575; } */
-.status-badge.inactive { background: #e0e0e0; color: #424242; }
+.status-badge.active { background: var(--green-100); color: var(--green-600); }
+/* .status-badge.inactive { background: var(--neutral-100); color: var(--neutral-500); } */
+.status-badge.inactive { background: var(--neutral-200); color: var(--neutral-700); }
 
 .cert-operator {
   font-size: 15px;
@@ -463,8 +463,8 @@ onMounted(() => {
   padding: 3px 10px;
   border: none;
   border-radius: 999px;
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--green-100);
+  color: var(--green-600);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -473,7 +473,7 @@ onMounted(() => {
 }
 
 .expand-toggle:hover {
-  background: #c8e6c9;
+  background: var(--green-200);
   text-decoration: none;
 }
 
@@ -548,14 +548,14 @@ onMounted(() => {
 .jump-btn {
   padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid #2e7d32;
-  background: #2e7d32;
-  color: white;
+  border: 1px solid var(--green-600);
+  background: var(--green-600);
+  color: var(--neutral-0);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
-.jump-btn:hover { background: #388e3c; }
+.jump-btn:hover { background: var(--green-500); }
 
 .page-btn {
   min-width: 32px;
@@ -572,12 +572,12 @@ onMounted(() => {
   justify-content: center;
 }
 
-.page-btn:hover:not(:disabled) { border-color: #43a047; color: #2e7d32; }
+.page-btn:hover:not(:disabled) { border-color: var(--green-500); color: var(--green-600); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .page-btn.active {
-  background: #2e7d32;
-  border-color: #2e7d32;
-  color: white;
+  background: var(--green-600);
+  border-color: var(--green-600);
+  color: var(--neutral-0);
 }
 </style>

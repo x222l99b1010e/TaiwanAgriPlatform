@@ -338,12 +338,12 @@ function isUrl(value: string): boolean {
   white-space: nowrap;
 }
 
-.tab-btn:hover { border-color: #43a047; color: #2e7d32; }
+.tab-btn:hover { border-color: var(--green-500); color: var(--green-600); }
 
 .tab-btn.active {
-  background: #2e7d32;
-  border-color: #2e7d32;
-  color: white;
+  background: var(--green-600);
+  border-color: var(--green-600);
+  color: var(--neutral-0);
 }
 
 .custom-days {
@@ -403,11 +403,11 @@ function isUrl(value: string): boolean {
 .violation-table thead th {
   position: sticky;
   top: 0;
-  background: #f1f8f1;
+  background: var(--green-50);
   text-align: left;
   padding: 12px 16px;
   font-weight: 700;
-  color: #1b5e20;
+  color: var(--green-800);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   z-index: 1;
@@ -420,7 +420,7 @@ function isUrl(value: string): boolean {
   vertical-align: top;
 }
 
-.violation-table tbody tr:hover { background: #fafdf9; }
+.violation-table tbody tr:hover { background: var(--green-50); }
 .violation-table tbody tr:last-child td { border-bottom: none; }
 
 .cell-index {
@@ -454,7 +454,7 @@ function isUrl(value: string): boolean {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #1565c0;
+  color: var(--info-500);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -474,9 +474,9 @@ function isUrl(value: string): boolean {
   white-space: nowrap;
 }
 
-.result-badge.fail { background: #ffebee; color: #c62828; }
-.result-badge.warn { background: #fff3e0; color: #e65100; }
-.result-badge.pass { background: #e8f5e9; color: #2e7d32; }
+.result-badge.fail { background: var(--danger-50); color: var(--danger-500); }
+.result-badge.warn { background: var(--warning-50); color: var(--warning-500); }
+.result-badge.pass { background: var(--green-100); color: var(--green-600); }
 
 /* ── 分頁列 ── */
 .pagination-bar {
@@ -532,20 +532,20 @@ function isUrl(value: string): boolean {
   outline: none;
 }
 
-.jump-input:focus { border-color: #43a047; }
+.jump-input:focus { border-color: var(--green-500); }
 
 .jump-btn {
   padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid #2e7d32;
-  background: #2e7d32;
-  color: white;
+  border: 1px solid var(--green-600);
+  background: var(--green-600);
+  color: var(--neutral-0);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.jump-btn:hover { background: #388e3c; }
+.jump-btn:hover { background: var(--green-500); }
 
 .page-btn {
   min-width: 32px;
@@ -562,12 +562,12 @@ function isUrl(value: string): boolean {
   justify-content: center;
 }
 
-.page-btn:hover:not(:disabled) { border-color: #43a047; color: #2e7d32; }
+.page-btn:hover:not(:disabled) { border-color: var(--green-500); color: var(--green-600); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .page-btn.active {
-  background: #2e7d32;
-  border-color: #2e7d32;
-  color: white;
+  background: var(--green-600);
+  border-color: var(--green-600);
+  color: var(--neutral-0);
 }
 </style>

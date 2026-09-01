@@ -54,7 +54,7 @@ const failed = ref(false)
 */
 .photo-img {
   width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
-  border-radius: 10px; border: 1px solid var(--border); background: #f2f2f2;
+  border-radius: 10px; border: 1px solid var(--border); background: var(--neutral-100);
 }
 .photo-img.uncropped {
   aspect-ratio: auto; max-height: 480px; object-fit: contain;
@@ -62,7 +62,7 @@ const failed = ref(false)
 .photo-failed {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; border: 1px dashed var(--border);
-  background: #fafafa; color: var(--text-muted); font-size: 13.5px;
+  background: var(--neutral-50); color: var(--text-muted); font-size: 13.5px;
 }
 .photo-failed.uncropped { aspect-ratio: 16 / 9; }
 .photo-note { font-size: 12px; color: var(--text-muted); }
@@ -73,7 +73,7 @@ const failed = ref(false)
   position: absolute; right: 8px; bottom: 8px;
   display: inline-flex; align-items: center; gap: 3px;
   padding: 3px 10px; border-radius: 999px;
-  background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 12px; font-weight: 600;
+  background: var(--black-a60); color: var(--neutral-0); font-size: 12px; font-weight: 600;
   opacity: 0; transition: opacity 0.15s;
 }
 .photo-link:hover .photo-zoom-hint { opacity: 1; }

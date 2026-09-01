@@ -177,17 +177,12 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import {
+  seriesColor, pointBorderColor, exportBackground,
+  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
-
-// ── 色盤（沿用 PorkView 同一組，讓兩個行情頁視覺一致） ─────────────────────
-const PALETTE = [
-  '#2e7d32', '#e65100', '#1565c0', '#6a1b9a', '#c77700',
-  '#00695c', '#b71c1c', '#0277bd', '#558b2f', '#f57f17',
-  '#ad1457', '#37474f', '#827717', '#4527a0', '#00838f',
-  '#bf360c', '#1b5e20',
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 
 // ── PriceStatus 中文對照（前端自訂的顯示文字，非後端的 MetricCode 對照表——
 //    後端只提供 MetricCode → 中文名，PriceStatus 的七態文字純粹是這個畫面的呈現需求） ──
@@ -333,13 +328,13 @@ const chartData = computed(() => {
     return {
       label: displayName,
       data: labels.map(date => dateMap[date] ?? null),
-      borderColor: getColor(i),
+      borderColor: seriesColor(i),
       backgroundColor: 'transparent',
       borderWidth: 2,
       pointRadius: labels.length <= 90 ? 3 : 0,
       pointHoverRadius: 7,
-      pointBackgroundColor: getColor(i),
-      pointBorderColor: 'rgba(0,0,0,0.15)',
+      pointBackgroundColor: seriesColor(i),
+      pointBorderColor: pointBorderColor(),
       pointBorderWidth: 1,
       tension: 0.3,
       spanGaps: false,   // 刻意不補間，缺資料就斷線
@@ -365,33 +360,26 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 12,
-            color: 'rgba(26,40,32,0.75)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
           ticks: {
-            color: 'rgba(26,40,32,0.75)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback: (val) => `${val} 元`,
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
@@ -399,12 +387,7 @@ function buildChart() {
         },
         legend: {
           position: 'top',
-          labels: {
-            color: 'rgba(26,40,32,0.85)',
-            font: { size: 12 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -475,7 +458,7 @@ function exportChartImage() {
   exportCanvas.height = canvas.height
 
   const ctx = exportCanvas.getContext('2d')!
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = exportBackground()
   ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
   ctx.drawImage(canvas, 0, 0)
 
@@ -512,19 +495,19 @@ function exportChartImage() {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 12px; border-radius: 999px;
   background: var(--surface-2); border: 1px solid var(--border);
-  color: rgba(26,40,32,0.70); font-size: 13px; font-weight: 600;
+  color: var(--neutral-600); font-size: 13px; font-weight: 600;
   cursor: pointer; transition: all 0.15s; user-select: none;
 }
 .metric-chip input { accent-color: var(--green); cursor: pointer; }
-.metric-chip:hover { border-color: rgba(46,125,50,0.35); }
-.metric-chip.active { background: #e8f5e9; border-color: rgba(46,125,50,0.35); color: var(--green); }
+.metric-chip:hover { border-color: var(--green-300); }
+.metric-chip.active { background: var(--green-100); border-color: var(--green-300); color: var(--green); }
 
 .completeness-badge {
   font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
 }
-.completeness-badge.high { background: #e8f5e9; color: #2e7d32; }
-.completeness-badge.mid  { background: #fff3e0; color: #e65100; }
-.completeness-badge.low  { background: #ffebee; color: #b71c1c; }
+.completeness-badge.high { background: var(--green-100); color: var(--green-600); }
+.completeness-badge.mid  { background: var(--warning-50); color: var(--warning-500); }
+.completeness-badge.low  { background: var(--danger-50); color: var(--danger-700); }
 
 /* 徽章說明：刻意放在勾選區旁邊、跟徽章同時出現，不是只寫在下方圖表卡片的 chart-note
    裡——使用者第一眼看到「82%」的地方就是這裡，說明要跟著出現在同一個視野內。
@@ -533,8 +516,8 @@ function exportChartImage() {
 .badge-legend {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 10px 16px; border-radius: 8px;
-  background: #e3f2fd; border: 1px solid rgba(21,101,192,0.20);
-  color: #1565c0; font-size: 13px; font-weight: 600; line-height: 1.6;
+  background: var(--info-50); border: 1px solid var(--info-100);
+  color: var(--info-500); font-size: 13px; font-weight: 600; line-height: 1.6;
   margin: 0;
 }
 .badge-legend .hint-icon { font-size: 17px; margin-top: 1px; flex-shrink: 0; }
@@ -549,10 +532,10 @@ function exportChartImage() {
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .stat-label {
-  font-size: 12px; color: rgba(26,40,32,0.60);
+  font-size: 12px; color: var(--neutral-500);
   letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
 }
-.stat-value { font-size: 26px; font-weight: 700; color: #1a5c20; }
+.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
 
 /* 圖表卡片 */
 .chart-card {
@@ -562,19 +545,19 @@ function exportChartImage() {
   margin-bottom: 24px;
 }
 .chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-.chart-title { font-size: 15px; font-weight: 700; color: rgba(26,40,32,0.80); }
+.chart-title { font-size: 15px; font-weight: 700; color: var(--neutral-700); }
 .canvas-wrap { position: relative; height: 460px; width: 100%; }
 .chart-note {
   display: flex; align-items: flex-start; gap: 8px;
   margin-top: 18px; padding: 10px 16px; border-radius: 8px;
-  background: #e3f2fd; border: 1px solid rgba(21,101,192,0.20);
-  color: #1565c0; font-size: 13px; font-weight: 600; line-height: 1.6;
+  background: var(--info-50); border: 1px solid var(--info-100);
+  color: var(--info-500); font-size: 13px; font-weight: 600; line-height: 1.6;
 }
 .query-hint {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 16px; border-radius: 8px;
-  background: #e3f2fd; border: 1px solid rgba(21,101,192,0.20);
-  color: #1565c0; font-size: 13px; font-weight: 600; line-height: 1.5;
+  background: var(--info-50); border: 1px solid var(--info-100);
+  color: var(--info-500); font-size: 13px; font-weight: 600; line-height: 1.5;
 }
 .hint-icon { font-size: 18px; flex-shrink: 0; }
 
@@ -587,7 +570,7 @@ function exportChartImage() {
 .btn-toggle-abnormal {
   display: flex; align-items: center; gap: 6px;
   background: none; border: none; cursor: pointer;
-  font-size: 14px; font-weight: 700; color: rgba(26,40,32,0.80);
+  font-size: 14px; font-weight: 700; color: var(--neutral-700);
   padding: 4px 0; width: 100%; text-align: left;
 }
 .abnormal-table-wrap { margin-top: 16px; max-height: 360px; overflow-y: auto; overflow-x: auto; }
@@ -595,22 +578,22 @@ function exportChartImage() {
 .abnormal-table th {
   position: sticky; top: 0; background: var(--surface-2);
   text-align: left; padding: 8px 12px; font-weight: 700;
-  color: rgba(26,40,32,0.70); border-bottom: 1px solid var(--border);
+  color: var(--neutral-600); border-bottom: 1px solid var(--border);
 }
 .abnormal-table td {
-  padding: 7px 12px; border-bottom: 1px solid rgba(0,0,0,0.05);
-  color: rgba(26,40,32,0.85);
+  padding: 7px 12px; border-bottom: 1px solid var(--neutral-100);
+  color: var(--neutral-700);
 }
-.abnormal-table tbody tr:hover { background: rgba(46,125,50,0.04); }
+.abnormal-table tbody tr:hover { background: var(--green-50); }
 
 .status-chip {
   font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
   white-space: nowrap;
 }
-.status-empty        { background: #f5f5f5; color: #616161; }
-.status-closed        { background: #ede7f6; color: #4527a0; }
-.status-notquoted     { background: #fff3e0; color: #e65100; }
-.status-negotiated    { background: #e1f5fe; color: #0277bd; }
-.status-rangequote    { background: #e8f5e9; color: #2e7d32; }
-.status-unrecognized  { background: #ffebee; color: #b71c1c; }
+.status-empty        { background: var(--neutral-100); color: var(--neutral-600); }
+.status-closed        { background: var(--neutral-100); color: var(--neutral-600); }
+.status-notquoted     { background: var(--warning-50); color: var(--warning-500); }
+.status-negotiated    { background: var(--info-50); color: var(--info-500); }
+.status-rangequote    { background: var(--green-100); color: var(--green-600); }
+.status-unrecognized  { background: var(--danger-50); color: var(--danger-700); }
 </style>

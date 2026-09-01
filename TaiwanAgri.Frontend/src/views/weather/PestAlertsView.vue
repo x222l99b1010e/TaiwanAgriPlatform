@@ -173,7 +173,7 @@ onMounted(fetchAlerts)
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .alert-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
-.alert-card.expanded { border-color: var(--green); background: #f6fbf6; }
+.alert-card.expanded { border-color: var(--green); background: var(--green-50); }
 
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .card-meta { display: flex; align-items: center; gap: 10px; }
@@ -181,7 +181,7 @@ onMounted(fetchAlerts)
 /* 日期 */
 .pub-date {
   font-size: 13px;           /* 從 12px → 13px */
-  color: rgba(26,40,32,0.55);
+  color: var(--neutral-500);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
@@ -190,8 +190,8 @@ onMounted(fetchAlerts)
   font-size: 12px;           /* 從 11px → 12px */
   padding: 3px 10px;
   border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
-  border: 1px solid rgba(46,125,50,0.25);
+  background: var(--green-100); color: var(--green);
+  border: 1px solid var(--green-200);
   font-weight: 700;
 }
 
@@ -202,7 +202,7 @@ onMounted(fetchAlerts)
 .card-subject {
   font-size: 17px;           /* 從 15px → 17px */
   font-weight: 700;
-  color: #1a2820;            /* 最深色，不透明 */
+  color: var(--neutral-900);            /* 最深色，不透明 */
   margin-bottom: 12px;
   line-height: 1.5;
 }
@@ -210,8 +210,8 @@ onMounted(fetchAlerts)
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 /* 標籤 */
 .tag { font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid; font-weight: 600; }
-.city-tag { background: #e3f2fd; border-color: rgba(21,101,192,0.30); color: #1565c0; }
-.crop-tag { background: #e8f5e9; border-color: rgba(46,125,50,0.30); color: #2e7d32; }
+.city-tag { background: var(--info-50); border-color: var(--info-100); color: var(--info-500); }
+.crop-tag { background: var(--green-100); border-color: var(--green-200); color: var(--green-600); }
 
 
 .card-body { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
@@ -225,19 +225,19 @@ onMounted(fetchAlerts)
   text-transform: uppercase;
   margin-bottom: 10px;
   padding-bottom: 6px;
-  border-bottom: 2px solid rgba(46,125,50,0.20);  /* 加底線 */
+  border-bottom: 2px solid var(--green-200);  /* 加底線 */
   display: block;
 }
 .section-label.prescription {
-  color: #bf360c;
+  color: var(--warning-700);
   margin-top: 18px;
-  border-bottom-color: rgba(191,54,12,0.20);
+  border-bottom-color: var(--warning-100);
 }
 
 /* 內文 */
 .body-text {
   font-size: 15px;           /* 從 13.5px → 15px */
-  color: rgba(26,40,32,0.82);  /* 從 text-secondary → 深一點 */
+  color: var(--neutral-700);  /* 從 text-secondary → 深一點 */
   line-height: 1.9;
   white-space: pre-wrap;
   margin: 0;

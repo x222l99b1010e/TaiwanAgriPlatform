@@ -130,11 +130,11 @@ onMounted(() => {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: rgba(255,255,255,0.80);
+  color: var(--white-a80);
   cursor: pointer;
   transition: background 0.18s, color 0.18s;
 }
-.bell-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+.bell-btn:hover { background: var(--white-a12); color: var(--neutral-0); }
 
 .bell-icon { font-size: 20px; }
 
@@ -144,7 +144,7 @@ onMounted(() => {
   top: 4px; right: 4px;
   min-width: 16px; height: 16px;
   padding: 0 4px; border-radius: 999px;
-  background: #e53935; color: white;
+  background: var(--danger-500); color: var(--neutral-0);
   font-size: 10px; font-weight: 700;
   line-height: 16px; text-align: center;
   pointer-events: none;
@@ -178,19 +178,19 @@ onMounted(() => {
 
 .btn-mark-all {
   font-size: 13px;              /* 從 12px → 13px */
-  color: rgba(26,40,32,0.55);   /* 從 teal → 深灰 */
+  color: var(--neutral-500);   /* 從 teal → 深灰 */
   background: none; border: none; cursor: pointer; padding: 0;
   font-weight: 600;
   transition: color 0.15s;
 }
 .btn-mark-all:hover:not(:disabled) { color: var(--green); }
-.btn-mark-all:disabled { color: rgba(26,40,32,0.30); cursor: not-allowed; }
+.btn-mark-all:disabled { color: var(--neutral-400); cursor: not-allowed; }
 
 /* 捲動區 */
 .dropdown-body { max-height: 400px; overflow-y: auto; }
 .dropdown-body::-webkit-scrollbar { width: 4px; }
 .dropdown-body::-webkit-scrollbar-track { background: transparent; }
-.dropdown-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+.dropdown-body::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: 4px; }
 
 /* 通知項目 */
 .notification-item {
@@ -203,11 +203,11 @@ onMounted(() => {
 
 /* 未讀 */
 .notification-item.unread {
-  background: #f0faf8;
+  background: var(--teal-50);
   border-left: 3px solid var(--teal);
   padding-left: 15px;
 }
-.notification-item.unread:hover { background: #e6f7f4; }
+.notification-item.unread:hover { background: var(--teal-100); }
 
 .item-top {
   display: flex; justify-content: space-between;
@@ -223,7 +223,7 @@ onMounted(() => {
   text-align: center;
   padding: 24px 0;
   font-size: 14px;              /* 從 13px → 14px */
-  color: rgba(26,40,32,0.50);   /* 從 text-muted(0.40) → 0.50 */
+  color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.50 */
   font-weight: 500;
 }
 .end-hint { padding: 12px 0; font-size: 12px; }

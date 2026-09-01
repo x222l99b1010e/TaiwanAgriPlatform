@@ -1,3 +1,11 @@
 <template>
-  <div style="padding: 40px; color: #999; font-size: 18px;">🚧 開發中...</div>
+  <div class="placeholder">🚧 開發中...</div>
 </template>
+
+<style scoped>
+.placeholder {
+  padding: var(--space-10);
+  color: var(--neutral-400);
+  font-size: var(--text-lg);
+}
+</style>

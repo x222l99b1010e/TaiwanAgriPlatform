@@ -50,8 +50,8 @@ const animationDuration = computed(() =>
   display: flex;
   align-items: center;
   height: 44px;
-  background: #e8f5e9;
-  border-bottom: 2px solid #a5d6a7;
+  background: var(--green-100);
+  border-bottom: 2px solid var(--green-300);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -64,17 +64,17 @@ const animationDuration = computed(() =>
   padding: 0 22px;
   font-size: 13px;
   font-weight: 800;
-  color: #1b5e20;
+  color: var(--green-800);
   white-space: nowrap;
-  border-right: 2px solid #a5d6a7;
+  border-right: 2px solid var(--green-300);
   height: 100%;
-  background: #c8e6c9;
+  background: var(--green-200);
   letter-spacing: 0.05em;
 }
 
 .label-icon {
   font-size: 17px;
-  color: #2e7d32;
+  color: var(--green-600);
 }
 
 /* ── 滾動軌道 ── */
@@ -109,26 +109,26 @@ const animationDuration = computed(() =>
 
 .ticker-crop {
   font-size: 14px;
-  color: #33691e;
+  color: var(--green-700);
   font-weight: 600;
 }
 
 .ticker-price {
   font-size: 17px;
   font-weight: 900;
-  color: #1b5e20;
+  color: var(--green-800);
   font-variant-numeric: tabular-nums;
 }
 
 .ticker-unit {
   font-size: 12px;
-  color: #689f38;
+  color: var(--green-500);
   font-weight: 500;
 }
 
 .ticker-dot {
   font-size: 11px;
-  color: #a5d6a7;
+  color: var(--green-300);
   padding-left: 4px;
 }
 
@@ -139,17 +139,17 @@ const animationDuration = computed(() =>
   gap: 6px;
   padding: 0 20px;
   font-size: 12px;
-  color: #558b2f;
+  color: var(--green-600);
   font-weight: 600;
   white-space: nowrap;
-  border-left: 2px solid #a5d6a7;
+  border-left: 2px solid var(--green-300);
   height: 100%;
   font-variant-numeric: tabular-nums;
-  background: #c8e6c9;
+  background: var(--green-200);
 }
 
 .date-icon {
   font-size: 14px;
-  color: #66bb6a;
+  color: var(--green-400);
 }
 </style>

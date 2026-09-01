@@ -176,9 +176,9 @@ async function handleDelete() {
   display: inline-block; padding: 3px 12px; border-radius: 999px;
   font-size: 12px; font-weight: 700;
 }
-.status-badge.searching { background: #fff3e0; color: #e65100; }
-.status-badge.found { background: #e8f5e9; color: var(--green); }
-.status-badge.withdrawn { background: #f0f0f0; color: #757575; }
+.status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
+.status-badge.found { background: var(--green-100); color: var(--green); }
+.status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }
 
 .coord-badge {
   display: inline-flex; align-items: center; gap: 3px;
@@ -192,7 +192,7 @@ async function handleDelete() {
 .safety-notice {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 12px 16px;
-  background: #fff5f5; border: 1px solid #ffcdd2; border-left: 4px solid var(--red);
+  background: var(--danger-50); border: 1px solid var(--danger-100); border-left: 4px solid var(--red);
   border-radius: 10px;
   color: var(--red); font-size: 14.5px; font-weight: 700; line-height: 1.6;
 }

@@ -507,7 +507,7 @@ onMounted(fetchLegal)
   color: var(--text-secondary); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
 }
 .tab-btn:hover { color: var(--green); }
-.tab-btn.active { background: var(--green); color: white; }
+.tab-btn.active { background: var(--green); color: var(--neutral-0); }
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
   font-size: 12px; color: var(--text-muted); font-weight: 600;
@@ -531,7 +531,7 @@ onMounted(fetchLegal)
 .loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; }
 .loading-hint.standalone { margin-bottom: 20px; }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid #c8e6c9; border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -543,11 +543,11 @@ onMounted(fetchLegal)
 
 .data-table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 13px; }
 .data-table thead th {
-  position: sticky; top: 0; background: #f1f8f1; text-align: left; padding: 12px 16px;
-  font-weight: 700; color: #1b5e20; border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
+  position: sticky; top: 0; background: var(--green-50); text-align: left; padding: 12px 16px;
+  font-weight: 700; color: var(--green-800); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
 }
 .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: #fafdf9; }
+.data-table tbody tr:hover { background: var(--green-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
 .cell-name { font-weight: 600; white-space: nowrap; }
@@ -580,17 +580,17 @@ onMounted(fetchLegal)
   /* rankText 有時是簡短代碼（GradeB）、有時是長句（已搬遷至新址，請洽新址辦理註銷許可），
      不能用 nowrap；改成允許換行的圓角色塊，寬度跟著 col-rank 走 */
   display: inline-block; padding: 3px 10px; border-radius: 12px;
-  background: #fff8e1; color: #f57f17; font-size: 12px; font-weight: 700;
+  background: var(--warning-50); color: var(--warning-500); font-size: 12px; font-weight: 700;
   white-space: normal; word-break: break-word; line-height: 1.4;
 }
 
 .state-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.state-badge.ok { background: #e8f5e9; color: var(--green); }
-.state-badge.closed { background: #f0f0f0; color: #757575; }
-.state-badge.suspended { background: #fff3e0; color: #e65100; }
-.state-badge.revoked { background: #ffebee; color: #c62828; }
-.state-badge.unknown { background: #f0f0f0; color: #9e9e9e; }
+.state-badge.ok { background: var(--green-100); color: var(--green); }
+.state-badge.closed { background: var(--neutral-100); color: var(--neutral-500); }
+.state-badge.suspended { background: var(--warning-50); color: var(--warning-500); }
+.state-badge.revoked { background: var(--danger-50); color: var(--danger-500); }
+.state-badge.unknown { background: var(--neutral-100); color: var(--neutral-400); }
 
-.picture-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #1565c0; text-decoration: none; white-space: nowrap; }
+.picture-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .picture-link:hover { text-decoration: underline; }
 </style>

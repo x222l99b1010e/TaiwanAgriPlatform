@@ -238,7 +238,7 @@ onUnmounted(() => {
 
 .loading-spinner-sm {
   width: 14px; height: 14px;
-  border: 2px solid #c8e6c9; border-top-color: var(--green);
+  border: 2px solid var(--green-200); border-top-color: var(--green);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -256,17 +256,17 @@ onUnmounted(() => {
      不是 Vue 模板渲染出來的節點，scoped 屬性不會套用到這些節點上，樣式必須寫在全域區塊 -->
 <style>
 .shelter-popup-content { font-size: 13px; min-width: 260px; }
-.shelter-popup-content .popup-title { font-weight: 700; font-size: 14px; color: #1b5e20; margin-bottom: 4px; }
-.shelter-popup-content .popup-address { color: rgba(26,40,32,0.65); margin-bottom: 8px; font-size: 12px; }
+.shelter-popup-content .popup-title { font-weight: 700; font-size: 14px; color: var(--green-800); margin-bottom: 4px; }
+.shelter-popup-content .popup-address { color: var(--neutral-500); margin-bottom: 8px; font-size: 12px; }
 
 .shelter-popup-content .popup-summary {
-  font-weight: 700; color: #1a2820; padding: 6px 0;
-  border-top: 1px solid rgba(26,40,32,0.12); border-bottom: 1px solid rgba(26,40,32,0.12);
+  font-weight: 700; color: var(--neutral-900); padding: 6px 0;
+  border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200);
 }
 
 /* popup 只放摘要＋這顆連結，完整清單在獨立詳情頁（不掛週次分支改版） */
 .shelter-popup-content .popup-view-all {
-  display: block; margin-top: 8px; color: #1565c0; font-size: 13px; font-weight: 700;
+  display: block; margin-top: 8px; color: var(--info-500); font-size: 13px; font-weight: 700;
   text-decoration: none;
 }
 .shelter-popup-content .popup-view-all:hover { text-decoration: underline; }

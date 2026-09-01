@@ -15,6 +15,10 @@ import {
   type ChartDataset, type Scale, type TooltipItem,
 } from 'chart.js'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
+import {
+  seriesColor, seriesFill, seriesAccent, pointBorderColor, exportBackground,
+  annotationColor, withAlpha, axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 // Chart.js 採用「按需註冊」設計，沒 register 就沒功能
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
@@ -30,17 +34,6 @@ const props = defineProps<{
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let chartInstance: Chart | null = null
 
-// ── 色盤（最多 5 條作物線）─────────────────────────────
-// PALETTE 換成這個
-const PALETTE = [
-  { main: '#2e7d32', fade: 'rgba(46,125,50,0.08)',   ma: 'rgba(46,125,50,0.28)'   },
-  { main: '#e65100', fade: 'rgba(230,81,0,0.08)',    ma: 'rgba(230,81,0,0.28)'    },
-  { main: '#1565c0', fade: 'rgba(21,101,192,0.08)',  ma: 'rgba(21,101,192,0.28)'  },
-  { main: '#6a1b9a', fade: 'rgba(106,27,154,0.08)',  ma: 'rgba(106,27,154,0.28)'  },
-  { main: '#c77700', fade: 'rgba(199,119,0,0.08)',   ma: 'rgba(199,119,0,0.28)'   },
-]
-// 加在 PALETTE 定義下方
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 // ── 7 日移動平均計算 ───────────────────────────────────
 function calcMA(values: number[], window = 7): number[] {
   return values.map((_, i) => {
@@ -71,7 +64,7 @@ const chartData = computed(() => {
   const datasets: ChartDataset<'line'>[] = []
   let ci = 0
   for (const [, g] of Object.entries(groups)) {
-    const color = getColor(ci++)
+    const si = ci++
     const values = labels.map(d => g.priceMap[d] ?? null)
 
     // MA 只對有值的資料點計算，再映射回完整日期序列
@@ -89,13 +82,13 @@ const chartData = computed(() => {
     datasets.push({
       label: g.name,
       data: values,
-      borderColor: color.main,
-      backgroundColor: color.fade,
+      borderColor: seriesColor(si),
+      backgroundColor: seriesFill(si),
       borderWidth: 2,
       pointRadius: showPoints ? 3.5 : 0,
       pointHoverRadius: 7,
-      pointBackgroundColor: color.main,
-      pointBorderColor: 'rgba(0,0,0,0.15)',
+      pointBackgroundColor: seriesColor(si),
+      pointBorderColor: pointBorderColor(),
       pointBorderWidth: 1,
       tension: 0.35,
       fill: true,
@@ -106,7 +99,7 @@ const chartData = computed(() => {
     datasets.push({
       label: `${g.name}（7日均）`,
       data: maValues,
-      borderColor: color.ma,
+      borderColor: seriesAccent(si),
       backgroundColor: 'transparent',
       borderWidth: 1.5,
       borderDash: [6, 5],
@@ -167,7 +160,7 @@ function buildChart() {
         ctx.beginPath()
         ctx.moveTo(x, chartArea.top)
         ctx.lineTo(x, chartArea.bottom)
-        ctx.strokeStyle = 'rgba(255, 130, 80, 0.5)'
+        ctx.strokeStyle = withAlpha(annotationColor(), 0.5)
         ctx.lineWidth = 1.5
         ctx.setLineDash([5, 4])
         ctx.stroke()
@@ -178,14 +171,14 @@ function buildChart() {
         ctx.lineTo(x + 5, chartArea.top)
         ctx.lineTo(x, chartArea.top + 8)
         ctx.closePath()
-        ctx.fillStyle = 'rgba(255, 130, 80, 0.7)'
+        ctx.fillStyle = withAlpha(annotationColor(), 0.7)
         ctx.fill()
 
         // 災害名稱（旋轉文字）
         ctx.save()
         ctx.translate(x + 10, chartArea.top + 16)
         ctx.rotate(Math.PI / 2)
-        ctx.fillStyle = 'rgba(255, 160, 110, 0.65)'
+        ctx.fillStyle = withAlpha(annotationColor(), 0.65)
         ctx.font = '10px sans-serif'
         ctx.textAlign = 'left'
         ctx.fillText(name, 0, 0)
@@ -210,33 +203,26 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 12,
-             color: 'rgba(26,40,32,0.75)',  // 從 0.45 → 0.75
-            font: { size: 12 },            // 從 11 → 12
+            ...axisTicks(),
             callback(this: Scale, val: unknown, index: number) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
           ticks: {
-            color: 'rgba(26,40,32,0.75)',  // 從 0.45 → 0.75
-            font: { size: 12 },            // 從 11 → 12
+            ...axisTicks(),
             callback: (val: unknown) => `${val} 元`,
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx: TooltipItem<'line'>) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
@@ -244,12 +230,7 @@ function buildChart() {
         },
         legend: {
           position: 'top' as const,
-          labels: {
-            color: 'rgba(26,40,32,0.85)',  // 從 0.65 → 0.85
-            font: { size: 13 },            // 從 12 → 13
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -276,7 +257,7 @@ function exportChartImage() {
   exportCanvas.height = canvas.height
 
   const ctx = exportCanvas.getContext('2d')!
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = exportBackground()
   ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
   ctx.drawImage(canvas, 0, 0)
 
@@ -310,7 +291,7 @@ function exportChartImage() {
             v-for="(name, i) in summary.crops"
             :key="i"
             class="crop-tag"
-            :style="{ borderColor: getColor(i).main, color: getColor(i).main }"
+            :style="{ borderColor: seriesColor(i), color: seriesColor(i) }"
           >{{ name }}</span>
         </div>
       </div>
@@ -362,7 +343,7 @@ function exportChartImage() {
 
 .stat-label {
   font-size: 11px;
-  color: rgba(26,40,32,0.55);   /* 從 text-muted(0.40) → 0.55 */
+  color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.55 */
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }

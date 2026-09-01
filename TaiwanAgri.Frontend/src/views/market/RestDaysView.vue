@@ -179,8 +179,8 @@ onMounted(() => loadMarkets())
   display: flex; flex-direction: column; gap: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
-.stat-label { font-size: 12px; color: rgba(26,40,32,0.60); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
-.stat-value { font-size: 26px; font-weight: 700; color: #1a5c20; }
+.stat-label { font-size: 12px; color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
+.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
 .stat-value.name { font-size: 18px; }
 
 /* 月份分組 */
@@ -191,13 +191,13 @@ onMounted(() => loadMarkets())
   font-size: 15px; font-weight: 700; color: var(--green);
   margin-bottom: 12px;
   padding-bottom: 10px;
-  border-bottom: 2px solid rgba(46,125,50,0.15);
+  border-bottom: 2px solid var(--green-100);
 }
 
 .month-count {
   font-size: 12px; padding: 2px 8px; border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
-  border: 1px solid rgba(46,125,50,0.20);
+  background: var(--green-100); color: var(--green);
+  border: 1px solid var(--green-200);
   font-weight: 600; margin-left: 4px;
 }
 

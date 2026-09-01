@@ -290,7 +290,7 @@ watch(() => props.shelterId, () => {
 .sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
 .loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; margin-left: auto; }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid #c8e6c9; border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -305,11 +305,11 @@ watch(() => props.shelterId, () => {
 }
 .data-table { width: 100%; min-width: 1020px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .data-table thead th {
-  position: sticky; top: 0; background: #f1f8f1; text-align: left; padding: 12px 16px;
-  font-weight: 700; color: #1b5e20; border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
+  position: sticky; top: 0; background: var(--green-50); text-align: left; padding: 12px 16px;
+  font-weight: 700; color: var(--green-800); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
 }
 .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: #fafdf9; }
+.data-table tbody tr:hover { background: var(--green-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
 .col-id            { width: 130px; }
@@ -330,6 +330,6 @@ watch(() => props.shelterId, () => {
 .cell-address { white-space: normal; word-break: break-word; font-size: 12px; }
 .cell-muted { color: var(--text-muted); }
 
-.album-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #1565c0; text-decoration: none; white-space: nowrap; }
+.album-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .album-link:hover { text-decoration: underline; }
 </style>

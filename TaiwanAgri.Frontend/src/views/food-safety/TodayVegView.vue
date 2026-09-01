@@ -88,7 +88,7 @@ onMounted(() => {
 /* ── 頁首 ── */
 .data-date {
   font-weight: 600;
-  color: #2e7d32;
+  color: var(--green-600);
 }
 
 /* ── 卡片格狀：一列兩張 ── */
@@ -100,8 +100,8 @@ onMounted(() => {
 
 /* ── 單張卡片 ── */
 .price-card {
-  background: #fff;
-  border: 1.5px solid #c8e6c9;
+  background: var(--neutral-0);
+  border: 1.5px solid var(--green-200);
   border-radius: 18px;
   padding: 28px 32px;
   box-shadow: 0 4px 16px rgba(46, 125, 50, 0.08);
@@ -125,13 +125,13 @@ onMounted(() => {
 
 .crop-icon {
   font-size: 22px;
-  color: #388e3c;
+  color: var(--green-500);
 }
 
 .crop-name {
   font-size: 20px;
   font-weight: 800;
-  color: #1a2e1a;
+  color: var(--green-900);
   letter-spacing: -0.01em;
 }
 
@@ -145,21 +145,21 @@ onMounted(() => {
 .price-value {
   font-size: 48px;
   font-weight: 900;
-  color: #2e7d32;
+  color: var(--green-600);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .price-unit {
   font-size: 15px;
-  color: #666;
+  color: var(--neutral-600);
   font-weight: 500;
 }
 
 /* ── 分隔線 ── */
 .divider {
   height: 1px;
-  background: #e8f5e9;
+  background: var(--green-100);
 }
 
 /* ── 上中下價三欄 ── */
@@ -174,14 +174,14 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  background: #f1f8f1;
+  background: var(--green-50);
   border-radius: 10px;
   padding: 10px 8px;
 }
 
 .detail-label {
   font-size: 11px;
-  color: #777;
+  color: var(--neutral-500);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -192,9 +192,9 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.detail-value.upper { color: #c62828; }
-.detail-value.middle { color: #2e7d32; }
-.detail-value.lower { color: #1565c0; }
+.detail-value.upper { color: var(--danger-500); }
+.detail-value.middle { color: var(--green-600); }
+.detail-value.lower { color: var(--info-500); }
 
 /* ── 卡片底部：交易日 ── */
 .card-footer {
@@ -202,12 +202,12 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #999;
+  color: var(--neutral-400);
   font-variant-numeric: tabular-nums;
 }
 
 .footer-icon {
   font-size: 14px;
-  color: #bbb;
+  color: var(--neutral-400);
 }
 </style>

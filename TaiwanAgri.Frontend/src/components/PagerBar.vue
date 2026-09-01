@@ -79,7 +79,7 @@ function toNullableNumber(raw: string): number | null {
 }
 .page-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-btn.active { background: var(--green); border-color: var(--green); color: white; }
+.page-btn.active { background: var(--green); border-color: var(--green); color: var(--neutral-0); }
 
 .jump-to-page {
   display: flex; align-items: center; gap: 4px;
@@ -93,7 +93,7 @@ function toNullableNumber(raw: string): number | null {
 .jump-input:focus { border-color: var(--green); }
 .jump-btn {
   padding: 4px 10px; border-radius: 6px; border: 1px solid var(--green);
-  background: var(--green); color: white; font-size: 12px; font-weight: 700; cursor: pointer;
+  background: var(--green); color: var(--neutral-0); font-size: 12px; font-weight: 700; cursor: pointer;
 }
 .jump-btn:hover { background: var(--green-hover); }
 </style>

@@ -104,13 +104,13 @@ function applyShortcut(days: number) {
 .shortcut-btn:hover {
   border-color: var(--green);
   color: var(--green);
-  background: #f0f7f0;
+  background: var(--green-50);
 }
 
 .shortcut-btn.active {
   border-color: var(--green);
   color: var(--green);
-  background: #e8f5e9;
+  background: var(--green-100);
   font-weight: 600;
 }
 </style>

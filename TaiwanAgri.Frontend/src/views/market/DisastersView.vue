@@ -168,8 +168,8 @@ async function handleQuery() {
   display: flex; flex-direction: column; gap: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
-.stat-label { font-size: 12px; color: rgba(26,40,32,0.60); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
-.stat-value { font-size: 26px; font-weight: 700; color: #1a5c20; }
+.stat-label { font-size: 12px; color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
+.stat-value { font-size: 26px; font-weight: 700; color: var(--green-800); }
 .stat-value.red { color: var(--red); }
 .stat-value.orange { color: var(--orange); }
 
@@ -189,16 +189,16 @@ async function handleQuery() {
 }
 .event-meta { display: flex; align-items: center; gap: 10px; }
 .event-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-.event-date-range { font-size: 13px; color: #bf360c; font-variant-numeric: tabular-nums; font-weight: 600; }
+.event-date-range { font-size: 13px; color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .alert-badge { font-size: 11px; padding: 3px 9px; border-radius: 6px; flex-shrink: 0; font-weight: 700; }
-.alert-badge.red { background: rgba(198,40,40,0.10); color: var(--red); border: 1px solid rgba(198,40,40,0.20); }
-.alert-badge.orange { background: rgba(191,54,12,0.10); color: var(--orange); border: 1px solid rgba(191,54,12,0.20); }
+.alert-badge.red { background: var(--danger-50); color: var(--red); border: 1px solid var(--danger-100); }
+.alert-badge.orange { background: var(--warning-50); color: var(--orange); border: 1px solid var(--warning-100); }
 
 .county-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .county-tag {
   font-size: 12px; padding: 3px 10px; border-radius: 999px;
-  background: #e3f2fd; color: var(--blue);
-  border: 1px solid rgba(21,101,192,0.20); font-weight: 600;
+  background: var(--info-50); color: var(--blue);
+  border: 1px solid var(--info-100); font-weight: 600;
 }
 </style>

@@ -292,8 +292,8 @@ onMounted(async () => {
   background: var(--surface); color: var(--text-secondary);
   font-size: 13px; cursor: pointer; transition: all 0.18s;
 }
-.tab-btn:hover { border-color: var(--green); color: var(--green); background: #f0f7f0; }
-.tab-btn.active { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: 600; }
+.tab-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-50); }
+.tab-btn.active { background: var(--green-100); border-color: var(--green); color: var(--green); font-weight: 600; }
 
 .field-input {
   padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
@@ -317,7 +317,7 @@ onMounted(async () => {
 .selected-crop-tag {
   display: inline-flex; align-items: center; gap: 6px;
   margin-top: 6px; padding: 4px 12px; border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
+  background: var(--green-100); color: var(--green);
   font-size: 13px; font-weight: 600;
 }
 .selected-crop-tag button {
@@ -328,7 +328,7 @@ onMounted(async () => {
 
 .autocomplete-dropdown {
   position: absolute; top: 100%; left: 0; right: 0;
-  background: white; border: 1px solid var(--border);
+  background: var(--neutral-0); border: 1px solid var(--border);
   border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.10);
   z-index: 100; max-height: 240px; overflow-y: auto;
 }
@@ -337,19 +337,19 @@ onMounted(async () => {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 14px; cursor: pointer; font-size: 14px; color: var(--text-primary);
 }
-.autocomplete-item:hover { background: #f0f4f0; }
+.autocomplete-item:hover { background: var(--green-50); }
 .crop-code { font-size: 12px; color: var(--text-muted); }
 
 .btn-add {
   padding: 9px 24px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--green-800);
+  background: linear-gradient(180deg, var(--green-500) 0%, var(--green-600) 40%, var(--green-800) 100%);
+  color: var(--neutral-0); font-size: 14px; font-weight: 700; cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.20);
   transition: all 0.15s; align-self: flex-end;
 }
-.btn-add:hover:not(:disabled) { background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%); }
-.btn-add:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
+.btn-add:hover:not(:disabled) { background: linear-gradient(180deg, var(--green-400) 0%, var(--green-500) 40%, var(--green-600) 100%); }
+.btn-add:disabled { background: var(--neutral-300); color: var(--neutral-400); border-color: var(--neutral-400); box-shadow: none; cursor: not-allowed; }
 
 .error-msg { font-size: 13px; color: var(--red); margin-top: 12px; }
 
@@ -372,8 +372,8 @@ onMounted(async () => {
   cursor: pointer; transition: all 0.15s;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.item-card:hover { border-color: var(--green); background: #f6fbf6; }
-.item-card.selected { border-color: var(--green); background: #e8f5e9; }
+.item-card:hover { border-color: var(--green); background: var(--green-50); }
+.item-card.selected { border-color: var(--green); background: var(--green-100); }
 
 .item-card input[type="checkbox"] { accent-color: var(--green); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
 
@@ -385,8 +385,8 @@ onMounted(async () => {
 
 .market-type-badge {
   font-size: 11px; padding: 2px 8px; border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
-  border: 1px solid rgba(46,125,50,0.25); font-weight: 600;
+  background: var(--green-100); color: var(--green);
+  border: 1px solid var(--green-200); font-weight: 600;
 }
 
 .item-market { font-size: 12px; color: var(--text-muted); }
