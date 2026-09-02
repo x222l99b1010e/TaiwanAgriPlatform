@@ -1,6 +1,9 @@
 <template>
-  <div class="watchlist-view">
-    <h1>監看清單</h1>
+  <div class="page watchlist-view">
+    <PageHeader
+      title="監看清單"
+      subtitle="追蹤指定作物與市場的最新成交價，價格更新時可在通知中看到"
+    />
 
     <!-- ── 新增區 ──────────────────────────────────── -->
     <section class="add-section">
@@ -63,13 +66,15 @@
           </select>
         </div>
 
-        <button
+        <Btn
           class="btn-add"
-          :disabled="!selectedCrop || store.isSaving"
+          icon="mdi-plus"
+          :disabled="!selectedCrop"
+          :loading="store.isSaving"
           @click="handleAdd"
         >
-          {{ store.isSaving ? '新增中...' : '+ 新增' }}
-        </button>
+          {{ store.isSaving ? '新增中...' : '新增' }}
+        </Btn>
       </div>
 
       <p v-if="store.errorMessage" class="error-msg">{{ store.errorMessage }}</p>
@@ -79,14 +84,14 @@
     <section class="list-section">
       <div class="list-header">
         <h2 class="section-title">我的監看清單</h2>
-        <button
+        <Btn
           v-if="selectedIds.length > 0"
-          class="btn-delete"
+          variant="danger"
+          size="sm"
+          icon="mdi-trash-can-outline"
           :disabled="store.isSaving"
           @click="handleRemove"
-        >
-          刪除已選 ({{ selectedIds.length }}{{ selectedIds.length >= 50 ? '，已達上限' : '' }})
-        </button>
+        >刪除已選 ({{ selectedIds.length }}{{ selectedIds.length >= 50 ? '，已達上限' : '' }})</Btn>
       </div>
 
       <div v-if="store.isLoading" class="hint">載入中...</div>
@@ -128,11 +133,13 @@
 </template>
 
 <script setup lang="ts">
+import Btn from '@/components/ui/Btn.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { marketApi } from '@/api/market'
 import type { CropResponseDto, MarketResponseDto } from '@/api/market'
 import type { MarketType } from '@/api/watchlist'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const store = useWatchlistStore()
 
@@ -253,161 +260,140 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.watchlist-view { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 28px; }
-
+/* 單欄清單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
+.add-section,
+.list-section { max-width: var(--container-sm); }
 .section-title {
-  font-size: 14px; font-weight: 700;
-  color: var(--text-secondary);
+  font-size: var(--text-base); font-weight: var(--weight-bold);
+  color: var(--neutral-500);
   letter-spacing: 0.06em; text-transform: uppercase;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 /* ── 新增區 ── */
 .add-section {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-6); margin-bottom: var(--space-8);
+  box-shadow: var(--shadow-md);
 }
 
-.add-form { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.add-form { display: flex; align-items: flex-end; gap: var(--space-4); flex-wrap: wrap; }
 
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 /* Tab */
-.tab-group { display: flex; gap: 6px; }
+.tab-group { display: flex; gap: var(--space-2); }
 .tab-btn {
-  padding: 7px 16px; border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface); color: var(--text-secondary);
-  font-size: 13px; cursor: pointer; transition: all 0.18s;
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0); color: var(--neutral-500);
+  font-size: var(--text-sm); cursor: pointer; transition: all var(--duration-fast);
 }
-.tab-btn:hover { border-color: var(--green); color: var(--green); background: #f0f7f0; }
-.tab-btn.active { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: 600; }
+.tab-btn:hover { border-color: var(--green-600); color: var(--green-600); background: var(--green-50); }
+.tab-btn.active { background: var(--green-100); border-color: var(--green-600); color: var(--green-600); font-weight: var(--weight-medium); }
 
 .field-input {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 200px;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.field-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.field-input:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 .field-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 200px; cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.field-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.field-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 /* Autocomplete */
 .autocomplete-wrapper { position: relative; }
 
 .selected-crop-tag {
-  display: inline-flex; align-items: center; gap: 6px;
-  margin-top: 6px; padding: 4px 12px; border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
-  font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  margin-top: var(--space-2); padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
+  background: var(--green-100); color: var(--green-600);
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
 }
 .selected-crop-tag button {
-  background: none; border: none; color: var(--green);
-  cursor: pointer; font-size: 12px; padding: 0; opacity: 0.7;
+  background: none; border: none; color: var(--green-600);
+  cursor: pointer; font-size: var(--text-xs); padding: 0; opacity: 0.7;
 }
 .selected-crop-tag button:hover { opacity: 1; }
 
 .autocomplete-dropdown {
   position: absolute; top: 100%; left: 0; right: 0;
-  background: white; border: 1px solid var(--border);
-  border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.10);
-  z-index: 100; max-height: 240px; overflow-y: auto;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  z-index: var(--z-dropdown); max-height: 240px; overflow-y: auto;
 }
 
 .autocomplete-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 14px; cursor: pointer; font-size: 14px; color: var(--text-primary);
+  padding: var(--space-3) var(--space-4); cursor: pointer; font-size: var(--text-base); color: var(--neutral-900);
 }
-.autocomplete-item:hover { background: #f0f4f0; }
-.crop-code { font-size: 12px; color: var(--text-muted); }
+.autocomplete-item:hover { background: var(--green-50); }
+.crop-code { font-size: var(--text-xs); color: var(--neutral-400); }
 
-.btn-add {
-  padding: 9px 24px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s; align-self: flex-end;
-}
-.btn-add:hover:not(:disabled) { background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%); }
-.btn-add:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
+/* 新增按鈕改用共用的 Btn，這裡只留它在篩選列裡的位置 */
+.btn-add { align-self: flex-end; }
 
-.error-msg { font-size: 13px; color: var(--red); margin-top: 12px; }
+.error-msg { font-size: var(--text-sm); color: var(--danger-500); margin-top: var(--space-3); }
 
 /* ── 清單區 ── */
 .list-section {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-6);
+  box-shadow: var(--shadow-md);
 }
 
-.list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
+.hint { font-size: var(--text-base); color: var(--neutral-400); text-align: center; padding: var(--space-8) 0; }
 
-.btn-delete {
-  padding: 7px 18px; border-radius: 999px;
-  border: 1px solid #6a1010;
-  background: linear-gradient(180deg, #ff6f43 0%, #e64a19 40%, #bf360c 100%);
-  color: white; font-size: 13px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-delete:hover:not(:disabled) { background: linear-gradient(180deg, #ff8a65 0%, #f4511e 40%, #e64a19 100%); }
-.btn-delete:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 32px 0; }
-
-.item-list { display: flex; flex-direction: column; gap: 8px; }
+.item-list { display: flex; flex-direction: column; gap: var(--space-2); }
 
 .item-card {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 18px; border-radius: 10px;
-  border: 1px solid var(--border); background: var(--surface);
-  cursor: pointer; transition: all 0.15s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg);
+  border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  cursor: pointer; transition: all var(--duration-fast);
+  box-shadow: var(--shadow-sm);
 }
-.item-card:hover { border-color: var(--green); background: #f6fbf6; }
-.item-card.selected { border-color: var(--green); background: #e8f5e9; }
+.item-card:hover { border-color: var(--green-600); background: var(--green-50); }
+.item-card.selected { border-color: var(--green-600); background: var(--green-100); }
 
-.item-card input[type="checkbox"] { accent-color: var(--green); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+.item-card input[type="checkbox"] { accent-color: var(--green-600); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
 
-.item-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.item-info { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); }
 
-.item-top-row { display: flex; align-items: center; gap: 8px; }
+.item-top-row { display: flex; align-items: center; gap: var(--space-2); }
 
-.item-crop { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.item-crop { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-900); }
 
 .market-type-badge {
-  font-size: 11px; padding: 2px 8px; border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
-  border: 1px solid rgba(46,125,50,0.25); font-weight: 600;
+  font-size: var(--text-2xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
+  background: var(--green-100); color: var(--green-600);
+  border: 1px solid var(--green-200); font-weight: var(--weight-medium);
 }
 
-.item-market { font-size: 12px; color: var(--text-muted); }
+.item-market { font-size: var(--text-xs); color: var(--neutral-400); }
 
 /* 價格區 */
 .item-price {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1);
   min-width: 80px;
 }
 .price-value {
-  font-size: 16px; font-weight: 700; color: var(--green);
+  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green-600);
   font-variant-numeric: tabular-nums;
 }
-.price-value.no-data { color: var(--text-muted); font-weight: 400; }
-.price-date { font-size: 11px; color: var(--text-muted); }
+.price-value.no-data { color: var(--neutral-400); font-weight: var(--weight-normal); }
+.price-date { font-size: var(--text-2xs); color: var(--neutral-400); }
 </style>

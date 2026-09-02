@@ -1,18 +1,13 @@
 <template>
-  <div class="pesticide-view">
+  <div class="page pesticide-view">
 
-    <!-- 頁首 -->
-    <div class="page-header">
-      <h2 class="section-title">農藥查詢</h2>
-      <p class="section-subtitle">輸入農藥成分名稱，查詢許可證狀態、適用作物與安全採收期</p>
-    </div>
+    <PageHeader
+      title="農藥查詢"
+      subtitle="輸入農藥成分名稱，查詢許可證狀態、適用作物與安全採收期"
+    />
 
     <!-- 說明區塊 -->
-    <div class="info-hint">
-      <div class="info-hint-header">
-        <span class="mdi mdi-information-outline hint-icon" />
-        <span>查詢說明</span>
-      </div>
+    <HintBox title="查詢說明" class="page-hint">
       <ul class="hint-list">
         <li>查的是「有效成分」的名稱（如「亞滅培」），不是商品名（如「冠天下」）</li>
         <li>同一個成分會有多張許可證＝市面上多個廠牌，但核准用途取決於成分、含量與劑型</li>
@@ -27,12 +22,12 @@
         <button class="example-chip" @click="fillExample('撲殺熱')">
           <span class="mdi mdi-mushroom chip-icon" />撲殺熱（殺菌劑）
         </button>
-        <button class="example-chip example-chip--warn" @click="fillExample('達馬松')">
+        <button class="example-chip example-chip--danger" @click="fillExample('達馬松')">
           <span class="mdi mdi-cancel chip-icon" />達馬松
-          <span class="chip-warn">已禁用</span>
+          <span class="badge chip-warn">已禁用</span>
         </button>
       </div>
-    </div>
+    </HintBox>
 
     <!-- 搜尋列：中英文兩個獨立欄位 -->
     <div class="search-bar">
@@ -56,15 +51,12 @@
         />
         <span v-if="englishNameError" class="field-error">{{ englishNameError }}</span>
       </div>
-      <button
-        class="btn-search"
-        :disabled="isSearching || !canSearch"
+      <Btn
+        icon="mdi-magnify"
+        :loading="isSearching"
+        :disabled="!canSearch"
         @click="handleSearch"
-      >
-        <span v-if="isSearching" class="mdi mdi-loading spin" />
-        <span v-else class="mdi mdi-magnify" />
-        {{ isSearching ? '查詢中...' : '查詢' }}
-      </button>
+      >{{ isSearching ? '查詢中...' : '查詢' }}</Btn>
     </div>
 
     <label class="revoked-toggle">
@@ -72,18 +64,20 @@
       <span>一併顯示已廢止的許可證</span>
     </label>
 
-    <!-- 錯誤 -->
-    <div v-if="searchError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle" />
-      {{ searchError }}
-    </div>
-
-    <!-- 無結果 -->
-    <div v-else-if="result && result.ingredients.length === 0" class="state-box">
-      <span class="mdi mdi-database-off-outline state-icon" />
-      <span class="state-text">查無符合的農藥成分</span>
-      <span class="state-sub">請確認輸入的是成分名稱而非商品名，或試著只輸入前兩個字</span>
-    </div>
+    <StateBlock v-if="isSearching" state="loading" message="查詢中..." />
+    <StateBlock
+      v-else-if="searchError"
+      state="error"
+      :message="searchError"
+      retryable
+      @retry="handleSearch"
+    />
+    <StateBlock
+      v-else-if="result && result.ingredients.length === 0"
+      state="empty"
+      message="查無符合的農藥成分"
+      hint="請確認輸入的是成分名稱而非商品名，或試著只輸入前兩個字"
+    />
 
     <!-- 結果 -->
     <div v-else-if="result" class="result-section">
@@ -167,7 +161,7 @@
               </div>
 
               <div v-else class="table-scroll">
-                <table class="usage-table">
+                <table class="data-table data-table--compact usage-table">
                   <thead>
                     <tr>
                       <th>作物</th>
@@ -211,7 +205,7 @@
               </button>
 
               <div v-if="isLicenseOpen(ingredient.pesticideCode, index)" class="table-scroll">
-                <table class="license-table">
+                <table class="data-table data-table--compact license-table">
                   <thead>
                     <tr>
                       <th>商品名</th>
@@ -249,10 +243,13 @@
     </div>
 
     <!-- 初始提示 -->
-    <div v-else class="state-box hint-box">
-      <span class="mdi mdi-flask-outline state-icon" />
-      <span class="state-text">請輸入農藥成分名稱開始查詢</span>
-    </div>
+    <StateBlock
+      v-else
+      state="hint"
+      icon="mdi-flask-outline"
+      message="請輸入農藥成分名稱開始查詢"
+      hint="上方有三組範例可以直接點來試"
+    />
 
   </div>
 </template>
@@ -262,6 +259,10 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 import { weatherApi, type PesticideSearchResult, type PesticideUsage } from '@/api/weather'
 import { useLatestRequest } from '@/composables/useLatestRequest'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 
 // 模組 2 既有的四個 view（測站／雨量／病蟲害預警／旬密度）都是直接呼叫 weatherApi、
 // 不經過 Pinia store——這些畫面的資料是「查一次、只有本頁用、離開就丟」，
@@ -387,236 +388,79 @@ async function handleSearch() {
 </script>
 
 <style scoped>
-.pesticide-view {
-  padding: 36px 56px;
-  width: 100%;
-  box-sizing: border-box;
-}
+.page-hint { margin-bottom: var(--space-5); }
 
-/* ── 頁首 ── */
-.page-header { margin-bottom: 24px; }
-
-.section-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.section-subtitle { font-size: 13px; color: var(--text-muted); }
-
-/* ── 說明區塊 ── */
-.info-hint {
-  background: #e3f2fd;
-  border: 1px solid rgba(21, 101, 192, 0.20);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.info-hint-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #1565c0;
-}
-
-.hint-icon { font-size: 17px; }
-
-.hint-list {
-  margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.hint-list li { font-size: 13px; color: #1565c0; line-height: 1.6; }
-
-.example-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 2px;
-}
-
-.example-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #1565c0;
-  white-space: nowrap;
-}
-
-.example-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(21, 101, 192, 0.30);
-  background: rgba(255, 255, 255, 0.70);
-  color: #1565c0;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.example-chip:hover {
-  background: #fff;
-  border-color: #1565c0;
-  box-shadow: 0 1px 4px rgba(21, 101, 192, 0.15);
-}
-
-.example-chip--warn { border-color: rgba(198, 40, 40, 0.30); color: #c62828; }
-.example-chip--warn:hover { border-color: #c62828; box-shadow: 0 1px 4px rgba(198, 40, 40, 0.15); }
-
-.chip-icon { font-size: 14px; }
-
-.chip-warn {
-  font-size: 10px;
-  font-weight: 700;
-  background: rgba(198, 40, 40, 0.12);
-  color: #c62828;
-  padding: 1px 6px;
-  border-radius: 999px;
-  margin-left: 2px;
-}
+/* 條列、範例鈕、chip 圖示已收進 base.css 共用 */
+.chip-warn { background: var(--danger-50); color: var(--danger-500); margin-left: var(--space-1); }
 
 /* ── 搜尋列 ── */
 .search-bar {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: flex-end;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
 }
 
-.search-field { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.search-field { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); }
 
 .field-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--neutral-400);
 }
 
 .search-input {
-  padding: 10px 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 14px;
-  color: var(--text-primary);
-  background: var(--surface);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  color: var(--neutral-900);
+  background: var(--neutral-0);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .search-input:focus {
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
+  border-color: var(--green-600);
+  box-shadow: var(--shadow-focus);
 }
 
-.search-input--invalid { border-color: #e57373; }
-.search-input--invalid:focus { border-color: #c62828; box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12); }
+.search-input--invalid { border-color: var(--danger-500); }
+.search-input--invalid:focus { border-color: var(--danger-500); box-shadow: var(--shadow-focus-danger); }
 
-.field-error { font-size: 11px; color: #c62828; }
-
-.btn-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 26px;
-  border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-
-.btn-search:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-}
-
-.btn-search:disabled {
-  background: #c8d8c8;
-  color: #999;
-  border-color: #b0c8b0;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { display: inline-block; animation: spin 0.8s linear infinite; }
-
+.field-error { font-size: var(--text-2xs); color: var(--danger-500); }
 .revoked-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-muted);
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--neutral-400);
   cursor: pointer;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 /* ── 狀態容器 ── */
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 56px 32px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.state-sub { font-size: 12px; color: var(--text-muted); }
-
-.error-box {
-  background: #fff5f5;
-  border-color: #ffcdd2;
-  color: #c62828;
-  font-size: 14px;
-  flex-direction: row;
-  padding: 20px 24px;
-  justify-content: center;
-}
-
-.hint-box .state-icon { color: #c8e6c9; }
-
 /* ── 結果 ── */
-.result-section { display: flex; flex-direction: column; gap: 20px; }
+.result-section { display: flex; flex-direction: column; gap: var(--space-5); }
 
 .multi-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #fff8e1;
-  border: 1px solid #ffe082;
-  border-radius: 10px;
-  padding: 12px 18px;
-  font-size: 13px;
-  color: #e65100;
+  gap: var(--space-2);
+  background: var(--warning-50);
+  border: 1px solid var(--warning-100);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--warning-500);
 }
 
 .result-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px 28px;
-  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6) var(--space-8);
+  box-shadow: var(--shadow-md);
 }
 
 /* ── 成分標頭 ── */
@@ -625,187 +469,156 @@ async function handleSearch() {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--neutral-200);
 }
 
-.ingredient-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ingredient-title { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
 
-.ingredient-name { font-size: 19px; font-weight: 700; color: #1b5e20; }
-.ingredient-en { font-size: 13px; color: var(--text-muted); font-family: monospace; }
+.ingredient-name { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--green-800); }
+.ingredient-en { font-size: var(--text-sm); color: var(--neutral-400); font-family: monospace; }
 
-.ingredient-meta { display: flex; align-items: center; gap: 8px; }
+.ingredient-meta { display: flex; align-items: center; gap: var(--space-2); }
 
-.code-text { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+.code-text { font-size: var(--text-xs); color: var(--neutral-400); font-family: monospace; }
 
-.badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.badge--exact { background: #e8f5e9; color: #2e7d32; }
-.badge--category { background: #e3f2fd; color: #1565c0; }
-.badge--type { background: #f3e5f5; color: #6a1b9a; }
-.badge--valid { background: #e8f5e9; color: #2e7d32; }
-.badge--revoked { background: #ffebee; color: #c62828; margin-right: 4px; }
-.badge--expired { background: #fff3e0; color: #e65100; }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.badge--exact { background: var(--green-100); color: var(--green-600); }
+.badge--category { background: var(--info-50); color: var(--info-500); }
+.badge--type { background: var(--purple-50); color: var(--purple-500); }
+.badge--valid { background: var(--green-100); color: var(--green-600); }
+.badge--revoked { background: var(--danger-50); color: var(--danger-500); margin-right: var(--space-1); }
+.badge--expired { background: var(--warning-50); color: var(--warning-500); }
 
 /* ── 劑型分頁 ── */
 .form-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0 20px;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-5);
 }
 
 .form-tab {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   align-items: flex-start;
-  padding: 8px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
-.form-tab:hover { border-color: #81c784; background: #f1f8f1; }
+.form-tab:hover { border-color: var(--green-400); background: var(--green-50); }
 
 .form-tab--active {
-  border-color: #2e7d32;
-  background: #f1f8f1;
-  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.12);
+  border-color: var(--green-600);
+  background: var(--green-50);
+  box-shadow: var(--shadow-focus);
 }
 
 .form-tab--technical { opacity: 0.75; }
 
-.form-tab-name { font-size: 13px; font-weight: 700; color: #1b5e20; }
-.form-tab-contents { font-size: 11px; color: var(--text-muted); font-family: monospace; }
-.form-tab-count { font-size: 10px; color: var(--text-muted); }
+.form-tab-name { font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--green-800); }
+.form-tab-contents { font-size: var(--text-2xs); color: var(--neutral-400); font-family: monospace; }
+.form-tab-count { font-size: var(--text-2xs); color: var(--neutral-400); }
 
 /* ── 劑型面板 ── */
-.form-panel { display: flex; flex-direction: column; gap: 20px; }
+.form-panel { display: flex; flex-direction: column; gap: var(--space-5); }
 
 .notice-box {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #f5f5f5;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 18px;
-  font-size: 13px;
-  color: var(--text-muted);
+  gap: var(--space-2);
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--neutral-400);
 }
 
-.notice-box--warn { background: #fff8e1; border-color: #ffe082; color: #e65100; }
+.notice-box--warn { background: var(--warning-50); border-color: var(--warning-100); color: var(--warning-500); }
 
 .block-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .block-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #1b5e20;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
 }
 
-.card-icon { font-size: 18px; color: #43a047; }
+.card-icon { font-size: var(--text-lg); color: var(--green-500); }
 
 .block-count {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  background: #f1f8f1;
-  border-radius: 999px;
-  padding: 2px 8px;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--neutral-400);
+  background: var(--green-50);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-2);
 }
 
 .filter-input {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   min-width: 220px;
   outline: none;
-  background: var(--surface);
-  color: var(--text-primary);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
 }
 
-.filter-input:focus { border-color: var(--green); }
+.filter-input:focus { border-color: var(--green-600); }
 
 .inline-empty {
-  font-size: 13px;
-  color: var(--text-muted);
-  padding: 16px 0;
+  font-size: var(--text-sm);
+  color: var(--neutral-400);
+  padding: var(--space-4) 0;
   text-align: center;
 }
 
 /* ── 表格 ── */
 .table-scroll { overflow-x: auto; }
 
-.usage-table, .license-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
-.usage-table th, .license-table th {
-  text-align: left;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
-  padding: 8px 12px;
-  border-bottom: 2px solid var(--border);
-  white-space: nowrap;
-}
-
-.usage-table td, .license-table td {
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-primary);
-  vertical-align: top;
-}
-
-.usage-table tbody tr:hover, .license-table tbody tr:hover { background: #f9fbf9; }
-
-.cell-strong { font-weight: 600; }
-.cell-mono { font-family: monospace; font-size: 12px; white-space: nowrap; }
-.cell-note { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.cell-strong { font-weight: var(--weight-medium); }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); white-space: nowrap; }
+.cell-note { color: var(--neutral-400); font-size: var(--text-xs); line-height: var(--leading-normal); }
 
 /* 安全採收期是本功能最關鍵的欄位（用錯會農藥殘留超標），視覺上獨立標示 */
-.col-highlight { background: #f1f8f1; }
+.col-highlight { background: var(--green-50); }
 
 /* ── 許可證區塊 ── */
-.license-block { border-top: 1px solid var(--border); padding-top: 16px; }
+.license-block { border-top: 1px solid var(--neutral-200); padding-top: var(--space-4); }
 
 .block-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   background: none;
   border: none;
-  padding: 0 0 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #1b5e20;
+  padding: 0 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
   cursor: pointer;
 }
 
-.block-toggle .mdi { font-size: 20px; }
+.block-toggle .mdi { font-size: var(--text-lg); }
 </style>

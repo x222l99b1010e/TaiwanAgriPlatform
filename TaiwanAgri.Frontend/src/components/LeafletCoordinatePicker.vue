@@ -13,9 +13,9 @@
         <span class="mdi mdi-cursor-default-click-outline" />
         點擊地圖上的位置，設定走失／拾獲地點座標
       </span>
-      <button v-if="hasCoordinate" type="button" class="btn-clear" @click="clearCoordinate">
+      <Btn v-if="hasCoordinate" variant="danger" size="sm" icon="mdi-close-circle-outline" @click="clearCoordinate">
         清除座標
-      </button>
+      </Btn>
     </div>
 
     <div ref="mapContainer" class="map-container" />
@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import L from 'leaflet'
+import Btn from '@/components/ui/Btn.vue'
 
 const props = defineProps<{
   latitude: number | null
@@ -128,53 +129,41 @@ onUnmounted(() => {
 .coordinate-picker {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .picker-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .picker-hint {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
 }
-
-.btn-clear {
-  padding: 4px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-clear:hover { border-color: var(--red); color: var(--red); }
 
 .map-container {
   height: 600px;
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--neutral-200);
   /* Leaflet 內部用絕對定位排版圖磚，容器沒有明確高度地圖會整個塌陷看不到 */
 }
 
 .picker-coords {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
   font-family: monospace;
 }
 
 .coords-empty {
-  color: var(--text-muted);
+  color: var(--neutral-400);
   font-family: inherit;
 }
 </style>

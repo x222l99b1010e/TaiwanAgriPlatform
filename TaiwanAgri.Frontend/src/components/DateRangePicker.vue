@@ -59,58 +59,58 @@ function applyShortcut(days: number) {
 
 <style scoped>
 .date-range-picker {
-  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap;
 }
 
-.date-group { display: flex; flex-direction: column; gap: 4px; }
+.date-group { display: flex; flex-direction: column; gap: var(--space-1); }
 
 .date-group label {
-  font-size: 12px; font-weight: 600;
-  color: var(--text-muted);
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+  color: var(--neutral-400);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .date-group input[type="date"] {
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 14px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
+  font-size: var(--text-base);
   width: 160px;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .date-group input[type="date"]:focus {
   outline: none;
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+  border-color: var(--green-600);
+  box-shadow: var(--shadow-focus);
 }
 
-.separator { font-size: 18px; color: var(--text-muted); padding-bottom: 6px; }
+.separator { font-size: var(--text-lg); color: var(--neutral-400); padding-bottom: var(--space-2); }
 
-.shortcuts { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 2px; }
+.shortcuts { display: flex; gap: var(--space-2); flex-wrap: wrap; padding-bottom: var(--space-1); }
 
 .shortcut-btn {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: 12px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-500);
+  font-size: var(--text-xs);
   cursor: pointer;
-  transition: all 0.18s;
+  transition: all var(--duration-fast);
 }
 .shortcut-btn:hover {
-  border-color: var(--green);
-  color: var(--green);
-  background: #f0f7f0;
+  border-color: var(--green-600);
+  color: var(--green-600);
+  background: var(--green-50);
 }
 
 .shortcut-btn.active {
-  border-color: var(--green);
-  color: var(--green);
-  background: #e8f5e9;
-  font-weight: 600;
+  border-color: var(--green-600);
+  color: var(--green-600);
+  background: var(--green-100);
+  font-weight: var(--weight-medium);
 }
 </style>

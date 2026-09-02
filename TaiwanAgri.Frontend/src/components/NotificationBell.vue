@@ -6,7 +6,7 @@
     <!-- 鈴鐺按鈕 -->
     <button class="bell-btn" @click="toggleDropdown">
       <span class="mdi mdi-bell bell-icon" />
-      <span v-if="store.unreadCount > 0" class="badge">
+      <span v-if="store.unreadCount > 0" class="bell-badge">
         {{ store.unreadCount > 99 ? '99+' : store.unreadCount }}
       </span>
     </button>
@@ -127,25 +127,26 @@ onMounted(() => {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: none;
   background: transparent;
-  color: rgba(255,255,255,0.80);
+  color: var(--white-a80);
   cursor: pointer;
-  transition: background 0.18s, color 0.18s;
+  transition: background var(--duration-fast), color var(--duration-fast);
 }
-.bell-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+.bell-btn:hover { background: var(--white-a12); color: var(--neutral-0); }
 
-.bell-icon { font-size: 20px; }
+.bell-icon { font-size: var(--text-lg); }
 
-/* 紅點 badge */
-.badge {
+/* 未讀紅點。刻意不用共用的 .badge：它是絕對定位疊在鈴鐺上的計數點，
+   跟頁面裡那種行內的狀態標籤不是同一種東西 */
+.bell-badge {
   position: absolute;
   top: 4px; right: 4px;
   min-width: 16px; height: 16px;
-  padding: 0 4px; border-radius: 999px;
-  background: #e53935; color: white;
-  font-size: 10px; font-weight: 700;
+  padding: 0 var(--space-1); border-radius: var(--radius-full);
+  background: var(--danger-500); color: var(--neutral-0);
+  font-size: var(--text-2xs); font-weight: var(--weight-bold);
   line-height: 16px; text-align: center;
   pointer-events: none;
 }
@@ -156,75 +157,75 @@ onMounted(() => {
   top: calc(100% + 8px);
   right: 0;
   width: 340px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
-  z-index: 300;
+  z-index: var(--z-overlay);
 }
 
 .dropdown-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--neutral-200);
 }
 
 .dropdown-title {
-  font-size: 16px;              /* 從 14px → 16px */
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: var(--text-base);              /* 從 14px → 16px */
+  font-weight: var(--weight-bold);
+  color: var(--neutral-900);
 }
 
 .btn-mark-all {
-  font-size: 13px;              /* 從 12px → 13px */
-  color: rgba(26,40,32,0.55);   /* 從 teal → 深灰 */
+  font-size: var(--text-sm);              /* 從 12px → 13px */
+  color: var(--neutral-500);   /* 從 teal → 深灰 */
   background: none; border: none; cursor: pointer; padding: 0;
-  font-weight: 600;
-  transition: color 0.15s;
+  font-weight: var(--weight-medium);
+  transition: color var(--duration-fast);
 }
-.btn-mark-all:hover:not(:disabled) { color: var(--green); }
-.btn-mark-all:disabled { color: rgba(26,40,32,0.30); cursor: not-allowed; }
+.btn-mark-all:hover:not(:disabled) { color: var(--green-600); }
+.btn-mark-all:disabled { color: var(--neutral-400); cursor: not-allowed; }
 
 /* 捲動區 */
 .dropdown-body { max-height: 400px; overflow-y: auto; }
 .dropdown-body::-webkit-scrollbar { width: 4px; }
 .dropdown-body::-webkit-scrollbar-track { background: transparent; }
-.dropdown-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+.dropdown-body::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: var(--radius-sm); }
 
 /* 通知項目 */
 .notification-item {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer; transition: background 0.15s;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--neutral-200);
+  cursor: pointer; transition: background var(--duration-fast);
 }
 .notification-item:last-child { border-bottom: none; }
-.notification-item:hover { background: var(--surface-2); }
+.notification-item:hover { background: var(--neutral-50); }
 
 /* 未讀 */
 .notification-item.unread {
-  background: #f0faf8;
-  border-left: 3px solid var(--teal);
-  padding-left: 15px;
+  background: var(--teal-50);
+  border-left: 3px solid var(--teal-500);
+  padding-left: var(--space-4);
 }
-.notification-item.unread:hover { background: #e6f7f4; }
+.notification-item.unread:hover { background: var(--teal-100); }
 
 .item-top {
   display: flex; justify-content: space-between;
-  align-items: baseline; margin-bottom: 4px;
+  align-items: baseline; margin-bottom: var(--space-1);
 }
 
-.rule-name { font-size: 12px; font-weight: 600; color: var(--teal); }
-.item-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-.item-message { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--teal-500); }
+.item-time { font-size: var(--text-2xs); color: var(--neutral-400); white-space: nowrap; }
+.item-message { font-size: var(--text-sm); color: var(--neutral-500); line-height: var(--leading-normal); }
 
 /* 提示文字 */
 .hint {
   text-align: center;
-  padding: 24px 0;
-  font-size: 14px;              /* 從 13px → 14px */
-  color: rgba(26,40,32,0.50);   /* 從 text-muted(0.40) → 0.50 */
-  font-weight: 500;
+  padding: var(--space-6) 0;
+  font-size: var(--text-base);              /* 從 13px → 14px */
+  color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.50 */
+  font-weight: var(--weight-medium);
 }
-.end-hint { padding: 12px 0; font-size: 12px; }
+.end-hint { padding: var(--space-3) 0; font-size: var(--text-xs); }
 </style>

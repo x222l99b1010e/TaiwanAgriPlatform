@@ -1,30 +1,30 @@
 <template>
-  <div class="pork-view">
-    <h1>毛豬行情查詢</h1>
+  <div class="page pork-view">
+    <PageHeader
+      title="毛豬行情查詢"
+      subtitle="毛豬拍賣的成交均價、交易頭數與平均重量，查詢後可再依單一市場篩選"
+    />
 
-    <!-- 篩選區 -->
-    <section class="filter-section">
+    <FilterCard layout="stack">
       <div class="filter-row">
         <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
 
-    <div class="field-group">
-    <label class="field-label">市場</label>
-    <select class="market-select" v-model="selectedMarket" :disabled="!hasQueried">
-        <option value="">全部市場</option>
-        <option v-for="name in availableMarkets" :key="name" :value="name">
-        {{ name }}
-        </option>
-    </select>
-    <!-- 提示放在 select 正下方 -->
-    <div class="query-hint" v-if="!hasQueried">
-        <span class="mdi mdi-information-outline hint-icon" />
-        請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
-    </div>
-    <div class="query-hint success" v-else-if="availableMarkets.length > 0">
-        <span class="mdi mdi-check-circle-outline hint-icon" />
-        已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
-    </div>
-    </div>
+        <div class="field-group">
+          <label class="field-label">市場</label>
+          <select class="market-select" v-model="selectedMarket" :disabled="!hasQueried">
+            <option value="">全部市場</option>
+            <option v-for="name in availableMarkets" :key="name" :value="name">
+              {{ name }}
+            </option>
+          </select>
+          <!-- 提示放在 select 正下方 -->
+          <HintBox v-if="!hasQueried">
+            請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
+          </HintBox>
+          <HintBox v-else-if="availableMarkets.length > 0" tone="success">
+            已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
+          </HintBox>
+        </div>
 
         <div class="metric-tabs">
           <button
@@ -38,24 +38,40 @@
       </div>
 
       <div class="action-row">
-        <button class="btn-query" :disabled="isLoading" @click="handleQuery">
+        <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
           {{ isLoading ? '查詢中...' : '查詢行情' }}
-        </button>
-        <button v-if="rawData.length > 0" class="btn-export" @click="handleExportCsv">
+        </Btn>
+        <Btn v-if="rawData.length > 0" variant="secondary" icon="mdi-file-chart" @click="handleExportCsv">
           匯出 CSV
-        </button>
-        <button v-if="rawData.length > 0 && selectedMarket" class="btn-reset" @click="selectedMarket = ''">
-          顯示全部市場
-        </button>
+        </Btn>
+        <Btn
+          v-if="rawData.length > 0 && selectedMarket"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
+          @click="selectedMarket = ''"
+        >顯示全部市場</Btn>
       </div>
+    </FilterCard>
 
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+    <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間後按下查詢行情" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="chartData.datasets.length === 0"
+      state="empty"
+      message="查無資料"
+      hint="請調整日期區間或市場篩選後重試"
+    />
 
-    <!-- 查詢後區塊 -->
-    <div v-if="hasQueried">
+    <div v-else>
       <!-- 摘要統計列 -->
-      <div class="summary-bar" v-if="chartData.datasets.length > 0">
+      <div class="summary-bar">
         <div class="stat-card">
           <span class="stat-label">市場數</span>
           <span class="stat-value">{{ availableMarkets.length }}</span>
@@ -75,20 +91,18 @@
       </div>
 
       <!-- 圖表 -->
-      <div class="chart-card" v-if="chartData.datasets.length > 0">
+      <div class="chart-card">
         <div class="chart-toolbar">
           <span class="chart-title">
             {{ metricOptions.find(m => m.key === activeMetric)?.label }} 趨勢
           </span>
-          <button class="btn-export-img" @click="exportChartImage">匯出圖片</button>
+          <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
+            匯出圖片
+          </Btn>
         </div>
         <div class="canvas-wrap">
           <canvas ref="canvasRef" />
         </div>
-      </div>
-
-      <div class="empty-hint" v-else-if="!isLoading">
-        查無資料，請調整篩選條件後重試
       </div>
     </div>
   </div>
@@ -105,15 +119,17 @@ import {
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PorkResponseDto } from '@/api/market'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
+import HintBox from '@/components/ui/HintBox.vue'
+import {
+  seriesColor, pointBorderColor, exportBackground,
+  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
-
-// ── 色盤 ─────────────────────────────────────────────────────────────────
-const PALETTE = [
-  '#2e7d32', '#e65100', '#1565c0', '#6a1b9a', '#c77700',
-  '#00695c', '#b71c1c', '#0277bd', '#558b2f', '#f57f17',
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 
 // ── 副指標選項 ────────────────────────────────────────────────────────────
 type MetricKey = 'excludeFreezerAvgPrice' | 'excludeFreezerAvgWeight' | 'excludeFreezerCount'
@@ -186,13 +202,13 @@ const chartData = computed(() => {
   const datasets = Object.entries(groups).map(([marketName, dateMap], i) => ({
     label: marketName,
     data: labels.map(date => dateMap[date] ?? null),  // 該日期沒資料 → null（Chart.js 會跳過）
-    borderColor: getColor(i),
+    borderColor: seriesColor(i),
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: labels.length <= 90 ? 3 : 0,
     pointHoverRadius: 7,
-    pointBackgroundColor: getColor(i),
-    pointBorderColor: 'rgba(0,0,0,0.15)',
+    pointBackgroundColor: seriesColor(i),
+    pointBorderColor: pointBorderColor(),
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
@@ -219,33 +235,26 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 12,
-            color: 'rgba(26,40,32,0.75)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
           ticks: {
-            color: 'rgba(26,40,32,0.75)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback: (val) => `${val} ${unit}`,
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} ${unit}` : '',
@@ -253,12 +262,7 @@ function buildChart() {
         },
         legend: {
           position: 'top',
-          labels: {
-            color: 'rgba(26,40,32,0.85)',
-            font: { size: 12 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -326,7 +330,7 @@ function exportChartImage() {
   exportCanvas.height = canvas.height
 
   const ctx = exportCanvas.getContext('2d')!
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = exportBackground()
   ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
   ctx.drawImage(canvas, 0, 0)
 
@@ -339,173 +343,69 @@ function exportChartImage() {
 </script>
 
 <style scoped>
-.pork-view { width: 100%; min-width: 960px; padding: 36px 56px; box-sizing: border-box; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
+.pork-view { min-width: 960px; }
 /* 篩選區 */
-.filter-section {
-  display: flex; flex-direction: column; gap: 16px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 28px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.filter-row { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
-.action-row { display: flex; align-items: center; gap: 10px; }
+.filter-row { display: flex; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
+.action-row { display: flex; align-items: center; gap: var(--space-3); }
 
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .market-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 180px; cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .market-select:focus {
-  outline: none; border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+  outline: none; border-color: var(--green-600);
+  box-shadow: var(--shadow-focus);
 }
 
 /* 指標切換 */
 .metric-tabs {
-  display: flex; gap: 4px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 3px; align-self: flex-end;
+  display: flex; gap: var(--space-1);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); padding: var(--space-1); align-self: flex-end;
 }
 .metric-tab {
-  padding: 6px 14px; border-radius: 6px; border: none;
-  background: transparent; color: rgba(26,40,32,0.60);
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); border: none;
+  background: transparent; color: var(--neutral-500);
+  font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
 }
-.metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: #e8f5e9; color: var(--green); font-weight: 700; }
+.metric-tab:hover { color: var(--neutral-900); }
+.metric-tab.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-bold); }
 
 /* 按鈕 */
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.btn-export {
-  padding: 9px 20px; border-radius: 999px;
-  border: 1px solid #005f6b;
-  background: linear-gradient(180deg, #00bcd4 0%, #0097a7 40%, #006978 100%);
-  color: white; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-export:hover {
-  background: linear-gradient(180deg, #26c6da 0%, #00acc1 40%, #0097a7 100%);
-}
-.btn-export:active {
-  background: linear-gradient(180deg, #006978 0%, #0097a7 60%, #00acc1 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-
-.btn-reset {
-  padding: 9px 18px; border-radius: 999px;
-  border: 1px solid #9e9e9e;
-  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 40%, #bdbdbd 100%);
-  color: #1a2820; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.80), inset 0 -2px 4px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-reset:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #eeeeee 40%, #e0e0e0 100%);
-}
-.btn-reset:active {
-  background: linear-gradient(180deg, #bdbdbd 0%, #e0e0e0 60%, #eeeeee 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.20), 0 1px 3px rgba(0,0,0,0.12);
-}
-
 /* 摘要列 */
 .summary-bar {
-  display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap;
+  display: flex; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap;
 }
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 24px;
-  display: flex; flex-direction: column; gap: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-2);
+  box-shadow: var(--shadow-sm);
 }
 .stat-label {
-  font-size: 12px; color: rgba(26,40,32,0.60);
-  letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-500);
+  letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium);
 }
-.stat-value { font-size: 26px; font-weight: 700; color: #1a5c20; }
+.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--green-800); }
 
 /* 圖表卡片 */
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 28px 32px 36px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl); padding: var(--space-8) var(--space-8) var(--space-10);
+  box-shadow: var(--shadow-md);
 }
 .chart-toolbar {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
-.chart-title { font-size: 15px; font-weight: 700; color: rgba(26,40,32,0.80); }
-
-.btn-export-img {
-  padding: 9px 20px; border-radius: 999px;
-  border: 1px solid #4a148c;
-  background: linear-gradient(180deg, #ab47bc 0%, #7b1fa2 40%, #4a148c 100%);
-  color: white; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-export-img:hover {
-  background: linear-gradient(180deg, #ba68c8 0%, #8e24aa 40%, #6a1b9a 100%);
-}
-.btn-export-img:active {
-  background: linear-gradient(180deg, #4a148c 0%, #7b1fa2 60%, #8e24aa 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-
+.chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700); }
 .canvas-wrap { position: relative; height: 500px; width: 100%; }
-
-.error-msg { font-size: 13px; color: var(--red); }
-.empty-hint {
-  font-size: 14px; color: var(--text-muted);
-  text-align: center; padding: 60px 0;
-}
-
-.query-hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: #e3f2fd;
-  border: 1px solid rgba(21,101,192,0.20);
-  color: #1565c0;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-.query-hint.success {
-  background: #e8f5e9;
-  border-color: rgba(46,125,50,0.20);
-  color: var(--green);
-}
-.hint-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
 </style>

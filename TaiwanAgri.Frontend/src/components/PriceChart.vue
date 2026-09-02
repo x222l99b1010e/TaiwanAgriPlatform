@@ -1,5 +1,6 @@
 <!-- src/components/PriceChart.vue -->
 <script setup lang="ts">
+import Btn from '@/components/ui/Btn.vue'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import {
   Chart,
@@ -14,6 +15,10 @@ import {
   type ChartDataset, type Scale, type TooltipItem,
 } from 'chart.js'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
+import {
+  seriesColor, seriesFill, seriesAccent, pointBorderColor, exportBackground,
+  annotationColor, withAlpha, axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 // Chart.js 採用「按需註冊」設計，沒 register 就沒功能
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
@@ -29,17 +34,6 @@ const props = defineProps<{
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let chartInstance: Chart | null = null
 
-// ── 色盤（最多 5 條作物線）─────────────────────────────
-// PALETTE 換成這個
-const PALETTE = [
-  { main: '#2e7d32', fade: 'rgba(46,125,50,0.08)',   ma: 'rgba(46,125,50,0.28)'   },
-  { main: '#e65100', fade: 'rgba(230,81,0,0.08)',    ma: 'rgba(230,81,0,0.28)'    },
-  { main: '#1565c0', fade: 'rgba(21,101,192,0.08)',  ma: 'rgba(21,101,192,0.28)'  },
-  { main: '#6a1b9a', fade: 'rgba(106,27,154,0.08)',  ma: 'rgba(106,27,154,0.28)'  },
-  { main: '#c77700', fade: 'rgba(199,119,0,0.08)',   ma: 'rgba(199,119,0,0.28)'   },
-]
-// 加在 PALETTE 定義下方
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 // ── 7 日移動平均計算 ───────────────────────────────────
 function calcMA(values: number[], window = 7): number[] {
   return values.map((_, i) => {
@@ -70,7 +64,7 @@ const chartData = computed(() => {
   const datasets: ChartDataset<'line'>[] = []
   let ci = 0
   for (const [, g] of Object.entries(groups)) {
-    const color = getColor(ci++)
+    const si = ci++
     const values = labels.map(d => g.priceMap[d] ?? null)
 
     // MA 只對有值的資料點計算，再映射回完整日期序列
@@ -88,13 +82,13 @@ const chartData = computed(() => {
     datasets.push({
       label: g.name,
       data: values,
-      borderColor: color.main,
-      backgroundColor: color.fade,
+      borderColor: seriesColor(si),
+      backgroundColor: seriesFill(si),
       borderWidth: 2,
       pointRadius: showPoints ? 3.5 : 0,
       pointHoverRadius: 7,
-      pointBackgroundColor: color.main,
-      pointBorderColor: 'rgba(0,0,0,0.15)',
+      pointBackgroundColor: seriesColor(si),
+      pointBorderColor: pointBorderColor(),
       pointBorderWidth: 1,
       tension: 0.35,
       fill: true,
@@ -105,7 +99,7 @@ const chartData = computed(() => {
     datasets.push({
       label: `${g.name}（7日均）`,
       data: maValues,
-      borderColor: color.ma,
+      borderColor: seriesAccent(si),
       backgroundColor: 'transparent',
       borderWidth: 1.5,
       borderDash: [6, 5],
@@ -166,7 +160,7 @@ function buildChart() {
         ctx.beginPath()
         ctx.moveTo(x, chartArea.top)
         ctx.lineTo(x, chartArea.bottom)
-        ctx.strokeStyle = 'rgba(255, 130, 80, 0.5)'
+        ctx.strokeStyle = withAlpha(annotationColor(), 0.5)
         ctx.lineWidth = 1.5
         ctx.setLineDash([5, 4])
         ctx.stroke()
@@ -177,14 +171,14 @@ function buildChart() {
         ctx.lineTo(x + 5, chartArea.top)
         ctx.lineTo(x, chartArea.top + 8)
         ctx.closePath()
-        ctx.fillStyle = 'rgba(255, 130, 80, 0.7)'
+        ctx.fillStyle = withAlpha(annotationColor(), 0.7)
         ctx.fill()
 
         // 災害名稱（旋轉文字）
         ctx.save()
         ctx.translate(x + 10, chartArea.top + 16)
         ctx.rotate(Math.PI / 2)
-        ctx.fillStyle = 'rgba(255, 160, 110, 0.65)'
+        ctx.fillStyle = withAlpha(annotationColor(), 0.65)
         ctx.font = '10px sans-serif'
         ctx.textAlign = 'left'
         ctx.fillText(name, 0, 0)
@@ -209,33 +203,26 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 12,
-             color: 'rgba(26,40,32,0.75)',  // 從 0.45 → 0.75
-            font: { size: 12 },            // 從 11 → 12
+            ...axisTicks(),
             callback(this: Scale, val: unknown, index: number) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
           ticks: {
-            color: 'rgba(26,40,32,0.75)',  // 從 0.45 → 0.75
-            font: { size: 12 },            // 從 11 → 12
+            ...axisTicks(),
             callback: (val: unknown) => `${val} 元`,
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx: TooltipItem<'line'>) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
@@ -243,12 +230,7 @@ function buildChart() {
         },
         legend: {
           position: 'top' as const,
-          labels: {
-            color: 'rgba(26,40,32,0.85)',  // 從 0.65 → 0.85
-            font: { size: 13 },            // 從 12 → 13
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -275,7 +257,7 @@ function exportChartImage() {
   exportCanvas.height = canvas.height
 
   const ctx = exportCanvas.getContext('2d')!
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = exportBackground()
   ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
   ctx.drawImage(canvas, 0, 0)
 
@@ -308,8 +290,8 @@ function exportChartImage() {
           <span
             v-for="(name, i) in summary.crops"
             :key="i"
-            class="crop-tag"
-            :style="{ borderColor: getColor(i).main, color: getColor(i).main }"
+            class="badge crop-tag"
+            :style="{ borderColor: seriesColor(i), color: seriesColor(i) }"
           >{{ name }}</span>
         </div>
       </div>
@@ -319,7 +301,7 @@ function exportChartImage() {
       </div>
       <!-- 圖表右上角 -->
       <div class="chart-header">
-        <button class="btn-export" @click="exportChartImage">匯出圖片</button>
+        <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">匯出圖片</Btn>
       </div>
     </div>
 
@@ -332,14 +314,14 @@ function exportChartImage() {
 
 <style scoped>
 .chart-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 28px 32px 36px;
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8) var(--space-8) var(--space-10);
   animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
   box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-md);
 }
 
 @keyframes fadeUp {
@@ -350,49 +332,47 @@ function exportChartImage() {
 .summary-bar {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
   flex-wrap: wrap;
-  margin-bottom: 28px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--neutral-200);
 }
 
-.stat { display: flex; flex-direction: column; gap: 5px; }
+.stat { display: flex; flex-direction: column; gap: var(--space-1); }
 
 .stat-label {
-  font-size: 11px;
-  color: rgba(26,40,32,0.55);   /* 從 text-muted(0.40) → 0.55 */
+  font-size: var(--text-2xs);
+  color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.55 */
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .stat-value {
-  font-size: 14px;              /* 從 13px → 14px */
-  color: var(--text-primary);
+  font-size: var(--text-base);              /* 從 13px → 14px */
+  color: var(--neutral-900);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;             /* 加粗 */
+  font-weight: var(--weight-medium);             /* 加粗 */
 }
 
 .sep {
   width: 1px;
   height: 36px;
-  background: var(--border);
+  background: var(--neutral-200);
   flex-shrink: 0;
 }
 
-.tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .crop-tag {
-  font-size: 11px;
-  padding: 2px 9px;
-  border: 1px solid;
-  border-radius: 999px;
+  border: var(--border-width) solid;
   opacity: 0.85;
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-base);
 }
 .crop-tag:hover { opacity: 1; }
 
-.legend-note .stat-label { font-style: italic; font-size: 11px; }
+.legend-note .stat-label { font-style: italic; font-size: var(--text-2xs); }
 
 .canvas-wrap {
   position: relative;
@@ -401,46 +381,4 @@ function exportChartImage() {
 }
 
 .chart-header { margin-left: auto; }
-
-.btn-export {
-  padding: 9px 20px; border-radius: 999px;
-  border: 1px solid #4a148c;
-  background: linear-gradient(
-    180deg,
-    #ab47bc 0%,
-    #7b1fa2 40%,
-    #4a148c 100%
-  );
-  color: white;
-  font-size: 13.5px; font-weight: 700; cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    0 2px 6px rgba(0,0,0,0.18);
-  transition: all 0.15s;
-}
-.btn-export:hover {
-  background: linear-gradient(
-    180deg,
-    #ba68c8 0%,
-    #8e24aa 40%,
-    #6a1b9a 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-export:active {
-  background: linear-gradient(
-    180deg,
-    #4a148c 0%,
-    #7b1fa2 60%,
-    #8e24aa 100%
-  );
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    inset 0 -1px 0 rgba(255,255,255,0.15),
-    0 1px 3px rgba(0,0,0,0.15);
-}
 </style>

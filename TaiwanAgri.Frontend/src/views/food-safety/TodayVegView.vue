@@ -1,31 +1,27 @@
 <template>
-  <div class="today-veg-view">
-    <div class="page-header">
-      <h2 class="section-title">今日民生蔬菜均價</h2>
-      <p class="section-subtitle">
+  <div class="page today-veg-view">
+    <PageHeader title="今日民生蔬菜均價">
+      <template #subtitle>
         資料來源：台北一果菜市場（市場代號 109）
         <span v-if="latestDate" class="data-date">｜ 最新交易日：{{ latestDate }}</span>
-      </p>
-    </div>
+      </template>
+    </PageHeader>
 
-    <!-- 載入中 -->
-    <div v-if="store.isLoadingTodayVeg" class="state-box">
-      <div class="loading-spinner" />
-      <span class="state-text">資料載入中...</span>
-    </div>
-
-    <!-- 錯誤 -->
-    <div v-else-if="store.todayVegError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.todayVegError }}</span>
-      <button class="btn-retry" @click="store.fetchTodayVegPrices()">重試</button>
-    </div>
-
-    <!-- 無資料 -->
-    <div v-else-if="store.todayVegPrices.length === 0 && store.todayVegHasFetched" class="state-box">
-      <span class="mdi mdi-calendar-remove state-icon" />
-      <span class="state-text">今日無菜價資料（可能為休市日）</span>
-    </div>
+    <StateBlock v-if="store.isLoadingTodayVeg" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="store.todayVegError"
+      state="error"
+      :message="store.todayVegError"
+      retryable
+      @retry="store.fetchTodayVegPrices()"
+    />
+    <StateBlock
+      v-else-if="store.todayVegPrices.length === 0 && store.todayVegHasFetched"
+      state="empty"
+      icon="mdi-calendar-remove"
+      message="今日無菜價資料"
+      hint="可能是休市日，明天再回來看看"
+    />
 
     <!-- 資料卡片：一列兩張 -->
     <div v-else class="price-grid">
@@ -73,6 +69,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
 
 const store = useFoodSafetyStore()
 
@@ -87,105 +85,34 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.today-veg-view {
-  padding: 40px 48px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* ── 頁首 ── */
-.page-header { margin-bottom: 32px; }
-
-.section-title {
-  font-size: 24px;
-  font-weight: 800;
-  color: #1b5e20;
-  margin-bottom: 8px;
-  letter-spacing: -0.01em;
-}
-
-.section-subtitle {
-  font-size: 13px;
-  color: #555;
-}
-
 .data-date {
-  font-weight: 600;
-  color: #2e7d32;
+  font-weight: var(--weight-medium);
+  color: var(--green-600);
 }
-
-/* ── 狀態容器（載入／錯誤／無資料） ── */
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 64px 32px;
-  background: #f9faf9;
-  border: 1px solid #dce8dc;
-  border-radius: 16px;
-}
-
-.state-icon {
-  font-size: 36px;
-  color: #aaa;
-}
-
-.state-text {
-  font-size: 15px;
-  color: #666;
-}
-
-.error-box .state-icon { color: #c62828; }
-.error-box .state-text { color: #c62828; }
-
-.loading-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid #c8e6c9;
-  border-top-color: #2e7d32;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.btn-retry {
-  padding: 8px 24px;
-  border-radius: 999px;
-  border: 1.5px solid #c62828;
-  background: transparent;
-  color: #c62828;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-retry:hover { background: #fff5f5; }
 
 /* ── 卡片格狀：一列兩張 ── */
 .price-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 /* ── 單張卡片 ── */
 .price-card {
-  background: #fff;
-  border: 1.5px solid #c8e6c9;
-  border-radius: 18px;
-  padding: 28px 32px;
-  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.08);
+  background: var(--neutral-0);
+  border: 1.5px solid var(--green-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  transition: box-shadow 0.18s, transform 0.18s;
+  gap: var(--space-4);
+  transition: box-shadow var(--duration-fast), transform var(--duration-fast);
 }
 
 .price-card:hover {
-  box-shadow: 0 8px 28px rgba(46, 125, 50, 0.16);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
@@ -193,18 +120,18 @@ onMounted(() => {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .crop-icon {
-  font-size: 22px;
-  color: #388e3c;
+  font-size: var(--text-xl);
+  color: var(--green-500);
 }
 
 .crop-name {
-  font-size: 20px;
-  font-weight: 800;
-  color: #1a2e1a;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--green-900);
   letter-spacing: -0.01em;
 }
 
@@ -212,75 +139,75 @@ onMounted(() => {
 .avg-price-row {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .price-value {
-  font-size: 48px;
-  font-weight: 900;
-  color: #2e7d32;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  color: var(--green-600);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .price-unit {
-  font-size: 15px;
-  color: #666;
-  font-weight: 500;
+  font-size: var(--text-base);
+  color: var(--neutral-600);
+  font-weight: var(--weight-medium);
 }
 
 /* ── 分隔線 ── */
 .divider {
   height: 1px;
-  background: #e8f5e9;
+  background: var(--green-100);
 }
 
 /* ── 上中下價三欄 ── */
 .price-detail-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .price-detail-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: #f1f8f1;
-  border-radius: 10px;
-  padding: 10px 8px;
+  gap: var(--space-1);
+  background: var(--green-50);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-2);
 }
 
 .detail-label {
-  font-size: 11px;
-  color: #777;
-  font-weight: 600;
+  font-size: var(--text-2xs);
+  color: var(--neutral-500);
+  font-weight: var(--weight-medium);
   letter-spacing: 0.04em;
 }
 
 .detail-value {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
-.detail-value.upper { color: #c62828; }
-.detail-value.middle { color: #2e7d32; }
-.detail-value.lower { color: #1565c0; }
+.detail-value.upper { color: var(--danger-500); }
+.detail-value.middle { color: var(--green-600); }
+.detail-value.lower { color: var(--info-500); }
 
 /* ── 卡片底部：交易日 ── */
 .card-footer {
   display: none;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #999;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
   font-variant-numeric: tabular-nums;
 }
 
 .footer-icon {
-  font-size: 14px;
-  color: #bbb;
+  font-size: var(--text-base);
+  color: var(--neutral-400);
 }
 </style>

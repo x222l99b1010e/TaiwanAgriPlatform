@@ -30,7 +30,7 @@
       <div class="crop-header">
         <label class="field-label">
           查詢作物
-          <span class="count-badge" :class="{ full: store.selectedCropCodes.length >= 5 }">
+          <span class="badge count-badge" :class="{ full: store.selectedCropCodes.length >= 5 }">
             {{ store.selectedCropCodes.length }} / 5
           </span>
         </label>
@@ -102,118 +102,118 @@ onMounted(() => store.initialize())
 </script>
 
 <style scoped>
-.market-filter { display: flex; flex-direction: column; gap: 20px; }
+.market-filter { display: flex; flex-direction: column; gap: var(--space-5); }
 
 /* Tab */
-.tab-group { display: flex; gap: 6px; }
+.tab-group { display: flex; gap: var(--space-2); }
 .tab-btn {
-  padding: 7px 18px; border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: 13.5px; cursor: pointer;
-  transition: all 0.18s;
+  padding: var(--space-2) var(--space-5); border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-500);
+  font-size: var(--text-sm); cursor: pointer;
+  transition: all var(--duration-fast);
 }
 .tab-btn:hover:not(:disabled) {
-  border-color: var(--green); color: var(--green); background: #f0f7f0;
+  border-color: var(--green-600); color: var(--green-600); background: var(--green-50);
 }
 .tab-btn.active {
-  background: #e8f5e9; border-color: var(--green);
-  color: var(--green); font-weight: 600;
+  background: var(--green-100); border-color: var(--green-600);
+  color: var(--green-600); font-weight: var(--weight-medium);
 }
 .tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 欄位 */
-.field-group { display: flex; flex-direction: column; gap: 8px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 /* field-label 深一點 */
 .field-label {
-  font-size: 12px; color: var(--text-secondary);  /* 從 text-muted 改 text-secondary */
+  font-size: var(--text-xs); color: var(--neutral-500);  /* 從 text-muted 改 text-secondary */
   letter-spacing: 0.06em; text-transform: uppercase;
-  display: flex; align-items: center; gap: 8px;
-  font-weight: 700;  /* 加粗 */
+  display: flex; align-items: center; gap: var(--space-2);
+  font-weight: var(--weight-bold);  /* 加粗 */
 }
 
 /* 市場下拉 */
-.select-wrap { display: flex; align-items: center; gap: 10px; }
+.select-wrap { display: flex; align-items: center; gap: var(--space-3); }
 .market-select {
-  padding: 8px 12px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text-primary); font-size: 13.5px;
+  padding: var(--space-2) var(--space-3); background: var(--neutral-0);
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  color: var(--neutral-900); font-size: var(--text-sm);
   min-width: 200px; cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .market-select:focus {
-  outline: none; border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+  outline: none; border-color: var(--green-600);
+  box-shadow: var(--shadow-focus);
 }
 
-/* badge 深色立體 */
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .count-badge {
-  font-size: 11px; padding: 2px 9px; border-radius: 999px;
-  background: #00897b;
-  color: white;
-  font-weight: 600; letter-spacing: 0; text-transform: none;
-  box-shadow: 0 1px 3px rgba(0,137,123,0.35);
+  background: var(--teal-500);
+  color: var(--neutral-0);
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: var(--shadow-sm);
 }
 .count-badge.full {
-  background: #bf360c;
-  color: white;
-  box-shadow: 0 1px 3px rgba(191,54,12,0.35);
+  background: var(--warning-700);
+  color: var(--neutral-0);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Crop */
 .crop-header { display: flex; align-items: center; justify-content: space-between; }
-.crop-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.crop-list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 .crop-btn {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 5px 12px; border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: 13px; cursor: pointer; transition: all 0.16s;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-500);
+  font-size: var(--text-sm); cursor: pointer; transition: all var(--duration-fast);
   white-space: nowrap;
 }
 .crop-btn:hover:not(.disabled) {
-  border-color: var(--green); color: var(--green); background: #f0f7f0;
+  border-color: var(--green-600); color: var(--green-600); background: var(--green-50);
 }
 .crop-btn.selected {
-  background: #e8f5e9; border-color: var(--green); color: var(--green);
+  background: var(--green-100); border-color: var(--green-600); color: var(--green-600);
 }
 .crop-btn.disabled { opacity: 0.35; cursor: not-allowed; }
-.check-dot { font-size: 11px; font-weight: 700; }
+.check-dot { font-size: var(--text-2xs); font-weight: var(--weight-bold); }
 
-.loading-hint { font-size: 12px; color: var(--text-muted); }
-.limit-hint { font-size: 11.5px; color: var(--orange); }
-.error-msg  { font-size: 13px; color: var(--red); }
+.loading-hint { font-size: var(--text-xs); color: var(--neutral-400); }
+.limit-hint { font-size: var(--text-2xs); color: var(--warning-700); }
+.error-msg  { font-size: var(--text-sm); color: var(--danger-500); }
 
 .crop-container {
   max-height: 200px; overflow-y: auto; overflow-x: hidden;
-  border: 1px solid var(--border); border-radius: 10px;
-  padding: 12px; background: var(--surface-2);
-  scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.15) transparent;
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
+  padding: var(--space-3); background: var(--neutral-50);
+  scrollbar-width: thin; scrollbar-color: var(--neutral-300) transparent;
 }
 .crop-container::-webkit-scrollbar { width: 5px; }
 .crop-container::-webkit-scrollbar-track { background: transparent; }
-.crop-container::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
+.crop-container::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: var(--radius-full); }
 
-.crop-search-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.crop-search-wrap { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
 .crop-search {
-  flex: 1; padding: 7px 12px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text-primary); font-size: 13.5px;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  flex: 1; padding: var(--space-2) var(--space-3);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); color: var(--neutral-900); font-size: var(--text-sm);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.crop-search::placeholder { color: var(--text-muted); }
-.crop-search:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.crop-search::placeholder { color: var(--neutral-400); }
+.crop-search:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
-.search-count { font-size: 12px; color: var(--teal); white-space: nowrap; }
+.search-count { font-size: var(--text-xs); color: var(--teal-500); white-space: nowrap; }
 .search-clear {
-  padding: 4px 8px; background: transparent;
-  border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text-muted); font-size: 12px; cursor: pointer;
-  transition: all 0.15s;
+  padding: var(--space-1) var(--space-2); background: transparent;
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  color: var(--neutral-400); font-size: var(--text-xs); cursor: pointer;
+  transition: all var(--duration-fast);
 }
-.search-clear:hover { background: var(--surface-2); color: var(--text-primary); }
-.no-result { font-size: 13px; color: var(--text-muted); padding: 8px 4px; margin: 0; }
+.search-clear:hover { background: var(--neutral-50); color: var(--neutral-900); }
+.no-result { font-size: var(--text-sm); color: var(--neutral-400); padding: var(--space-2) var(--space-1); margin: 0; }
 </style>

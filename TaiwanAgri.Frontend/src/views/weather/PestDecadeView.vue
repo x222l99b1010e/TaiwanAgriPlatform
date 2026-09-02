@@ -1,9 +1,12 @@
-<!-- src/views/weather/PestAlertsView.vue -->
+<!-- src/views/weather/PestDecadeView.vue -->
 <template>
-  <div class="pest-view">
-    <h1>病蟲害警報</h1>
+  <div class="page pest-view">
+    <PageHeader
+      title="病蟲害旬報查詢"
+      subtitle="依害蟲名稱查詢各縣市鄉鎮的旬別發生率統計"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <!-- 害蟲選擇 -->
       <div class="field-group">
         <label class="field-label">選擇害蟲</label>
@@ -21,80 +24,94 @@
         </select>
       </div>
 
-      <button class="btn-query" :disabled="isLoading || !selectedPest" @click="handleQuery">
-        {{ isLoading ? '查詢中...' : '查詢' }}
-      </button>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      <Btn
+        icon="mdi-magnify"
+        :loading="isLoading"
+        :disabled="!selectedPest"
+        @click="handleQuery"
+      >{{ isLoading ? '查詢中...' : '查詢' }}</Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried && !isLoading">
-      <p v-if="records.length === 0" class="empty-hint">查無資料</p>
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇害蟲後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="records.length === 0"
+      state="empty"
+      message="查無資料"
+      hint="這種害蟲沒有旬報統計紀錄，可換一種害蟲再查"
+    />
 
-      <div v-else>
-        <!-- 摘要 -->
-        <div class="summary-bar">
-          <div class="stat-card">
-            <span class="stat-label">害蟲名稱</span>
-            <span class="stat-value pest-name">{{ selectedPest }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">城市數</span>
-            <span class="stat-value">{{ cityCount }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">資料筆數</span>
-            <span class="stat-value">{{ records.length }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">最高密度</span>
-            <span class="stat-value">{{ maxAverage }}</span>
+    <div v-else>
+      <!-- 摘要 -->
+      <div class="summary-bar">
+        <div class="stat-card">
+          <span class="stat-label">害蟲名稱</span>
+          <span class="stat-value pest-name">{{ selectedPest }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">城市數</span>
+          <span class="stat-value">{{ cityCount }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">資料筆數</span>
+          <span class="stat-value">{{ records.length }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">最高密度</span>
+          <span class="stat-value">{{ maxAverage }}</span>
+        </div>
+      </div>
+
+      <!-- 折線圖 -->
+      <div class="chart-card">
+        <div class="chart-toolbar">
+          <span class="chart-title">旬密度趨勢（按城市）</span>
+          <div class="toolbar-right">
+            <Btn variant="secondary" size="sm" @click="toggleAllSeries">
+              {{ allVisible ? '全不選' : '全選' }}
+            </Btn>
           </div>
         </div>
-
-        <!-- 折線圖 -->
-        <div class="chart-card">
-          <div class="chart-toolbar">
-            <span class="chart-title">旬密度趨勢（按城市）</span>
-            <div class="toolbar-right">
-              <button class="btn-toggle-all" @click="toggleAllSeries">
-                {{ allVisible ? '全不選' : '全選' }}
-              </button>
-            </div>
-          </div>
-          <div class="canvas-wrap">
-            <canvas ref="canvasRef" />
-          </div>
+        <div class="canvas-wrap">
+          <canvas ref="canvasRef" />
         </div>
+      </div>
 
-        <!-- 明細表格 -->
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>城市</th>
-                <th>鄉鎮</th>
-                <th class="num">年</th>
-                <th class="num">月</th>
-                <th class="num">旬</th>
-                <th class="num">平均密度</th>
-                <th class="num">全島比例</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(r, i) in records" :key="i" :class="densityLevel(r.average)">
-                <td class="city-cell">{{ r.city }}</td>
-                <td class="town-cell">{{ r.town }}</td>
-                <td class="num">{{ r.year }}</td>
-                <td class="num">{{ r.month }}</td>
-                <td class="num">{{ tenDaysLabel(r.tenDays) }}</td>
-                <td class="num density-val" :class="densityLevel(r.average)">
-                  {{ r.average ?? '—' }}
-                </td>
-                <td class="num">{{ r.proportionIsland != null ? (r.proportionIsland * 100).toFixed(1) + '%' : '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <!-- 明細表格 -->
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>城市</th>
+              <th>鄉鎮</th>
+              <th class="num">年</th>
+              <th class="num">月</th>
+              <th class="num">旬</th>
+              <th class="num">平均密度</th>
+              <th class="num">全島比例</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(r, i) in records" :key="i" :class="densityLevel(r.average)">
+              <td class="city-cell">{{ r.city }}</td>
+              <td class="town-cell">{{ r.town }}</td>
+              <td class="num">{{ r.year }}</td>
+              <td class="num">{{ r.month }}</td>
+              <td class="num">{{ tenDaysLabel(r.tenDays) }}</td>
+              <td class="num density-val" :class="densityLevel(r.average)">
+                {{ r.average ?? '—' }}
+              </td>
+              <td class="num">{{ r.proportionIsland != null ? (r.proportionIsland * 100).toFixed(1) + '%' : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -110,15 +127,18 @@ import {
   type ChartDataset, type Scale,
 } from 'chart.js'
 import { weatherApi, type PestDecadeResponseDto } from '@/api/weather'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
+import {
+  seriesColor, pointBorderColor, axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
 // ── 色盤 ─────────────────────────────────────────────
-const PALETTE = [
-  '#2e7d32', '#e65100', '#1565c0', '#6a1b9a', '#c77700',
-  '#00695c', '#b71c1c', '#0277bd', '#558b2f', '#f57f17',
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
+
 
 // ── 狀態 ─────────────────────────────────────────────
 const pestNames      = ref<string[]>([])
@@ -179,13 +199,13 @@ const chartData = computed(() => {
   const datasets = Object.entries(groups).map(([city, timeMap], i) => ({
     label: city,
     data: labels.map(l => timeMap[l] ?? null),
-    borderColor: getColor(i),
+    borderColor: seriesColor(i),
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: 3.5,
     pointHoverRadius: 7,
-    pointBackgroundColor: getColor(i),
-    pointBorderColor: 'rgba(0,0,0,0.15)',
+    pointBackgroundColor: seriesColor(i),
+    pointBorderColor: pointBorderColor(),
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
@@ -211,44 +231,30 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 10,
-            color: 'rgba(26,40,32,0.70)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.12)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
-          ticks: {
-            color: 'rgba(26,40,32,0.70)',
-            font: { size: 12 },
-          },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.12)' },
+          ticks: axisTicks(),
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
           },
         },
         legend: {
-          labels: {
-            color: 'rgba(26,40,32,0.85)',
-            font: { size: 13 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -309,142 +315,69 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.pest-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.pest-view { min-width: 960px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.field-label { font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
 
 .pest-select {
-  padding: 8px 14px; border: 1px solid var(--border);
-  border-radius: 8px; background: var(--surface);
-  color: var(--text-primary); font-size: 14px; min-width: 200px; cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); background: var(--neutral-0);
+  color: var(--neutral-900); font-size: var(--text-base); min-width: 200px; cursor: pointer;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.pest-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.pest-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 /* 查詢按鈕金屬反光 */
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    inset 2px 0 6px rgba(255,255,255,0.08),
-    0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    inset 2px 0 6px rgba(255,255,255,0.10),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    inset 0 -1px 0 rgba(255,255,255,0.15),
-    0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg  { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
-
-.summary-bar { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
 
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 22px;
-  display: flex; flex-direction: column; gap: 6px; min-width: 130px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 130px;
+  box-shadow: var(--shadow-sm);
 }
 /* 摘要卡片 */
 .stat-label {
-  font-size: 12px;
-  color: rgba(26,40,32,0.60);
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .stat-value {
-  font-size: 26px;
-  font-weight: 700;
-  color: #1a5c20;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
 }
-.stat-value.pest-name { font-size: 18px; }
+.stat-value.pest-name { font-size: var(--text-lg); }
 
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 24px 28px 32px; margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl); padding: var(--space-6) var(--space-8) var(--space-8); margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
 }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
 /* 圖表標題 */
 .chart-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: rgba(26,40,32,0.75);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--neutral-600);
   letter-spacing: 0.04em;
 }
-.toolbar-right { display: flex; align-items: center; gap: 10px; }
-
-/* 全不選按鈕 */
-.btn-toggle-all {
-  padding: 5px 14px; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--surface);
-  color: rgba(26,40,32,0.65);
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
-}
-.btn-toggle-all:hover { background: var(--surface-2); color: var(--text-primary); }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
 .table-wrap {
-  overflow-x: auto; border: 1px solid var(--border);
-  border-radius: 12px; margin-bottom: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  overflow-x: auto; border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); margin-bottom: var(--space-2);
+  box-shadow: var(--shadow-sm);
 }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.data-table thead tr { background: var(--surface-2); }
-/* 表格標頭 */
-.data-table th {
-  padding: 12px 18px; text-align: left;
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(26,40,32,0.70);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-.data-table th.num, .data-table td.num { text-align: right; }
-.data-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
-.data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--surface-2); }
-/* 表格內文 */
-.data-table td {
-  padding: 11px 18px;
-  color: rgba(26,40,32,0.85);
-  font-size: 14px;
-}
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
-.city-cell  { font-weight: 700; color: #1a5c20; }
-.town-cell  { color: rgba(26,40,32,0.60); }
-.density-val { font-weight: 700; }
-.level-mid  { color: #c77700; }
-.level-high { color: var(--red); }
+.city-cell  { font-weight: var(--weight-bold); color: var(--green-800); }
+.town-cell  { color: var(--neutral-500); }
+.density-val { font-weight: var(--weight-bold); }
+.level-mid  { color: var(--warning-500); }
+.level-high { color: var(--danger-500); }
 </style>

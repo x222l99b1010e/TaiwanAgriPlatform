@@ -8,26 +8,25 @@
   自建內容，前端本來就不該有寫入動作。
 -->
 <template>
-  <div class="animal-detail-view">
+  <div class="page animal-detail-view">
     <RouterLink :to="backLink" class="back-link">
       <span class="mdi mdi-arrow-left" /> 回收容所詳情
     </RouterLink>
 
-    <div v-if="store.isLoadingShelterAnimalDetail" class="state-box">
-      <div class="loading-spinner" />
-      <span class="state-text">資料載入中...</span>
-    </div>
-
-    <div v-else-if="store.shelterAnimalDetailError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.shelterAnimalDetailError }}</span>
-      <button class="btn-retry" @click="fetchDetail">重試</button>
-    </div>
+    <StateBlock v-if="store.isLoadingShelterAnimalDetail" class="content-sm" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="store.shelterAnimalDetailError"
+      class="content-sm"
+      state="error"
+      :message="store.shelterAnimalDetailError"
+      retryable
+      @retry="fetchDetail"
+    />
 
     <article v-else-if="animal" class="detail-card">
       <div class="detail-header">
-        <span class="kind-badge">{{ animalKindLabel(animal.kind) }}</span>
-        <span class="sex-badge">{{ animalSexLabel(animal.sex) }}</span>
+        <span class="badge kind-badge">{{ animalKindLabel(animal.kind) }}</span>
+        <span class="badge sex-badge">{{ animalSexLabel(animal.sex) }}</span>
       </div>
 
       <h2 class="detail-title">{{ animal.animalSubId }}</h2>
@@ -73,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import StateBlock from '@/components/ui/StateBlock.vue'
 import { computed, onMounted, watch } from 'vue'
 import { usePetStore } from '@/stores/pet'
 import {
@@ -99,68 +99,49 @@ watch(() => props.animalId, fetchDetail)
 </script>
 
 <style scoped>
-.animal-detail-view { padding: 36px 56px; max-width: 760px; margin: 0 auto; box-sizing: border-box; }
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-bottom: 20px; color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
+.back-link:hover { color: var(--green-600); }
 
-/* ── 狀態容器（跟 LostPetDetailView／ShelterDetailView 同一套視覺語彙） ── */
-.state-box {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 56px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-}
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.error-box { background: #fff5f5; border-color: #ffcdd2; color: #c62828; }
-.loading-spinner {
-  width: 36px; height: 36px; border: 3px solid #c8e6c9; border-top-color: var(--green);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.btn-retry {
-  padding: 8px 24px; border-radius: 999px; border: 1.5px solid #c62828;
-  background: transparent; color: #c62828; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
-/* ── 內容卡片 ── */
+/* ── 內容卡片 ──
+   詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
+   所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
 .detail-card {
-  display: flex; flex-direction: column; gap: 14px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 28px 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  max-width: var(--container-sm);
+  display: flex; flex-direction: column; gap: var(--space-4);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
+  padding: var(--space-8); box-shadow: var(--shadow-sm);
 }
 
-.detail-header { display: flex; gap: 8px; }
-.kind-badge, .sex-badge {
-  display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
-  background: #e8f5e9; color: var(--green);
-}
-.sex-badge { background: #e3f2fd; color: #1565c0; }
+.detail-header { display: flex; gap: var(--space-2); }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.kind-badge { background: var(--green-100); color: var(--green-600); }
+.sex-badge { background: var(--info-50); color: var(--info-500); }
 
-.detail-title { font-size: 24px; font-weight: 700; color: var(--text-primary); font-family: monospace; }
-.detail-meta { font-size: 13.5px; color: var(--text-muted); }
-.shelter-link { color: var(--green); font-weight: 600; text-decoration: none; }
+.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--neutral-900); font-family: monospace; }
+.detail-meta { font-size: var(--text-sm); color: var(--neutral-400); }
+.shelter-link { color: var(--green-600); font-weight: var(--weight-medium); text-decoration: none; }
 .shelter-link:hover { text-decoration: underline; }
 
 .info-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px 20px;
-  padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) 0; border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200);
 }
-.info-item { display: flex; flex-direction: column; gap: 2px; }
-.info-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.04em; }
-.info-value { font-size: 14.5px; color: var(--text-primary); font-weight: 600; }
+.info-item { display: flex; flex-direction: column; gap: var(--space-1); }
+.info-label { font-size: var(--text-2xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.04em; }
+.info-value { font-size: var(--text-base); color: var(--neutral-900); font-weight: var(--weight-medium); }
 
-.detail-line { font-size: 14.5px; color: var(--text-primary); }
-.detail-remark { font-size: 14px; color: var(--text-secondary); line-height: 1.65; white-space: pre-wrap; }
+.detail-line { font-size: var(--text-base); color: var(--neutral-900); }
+.detail-remark { font-size: var(--text-base); color: var(--neutral-500); line-height: var(--leading-normal); white-space: pre-wrap; }
 
-.detail-actions { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
+.detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--neutral-200); }
 .action-link {
-  display: inline-flex; align-items: center; gap: 5px;
-  color: #1565c0; font-size: 13.5px; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
 }
 .action-link:hover { text-decoration: underline; }
 </style>

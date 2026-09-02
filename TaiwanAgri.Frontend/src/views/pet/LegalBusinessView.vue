@@ -1,9 +1,9 @@
 <template>
-  <div class="legal-business-view">
-    <div class="page-header">
-      <h2 class="section-title">合法寵物業查詢</h2>
-      <p class="section-subtitle">合法寵物業者評鑑資料與農業部官方遺失啟事，皆無座標資料，僅提供表格查詢</p>
-    </div>
+  <div class="page legal-business-view">
+    <PageHeader
+      title="合法寵物業查詢"
+      subtitle="合法寵物業者評鑑資料與農業部官方遺失啟事，皆無座標資料，僅提供表格查詢"
+    />
 
     <div class="tab-switch">
       <button class="tab-btn" :class="{ active: activeTab === 'legal' }" @click="switchTab('legal')">
@@ -16,7 +16,7 @@
 
     <!-- ── Tab 1：合法寵物業查詢 ── -->
     <section v-if="activeTab === 'legal'">
-      <div class="filter-bar">
+      <FilterCard>
         <CitySelector v-model="legalCounty" include-all />
 
         <div class="field-group">
@@ -62,30 +62,33 @@
           </div>
         </div>
 
-        <button
+        <Btn
           v-if="hasActiveLegalFilters"
-          type="button" class="btn-clear-filters"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
           title="清除所有篩選條件，回到未篩選狀態"
           @click="clearLegalFilters"
-        >
-          <span class="mdi mdi-filter-remove-outline" /> 清除篩選
-        </button>
+        >清除篩選</Btn>
 
         <span v-if="store.isLoadingLegalSpecificPets" class="loading-hint">
           <span class="loading-spinner-sm" />載入中...
         </span>
-      </div>
+      </FilterCard>
 
-      <div v-if="store.legalSpecificPetsError" class="state-box error-box">
-        <span class="mdi mdi-alert-circle state-icon" />
-        <span class="state-text">{{ store.legalSpecificPetsError }}</span>
-        <button class="btn-retry" @click="fetchLegal">重試</button>
-      </div>
-
-      <div v-else-if="store.legalSpecificPetsPage && store.legalSpecificPetsPage.items.length === 0" class="state-box">
-        <span class="mdi mdi-store-search-outline state-icon" />
-        <span class="state-text">此縣市查無合法寵物業資料</span>
-      </div>
+      <StateBlock
+        v-if="store.legalSpecificPetsError"
+        state="error"
+        :message="store.legalSpecificPetsError"
+        retryable
+        @retry="fetchLegal"
+      />
+      <StateBlock
+        v-else-if="store.legalSpecificPetsPage && store.legalSpecificPetsPage.items.length === 0"
+        state="empty"
+        icon="mdi-store-search-outline"
+        message="此縣市查無合法寵物業資料"
+        hint="可以把篩選條件放寬，或換一個縣市再看看"
+      />
 
       <div v-else-if="store.legalSpecificPetsPage" class="table-section">
         <div class="table-wrapper">
@@ -130,7 +133,7 @@
                   <span class="rank-badge" :title="item.rankText || undefined">{{ rankGradeLabel(item.rankGrade) }}</span>
                 </td>
                 <td>
-                  <span class="state-badge" :class="stateClass(item.stateFlag)">{{ stateLabel(item.stateFlag) }}</span>
+                  <span class="badge state-badge" :class="stateClass(item.stateFlag)">{{ stateLabel(item.stateFlag) }}</span>
                 </td>
               </tr>
             </tbody>
@@ -152,7 +155,7 @@
 
     <!-- ── Tab 2：官方遺失啟事 ── -->
     <section v-else>
-      <div class="filter-bar">
+      <FilterCard>
         <div class="field-group">
           <label class="field-label">動物類別</label>
           <select v-model="officialCategory" class="filter-select">
@@ -182,30 +185,33 @@
           </div>
         </div>
 
-        <button
+        <Btn
           v-if="hasActiveOfficialFilters"
-          type="button" class="btn-clear-filters"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
           title="清除所有篩選條件，回到未篩選狀態"
           @click="clearOfficialFilters"
-        >
-          <span class="mdi mdi-filter-remove-outline" /> 清除篩選
-        </button>
+        >清除篩選</Btn>
 
         <span v-if="store.isLoadingOfficialLostPetPosts" class="loading-hint">
           <span class="loading-spinner-sm" />載入中...
         </span>
-      </div>
+      </FilterCard>
 
-      <div v-if="store.officialLostPetPostsError" class="state-box error-box">
-        <span class="mdi mdi-alert-circle state-icon" />
-        <span class="state-text">{{ store.officialLostPetPostsError }}</span>
-        <button class="btn-retry" @click="fetchOfficial">重試</button>
-      </div>
-
-      <div v-else-if="store.officialLostPetPostsPage && store.officialLostPetPostsPage.items.length === 0" class="state-box">
-        <span class="mdi mdi-clipboard-search-outline state-icon" />
-        <span class="state-text">目前查無官方遺失啟事資料</span>
-      </div>
+      <StateBlock
+        v-if="store.officialLostPetPostsError"
+        state="error"
+        :message="store.officialLostPetPostsError"
+        retryable
+        @retry="fetchOfficial"
+      />
+      <StateBlock
+        v-else-if="store.officialLostPetPostsPage && store.officialLostPetPostsPage.items.length === 0"
+        state="empty"
+        icon="mdi-clipboard-search-outline"
+        message="目前查無官方遺失啟事資料"
+        hint="可以把篩選條件放寬，或換一個縣市再看看"
+      />
 
       <div v-else-if="store.officialLostPetPostsPage" class="table-section">
         <div class="table-wrapper">
@@ -266,6 +272,10 @@ import CitySelector from '@/components/CitySelector.vue'
 import PagerBar from '@/components/PagerBar.vue'
 import { usePetStore } from '@/stores/pet'
 import { usePagination } from '@/composables/usePagination'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 import type {
   LegalPetAnimalType, LegalPetRankGrade, LegalPetStateFlag, LegalSpecificPetSortByValue,
   AnimalKind, OfficialLostPetPostSortByValue,
@@ -487,100 +497,58 @@ onMounted(fetchLegal)
 </script>
 
 <style scoped>
-.legal-business-view { padding: 36px 56px; width: 100%; box-sizing: border-box; }
-
-.page-header { margin-bottom: 20px; }
-.section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
-.section-subtitle { font-size: 13px; color: var(--text-muted); }
-
 .tab-switch {
-  display: flex; gap: 6px; margin-bottom: 20px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 4px; width: fit-content;
+  display: flex; gap: var(--space-2); margin-bottom: var(--space-5);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-1); width: fit-content;
 }
 .tab-btn {
-  padding: 8px 22px; border-radius: 8px; border: none; background: transparent;
-  color: var(--text-secondary); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  padding: var(--space-2) var(--space-6); border-radius: var(--radius-md); border: none; background: transparent;
+  color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
 }
-.tab-btn:hover { color: var(--green); }
-.tab-btn.active { background: var(--green); color: white; }
-
-.filter-bar {
-  display: flex; align-items: flex-end; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
-  padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-}
-
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.tab-btn:hover { color: var(--green-600); }
+.tab-btn.active { background: var(--green-600); color: var(--neutral-0); }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .filter-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
-.sort-control { display: flex; align-items: center; gap: 6px; }
+.sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
 }
-.sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-
-.btn-clear-filters {
-  display: inline-flex; align-items: center; gap: 5px; align-self: flex-end;
-  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-secondary);
-  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  transition: all 0.15s;
-}
-.btn-clear-filters:hover { border-color: var(--red); color: var(--red); background: #fff5f5; }
-
-.loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; }
-.loading-hint.standalone { margin-bottom: 20px; }
+.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); font-size: var(--text-sm); }
+.loading-hint.standalone { margin-bottom: var(--space-5); }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid #c8e6c9; border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.state-box {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 56px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-}
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.error-box { background: #fff5f5; border-color: #ffcdd2; color: #c62828; }
-.btn-retry {
-  padding: 8px 24px; border-radius: 999px; border: 1.5px solid #c62828;
-  background: transparent; color: #c62828; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
-.table-section { display: flex; flex-direction: column; gap: 16px; }
+.table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(46,125,50,0.06); max-height: 600px; overflow: auto;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md); max-height: 600px; overflow: auto;
 }
 
-.data-table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 13px; }
-.data-table thead th {
-  position: sticky; top: 0; background: #f1f8f1; text-align: left; padding: 12px 16px;
-  font-weight: 700; color: #1b5e20; border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
-}
-.data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: #fafdf9; }
-.data-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.data-table { min-width: 1100px; }
 
-.cell-name { font-weight: 600; white-space: nowrap; }
-.cell-mono { font-family: monospace; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.cell-name { font-weight: var(--weight-medium); white-space: nowrap; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.cell-address { max-width: 260px; font-size: 12px; }
-.cell-muted { color: var(--text-muted); }
+.cell-address { max-width: 260px; font-size: var(--text-xs); }
+.cell-muted { color: var(--neutral-400); }
 
 /* 合法寵物業表格：table-layout: fixed 讓 colgroup 的欄寬真正生效（不然瀏覽器只會把它當參考值，
    還是照內容自動調整）；固定寬度後，內容比欄寬長的儲存格靠 white-space/wrap 決定要不要換行。
@@ -605,18 +573,18 @@ onMounted(fetchLegal)
 .rank-badge {
   /* rankText 有時是簡短代碼（GradeB）、有時是長句（已搬遷至新址，請洽新址辦理註銷許可），
      不能用 nowrap；改成允許換行的圓角色塊，寬度跟著 col-rank 走 */
-  display: inline-block; padding: 3px 10px; border-radius: 12px;
-  background: #fff8e1; color: #f57f17; font-size: 12px; font-weight: 700;
-  white-space: normal; word-break: break-word; line-height: 1.4;
+  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-lg);
+  background: var(--warning-50); color: var(--warning-500); font-size: var(--text-xs); font-weight: var(--weight-bold);
+  white-space: normal; word-break: break-word; line-height: var(--leading-tight);
 }
 
-.state-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.state-badge.ok { background: #e8f5e9; color: var(--green); }
-.state-badge.closed { background: #f0f0f0; color: #757575; }
-.state-badge.suspended { background: #fff3e0; color: #e65100; }
-.state-badge.revoked { background: #ffebee; color: #c62828; }
-.state-badge.unknown { background: #f0f0f0; color: #9e9e9e; }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.state-badge.ok { background: var(--green-100); color: var(--green-600); }
+.state-badge.closed { background: var(--neutral-100); color: var(--neutral-500); }
+.state-badge.suspended { background: var(--warning-50); color: var(--warning-500); }
+.state-badge.revoked { background: var(--danger-50); color: var(--danger-500); }
+.state-badge.unknown { background: var(--neutral-100); color: var(--neutral-400); }
 
-.picture-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #1565c0; text-decoration: none; white-space: nowrap; }
+.picture-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .picture-link:hover { text-decoration: underline; }
 </style>

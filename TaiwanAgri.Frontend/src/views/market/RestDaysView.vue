@@ -1,8 +1,11 @@
 <template>
-  <div class="restdays-view">
-    <h1>休市日查詢</h1>
+  <div class="page restdays-view">
+    <PageHeader
+      title="休市日查詢"
+      subtitle="各農產品批發市場的休市日期，請先選擇市場再查詢"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <div class="field-group">
         <label class="field-label">選擇市場</label>
         <select class="market-select" v-model="selectedMarketCode" :disabled="isLoadingMarkets">
@@ -14,15 +17,34 @@
         <span v-if="isLoadingMarkets" class="loading-hint">載入中...</span>
       </div>
       <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
-      <button class="btn-query" :disabled="!selectedMarketCode || isLoading" @click="handleQuery">
-        {{ isLoading ? '查詢中...' : '查詢休市日' }}
-      </button>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      <Btn
+        icon="mdi-magnify"
+        :loading="isLoading"
+        :disabled="!selectedMarketCode"
+        @click="handleQuery"
+      >{{ isLoading ? '查詢中...' : '查詢休市日' }}</Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried">
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇市場與日期區間後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="restDays.length === 0"
+      state="empty"
+      icon="mdi-calendar-remove"
+      message="查詢區間內無休市紀錄"
+      hint="這個市場在所選期間內每天都有交易"
+    />
+
+    <div v-else>
       <!-- 摘要列 -->
-      <div class="summary-bar" v-if="restDays.length > 0">
+      <div class="summary-bar">
         <div class="stat-card">
           <span class="stat-label">休市天數</span>
           <span class="stat-value">{{ restDays.length }}</span>
@@ -33,12 +55,8 @@
         </div>
       </div>
 
-      <div class="empty-hint" v-if="restDays.length === 0 && !isLoading">
-        查詢區間內無休市紀錄
-      </div>
-
       <!-- 按月份分組 -->
-      <div class="month-groups" v-if="groupedByMonth.length > 0">
+      <div class="month-groups">
         <div class="month-group" v-for="group in groupedByMonth" :key="group.label">
           <div class="month-label">
             <span class="mdi mdi-calendar-month" />
@@ -62,6 +80,10 @@ import { ref, computed, onMounted } from 'vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi } from '@/api/market'
 import type { RestDayResponseDto, MarketResponseDto } from '@/api/market'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const today = new Date().toISOString().split('T')[0]!
 const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
@@ -135,92 +157,60 @@ onMounted(() => loadMarkets())
 </script>
 
 <style scoped>
-.restdays-view { width: 100%; min-width: 960px; padding: 36px 56px; box-sizing: border-box; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.restdays-view { min-width: 960px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.field-label { font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
 
 .market-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 200px; cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.market-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.market-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 .market-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.loading-hint { font-size: 12px; color: var(--text-muted); }
-
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 60px 0; }
-
+.loading-hint { font-size: var(--text-xs); color: var(--neutral-400); }
 /* 摘要列 */
-.summary-bar { display: flex; gap: 14px; margin-bottom: 28px; }
+.summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-8); }
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 24px;
-  display: flex; flex-direction: column; gap: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-2);
+  box-shadow: var(--shadow-sm);
 }
-.stat-label { font-size: 12px; color: rgba(26,40,32,0.60); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
-.stat-value { font-size: 26px; font-weight: 700; color: #1a5c20; }
-.stat-value.name { font-size: 18px; }
+.stat-label { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium); }
+.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--green-800); }
+.stat-value.name { font-size: var(--text-lg); }
 
 /* 月份分組 */
-.month-groups { display: flex; flex-direction: column; gap: 28px; }
+.month-groups { display: flex; flex-direction: column; gap: var(--space-8); }
 
 .month-label {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 15px; font-weight: 700; color: var(--green);
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid rgba(46,125,50,0.15);
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green-600);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid var(--green-100);
 }
 
 .month-count {
-  font-size: 12px; padding: 2px 8px; border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
-  border: 1px solid rgba(46,125,50,0.20);
-  font-weight: 600; margin-left: 4px;
+  font-size: var(--text-xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
+  background: var(--green-100); color: var(--green-600);
+  border: 1px solid var(--green-200);
+  font-weight: var(--weight-medium); margin-left: var(--space-1);
 }
 
-.day-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.day-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 .rest-chip {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 18px; border-radius: 10px;
-  background: var(--surface); border: 1px solid var(--border);
-  font-size: 14px; font-weight: 600; color: var(--text-primary);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  transition: box-shadow 0.15s, border-color 0.15s;
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-5); border-radius: var(--radius-lg);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--neutral-900);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
 }
-.rest-chip:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.10); border-color: rgba(191,54,12,0.30); }
-.chip-icon { font-size: 16px; color: var(--orange); }
+.rest-chip:hover { box-shadow: var(--shadow-md); border-color: var(--warning-100); }
+.chip-icon { font-size: var(--text-base); color: var(--warning-700); }
 </style>

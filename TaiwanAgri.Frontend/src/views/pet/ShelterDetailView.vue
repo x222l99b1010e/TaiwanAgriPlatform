@@ -11,19 +11,20 @@
   （跟合法寵物業查詢／官方遺失啟事當初選表格是同一個判準）。
 -->
 <template>
-  <div class="shelter-detail-view">
+  <div class="page shelter-detail-view">
     <RouterLink to="/pet/shelter-map" class="back-link">
       <span class="mdi mdi-arrow-left" /> 回收容動物地圖
     </RouterLink>
 
-    <div v-if="shelterHeader" class="page-header">
-      <h2 class="section-title">{{ shelterHeader.name }}（{{ shelterHeader.county }}）</h2>
-      <p class="section-subtitle">{{ shelterHeader.address }}</p>
-    </div>
+    <PageHeader
+      v-if="shelterHeader"
+      :title="`${shelterHeader.name}（${shelterHeader.county}）`"
+      :subtitle="shelterHeader.address"
+    />
 
     <!-- 篩選列：頁首（收容所名稱）先抓到就先顯示，篩選列在資料還沒回來前也能先操作，
          不必等第一次查詢完成——跟 ShelterMapView 的篩選列同一個設計慣例 -->
-    <div class="filter-bar">
+    <FilterCard>
       <div class="field-group">
         <label class="field-label">動物種類</label>
         <select v-model="kind" class="filter-select">
@@ -53,35 +54,37 @@
         </div>
       </div>
 
-      <button
+      <Btn
         v-if="hasActiveFilters"
-        type="button" class="btn-clear-filters"
+        variant="secondary"
+        icon="mdi-filter-remove-outline"
         title="清除所有篩選條件，回到未篩選狀態"
         @click="clearFilters"
-      >
-        <span class="mdi mdi-filter-remove-outline" /> 清除篩選
-      </button>
+      >清除篩選</Btn>
 
       <span v-if="store.isLoadingShelterAnimalsByShelter" class="loading-hint">
         <span class="loading-spinner-sm" />載入中...
       </span>
       <span v-else-if="page" class="stat-text">共 {{ page.totalCount }} 隻在養動物</span>
-    </div>
+    </FilterCard>
 
-    <div v-if="store.shelterAnimalsByShelterError" class="state-box error-box">
-      <span class="mdi mdi-alert-circle state-icon" />
-      <span class="state-text">{{ store.shelterAnimalsByShelterError }}</span>
-      <button class="btn-retry" @click="fetchPage">重試</button>
-    </div>
+    <StateBlock
+      v-if="store.shelterAnimalsByShelterError"
+      state="error"
+      :message="store.shelterAnimalsByShelterError"
+      retryable
+      @retry="fetchPage"
+    />
 
     <!-- shelterId 打錯、或這間收容所目前剛好沒有在養動物、或篩選條件太窄，三種情況後端都回傳空頁；
          有沒有下篩選條件決定文案要不要提「調整篩選」這個出口 -->
-    <div v-else-if="page && page.totalCount === 0" class="state-box">
-      <span class="mdi mdi-home-search-outline state-icon" />
-      <span class="state-text">
-        {{ hasActiveFilters ? '此篩選條件下查無在養動物' : '查無此收容所，或目前沒有在養動物資料' }}
-      </span>
-    </div>
+    <StateBlock
+      v-else-if="page && page.totalCount === 0"
+      state="empty"
+      icon="mdi-home-search-outline"
+      :message="hasActiveFilters ? '此篩選條件下查無在養動物' : '查無此收容所，或目前沒有在養動物資料'"
+      :hint="hasActiveFilters ? '可以按上方的「清除篩選」看全部' : undefined"
+    />
 
     <div v-else-if="page" class="table-section">
       <div class="table-wrapper">
@@ -158,6 +161,10 @@ import { usePetStore } from '@/stores/pet'
 import { usePagination } from '@/composables/usePagination'
 import { animalKindLabel, animalSexLabel, isDisplayableAlbumLink, sterilizationLabel } from '@/utils/shelterAnimal'
 import type { AnimalKind, AnimalSex, ShelterAnimalSortByValue } from '@/api/pet'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 // id 由 router 的 props 函式模式轉成 number（見 router/index.ts）
 const props = defineProps<{ shelterId: number }>()
@@ -254,89 +261,50 @@ watch(() => props.shelterId, () => {
 </script>
 
 <style scoped>
-.shelter-detail-view { padding: 36px 56px; width: 100%; box-sizing: border-box; }
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-bottom: 20px; color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
-
-.page-header { margin-bottom: 16px; }
-.section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-.section-subtitle { font-size: 13.5px; color: var(--text-muted); }
-
+.back-link:hover { color: var(--green-600); }
 /* ── 篩選列（沿用 LegalBusinessView 的版面慣例） ── */
-.filter-bar {
-  display: flex; align-items: flex-end; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
-  padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-}
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .filter-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
-.sort-control { display: flex; align-items: center; gap: 6px; }
+.sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
 }
-.sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-
-.btn-clear-filters {
-  display: inline-flex; align-items: center; gap: 5px; align-self: flex-end;
-  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-secondary);
-  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  transition: all 0.15s;
-}
-.btn-clear-filters:hover { border-color: var(--red); color: var(--red); background: #fff5f5; }
-
-.loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; margin-left: auto; }
+.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); font-size: var(--text-sm); margin-left: auto; }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid #c8e6c9; border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.stat-text { margin-left: auto; font-size: 13px; color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--neutral-500); font-weight: var(--weight-medium); white-space: nowrap; }
 
 /* ── 狀態容器 ── */
-.state-box {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 56px 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-}
-.state-icon { font-size: 36px; color: #aaa; }
-.state-text { font-size: 15px; color: var(--text-muted); }
-.error-box { background: #fff5f5; border-color: #ffcdd2; color: #c62828; }
-.btn-retry {
-  padding: 8px 24px; border-radius: 999px; border: 1.5px solid #c62828;
-  background: transparent; color: #c62828; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-retry:hover { background: #fff5f5; }
-
 /* ── datagrid（沿用 LegalBusinessView 的表格慣例：高一點的可捲動容器，表頭黏頂） ── */
-.table-section { display: flex; flex-direction: column; gap: 16px; }
+.table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(46,125,50,0.06); max-height: 720px; overflow: auto;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md); max-height: 720px; overflow: auto;
 }
-.data-table { width: 100%; min-width: 1020px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-.data-table thead th {
-  position: sticky; top: 0; background: #f1f8f1; text-align: left; padding: 12px 16px;
-  font-weight: 700; color: #1b5e20; border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
-}
-.data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: #fafdf9; }
-.data-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.data-table { min-width: 1020px; table-layout: fixed; }
 
 .col-id            { width: 130px; }
 .col-kind          { width: 70px; }
@@ -349,13 +317,13 @@ watch(() => props.shelterId, () => {
 .col-date          { width: 110px; }
 .col-album         { width: 80px; }
 
-.cell-mono { font-family: monospace; font-size: 12px; color: var(--text-muted); white-space: normal; word-break: break-all; }
-.animal-link { color: var(--green); font-weight: 700; text-decoration: none; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: normal; word-break: break-all; }
+.animal-link { color: var(--green-600); font-weight: var(--weight-bold); text-decoration: none; }
 .animal-link:hover { text-decoration: underline; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.cell-address { white-space: normal; word-break: break-word; font-size: 12px; }
-.cell-muted { color: var(--text-muted); }
+.cell-address { white-space: normal; word-break: break-word; font-size: var(--text-xs); }
+.cell-muted { color: var(--neutral-400); }
 
-.album-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #1565c0; text-decoration: none; white-space: nowrap; }
+.album-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .album-link:hover { text-decoration: underline; }
 </style>

@@ -68,15 +68,16 @@
     <p v-if="store.saveLostPetPostError" class="error-msg">{{ store.saveLostPetPostError }}</p>
 
     <div class="form-actions">
-      <button class="btn-submit" :disabled="store.isSavingLostPetPost" @click="handleSubmit">
+      <Btn :loading="store.isSavingLostPetPost" @click="handleSubmit">
         {{ store.isSavingLostPetPost ? '送出中...' : (post == null ? '送出' : '儲存變更') }}
-      </button>
-      <button class="btn-cancel" :disabled="store.isSavingLostPetPost" @click="emit('cancel')">取消</button>
+      </Btn>
+      <Btn variant="secondary" :disabled="store.isSavingLostPetPost" @click="emit('cancel')">取消</Btn>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import Btn from '@/components/ui/Btn.vue'
 import { reactive, ref, onMounted, nextTick } from 'vue'
 import CitySelector from '@/components/CitySelector.vue'
 import LeafletCoordinatePicker from '@/components/LeafletCoordinatePicker.vue'
@@ -186,53 +187,36 @@ defineExpose({ panelRef })
 
 <style scoped>
 .post-form-panel {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 24px 28px; margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  display: flex; flex-direction: column; gap: 16px;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-8); margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
+  display: flex; flex-direction: column; gap: var(--space-4);
 }
-.form-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.form-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-900); }
 
 .form-grid {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 20px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4) var(--space-5);
 }
 
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-group.span-2 { grid-column: span 2; }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .field-input, .field-select, .field-textarea {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
-  font-family: inherit; transition: border-color 0.18s, box-shadow 0.18s;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
+  font-family: inherit; transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .field-textarea { resize: vertical; min-height: 72px; }
 .field-input:focus, .field-select:focus, .field-textarea:focus {
-  outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+  outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus);
 }
 .field-select { cursor: pointer; }
-.field-hint { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+.field-hint { font-size: var(--text-2xs); color: var(--neutral-400); line-height: var(--leading-normal); }
 
-.form-actions { display: flex; gap: 10px; }
-
-.btn-submit {
-  padding: 9px 26px; border-radius: 999px; border: 1px solid #1a5220;
-  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 40%, #1b5e20 100%);
-  color: white; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-submit:hover:not(:disabled) { background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%); }
-.btn-submit:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.btn-cancel {
-  padding: 9px 22px; border-radius: 999px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-secondary); font-size: 14px; font-weight: 600; cursor: pointer;
-}
-.btn-cancel:hover:not(:disabled) { border-color: var(--border-hover); }
-
-.error-msg { font-size: 13px; color: var(--red); font-weight: 600; }
+.form-actions { display: flex; gap: var(--space-3); }
+.error-msg { font-size: var(--text-sm); color: var(--danger-500); font-weight: var(--weight-medium); }
 </style>

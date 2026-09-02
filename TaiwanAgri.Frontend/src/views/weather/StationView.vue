@@ -1,49 +1,64 @@
 <!-- src/views/weather/StationView.vue -->
 <template>
-  <div class="station-view">
-    <h1>農場氣象</h1>
+  <div class="page station-view">
+    <PageHeader
+      title="農場氣象"
+      subtitle="各地農業氣象站的即時溫度、濕度、風速與 24 小時累積雨量"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <CitySelector v-model="selectedCity" />
-      <button class="btn-query" :disabled="isLoading" @click="handleQuery">
+      <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
         {{ isLoading ? '查詢中...' : '查詢' }}
-      </button>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      </Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried && !isLoading">
-      <p v-if="stations.length === 0" class="empty-hint">查無資料</p>
-      <div v-else class="card-grid">
-        <div class="station-card" v-for="s in stations" :key="s.stationName">
-          <div class="card-header">
-            <span class="station-name">{{ s.stationName }}</span>
-            <span class="town-name">{{ s.townName }}</span>
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇縣市後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="stations.length === 0"
+      state="empty"
+      message="查無資料"
+      hint="這個縣市目前沒有可用的氣象站觀測值"
+    />
+
+    <div v-else class="card-grid">
+      <div class="station-card" v-for="s in stations" :key="s.stationName">
+        <div class="card-header">
+          <span class="station-name">{{ s.stationName }}</span>
+          <span class="town-name">{{ s.townName }}</span>
+        </div>
+        <div class="card-body">
+          <div class="metric">
+            <span class="mdi mdi-thermometer metric-icon temp" />
+            <span class="metric-value">{{ s.temperature ?? '—' }} °C</span>
+            <span class="metric-label">溫度</span>
           </div>
-          <div class="card-body">
-            <div class="metric">
-              <span class="mdi mdi-thermometer metric-icon temp" />
-              <span class="metric-value">{{ s.temperature ?? '—' }} °C</span>
-              <span class="metric-label">溫度</span>
-            </div>
-            <div class="metric">
-              <span class="mdi mdi-water-percent metric-icon humid" />
-              <span class="metric-value">{{ s.humidity ?? '—' }} %</span>
-              <span class="metric-label">濕度</span>
-            </div>
-            <div class="metric">
-              <span class="mdi mdi-weather-windy metric-icon wind" />
-              <span class="metric-value">{{ s.windSpeed ?? '—' }} m/s</span>
-              <span class="metric-label">風速</span>
-            </div>
-            <div class="metric">
-              <span class="mdi mdi-weather-rainy metric-icon rain" />
-              <span class="metric-value">{{ s.rainfall24h ?? '—' }} mm</span>
-              <span class="metric-label">24h雨量</span>
-            </div>
+          <div class="metric">
+            <span class="mdi mdi-water-percent metric-icon humid" />
+            <span class="metric-value">{{ s.humidity ?? '—' }} %</span>
+            <span class="metric-label">濕度</span>
           </div>
-          <div class="card-footer">
-            更新時間：{{ s.observedAt.replace('T', ' ').slice(0, 16) }}
+          <div class="metric">
+            <span class="mdi mdi-weather-windy metric-icon wind" />
+            <span class="metric-value">{{ s.windSpeed ?? '—' }} m/s</span>
+            <span class="metric-label">風速</span>
           </div>
+          <div class="metric">
+            <span class="mdi mdi-weather-rainy metric-icon rain" />
+            <span class="metric-value">{{ s.rainfall24h ?? '—' }} mm</span>
+            <span class="metric-label">24h雨量</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          更新時間：{{ s.observedAt.replace('T', ' ').slice(0, 16) }}
         </div>
       </div>
     </div>
@@ -54,6 +69,10 @@
 import { ref } from 'vue'
 import { weatherApi, type WeatherStationResponseDto } from '@/api/weather'
 import CitySelector from '@/components/CitySelector.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const selectedCity = ref('臺北市')
 const stations = ref<WeatherStationResponseDto[]>([])
@@ -77,132 +96,75 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.station-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 16px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(
-    180deg,
-    #4caf50 0%,
-    #2e7d32 40%,
-    #1b5e20 100%
-  );
-  color: white;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    inset 2px 0 6px rgba(255,255,255,0.08),
-    0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    #66bb6a 0%,
-    #388e3c 40%,
-    #2e7d32 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    inset 2px 0 6px rgba(255,255,255,0.10),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    #1b5e20 0%,
-    #2e7d32 60%,
-    #388e3c 100%
-  );
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    inset 0 -1px 0 rgba(255,255,255,0.15),
-    0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg  { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
+.station-view { min-width: 960px; }
 
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .station-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-base), border-color var(--duration-base);
 }
-.station-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
-.station-name { color: var(--green); }
-.town-name  { color: var(--text-muted); }
-.card-footer { color: var(--text-muted); border-top: 1px solid var(--border); }
-.metric-value { color: var(--text-primary); }
-.metric-label { color: var(--text-muted); }
+.station-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-200); }
+.station-name { color: var(--green-600); }
+.town-name  { color: var(--neutral-400); }
+.card-footer { color: var(--neutral-400); border-top: 1px solid var(--neutral-200); }
+.metric-value { color: var(--neutral-900); }
+.metric-label { color: var(--neutral-400); }
 
 .card-header {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 16px; padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4); padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--neutral-200);
 }
 /* 站名也加深 */
 .station-name {
-  font-size: 16px;        /* 從 15px → 16px */
-  font-weight: 700;
-  color: var(--green);
+  font-size: var(--text-base);        /* 從 15px → 16px */
+  font-weight: var(--weight-bold);
+  color: var(--green-600);
 }
 
 .town-name {
-  font-size: 13px;        /* 從 12px → 13px */
-  color: rgba(26,40,32,0.55);  /* 從 text-muted → 深一點 */
+  font-size: var(--text-sm);        /* 從 12px → 13px */
+  color: var(--neutral-500);  /* 從 text-muted → 深一點 */
 }
 
 .card-body {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 14px; margin-bottom: 14px;
+  gap: var(--space-4); margin-bottom: var(--space-4);
 }
 
-.metric { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.metric-icon { font-size: 22px; }
-.temp  { color: #e53935; }
-.humid { color: #1e88e5; }
-.wind  { color: #43a047; }
-.rain  { color: #00acc1; }
+.metric { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.metric-icon { font-size: var(--text-xl); }
+.temp  { color: var(--danger-500); }
+.humid { color: var(--info-500); }
+.wind  { color: var(--green-500); }
+.rain  { color: var(--teal-600); }
 
 /* 數值加大加深加粗 */
 .metric-value {
-  font-size: 20px;        /* 從 16px → 20px */
-  font-weight: 700;
-  color: #1a2820;         /* 直接用最深色，不透明 */
+  font-size: var(--text-lg);        /* 從 16px → 20px */
+  font-weight: var(--weight-bold);
+  color: var(--neutral-900);         /* 直接用最深色，不透明 */
 }
 
 .metric-label {
-  font-size: 13px;        /* 從 11px → 13px */
-  color: rgba(26,40,32,0.60);  /* 從 text-muted(0.40) → 0.60 */
-  font-weight: 600;
+  font-size: var(--text-sm);        /* 從 11px → 13px */
+  color: var(--neutral-500);  /* 從 text-muted(0.40) → 0.60 */
+  font-weight: var(--weight-medium);
 }
 
 /* 更新時間也深一點 */
 .card-footer {
-  font-size: 12px;        /* 從 11px → 12px */
-  color: rgba(26,40,32,0.50);  /* 從 0.35 → 0.50 */
+  font-size: var(--text-xs);        /* 從 11px → 12px */
+  color: var(--neutral-500);  /* 從 0.35 → 0.50 */
   text-align: right;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+  border-top: 1px solid var(--neutral-200);
+  padding-top: var(--space-3);
 }
 </style>

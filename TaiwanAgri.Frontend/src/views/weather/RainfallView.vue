@@ -1,91 +1,105 @@
 <!-- src/views/weather/RainfallView.vue -->
 <template>
-  <div class="rainfall-view">
-    <h1>雨量趨勢</h1>
+  <div class="page rainfall-view">
+    <PageHeader
+      title="雨量趨勢"
+      subtitle="指定縣市與區間內，各測站的 24 小時累積雨量走勢"
+    />
 
-    <section class="filter-section">
+    <FilterCard>
       <CitySelector v-model="selectedCity" />
       <DateRangePicker
         v-model:startDate="startDate"
         v-model:endDate="endDate"
       />
-      <button class="btn-query" :disabled="isLoading" @click="handleQuery">
+      <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
         {{ isLoading ? '查詢中...' : '查詢' }}
-      </button>
-      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-    </section>
+      </Btn>
+    </FilterCard>
 
-    <div v-if="hasQueried && !isLoading">
-      <p v-if="records.length === 0" class="empty-hint">查無資料</p>
+    <StateBlock v-if="!hasQueried" state="hint" message="請選擇縣市與日期區間後按下查詢" />
+    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+    <StateBlock
+      v-else-if="errorMsg"
+      state="error"
+      :message="errorMsg"
+      retryable
+      @retry="handleQuery"
+    />
+    <StateBlock
+      v-else-if="records.length === 0"
+      state="empty"
+      message="查無資料"
+      hint="這個縣市在所選區間內沒有雨量觀測紀錄，可以把區間拉長再試"
+    />
 
-      <div v-else>
-        <!-- 摘要統計 -->
-        <div class="summary-bar">
-          <div class="stat-card">
-            <span class="stat-label">測站數</span>
-            <span class="stat-value">{{ stationCount }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">資料筆數</span>
-            <span class="stat-value">{{ records.length }}</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">最高 24h 雨量</span>
-            <span class="stat-value">{{ maxHour24 }} mm</span>
-          </div>
+    <div v-else>
+      <!-- 摘要統計 -->
+      <div class="summary-bar">
+        <div class="stat-card">
+          <span class="stat-label">測站數</span>
+          <span class="stat-value">{{ stationCount }}</span>
         </div>
-
-        <!-- 折線圖 -->
-        <div class="chart-card">
-            <div class="chart-toolbar">
-            <span class="chart-title">24h 累積雨量趨勢</span>
-            <div class="toolbar-right">
-                <button class="btn-toggle-all" @click="toggleAllSeries">
-                {{ allVisible ? '全不選' : '全選' }}
-                </button>
-                <div class="metric-tabs">
-                <button
-                    v-for="m in metricOptions"
-                    :key="m.key"
-                    class="metric-tab"
-                    :class="{ active: activeMetric === m.key }"
-                    @click="activeMetric = m.key"
-                >{{ m.label }}</button>
-                </div>
-            </div>
-            </div>
-          <div class="canvas-wrap">
-            <canvas ref="canvasRef" />
-          </div>
+        <div class="stat-card">
+          <span class="stat-label">資料筆數</span>
+          <span class="stat-value">{{ records.length }}</span>
         </div>
-
-        <!-- 明細表格 -->
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>測站</th>
-                <th>觀測時間</th>
-                <th class="num">3h (mm)</th>
-                <th class="num">6h (mm)</th>
-                <th class="num">12h (mm)</th>
-                <th class="num">24h (mm)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(r, i) in records" :key="i" :class="{ heavy: (r.hour24 ?? 0) >= 80 }">
-                <td class="station-cell">{{ r.stationName }}</td>
-                <td class="time-cell">{{ r.observedAt.replace('T', ' ').slice(0, 16) }}</td>
-                <td class="num">{{ r.hour3 ?? '—' }}</td>
-                <td class="num">{{ r.hour6 ?? '—' }}</td>
-                <td class="num">{{ r.hour12 ?? '—' }}</td>
-                <td class="num rain-24" :class="rainLevel(r.hour24)">{{ r.hour24 ?? '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="stat-card">
+          <span class="stat-label">最高 24h 雨量</span>
+          <span class="stat-value">{{ maxHour24 }} mm</span>
         </div>
-        <p class="hint">※ 24h 雨量 ≥ 80mm 標記為大雨（橘色）</p>
       </div>
+
+      <!-- 折線圖 -->
+      <div class="chart-card">
+          <div class="chart-toolbar">
+          <span class="chart-title">24h 累積雨量趨勢</span>
+          <div class="toolbar-right">
+              <Btn variant="secondary" size="sm" @click="toggleAllSeries">
+              {{ allVisible ? '全不選' : '全選' }}
+              </Btn>
+              <div class="metric-tabs">
+              <button
+                  v-for="m in metricOptions"
+                  :key="m.key"
+                  class="metric-tab"
+                  :class="{ active: activeMetric === m.key }"
+                  @click="activeMetric = m.key"
+              >{{ m.label }}</button>
+              </div>
+          </div>
+          </div>
+        <div class="canvas-wrap">
+          <canvas ref="canvasRef" />
+        </div>
+      </div>
+
+      <!-- 明細表格 -->
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>測站</th>
+              <th>觀測時間</th>
+              <th class="num">3h (mm)</th>
+              <th class="num">6h (mm)</th>
+              <th class="num">12h (mm)</th>
+              <th class="num">24h (mm)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(r, i) in records" :key="i" :class="{ heavy: (r.hour24 ?? 0) >= 80 }">
+              <td class="station-cell">{{ r.stationName }}</td>
+              <td class="time-cell">{{ r.observedAt.replace('T', ' ').slice(0, 16) }}</td>
+              <td class="num">{{ r.hour3 ?? '—' }}</td>
+              <td class="num">{{ r.hour6 ?? '—' }}</td>
+              <td class="num">{{ r.hour12 ?? '—' }}</td>
+              <td class="num rain-24" :class="rainLevel(r.hour24)">{{ r.hour24 ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">※ 24h 雨量 ≥ 80mm 標記為大雨（橘色）</p>
     </div>
   </div>
 </template>
@@ -102,23 +116,17 @@ import {
 import { weatherApi, type RainfallResponseDto } from '@/api/weather'
 import CitySelector from '@/components/CitySelector.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FilterCard from '@/components/ui/FilterCard.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
+import {
+  seriesColor, seriesFill, pointBorderColor,
+  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
-// ── 色盤（最多 10 條測站線）──────────────────────────
-const PALETTE = [
-  { main: '#2e7d32', fade: 'rgba(46,125,50,0.08)' },
-  { main: '#e65100', fade: 'rgba(230,81,0,0.08)'  },
-  { main: '#1565c0', fade: 'rgba(21,101,192,0.08)' },
-  { main: '#6a1b9a', fade: 'rgba(106,27,154,0.08)' },
-  { main: '#c77700', fade: 'rgba(199,119,0,0.08)'  },
-  { main: '#00695c', fade: 'rgba(0,105,92,0.08)'   },
-  { main: '#b71c1c', fade: 'rgba(183,28,28,0.08)'  },
-  { main: '#0277bd', fade: 'rgba(2,119,189,0.08)'  },
-  { main: '#558b2f', fade: 'rgba(85,139,47,0.08)'  },
-  { main: '#f57f17', fade: 'rgba(245,127,23,0.08)' },
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 
 // ── 指標切換 ─────────────────────────────────────────
 type MetricKey = 'hour3' | 'hour6' | 'hour12' | 'hour24'
@@ -172,17 +180,16 @@ const chartData = computed(() => {
   }
 
   const datasets = Object.entries(groups).map(([station, timeMap], i) => {
-    const color = getColor(i)
     return {
       label: station,
       data: labels.map(t => timeMap[t] ?? null),
-      borderColor: color.main,
-      backgroundColor: color.fade,
+      borderColor: seriesColor(i),
+      backgroundColor: seriesFill(i),
       borderWidth: 2,
       pointRadius: labels.length <= 60 ? 3.5 : 0,
       pointHoverRadius: 7,
-      pointBackgroundColor: color.main,
-      pointBorderColor: 'rgba(0,0,0,0.15)',
+      pointBackgroundColor: seriesColor(i),
+      pointBorderColor: pointBorderColor(),
       pointBorderWidth: 1,
       tension: 0.35,
       fill: false,
@@ -209,33 +216,26 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 10,
-            color: 'rgba(26,40,32,0.70)',   // 從 0.45 → 0.70
-            font: { size: 12 },              // 從 11 → 12
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
           ticks: {
-            color: 'rgba(26,40,32,0.70)',   // 從 0.45 → 0.70
-            font: { size: 12 },
+            ...axisTicks(),
             callback: (val) => `${val} mm`,
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
@@ -243,12 +243,7 @@ function buildChart() {
         },
         legend: {
           position: 'top',
-          labels: {
-            color: 'rgba(26,40,32,0.85)',   // 從 0.65 → 0.85
-            font: { size: 13 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -315,155 +310,77 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-.rainfall-view { padding: 36px 56px; min-width: 960px; box-sizing: border-box; }
-
-h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; }
-
-.filter-section {
-  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 24px; margin-bottom: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.btn-query {
-  padding: 9px 26px; border-radius: 999px;
-  border: 1px solid #1a5220;
-  background: linear-gradient(
-    180deg,
-    #4caf50 0%,
-    #2e7d32 40%,
-    #1b5e20 100%
-  );
-  color: white;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    inset 2px 0 6px rgba(255,255,255,0.08),
-    0 2px 6px rgba(0,0,0,0.20);
-  transition: all 0.15s;
-}
-.btn-query:hover:not(:disabled) {
-  background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.20),
-    inset 2px 0 6px rgba(255,255,255,0.10),
-    0 3px 10px rgba(0,0,0,0.22);
-}
-.btn-query:active:not(:disabled) {
-  background: linear-gradient(180deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,0.35),
-    inset 0 -1px 0 rgba(255,255,255,0.15),
-    0 1px 3px rgba(0,0,0,0.15);
-}
-.btn-query:disabled { background: #c8d8c8; color: #999; border-color: #b0c8b0; box-shadow: none; cursor: not-allowed; }
-
-.error-msg  { font-size: 13px; color: var(--red); margin: 0; }
-.empty-hint { font-size: 14px; color: var(--text-muted); text-align: center; padding: 40px 0; }
-
-.summary-bar { display: flex; gap: 14px; margin-bottom: 20px; }
+.rainfall-view { min-width: 960px; }
+.summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-5); }
 
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 22px;
-  display: flex; flex-direction: column; gap: 6px; min-width: 130px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 130px;
+  box-shadow: var(--shadow-sm);
 }
 /* 摘要卡片 */
 .stat-label {
-  font-size: 12px;
-  color: rgba(26,40,32,0.60);   /* 從 text-muted → 深一點 */
+  font-size: var(--text-xs);
+  color: var(--neutral-500);   /* 從 text-muted → 深一點 */
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .stat-value {
-  font-size: 26px;              /* 從 22px → 26px */
-  font-weight: 700;
-  color: #1a5c20;               /* 深綠，不透明 */
+  font-size: var(--text-2xl);              /* 從 22px → 26px */
+  font-weight: var(--weight-bold);
+  color: var(--green-800);               /* 深綠，不透明 */
 }
 
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 24px 28px 32px; margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl); padding: var(--space-6) var(--space-8) var(--space-8); margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
 }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
 /* 圖表標題 */
 .chart-title {
-  font-size: 14px;              /* 從 13px → 14px */
-  font-weight: 700;
-  color: rgba(26,40,32,0.75);   /* 從 text-muted → 深很多 */
+  font-size: var(--text-base);              /* 從 13px → 14px */
+  font-weight: var(--weight-bold);
+  color: var(--neutral-600);   /* 從 text-muted → 深很多 */
   letter-spacing: 0.04em;
 }
 
-.toolbar-right { display: flex; align-items: center; gap: 10px; }
-
-/* 切換按鈕文字 */
-.btn-toggle-all {
-  padding: 5px 14px; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--surface);
-  color: rgba(26,40,32,0.65);   /* 從 text-secondary → 深一點 */
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
-}
-.btn-toggle-all:hover { background: var(--surface-2); color: var(--text-primary); }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
 
 .metric-tabs {
-  display: flex; gap: 4px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 3px;
+  display: flex; gap: var(--space-1);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); padding: var(--space-1);
 }
 .metric-tab {
-  padding: 5px 14px; border-radius: 6px; border: none;
+  padding: var(--space-1) var(--space-4); border-radius: var(--radius-md); border: none;
   background: transparent;
-  color: rgba(26,40,32,0.60);   /* 從 text-muted → 深一點 */
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
+  color: var(--neutral-500);   /* 從 text-muted → 深一點 */
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  cursor: pointer; transition: all var(--duration-fast);
 }
-.metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: #e8f5e9; color: var(--green); font-weight: 700; }
+.metric-tab:hover { color: var(--neutral-900); }
+.metric-tab.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-bold); }
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
 .table-wrap {
-  overflow-x: auto; border: 1px solid var(--border);
-  border-radius: 12px; margin-bottom: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  overflow-x: auto; border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); margin-bottom: var(--space-2);
+  box-shadow: var(--shadow-sm);
 }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.data-table thead tr { background: var(--surface-2); }
-/* 表格標頭 */
-.data-table th {
-  padding: 12px 18px; text-align: left;
-  font-size: 12.5px;            /* 從 11.5px → 12.5px */
-  font-weight: 700;
-  color: rgba(26,40,32,0.70);   /* 從 text-muted → 深很多 */
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-.data-table th.num, .data-table td.num { text-align: right; }
-.data-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
-.data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--surface-2); }
-.data-table tbody tr.heavy { background: #fff3ee; }
-.data-table tbody tr.heavy:hover { background: #ffe8dc; }
-/* 表格內文 */
-.data-table td {
-  padding: 11px 18px;
-  color: rgba(26,40,32,0.85);   /* 從 text-primary → 更深更實 */
-  font-size: 14px;              /* 從預設 → 明確設 14px */
-}
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+/* 大雨的列整列上色，比在某一格裡標記更容易掃到 */
+.data-table tbody tr.heavy { background: var(--warning-50); }
+.data-table tbody tr.heavy:hover { background: var(--warning-100); }
 
-.station-cell { font-weight: 700; color: #1a5c20; }  /* 深綠不透明 */
-.time-cell    { color: rgba(26,40,32,0.60); font-variant-numeric: tabular-nums; }
-.rain-24        { font-weight: 600; }
-.level-moderate { color: #e65100; }
-.level-heavy    { color: var(--red); }
+.station-cell { font-weight: var(--weight-bold); color: var(--green-800); }  /* 深綠不透明 */
+.time-cell    { color: var(--neutral-500); font-variant-numeric: tabular-nums; }
+.rain-24        { font-weight: var(--weight-medium); }
+.level-moderate { color: var(--warning-500); }
+.level-heavy    { color: var(--danger-500); }
 
-.hint { font-size: 13px; color: rgba(26,40,32,0.55); margin-top: 12px; }
+.hint { font-size: var(--text-sm); color: var(--neutral-500); margin-top: var(--space-3); }
 </style>
