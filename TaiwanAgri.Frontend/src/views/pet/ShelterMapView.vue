@@ -217,28 +217,28 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .kind-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 140px; cursor: pointer;
 }
-.kind-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.kind-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
-.stat-bar { margin-left: auto; font-size: 13px; }
-.stat-text { color: var(--text-secondary); }
-.stat-muted { color: var(--text-muted); }
-.stat-error { color: var(--red); font-weight: 600; }
-.stat-loading { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); }
+.stat-bar { margin-left: auto; font-size: var(--text-sm); }
+.stat-text { color: var(--neutral-500); }
+.stat-muted { color: var(--neutral-400); }
+.stat-error { color: var(--danger-500); font-weight: var(--weight-medium); }
+.stat-loading { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); }
 
 .loading-spinner-sm {
   width: 14px; height: 14px;
-  border: 2px solid #c8e6c9; border-top-color: var(--green);
+  border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -246,27 +246,27 @@ onUnmounted(() => {
 .map-container {
   height: 640px;
   width: 100%;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--neutral-200);
+  box-shadow: var(--shadow-md);
 }
 </style>
 
 <!-- 未加 scoped：Leaflet popup 內容是用 document.createElement 動態插入的 DOM，
      不是 Vue 模板渲染出來的節點，scoped 屬性不會套用到這些節點上，樣式必須寫在全域區塊 -->
 <style>
-.shelter-popup-content { font-size: 13px; min-width: 260px; }
-.shelter-popup-content .popup-title { font-weight: 700; font-size: 14px; color: #1b5e20; margin-bottom: 4px; }
-.shelter-popup-content .popup-address { color: rgba(26,40,32,0.65); margin-bottom: 8px; font-size: 12px; }
+.shelter-popup-content { font-size: var(--text-sm); min-width: 260px; }
+.shelter-popup-content .popup-title { font-weight: var(--weight-bold); font-size: var(--text-base); color: var(--green-800); margin-bottom: var(--space-1); }
+.shelter-popup-content .popup-address { color: var(--neutral-500); margin-bottom: var(--space-2); font-size: var(--text-xs); }
 
 .shelter-popup-content .popup-summary {
-  font-weight: 700; color: #1a2820; padding: 6px 0;
-  border-top: 1px solid rgba(26,40,32,0.12); border-bottom: 1px solid rgba(26,40,32,0.12);
+  font-weight: var(--weight-bold); color: var(--neutral-900); padding: var(--space-2) 0;
+  border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200);
 }
 
 /* popup 只放摘要＋這顆連結，完整清單在獨立詳情頁（不掛週次分支改版） */
 .shelter-popup-content .popup-view-all {
-  display: block; margin-top: 8px; color: #1565c0; font-size: 13px; font-weight: 700;
+  display: block; margin-top: var(--space-2); color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-bold);
   text-decoration: none;
 }
 .shelter-popup-content .popup-view-all:hover { text-decoration: underline; }

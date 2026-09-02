@@ -52,12 +52,12 @@
           <!-- 標籤列 -->
           <div class="tag-row">
             <span
-              class="tag city-tag"
+              class="badge tag city-tag"
               v-for="c in a.cities"
               :key="c"
             >{{ c }}</span>
             <span
-              class="tag crop-tag"
+              class="badge tag crop-tag"
               v-for="c in a.crops"
               :key="c"
             >{{ c }}</span>
@@ -164,81 +164,81 @@ onMounted(fetchAlerts)
 
 <style scoped>
 .pest-alerts-view { min-width: 960px; }
-.alert-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.alert-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-6); }
 
 .alert-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 20px 24px; cursor: pointer;
-  transition: box-shadow 0.18s, border-color 0.18s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); cursor: pointer;
+  transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
+  box-shadow: var(--shadow-sm);
 }
-.alert-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
-.alert-card.expanded { border-color: var(--green); background: #f6fbf6; }
+.alert-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-200); }
+.alert-card.expanded { border-color: var(--green-600); background: var(--green-50); }
 
-.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.card-meta { display: flex; align-items: center; gap: 10px; }
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
+.card-meta { display: flex; align-items: center; gap: var(--space-3); }
 
 /* 日期 */
 .pub-date {
-  font-size: 13px;           /* 從 12px → 13px */
-  color: rgba(26,40,32,0.55);
+  font-size: var(--text-sm);           /* 從 12px → 13px */
+  color: var(--neutral-500);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 /* issue badge */
 .issue-badge {
-  font-size: 12px;           /* 從 11px → 12px */
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: #e8f5e9; color: var(--green);
-  border: 1px solid rgba(46,125,50,0.25);
-  font-weight: 700;
+  font-size: var(--text-xs);           /* 從 11px → 12px */
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--green-100); color: var(--green-600);
+  border: 1px solid var(--green-200);
+  font-weight: var(--weight-bold);
 }
 
-.expand-icon { font-size: 18px; color: var(--text-muted); transition: color 0.15s; }
-.alert-card:hover .expand-icon { color: var(--text-secondary); }
+.expand-icon { font-size: var(--text-lg); color: var(--neutral-400); transition: color var(--duration-fast); }
+.alert-card:hover .expand-icon { color: var(--neutral-500); }
 
 /* 主旨標題 */
 .card-subject {
-  font-size: 17px;           /* 從 15px → 17px */
-  font-weight: 700;
-  color: #1a2820;            /* 最深色，不透明 */
-  margin-bottom: 12px;
-  line-height: 1.5;
+  font-size: var(--text-lg);           /* 從 15px → 17px */
+  font-weight: var(--weight-bold);
+  color: var(--neutral-900);            /* 最深色，不透明 */
+  margin-bottom: var(--space-3);
+  line-height: var(--leading-normal);
 }
 
-.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
-/* 標籤 */
-.tag { font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid; font-weight: 600; }
-.city-tag { background: #e3f2fd; border-color: rgba(21,101,192,0.30); color: #1565c0; }
-.crop-tag { background: #e8f5e9; border-color: rgba(46,125,50,0.30); color: #2e7d32; }
+.tag-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.tag { border: var(--border-width) solid; }
+.city-tag { background: var(--info-50); border-color: var(--info-100); color: var(--info-500); }
+.crop-tag { background: var(--green-100); border-color: var(--green-200); color: var(--green-600); }
 
 
-.card-body { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+.card-body { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--neutral-200); }
 
 /* section 標籤 */
 .section-label {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--green);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--green-600);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 2px solid rgba(46,125,50,0.20);  /* 加底線 */
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--green-200);  /* 加底線 */
   display: block;
 }
 .section-label.prescription {
-  color: #bf360c;
-  margin-top: 18px;
-  border-bottom-color: rgba(191,54,12,0.20);
+  color: var(--warning-700);
+  margin-top: var(--space-5);
+  border-bottom-color: var(--warning-100);
 }
 
 /* 內文 */
 .body-text {
-  font-size: 15px;           /* 從 13.5px → 15px */
-  color: rgba(26,40,32,0.82);  /* 從 text-secondary → 深一點 */
-  line-height: 1.9;
+  font-size: var(--text-base);           /* 從 13.5px → 15px */
+  color: var(--neutral-700);  /* 從 text-secondary → 深一點 */
+  line-height: var(--leading-loose);
   white-space: pre-wrap;
   margin: 0;
 }

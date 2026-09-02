@@ -81,7 +81,7 @@
     <!-- 資料表格 -->
     <div v-else-if="store.violationsPage" class="table-section">
       <div class="table-wrapper">
-        <table class="violation-table">
+        <table class="data-table violation-table">
           <thead>
             <tr>
               <th>序</th>
@@ -116,7 +116,7 @@
                 </span>
               </td>
               <td>
-                <span class="result-badge" :class="resultClass(item.inspectResult)">
+                <span class="badge result-badge" :class="resultClass(item.inspectResult)">
                   {{ item.inspectResult }}
                 </span>
               </td>
@@ -309,50 +309,50 @@ function isUrl(value: string): boolean {
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .filter-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--neutral-400);
   white-space: nowrap;
 }
 
 .days-tabs, .result-tabs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .tab-btn {
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--neutral-200);
   background: transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--neutral-400);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
   white-space: nowrap;
 }
 
-.tab-btn:hover { border-color: #43a047; color: #2e7d32; }
+.tab-btn:hover { border-color: var(--green-500); color: var(--green-600); }
 
 .tab-btn.active {
-  background: #2e7d32;
-  border-color: #2e7d32;
-  color: white;
+  background: var(--green-600);
+  border-color: var(--green-600);
+  color: var(--neutral-0);
 }
 
 .custom-days {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--neutral-200);
   min-width: 130px;
 }
 
@@ -360,80 +360,53 @@ function isUrl(value: string): boolean {
   width: 90px;
   border: none;
   outline: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--neutral-900);
 }
 
-.custom-days-unit { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.custom-days-unit { font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 
 .page-size-select {
-  padding: 5px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  font-size: 13px;
-  color: var(--text-primary);
-  background: var(--surface);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+  font-size: var(--text-sm);
+  color: var(--neutral-900);
+  background: var(--neutral-0);
 }
 
 /* ── 表格區塊 ── */
 .table-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 /* 限制在框內、可上下左右捲動的關鍵 CSS */
 .table-wrapper {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
   max-height: 560px;
   overflow: auto;
 }
 
-.violation-table {
-  width: 100%;
-  min-width: 900px;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.violation-table thead th {
-  position: sticky;
-  top: 0;
-  background: #f1f8f1;
-  text-align: left;
-  padding: 12px 16px;
-  font-weight: 700;
-  color: #1b5e20;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  z-index: 1;
-}
-
-.violation-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-primary);
-  vertical-align: top;
-}
-
-.violation-table tbody tr:hover { background: #fafdf9; }
-.violation-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.violation-table { min-width: 900px; }
 
 .cell-index {
   font-family: monospace;
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
   text-align: right;
   white-space: nowrap;
 }
 
-.cell-number { font-family: monospace; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.cell-number { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.cell-product { font-weight: 600; }
+.cell-product { font-weight: var(--weight-medium); }
 
 .cell-location {
   max-width: 380px;
@@ -441,20 +414,20 @@ function isUrl(value: string): boolean {
 
 .location-text {
   display: block;
-  font-size: 12px;
-  color: var(--text-primary);
+  font-size: var(--text-xs);
+  color: var(--neutral-900);
   white-space: normal;
   word-break: break-word;
   max-width: 380px;
-  line-height: 1.5;
+  line-height: var(--leading-normal);
 }
 
 .location-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #1565c0;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--info-500);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -463,20 +436,12 @@ function isUrl(value: string): boolean {
   text-decoration: underline;
 }
 
-.cell-note { max-width: 220px; font-size: 12px; color: var(--text-muted); }
+.cell-note { max-width: 220px; font-size: var(--text-xs); color: var(--neutral-400); }
 
-.result-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.result-badge.fail { background: #ffebee; color: #c62828; }
-.result-badge.warn { background: #fff3e0; color: #e65100; }
-.result-badge.pass { background: #e8f5e9; color: #2e7d32; }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.result-badge.fail { background: var(--danger-50); color: var(--danger-500); }
+.result-badge.warn { background: var(--warning-50); color: var(--warning-500); }
+.result-badge.pass { background: var(--green-100); color: var(--green-600); }
 
 /* ── 分頁列 ── */
 .pagination-bar {
@@ -484,90 +449,90 @@ function isUrl(value: string): boolean {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .pagination-info {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
 }
 
 .pagination-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .page-size-group {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-right: 8px;
-  padding-right: 8px;
-  border-right: 1px solid var(--border);
+  gap: var(--space-2);
+  margin-right: var(--space-2);
+  padding-right: var(--space-2);
+  border-right: 1px solid var(--neutral-200);
 }
 
 .jump-to-page {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border);
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--neutral-200);
 }
 
 .jump-label {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
   white-space: nowrap;
 }
 
 .jump-input {
   width: 50px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  font-size: 13px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+  font-size: var(--text-sm);
   text-align: center;
   outline: none;
 }
 
-.jump-input:focus { border-color: #43a047; }
+.jump-input:focus { border-color: var(--green-500); }
 
 .jump-btn {
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid #2e7d32;
-  background: #2e7d32;
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--green-600);
+  background: var(--green-600);
+  color: var(--neutral-0);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   cursor: pointer;
 }
 
-.jump-btn:hover { background: #388e3c; }
+.jump-btn:hover { background: var(--green-500); }
 
 .page-btn {
   min-width: 32px;
   height: 32px;
-  padding: 0 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 13px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
+  font-size: var(--text-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.page-btn:hover:not(:disabled) { border-color: #43a047; color: #2e7d32; }
+.page-btn:hover:not(:disabled) { border-color: var(--green-500); color: var(--green-600); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .page-btn.active {
-  background: #2e7d32;
-  border-color: #2e7d32;
-  color: white;
+  background: var(--green-600);
+  border-color: var(--green-600);
+  color: var(--neutral-0);
 }
 </style>

@@ -133,7 +133,7 @@
                   <span class="rank-badge" :title="item.rankText || undefined">{{ rankGradeLabel(item.rankGrade) }}</span>
                 </td>
                 <td>
-                  <span class="state-badge" :class="stateClass(item.stateFlag)">{{ stateLabel(item.stateFlag) }}</span>
+                  <span class="badge state-badge" :class="stateClass(item.stateFlag)">{{ stateLabel(item.stateFlag) }}</span>
                 </td>
               </tr>
             </tbody>
@@ -498,63 +498,57 @@ onMounted(fetchLegal)
 
 <style scoped>
 .tab-switch {
-  display: flex; gap: 6px; margin-bottom: 20px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 4px; width: fit-content;
+  display: flex; gap: var(--space-2); margin-bottom: var(--space-5);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-1); width: fit-content;
 }
 .tab-btn {
-  padding: 8px 22px; border-radius: 8px; border: none; background: transparent;
-  color: var(--text-secondary); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  padding: var(--space-2) var(--space-6); border-radius: var(--radius-md); border: none; background: transparent;
+  color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
 }
-.tab-btn:hover { color: var(--green); }
-.tab-btn.active { background: var(--green); color: white; }
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.tab-btn:hover { color: var(--green-600); }
+.tab-btn.active { background: var(--green-600); color: var(--neutral-0); }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 .filter-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
-.sort-control { display: flex; align-items: center; gap: 6px; }
+.sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
 }
-.sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-.loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; }
-.loading-hint.standalone { margin-bottom: 20px; }
+.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); font-size: var(--text-sm); }
+.loading-hint.standalone { margin-bottom: var(--space-5); }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid #c8e6c9; border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.table-section { display: flex; flex-direction: column; gap: 16px; }
+.table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(46,125,50,0.06); max-height: 600px; overflow: auto;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md); max-height: 600px; overflow: auto;
 }
 
-.data-table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 13px; }
-.data-table thead th {
-  position: sticky; top: 0; background: #f1f8f1; text-align: left; padding: 12px 16px;
-  font-weight: 700; color: #1b5e20; border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
-}
-.data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: #fafdf9; }
-.data-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.data-table { min-width: 1100px; }
 
-.cell-name { font-weight: 600; white-space: nowrap; }
-.cell-mono { font-family: monospace; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.cell-name { font-weight: var(--weight-medium); white-space: nowrap; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.cell-address { max-width: 260px; font-size: 12px; }
-.cell-muted { color: var(--text-muted); }
+.cell-address { max-width: 260px; font-size: var(--text-xs); }
+.cell-muted { color: var(--neutral-400); }
 
 /* 合法寵物業表格：table-layout: fixed 讓 colgroup 的欄寬真正生效（不然瀏覽器只會把它當參考值，
    還是照內容自動調整）；固定寬度後，內容比欄寬長的儲存格靠 white-space/wrap 決定要不要換行。
@@ -579,18 +573,18 @@ onMounted(fetchLegal)
 .rank-badge {
   /* rankText 有時是簡短代碼（GradeB）、有時是長句（已搬遷至新址，請洽新址辦理註銷許可），
      不能用 nowrap；改成允許換行的圓角色塊，寬度跟著 col-rank 走 */
-  display: inline-block; padding: 3px 10px; border-radius: 12px;
-  background: #fff8e1; color: #f57f17; font-size: 12px; font-weight: 700;
-  white-space: normal; word-break: break-word; line-height: 1.4;
+  display: inline-block; padding: var(--space-1) var(--space-3); border-radius: var(--radius-lg);
+  background: var(--warning-50); color: var(--warning-500); font-size: var(--text-xs); font-weight: var(--weight-bold);
+  white-space: normal; word-break: break-word; line-height: var(--leading-tight);
 }
 
-.state-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.state-badge.ok { background: #e8f5e9; color: var(--green); }
-.state-badge.closed { background: #f0f0f0; color: #757575; }
-.state-badge.suspended { background: #fff3e0; color: #e65100; }
-.state-badge.revoked { background: #ffebee; color: #c62828; }
-.state-badge.unknown { background: #f0f0f0; color: #9e9e9e; }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.state-badge.ok { background: var(--green-100); color: var(--green-600); }
+.state-badge.closed { background: var(--neutral-100); color: var(--neutral-500); }
+.state-badge.suspended { background: var(--warning-50); color: var(--warning-500); }
+.state-badge.revoked { background: var(--danger-50); color: var(--danger-500); }
+.state-badge.unknown { background: var(--neutral-100); color: var(--neutral-400); }
 
-.picture-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #1565c0; text-decoration: none; white-space: nowrap; }
+.picture-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .picture-link:hover { text-decoration: underline; }
 </style>

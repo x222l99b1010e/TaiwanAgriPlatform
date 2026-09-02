@@ -120,23 +120,13 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import {
+  seriesColor, seriesFill, pointBorderColor,
+  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
-// ── 色盤（最多 10 條測站線）──────────────────────────
-const PALETTE = [
-  { main: '#2e7d32', fade: 'rgba(46,125,50,0.08)' },
-  { main: '#e65100', fade: 'rgba(230,81,0,0.08)'  },
-  { main: '#1565c0', fade: 'rgba(21,101,192,0.08)' },
-  { main: '#6a1b9a', fade: 'rgba(106,27,154,0.08)' },
-  { main: '#c77700', fade: 'rgba(199,119,0,0.08)'  },
-  { main: '#00695c', fade: 'rgba(0,105,92,0.08)'   },
-  { main: '#b71c1c', fade: 'rgba(183,28,28,0.08)'  },
-  { main: '#0277bd', fade: 'rgba(2,119,189,0.08)'  },
-  { main: '#558b2f', fade: 'rgba(85,139,47,0.08)'  },
-  { main: '#f57f17', fade: 'rgba(245,127,23,0.08)' },
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
 
 // ── 指標切換 ─────────────────────────────────────────
 type MetricKey = 'hour3' | 'hour6' | 'hour12' | 'hour24'
@@ -190,17 +180,16 @@ const chartData = computed(() => {
   }
 
   const datasets = Object.entries(groups).map(([station, timeMap], i) => {
-    const color = getColor(i)
     return {
       label: station,
       data: labels.map(t => timeMap[t] ?? null),
-      borderColor: color.main,
-      backgroundColor: color.fade,
+      borderColor: seriesColor(i),
+      backgroundColor: seriesFill(i),
       borderWidth: 2,
       pointRadius: labels.length <= 60 ? 3.5 : 0,
       pointHoverRadius: 7,
-      pointBackgroundColor: color.main,
-      pointBorderColor: 'rgba(0,0,0,0.15)',
+      pointBackgroundColor: seriesColor(i),
+      pointBorderColor: pointBorderColor(),
       pointBorderWidth: 1,
       tension: 0.35,
       fill: false,
@@ -227,33 +216,26 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 10,
-            color: 'rgba(26,40,32,0.70)',   // 從 0.45 → 0.70
-            font: { size: 12 },              // 從 11 → 12
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
           ticks: {
-            color: 'rgba(26,40,32,0.70)',   // 從 0.45 → 0.70
-            font: { size: 12 },
+            ...axisTicks(),
             callback: (val) => `${val} mm`,
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.08)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
@@ -261,12 +243,7 @@ function buildChart() {
         },
         legend: {
           position: 'top',
-          labels: {
-            color: 'rgba(26,40,32,0.85)',   // 從 0.65 → 0.85
-            font: { size: 13 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -334,96 +311,76 @@ async function handleQuery() {
 
 <style scoped>
 .rainfall-view { min-width: 960px; }
-.summary-bar { display: flex; gap: 14px; margin-bottom: 20px; }
+.summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-5); }
 
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 22px;
-  display: flex; flex-direction: column; gap: 6px; min-width: 130px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 130px;
+  box-shadow: var(--shadow-sm);
 }
 /* 摘要卡片 */
 .stat-label {
-  font-size: 12px;
-  color: rgba(26,40,32,0.60);   /* 從 text-muted → 深一點 */
+  font-size: var(--text-xs);
+  color: var(--neutral-500);   /* 從 text-muted → 深一點 */
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .stat-value {
-  font-size: 26px;              /* 從 22px → 26px */
-  font-weight: 700;
-  color: #1a5c20;               /* 深綠，不透明 */
+  font-size: var(--text-2xl);              /* 從 22px → 26px */
+  font-weight: var(--weight-bold);
+  color: var(--green-800);               /* 深綠，不透明 */
 }
 
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 24px 28px 32px; margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl); padding: var(--space-6) var(--space-8) var(--space-8); margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
 }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
 /* 圖表標題 */
 .chart-title {
-  font-size: 14px;              /* 從 13px → 14px */
-  font-weight: 700;
-  color: rgba(26,40,32,0.75);   /* 從 text-muted → 深很多 */
+  font-size: var(--text-base);              /* 從 13px → 14px */
+  font-weight: var(--weight-bold);
+  color: var(--neutral-600);   /* 從 text-muted → 深很多 */
   letter-spacing: 0.04em;
 }
 
-.toolbar-right { display: flex; align-items: center; gap: 10px; }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
 
 .metric-tabs {
-  display: flex; gap: 4px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 3px;
+  display: flex; gap: var(--space-1);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); padding: var(--space-1);
 }
 .metric-tab {
-  padding: 5px 14px; border-radius: 6px; border: none;
+  padding: var(--space-1) var(--space-4); border-radius: var(--radius-md); border: none;
   background: transparent;
-  color: rgba(26,40,32,0.60);   /* 從 text-muted → 深一點 */
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.15s;
+  color: var(--neutral-500);   /* 從 text-muted → 深一點 */
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  cursor: pointer; transition: all var(--duration-fast);
 }
-.metric-tab:hover { color: var(--text-primary); }
-.metric-tab.active { background: #e8f5e9; color: var(--green); font-weight: 700; }
+.metric-tab:hover { color: var(--neutral-900); }
+.metric-tab.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-bold); }
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
 .table-wrap {
-  overflow-x: auto; border: 1px solid var(--border);
-  border-radius: 12px; margin-bottom: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  overflow-x: auto; border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); margin-bottom: var(--space-2);
+  box-shadow: var(--shadow-sm);
 }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.data-table thead tr { background: var(--surface-2); }
-/* 表格標頭 */
-.data-table th {
-  padding: 12px 18px; text-align: left;
-  font-size: 12.5px;            /* 從 11.5px → 12.5px */
-  font-weight: 700;
-  color: rgba(26,40,32,0.70);   /* 從 text-muted → 深很多 */
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-.data-table th.num, .data-table td.num { text-align: right; }
-.data-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
-.data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--surface-2); }
-.data-table tbody tr.heavy { background: #fff3ee; }
-.data-table tbody tr.heavy:hover { background: #ffe8dc; }
-/* 表格內文 */
-.data-table td {
-  padding: 11px 18px;
-  color: rgba(26,40,32,0.85);   /* 從 text-primary → 更深更實 */
-  font-size: 14px;              /* 從預設 → 明確設 14px */
-}
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+/* 大雨的列整列上色，比在某一格裡標記更容易掃到 */
+.data-table tbody tr.heavy { background: var(--warning-50); }
+.data-table tbody tr.heavy:hover { background: var(--warning-100); }
 
-.station-cell { font-weight: 700; color: #1a5c20; }  /* 深綠不透明 */
-.time-cell    { color: rgba(26,40,32,0.60); font-variant-numeric: tabular-nums; }
-.rain-24        { font-weight: 600; }
-.level-moderate { color: #e65100; }
-.level-heavy    { color: var(--red); }
+.station-cell { font-weight: var(--weight-bold); color: var(--green-800); }  /* 深綠不透明 */
+.time-cell    { color: var(--neutral-500); font-variant-numeric: tabular-nums; }
+.rain-24        { font-weight: var(--weight-medium); }
+.level-moderate { color: var(--warning-500); }
+.level-heavy    { color: var(--danger-500); }
 
-.hint { font-size: 13px; color: rgba(26,40,32,0.55); margin-top: 12px; }
+.hint { font-size: var(--text-sm); color: var(--neutral-500); margin-top: var(--space-3); }
 </style>

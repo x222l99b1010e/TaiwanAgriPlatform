@@ -67,7 +67,7 @@
               <span v-if="event.lastDate !== event.firstDate"> ～ {{ event.lastDate }}</span>
             </div>
             <div class="disaster-name">
-              <span class="alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
+              <span class="badge alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
                 {{ event.alertType === 'D' ? '土石流' : '土石流潛勢' }}
               </span>
               {{ event.disasterName }}
@@ -175,42 +175,42 @@ function handleExportCsv() {
 
 <style scoped>
 .prices-view { min-width: 960px; }
-.filter-bottom { display: flex; align-items: flex-start; gap: 28px; flex-wrap: wrap; }
+.filter-bottom { display: flex; align-items: flex-start; gap: var(--space-8); flex-wrap: wrap; }
 
 .bottom-grid {
   display: grid; grid-template-columns: 1fr 280px;
-  gap: 24px; align-items: start;
+  gap: var(--space-6); align-items: start;
 }
 
 .chart-section {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-8);
+  box-shadow: var(--shadow-md);
 }
 .disaster-section {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 22px;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-6);
   max-height: 600px; overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.15) transparent;
+  box-shadow: var(--shadow-md);
+  scrollbar-width: thin; scrollbar-color: var(--neutral-300) transparent;
 }
 .disaster-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px; padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4); padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--neutral-200);
 }
-.disaster-title { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
-.disaster-count { font-size: 12px; padding: 2px 9px; background: rgba(191,54,12,0.10); border: 1px solid rgba(191,54,12,0.25); border-radius: 999px; color: #bf360c; font-weight: 700; }
-.disaster-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 24px 0; }
-.disaster-list { display: flex; flex-direction: column; gap: 12px; }
-.disaster-item { padding: 12px 14px; background: #fff8f6; border: 1px solid rgba(191,54,12,0.12); border-radius: 10px; display: flex; flex-direction: column; gap: 5px; }
-.disaster-date-range { font-size: 12px; color: #bf360c; font-variant-numeric: tabular-nums; font-weight: 600; }
-.disaster-name { font-size: 14px; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.alert-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; flex-shrink: 0; }
-.alert-badge.red { background: rgba(198,40,40,0.10); color: var(--red); border: 1px solid rgba(198,40,40,0.20); }
-.alert-badge.orange { background: rgba(191,54,12,0.10); color: var(--orange); border: 1px solid rgba(191,54,12,0.20); }
-.disaster-counties { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+.disaster-title { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.06em; text-transform: uppercase; font-weight: var(--weight-bold); }
+.disaster-count { font-size: var(--text-xs); padding: var(--space-1) var(--space-2); background: var(--warning-50); border: 1px solid var(--warning-100); border-radius: var(--radius-full); color: var(--warning-700); font-weight: var(--weight-bold); }
+.disaster-empty { font-size: var(--text-xs); color: var(--neutral-400); text-align: center; padding: var(--space-6) 0; }
+.disaster-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.disaster-item { padding: var(--space-3) var(--space-4); background: var(--warning-50); border: 1px solid var(--warning-50); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: var(--space-1); }
+.disaster-date-range { font-size: var(--text-xs); color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: var(--weight-medium); }
+.disaster-name { font-size: var(--text-base); color: var(--neutral-900); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--space-2); }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.alert-badge.red { background: var(--danger-50); color: var(--danger-500); border: 1px solid var(--danger-100); }
+.alert-badge.orange { background: var(--warning-50); color: var(--warning-700); border: 1px solid var(--warning-100); }
+.disaster-counties { font-size: var(--text-xs); color: var(--neutral-500); line-height: var(--leading-normal); }
 
-.action-row { display: flex; align-items: center; gap: 10px; }
-.validation-msg { font-size: 13px; color: var(--red); }
+.action-row { display: flex; align-items: center; gap: var(--space-3); }
+.validation-msg { font-size: var(--text-sm); color: var(--danger-500); }
 </style>

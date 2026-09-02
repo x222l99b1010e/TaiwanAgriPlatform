@@ -31,7 +31,7 @@
 
     <article v-else-if="post" class="detail-card">
       <div class="detail-header">
-        <span class="status-badge" :class="statusClass(post.status)">{{ statusLabel(post.status) }}</span>
+        <span class="badge status-badge" :class="statusClass(post.status)">{{ statusLabel(post.status) }}</span>
         <a
           v-if="post.latitude != null && post.longitude != null"
           class="coord-badge"
@@ -155,59 +155,56 @@ async function handleDelete() {
 <style scoped>
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-bottom: 20px; color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
+.back-link:hover { color: var(--green-600); }
 
 /* ── 內容卡片 ──
    詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
    所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
 .detail-card {
   max-width: var(--container-sm);
-  display: flex; flex-direction: column; gap: 14px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 28px 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; gap: var(--space-4);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
+  padding: var(--space-8); box-shadow: var(--shadow-sm);
 }
 
 .detail-header { display: flex; align-items: center; justify-content: space-between; }
-.status-badge {
-  display: inline-block; padding: 3px 12px; border-radius: 999px;
-  font-size: 12px; font-weight: 700;
-}
-.status-badge.searching { background: #fff3e0; color: #e65100; }
-.status-badge.found { background: #e8f5e9; color: var(--green); }
-.status-badge.withdrawn { background: #f0f0f0; color: #757575; }
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+.status-badge.searching { background: var(--warning-50); color: var(--warning-500); }
+.status-badge.found { background: var(--green-100); color: var(--green-600); }
+.status-badge.withdrawn { background: var(--neutral-100); color: var(--neutral-500); }
 
 .coord-badge {
-  display: inline-flex; align-items: center; gap: 3px;
-  color: var(--green); font-size: 13.5px; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  color: var(--green-600); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
 }
 .coord-badge:hover { text-decoration: underline; }
 
-.detail-title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
-.detail-meta { font-size: 13.5px; color: var(--text-muted); }
+.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--neutral-900); }
+.detail-meta { font-size: var(--text-sm); color: var(--neutral-400); }
 
 .safety-notice {
-  display: flex; align-items: flex-start; gap: 8px;
-  padding: 12px 16px;
-  background: #fff5f5; border: 1px solid #ffcdd2; border-left: 4px solid var(--red);
-  border-radius: 10px;
-  color: var(--red); font-size: 14.5px; font-weight: 700; line-height: 1.6;
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--danger-50); border: 1px solid var(--danger-100); border-left: 4px solid var(--danger-500);
+  border-radius: var(--radius-lg);
+  color: var(--danger-500); font-size: var(--text-base); font-weight: var(--weight-bold); line-height: var(--leading-normal);
 }
-.notice-icon { font-size: 18px; flex-shrink: 0; line-height: 1.5; }
+.notice-icon { font-size: var(--text-lg); flex-shrink: 0; line-height: var(--leading-normal); }
 
 .detail-description {
-  font-size: 15px; color: var(--text-primary); line-height: 1.75;
+  font-size: var(--text-base); color: var(--neutral-900); line-height: var(--leading-loose);
   white-space: pre-wrap; /* 保留張貼者輸入的換行，特徵條列才不會被擠成一整段 */
 }
 
-.detail-contact { display: flex; flex-wrap: wrap; gap: 14px; font-size: 15px; color: var(--text-primary); }
-.contact-item { display: inline-flex; align-items: center; gap: 4px; }
-.contact-missing { color: var(--text-muted); font-style: italic; }
+.detail-contact { display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: var(--text-base); color: var(--neutral-900); }
+.contact-item { display: inline-flex; align-items: center; gap: var(--space-1); }
+.contact-missing { color: var(--neutral-400); font-style: italic; }
 
-.owner-actions-block { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
-.owner-actions { display: flex; gap: 8px; }
-.error-msg { margin-top: 8px; font-size: 13px; color: var(--red); font-weight: 600; }
+.owner-actions-block { margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--neutral-200); }
+.owner-actions { display: flex; gap: var(--space-2); }
+.error-msg { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--danger-500); font-weight: var(--weight-medium); }
 </style>

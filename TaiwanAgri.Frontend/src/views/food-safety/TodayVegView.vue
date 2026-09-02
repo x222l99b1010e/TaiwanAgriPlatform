@@ -87,32 +87,32 @@ onMounted(() => {
 <style scoped>
 /* ── 頁首 ── */
 .data-date {
-  font-weight: 600;
-  color: #2e7d32;
+  font-weight: var(--weight-medium);
+  color: var(--green-600);
 }
 
 /* ── 卡片格狀：一列兩張 ── */
 .price-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 /* ── 單張卡片 ── */
 .price-card {
-  background: #fff;
-  border: 1.5px solid #c8e6c9;
-  border-radius: 18px;
-  padding: 28px 32px;
-  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.08);
+  background: var(--neutral-0);
+  border: 1.5px solid var(--green-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  transition: box-shadow 0.18s, transform 0.18s;
+  gap: var(--space-4);
+  transition: box-shadow var(--duration-fast), transform var(--duration-fast);
 }
 
 .price-card:hover {
-  box-shadow: 0 8px 28px rgba(46, 125, 50, 0.16);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
@@ -120,18 +120,18 @@ onMounted(() => {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .crop-icon {
-  font-size: 22px;
-  color: #388e3c;
+  font-size: var(--text-xl);
+  color: var(--green-500);
 }
 
 .crop-name {
-  font-size: 20px;
-  font-weight: 800;
-  color: #1a2e1a;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--green-900);
   letter-spacing: -0.01em;
 }
 
@@ -139,75 +139,75 @@ onMounted(() => {
 .avg-price-row {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .price-value {
-  font-size: 48px;
-  font-weight: 900;
-  color: #2e7d32;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  color: var(--green-600);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .price-unit {
-  font-size: 15px;
-  color: #666;
-  font-weight: 500;
+  font-size: var(--text-base);
+  color: var(--neutral-600);
+  font-weight: var(--weight-medium);
 }
 
 /* ── 分隔線 ── */
 .divider {
   height: 1px;
-  background: #e8f5e9;
+  background: var(--green-100);
 }
 
 /* ── 上中下價三欄 ── */
 .price-detail-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .price-detail-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: #f1f8f1;
-  border-radius: 10px;
-  padding: 10px 8px;
+  gap: var(--space-1);
+  background: var(--green-50);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-2);
 }
 
 .detail-label {
-  font-size: 11px;
-  color: #777;
-  font-weight: 600;
+  font-size: var(--text-2xs);
+  color: var(--neutral-500);
+  font-weight: var(--weight-medium);
   letter-spacing: 0.04em;
 }
 
 .detail-value {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
-.detail-value.upper { color: #c62828; }
-.detail-value.middle { color: #2e7d32; }
-.detail-value.lower { color: #1565c0; }
+.detail-value.upper { color: var(--danger-500); }
+.detail-value.middle { color: var(--green-600); }
+.detail-value.lower { color: var(--info-500); }
 
 /* ── 卡片底部：交易日 ── */
 .card-footer {
   display: none;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #999;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
   font-variant-numeric: tabular-nums;
 }
 
 .footer-icon {
-  font-size: 14px;
-  color: #bbb;
+  font-size: var(--text-base);
+  color: var(--neutral-400);
 }
 </style>

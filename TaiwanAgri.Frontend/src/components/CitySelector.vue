@@ -29,30 +29,30 @@ const cities = [
 </script>
 
 <style scoped>
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 
 .field-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 600;
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
+  font-weight: var(--weight-medium);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .city-select {
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 14px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
+  font-size: var(--text-base);
   min-width: 160px;
   cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 .city-select:focus {
   outline: none;
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+  border-color: var(--green-600);
+  box-shadow: var(--shadow-focus);
 }
 </style>

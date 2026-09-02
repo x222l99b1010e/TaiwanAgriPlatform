@@ -203,110 +203,110 @@ async function handleSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
-  padding: 24px;
+  background: var(--neutral-100);
+  padding: var(--space-6);
 }
 
 .login-card {
   width: 100%;
   max-width: 420px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 40px 36px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Header */
 .card-header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: var(--space-8);
 }
 
 .logo-icon {
-  font-size: 40px;
-  color: var(--green);
+  font-size: var(--text-3xl);
+  color: var(--green-600);
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
 }
 
 .card-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 6px;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--neutral-900);
+  margin-bottom: var(--space-2);
 }
 
 .card-subtitle {
-  font-size: 14px;
-  color: var(--text-muted);
+  font-size: var(--text-base);
+  color: var(--neutral-400);
 }
 
 /* Tab 切換 */
 .tab-group {
   display: flex;
-  gap: 4px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 4px;
-  margin-bottom: 24px;
+  gap: var(--space-1);
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-1);
+  margin-bottom: var(--space-6);
 }
 
 .tab-btn {
   flex: 1;
-  padding: 8px 0;
-  border-radius: 7px;
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-md);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--neutral-500);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: all 0.18s;
+  transition: all var(--duration-fast);
 }
 
 .tab-btn.active {
-  background: var(--surface);
-  color: var(--green);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
+  background: var(--neutral-0);
+  color: var(--green-600);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 表單 */
 .form-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .field-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 600;
+  font-size: var(--text-xs);
+  color: var(--neutral-400);
+  font-weight: var(--weight-medium);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .field-input {
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 14px;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: var(--neutral-0);
+  color: var(--neutral-900);
+  font-size: var(--text-base);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .field-input:focus {
   outline: none;
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
+  border-color: var(--green-600);
+  box-shadow: var(--shadow-focus);
 }
 
 .field-input:disabled {
@@ -315,39 +315,39 @@ async function handleSubmit() {
 }
 
 .field-error {
-  font-size: 12.5px;
-  color: var(--red);
-  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--danger-500);
+  font-weight: var(--weight-medium);
 }
 
 /* 錯誤訊息 */
 .error-box {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  background: rgba(198, 40, 40, 0.06);
-  border: 1px solid rgba(198, 40, 40, 0.20);
-  border-radius: 10px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--danger-50);
+  border: 1px solid var(--danger-100);
+  border-radius: var(--radius-lg);
 }
 
 .error-icon {
-  font-size: 18px;
-  color: var(--red);
+  font-size: var(--text-lg);
+  color: var(--danger-500);
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 .error-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .error-content p {
-  font-size: 13px;
-  color: var(--red);
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  color: var(--danger-500);
+  line-height: var(--leading-normal);
   margin: 0;
 }
 

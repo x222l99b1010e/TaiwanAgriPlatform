@@ -7,11 +7,7 @@
     />
 
     <!-- 說明區塊 -->
-    <div class="info-hint">
-      <div class="info-hint-header">
-        <span class="mdi mdi-information-outline hint-icon" />
-        <span>查詢說明</span>
-      </div>
+    <HintBox title="查詢說明" class="content-sm page-hint">
       <ul class="hint-list">
         <li>本功能支援農產品、洗選蛋、禽肉三類追溯查詢</li>
         <li>洗選蛋與禽肉可輸入包裝上的任意序號，系統自動比對所屬批次</li>
@@ -27,10 +23,10 @@
         </button>
         <button class="example-chip example-chip--warn" @click="fillExample('4203824987')">
           <span class="mdi mdi-food-drumstick chip-icon" />禽肉 4203824987
-          <span class="chip-warn">資料有時效性</span>
+          <span class="badge chip-warn">資料有時效性</span>
         </button>
       </div>
-    </div>
+    </HintBox>
 
     <!-- 搜尋列 -->
     <div class="search-bar">
@@ -86,7 +82,7 @@
           <div class="info-row">
             <span class="info-label">狀態</span>
             <span
-              class="info-value status-badge"
+              class="info-value badge status-badge"
               :class="store.traceabilityResult!.producer.status === '通過' ? 'pass' : 'fail'"
             >
               {{ store.traceabilityResult!.producer.status }}
@@ -243,6 +239,7 @@ import { useFoodSafetyStore } from '@/stores/foodSafety'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 
 const store = useFoodSafetyStore()
 const traceCode = ref('')
@@ -268,254 +265,158 @@ function handleSearch() {
 /* 查詢區是單一輸入框＋一顆按鈕，撐滿頁面容器只會讓 10 碼追溯碼的輸入框長達
    一千多像素。頁面容器不縮，改由說明、查詢列與狀態框自己限寬並靠左
    （見 base.css .page）；查詢結果卡片維持全寬，因為裡面是多欄資訊格。 */
-.info-hint,
+.page-hint,
 .search-bar { max-width: var(--container-sm); }
 
-/* ── 說明區塊 ── */
-.info-hint {
-  background: #e3f2fd;
-  border: 1px solid rgba(21, 101, 192, 0.20);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+.page-hint { margin-bottom: var(--space-5); }
 
-.info-hint-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #1565c0;
-}
-
-.hint-icon { font-size: 17px; }
-
-.hint-list {
-  margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.hint-list li {
-  font-size: 13px;
-  color: #1565c0;
-  line-height: 1.6;
-}
-
-.example-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 2px;
-}
-
-.example-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #1565c0;
-  white-space: nowrap;
-}
-
-.example-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(21, 101, 192, 0.30);
-  background: rgba(255, 255, 255, 0.70);
-  color: #1565c0;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.example-chip:hover {
-  background: #fff;
-  border-color: #1565c0;
-  box-shadow: 0 1px 4px rgba(21, 101, 192, 0.15);
-}
-
-.example-chip--warn {
-  border-color: rgba(230, 81, 0, 0.30);
-  color: #e65100;
-}
-
-.example-chip--warn:hover {
-  border-color: #e65100;
-  box-shadow: 0 1px 4px rgba(230, 81, 0, 0.15);
-}
-
-.chip-icon { font-size: 14px; }
-
-.chip-warn {
-  font-size: 10px;
-  font-weight: 700;
-  background: rgba(230, 81, 0, 0.12);
-  color: #e65100;
-  padding: 1px 6px;
-  border-radius: 999px;
-  margin-left: 2px;
-}
+/* 條列、範例鈕、chip 圖示已收進 base.css 共用 */
+.chip-warn { background: var(--warning-50); color: var(--warning-500); margin-left: var(--space-1); }
 
 /* ── 搜尋列 ── */
 .search-bar {
   display: flex;
-  gap: 12px;
-  margin-bottom: 28px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-8);
 }
 
 .search-input {
   flex: 1;
-  padding: 10px 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 14px;
-  color: var(--text-primary);
-  background: var(--surface);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  color: var(--neutral-900);
+  background: var(--neutral-0);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .search-input:focus {
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.12);
+  border-color: var(--green-600);
+  box-shadow: var(--shadow-focus);
 }
 /* ── 狀態容器 ── */
 /* ── 結果卡片 ── */
 .result-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-5);
 }
 
 .result-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px 28px;
-  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6) var(--space-8);
+  box-shadow: var(--shadow-md);
 }
 
 .card-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #1b5e20;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--neutral-200);
 }
 
-.card-icon { font-size: 20px; color: #43a047; }
+.card-icon { font-size: var(--text-lg); color: var(--green-500); }
 
 /* ── 資訊列 ── */
-.info-grid { display: flex; flex-direction: column; gap: 12px; }
+.info-grid { display: flex; flex-direction: column; gap: var(--space-3); }
 
 .info-row {
   display: flex;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
 .info-label {
   width: 90px;
   flex-shrink: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: 600;
-  padding-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--neutral-400);
+  font-weight: var(--weight-medium);
+  padding-top: var(--space-1);
 }
 
 .info-value {
-  font-size: 14px;
-  color: var(--text-primary);
+  font-size: var(--text-base);
+  color: var(--neutral-900);
   flex: 1;
 }
 
-.description { line-height: 1.7; white-space: pre-wrap; }
+.description { line-height: var(--leading-normal); white-space: pre-wrap; }
 
 /* ── 批次區間 ── */
 .batch-range {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-family: monospace;
-  font-size: 13px;
-  background: #f1f8f1;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 3px 10px;
+  font-size: var(--text-sm);
+  background: var(--green-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
   flex: unset;
 }
 
-.range-arrow { font-size: 14px; color: var(--text-muted); }
+.range-arrow { font-size: var(--text-base); color: var(--neutral-400); }
 
 /* ── 狀態徽章 ── */
-.status-badge {
-  display: inline-block;
-  align-self: flex-start;
-  padding: 3px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  flex: unset;
-}
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+/* 這一顆長在資訊格裡，要脫離 .info-value 的等寬欄位規則才不會被拉長 */
+.status-badge { align-self: flex-start; flex: unset; }
 
-.status-badge.pass { background: #e8f5e9; color: #2e7d32; }
-.status-badge.fail { background: #fff3e0; color: #e65100; }
+.status-badge.pass { background: var(--green-100); color: var(--green-600); }
+.status-badge.fail { background: var(--warning-50); color: var(--warning-500); }
 
 /* ── 農產品標籤 ── */
 .product-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .product-tag {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  background: #f1f8f1;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 16px;
+  gap: var(--space-1);
+  background: var(--green-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
   min-width: 100px;
 }
 
 .product-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1b5e20;
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
 }
 
 .product-place, .product-mark {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  color: var(--neutral-400);
 }
 
 /* ── 蛋農 / 牧場子區塊 ── */
 .sub-section {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--neutral-200);
 }
 
 .sub-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
-  margin-bottom: 12px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--neutral-400);
+  margin-bottom: var(--space-3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -523,34 +424,34 @@ function handleSearch() {
 .farmer-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .farmer-tag {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  background: #f1f8f1;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 16px;
+  gap: var(--space-1);
+  background: var(--green-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
   min-width: 140px;
 }
 
 .farmer-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1b5e20;
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
 }
 
 .farmer-type {
-  font-size: 12px;
-  color: #43a047;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  color: var(--green-500);
+  font-weight: var(--weight-medium);
 }
 
 .farmer-place {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  color: var(--neutral-400);
 }
 </style>

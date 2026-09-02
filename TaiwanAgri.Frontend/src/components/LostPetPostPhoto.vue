@@ -46,7 +46,7 @@ const failed = ref(false)
 </script>
 
 <style scoped>
-.post-photo { display: flex; flex-direction: column; gap: 4px; }
+.post-photo { display: flex; flex-direction: column; gap: var(--space-1); }
 
 /*
   用 aspect-ratio 取代固定 height：卡片寬度是 minmax(400px, 1fr)、會隨視窗伸縮，
@@ -54,27 +54,27 @@ const failed = ref(false)
 */
 .photo-img {
   width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
-  border-radius: 10px; border: 1px solid var(--border); background: #f2f2f2;
+  border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); background: var(--neutral-100);
 }
 .photo-img.uncropped {
   aspect-ratio: auto; max-height: 480px; object-fit: contain;
 }
 .photo-failed {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; border: 1px dashed var(--border);
-  background: #fafafa; color: var(--text-muted); font-size: 13.5px;
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-lg); border: 1px dashed var(--neutral-200);
+  background: var(--neutral-50); color: var(--neutral-400); font-size: var(--text-sm);
 }
 .photo-failed.uncropped { aspect-ratio: 16 / 9; }
-.photo-note { font-size: 12px; color: var(--text-muted); }
+.photo-note { font-size: var(--text-xs); color: var(--neutral-400); }
 
 /* 縮圖疊一層「看完整圖片」提示，滑過才浮現，避免常駐蓋住照片內容 */
 .photo-link { position: relative; display: block; }
 .photo-zoom-hint {
   position: absolute; right: 8px; bottom: 8px;
-  display: inline-flex; align-items: center; gap: 3px;
-  padding: 3px 10px; border-radius: 999px;
-  background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 12px; font-weight: 600;
-  opacity: 0; transition: opacity 0.15s;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
+  background: var(--black-a60); color: var(--neutral-0); font-size: var(--text-xs); font-weight: var(--weight-medium);
+  opacity: 0; transition: opacity var(--duration-fast);
 }
 .photo-link:hover .photo-zoom-hint { opacity: 1; }
 </style>

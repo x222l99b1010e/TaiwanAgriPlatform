@@ -101,70 +101,70 @@ async function handleQuery() {
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .station-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-base), border-color var(--duration-base);
 }
-.station-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); border-color: rgba(46,125,50,0.25); }
-.station-name { color: var(--green); }
-.town-name  { color: var(--text-muted); }
-.card-footer { color: var(--text-muted); border-top: 1px solid var(--border); }
-.metric-value { color: var(--text-primary); }
-.metric-label { color: var(--text-muted); }
+.station-card:hover { box-shadow: var(--shadow-md); border-color: var(--green-200); }
+.station-name { color: var(--green-600); }
+.town-name  { color: var(--neutral-400); }
+.card-footer { color: var(--neutral-400); border-top: 1px solid var(--neutral-200); }
+.metric-value { color: var(--neutral-900); }
+.metric-label { color: var(--neutral-400); }
 
 .card-header {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 16px; padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4); padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--neutral-200);
 }
 /* 站名也加深 */
 .station-name {
-  font-size: 16px;        /* 從 15px → 16px */
-  font-weight: 700;
-  color: var(--green);
+  font-size: var(--text-base);        /* 從 15px → 16px */
+  font-weight: var(--weight-bold);
+  color: var(--green-600);
 }
 
 .town-name {
-  font-size: 13px;        /* 從 12px → 13px */
-  color: rgba(26,40,32,0.55);  /* 從 text-muted → 深一點 */
+  font-size: var(--text-sm);        /* 從 12px → 13px */
+  color: var(--neutral-500);  /* 從 text-muted → 深一點 */
 }
 
 .card-body {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 14px; margin-bottom: 14px;
+  gap: var(--space-4); margin-bottom: var(--space-4);
 }
 
-.metric { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.metric-icon { font-size: 22px; }
-.temp  { color: #e53935; }
-.humid { color: #1e88e5; }
-.wind  { color: #43a047; }
-.rain  { color: #00acc1; }
+.metric { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.metric-icon { font-size: var(--text-xl); }
+.temp  { color: var(--danger-500); }
+.humid { color: var(--info-500); }
+.wind  { color: var(--green-500); }
+.rain  { color: var(--teal-600); }
 
 /* 數值加大加深加粗 */
 .metric-value {
-  font-size: 20px;        /* 從 16px → 20px */
-  font-weight: 700;
-  color: #1a2820;         /* 直接用最深色，不透明 */
+  font-size: var(--text-lg);        /* 從 16px → 20px */
+  font-weight: var(--weight-bold);
+  color: var(--neutral-900);         /* 直接用最深色，不透明 */
 }
 
 .metric-label {
-  font-size: 13px;        /* 從 11px → 13px */
-  color: rgba(26,40,32,0.60);  /* 從 text-muted(0.40) → 0.60 */
-  font-weight: 600;
+  font-size: var(--text-sm);        /* 從 11px → 13px */
+  color: var(--neutral-500);  /* 從 text-muted(0.40) → 0.60 */
+  font-weight: var(--weight-medium);
 }
 
 /* 更新時間也深一點 */
 .card-footer {
-  font-size: 12px;        /* 從 11px → 12px */
-  color: rgba(26,40,32,0.50);  /* 從 0.35 → 0.50 */
+  font-size: var(--text-xs);        /* 從 11px → 12px */
+  color: var(--neutral-500);  /* 從 0.35 → 0.50 */
   text-align: right;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+  border-top: 1px solid var(--neutral-200);
+  padding-top: var(--space-3);
 }
 </style>

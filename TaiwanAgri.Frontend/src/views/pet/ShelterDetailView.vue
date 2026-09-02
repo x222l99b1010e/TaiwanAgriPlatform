@@ -263,54 +263,48 @@ watch(() => props.shelterId, () => {
 <style scoped>
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  margin-bottom: 20px; color: var(--text-secondary); font-size: 13.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
   text-decoration: none;
 }
-.back-link:hover { color: var(--green); }
+.back-link:hover { color: var(--green-600); }
 /* ── 篩選列（沿用 LegalBusinessView 的版面慣例） ── */
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-label {
-  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .filter-select {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text-primary); font-size: 14px;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
   min-width: 130px; cursor: pointer;
 }
-.filter-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
-.sort-control { display: flex; align-items: center; gap: 6px; }
+.sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
+  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
 }
-.sort-dir-btn:hover { border-color: var(--green); color: var(--green); }
-.loading-hint { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; margin-left: auto; }
+.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); font-size: var(--text-sm); margin-left: auto; }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid #c8e6c9; border-top-color: var(--green);
+  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green-600);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.stat-text { margin-left: auto; font-size: 13px; color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--neutral-500); font-weight: var(--weight-medium); white-space: nowrap; }
 
 /* ── 狀態容器 ── */
 /* ── datagrid（沿用 LegalBusinessView 的表格慣例：高一點的可捲動容器，表頭黏頂） ── */
-.table-section { display: flex; flex-direction: column; gap: 16px; }
+.table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(46,125,50,0.06); max-height: 720px; overflow: auto;
+  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md); max-height: 720px; overflow: auto;
 }
-.data-table { width: 100%; min-width: 1020px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-.data-table thead th {
-  position: sticky; top: 0; background: #f1f8f1; text-align: left; padding: 12px 16px;
-  font-weight: 700; color: #1b5e20; border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 1;
-}
-.data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-.data-table tbody tr:hover { background: #fafdf9; }
-.data-table tbody tr:last-child td { border-bottom: none; }
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
+.data-table { min-width: 1020px; table-layout: fixed; }
 
 .col-id            { width: 130px; }
 .col-kind          { width: 70px; }
@@ -323,13 +317,13 @@ watch(() => props.shelterId, () => {
 .col-date          { width: 110px; }
 .col-album         { width: 80px; }
 
-.cell-mono { font-family: monospace; font-size: 12px; color: var(--text-muted); white-space: normal; word-break: break-all; }
-.animal-link { color: var(--green); font-weight: 700; text-decoration: none; }
+.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: normal; word-break: break-all; }
+.animal-link { color: var(--green-600); font-weight: var(--weight-bold); text-decoration: none; }
 .animal-link:hover { text-decoration: underline; }
 .cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.cell-address { white-space: normal; word-break: break-word; font-size: 12px; }
-.cell-muted { color: var(--text-muted); }
+.cell-address { white-space: normal; word-break: break-word; font-size: var(--text-xs); }
+.cell-muted { color: var(--neutral-400); }
 
-.album-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #1565c0; text-decoration: none; white-space: nowrap; }
+.album-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--info-500); text-decoration: none; white-space: nowrap; }
 .album-link:hover { text-decoration: underline; }
 </style>

@@ -85,77 +85,77 @@ function handleLogout() {
    logo 的左邊界因此與各頁頁首標題落在同一條垂直線上。 */
 .top-nav {
   height: 56px;
-  background: #1b5e20;
-  color: white;
+  background: var(--green-800);
+  color: var(--neutral-0);
   position: relative;
-  z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  z-index: var(--z-dropdown);
+  box-shadow: var(--shadow-md);
 }
 
 .top-nav-inner {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
   height: 100%;
   max-width: var(--container-lg);
   margin-inline: auto;
   padding-inline: var(--page-padding-x);
 }
 
-.logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: bold; }
-.logo-icon { font-size: 24px; }
-.module-tabs { display: flex; gap: 4px; flex: 1; }
+.logo { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: bold; }
+.logo-icon { font-size: var(--text-xl); }
+.module-tabs { display: flex; gap: var(--space-1); flex: 1; }
 .tab-wrapper { position: relative; }
 
 .tab {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 6px;
-  color: rgba(255,255,255,0.80); text-decoration: none; font-size: 14px;
-  transition: background 0.2s;
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+  color: var(--white-a80); text-decoration: none; font-size: var(--text-base);
+  transition: background var(--duration-base);
   white-space: nowrap;
 }
-.tab:hover { background: rgba(255,255,255,0.12); }
-.tab.active { background: rgba(255,255,255,0.20); color: white; font-weight: 600; }
+.tab:hover { background: var(--white-a12); }
+.tab.active { background: var(--white-a20); color: var(--neutral-0); font-weight: var(--weight-medium); }
 
 .tab-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   min-width: 160px;
-  background: #ffffff;
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 10px;
-  padding: 4px 6px 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  z-index: 200;
+  gap: var(--space-1);
+  z-index: var(--z-sticky);
 }
 
 .dropdown-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 14px; border-radius: 7px;
-  color: #3a4a40; text-decoration: none; font-size: 13.5px;
-  transition: background 0.15s, color 0.15s;
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+  color: var(--neutral-700); text-decoration: none; font-size: var(--text-sm);
+  transition: background var(--duration-fast), color var(--duration-fast);
   white-space: nowrap;
 }
-.dropdown-item:hover { background: #f0f4f0; color: #1a2820; }
-.dropdown-item.active { background: #e8f5e9; color: #2e7d32; font-weight: 600; }
+.dropdown-item:hover { background: var(--green-50); color: var(--neutral-900); }
+.dropdown-item.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-medium); }
 
-.top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
 
 .login-btn {
-  padding: 6px 16px; border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.6);
-  background: transparent; color: white; cursor: pointer;
-  transition: background 0.15s;
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+  border: 1px solid var(--white-a60);
+  background: transparent; color: var(--neutral-0); cursor: pointer;
+  transition: background var(--duration-fast);
 }
-.login-btn:hover { background: rgba(255,255,255,0.12); }
+.login-btn:hover { background: var(--white-a12); }
 
 .user-name {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--white-a80);
+  font-weight: var(--weight-medium);
 }
 </style>

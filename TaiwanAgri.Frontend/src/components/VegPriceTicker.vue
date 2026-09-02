@@ -50,8 +50,8 @@ const animationDuration = computed(() =>
   display: flex;
   align-items: center;
   height: 44px;
-  background: #e8f5e9;
-  border-bottom: 2px solid #a5d6a7;
+  background: var(--green-100);
+  border-bottom: 2px solid var(--green-300);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -60,21 +60,21 @@ const animationDuration = computed(() =>
 .ticker-label {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 22px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #1b5e20;
+  gap: var(--space-2);
+  padding: 0 var(--space-6);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
   white-space: nowrap;
-  border-right: 2px solid #a5d6a7;
+  border-right: 2px solid var(--green-300);
   height: 100%;
-  background: #c8e6c9;
+  background: var(--green-200);
   letter-spacing: 0.05em;
 }
 
 .label-icon {
-  font-size: 17px;
-  color: #2e7d32;
+  font-size: var(--text-lg);
+  color: var(--green-600);
 }
 
 /* ── 滾動軌道 ── */
@@ -103,53 +103,53 @@ const animationDuration = computed(() =>
 .ticker-item {
   display: inline-flex;
   align-items: baseline;
-  gap: 5px;
-  padding: 0 24px;
+  gap: var(--space-1);
+  padding: 0 var(--space-6);
 }
 
 .ticker-crop {
-  font-size: 14px;
-  color: #33691e;
-  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--green-700);
+  font-weight: var(--weight-medium);
 }
 
 .ticker-price {
-  font-size: 17px;
-  font-weight: 900;
-  color: #1b5e20;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
   font-variant-numeric: tabular-nums;
 }
 
 .ticker-unit {
-  font-size: 12px;
-  color: #689f38;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  color: var(--green-500);
+  font-weight: var(--weight-medium);
 }
 
 .ticker-dot {
-  font-size: 11px;
-  color: #a5d6a7;
-  padding-left: 4px;
+  font-size: var(--text-2xs);
+  color: var(--green-300);
+  padding-left: var(--space-1);
 }
 
 /* ── 右側日期 ── */
 .ticker-date {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 20px;
-  font-size: 12px;
-  color: #558b2f;
-  font-weight: 600;
+  gap: var(--space-2);
+  padding: 0 var(--space-5);
+  font-size: var(--text-xs);
+  color: var(--green-600);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
-  border-left: 2px solid #a5d6a7;
+  border-left: 2px solid var(--green-300);
   height: 100%;
   font-variant-numeric: tabular-nums;
-  background: #c8e6c9;
+  background: var(--green-200);
 }
 
 .date-icon {
-  font-size: 14px;
-  color: #66bb6a;
+  font-size: var(--text-base);
+  color: var(--green-400);
 }
 </style>

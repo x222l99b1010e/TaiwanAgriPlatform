@@ -2,10 +2,8 @@
   src/components/ui/FilterCard.vue
   職責：查詢條件區的外殼——白底卡片、邊框、圓角、陰影、內距。
 
-  盤點記錄的四種篩選區結構（白卡片／橫向 chip bar 無卡片／下拉選單列／卡片內含
-  tab＋輸入框＋日期）差異其實分兩層：**外殼**在 9 個檔各寫一份且值都不同，
-  **內部排列**則是各頁真實需求不同。這個元件只統一外殼，內部排列仍由各頁自己決定，
-  才不會為了共用而把不同需求硬壓成同一種版面。
+  只統一外殼，內部排列仍由各頁自己決定：各頁的查詢條件本來就不一樣，
+  為了共用而把不同需求壓成同一種版面，得到的會是每一頁都不好用。
 
   layout 提供兩種常見排法，涵蓋現況絕大多數頁面：
   - row（預設）：一排控制項橫向排列、底部對齊，換行時自動掉到下一列。
@@ -28,8 +26,8 @@ withDefaults(
 
 <style scoped>
 .filter-card {
-  background: var(--surface);
-  border: var(--border-width) solid var(--border);
+  background: var(--neutral-0);
+  border: var(--border-width) solid var(--neutral-200);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: var(--space-5) var(--space-6);

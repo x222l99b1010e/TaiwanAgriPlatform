@@ -131,15 +131,14 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import {
+  seriesColor, pointBorderColor, axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+} from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
 // ── 色盤 ─────────────────────────────────────────────
-const PALETTE = [
-  '#2e7d32', '#e65100', '#1565c0', '#6a1b9a', '#c77700',
-  '#00695c', '#b71c1c', '#0277bd', '#558b2f', '#f57f17',
-]
-const getColor = (i: number) => PALETTE[i % PALETTE.length]!
+
 
 // ── 狀態 ─────────────────────────────────────────────
 const pestNames      = ref<string[]>([])
@@ -200,13 +199,13 @@ const chartData = computed(() => {
   const datasets = Object.entries(groups).map(([city, timeMap], i) => ({
     label: city,
     data: labels.map(l => timeMap[l] ?? null),
-    borderColor: getColor(i),
+    borderColor: seriesColor(i),
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: 3.5,
     pointHoverRadius: 7,
-    pointBackgroundColor: getColor(i),
-    pointBorderColor: 'rgba(0,0,0,0.15)',
+    pointBackgroundColor: seriesColor(i),
+    pointBorderColor: pointBorderColor(),
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
@@ -232,44 +231,30 @@ function buildChart() {
         x: {
           ticks: {
             maxTicksLimit: 10,
-            color: 'rgba(26,40,32,0.70)',
-            font: { size: 12 },
+            ...axisTicks(),
             callback(this: Scale, val, index) {
               return this.getLabelForValue(index) ?? String(val)
             },
           },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.12)' },
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
         y: {
-          ticks: {
-            color: 'rgba(26,40,32,0.70)',
-            font: { size: 12 },
-          },
-          grid:   { color: 'rgba(0,0,0,0.05)' },
-          border: { color: 'rgba(0,0,0,0.12)' },
+          ticks: axisTicks(),
+          grid:   axisGrid(),
+          border: axisBorder(),
         },
       },
       plugins: {
         tooltip: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          titleColor:      'rgba(26,40,32,0.90)',
-          bodyColor:       'rgba(26,40,32,0.70)',
-          borderColor:     'rgba(0,0,0,0.10)',
-          borderWidth: 1,
-          padding: 12,
+          ...tooltipStyle(),
           callbacks: {
             label: (ctx) =>
               ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
           },
         },
         legend: {
-          labels: {
-            color: 'rgba(26,40,32,0.85)',
-            font: { size: 13 },
-            usePointStyle: true,
-            pointStyleWidth: 10,
-          },
+          labels: legendLabels(),
         },
       },
     },
@@ -331,89 +316,68 @@ async function handleQuery() {
 
 <style scoped>
 .pest-view { min-width: 960px; }
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.field-label { font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
 
 .pest-select {
-  padding: 8px 14px; border: 1px solid var(--border);
-  border-radius: 8px; background: var(--surface);
-  color: var(--text-primary); font-size: 14px; min-width: 200px; cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); background: var(--neutral-0);
+  color: var(--neutral-900); font-size: var(--text-base); min-width: 200px; cursor: pointer;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.pest-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(46,125,50,0.12); }
+.pest-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
 
 /* 查詢按鈕金屬反光 */
-.summary-bar { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
 
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 22px;
-  display: flex; flex-direction: column; gap: 6px; min-width: 130px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 130px;
+  box-shadow: var(--shadow-sm);
 }
 /* 摘要卡片 */
 .stat-label {
-  font-size: 12px;
-  color: rgba(26,40,32,0.60);
+  font-size: var(--text-xs);
+  color: var(--neutral-500);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .stat-value {
-  font-size: 26px;
-  font-weight: 700;
-  color: #1a5c20;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--green-800);
 }
-.stat-value.pest-name { font-size: 18px; }
+.stat-value.pest-name { font-size: var(--text-lg); }
 
 .chart-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 24px 28px 32px; margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-xl); padding: var(--space-6) var(--space-8) var(--space-8); margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
 }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
 /* 圖表標題 */
 .chart-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: rgba(26,40,32,0.75);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--neutral-600);
   letter-spacing: 0.04em;
 }
-.toolbar-right { display: flex; align-items: center; gap: 10px; }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
 .table-wrap {
-  overflow-x: auto; border: 1px solid var(--border);
-  border-radius: 12px; margin-bottom: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  overflow-x: auto; border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); margin-bottom: var(--space-2);
+  box-shadow: var(--shadow-sm);
 }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.data-table thead tr { background: var(--surface-2); }
-/* 表格標頭 */
-.data-table th {
-  padding: 12px 18px; text-align: left;
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(26,40,32,0.70);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-.data-table th.num, .data-table td.num { text-align: right; }
-.data-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
-.data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--surface-2); }
-/* 表格內文 */
-.data-table td {
-  padding: 11px 18px;
-  color: rgba(26,40,32,0.85);
-  font-size: 14px;
-}
+/* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
-.city-cell  { font-weight: 700; color: #1a5c20; }
-.town-cell  { color: rgba(26,40,32,0.60); }
-.density-val { font-weight: 700; }
-.level-mid  { color: #c77700; }
-.level-high { color: var(--red); }
+.city-cell  { font-weight: var(--weight-bold); color: var(--green-800); }
+.town-cell  { color: var(--neutral-500); }
+.density-val { font-weight: var(--weight-bold); }
+.level-mid  { color: var(--warning-500); }
+.level-high { color: var(--danger-500); }
 </style>
