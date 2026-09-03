@@ -168,30 +168,52 @@
                     此劑型目前沒有核准用途資料
                   </div>
 
-                  <div v-else class="table-scroll">
-                    <table class="data-table data-table--compact usage-table">
-                      <thead>
-                        <tr>
-                          <th>作物</th>
-                          <th>病蟲害</th>
-                          <th>稀釋倍數</th>
-                          <th>每公頃用藥量</th>
-                          <th class="col-highlight">安全採收期</th>
-                          <th>使用時期</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(usage, i) in filterUsages(formulation.usages)" :key="i">
-                          <td class="cell-strong">{{ usage.cropName }}</td>
-                          <td>{{ usage.pestName }}</td>
-                          <td>{{ usage.dilution || '—' }}</td>
-                          <td>{{ usage.dosagePerHectare || '—' }}</td>
-                          <td class="col-highlight cell-strong">{{ usage.safeHarvestInterval || '—' }}</td>
-                          <td class="cell-note">{{ usage.applicationTiming || '—' }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  <template v-else>
+                    <div class="table-scroll">
+                      <table class="data-table data-table--compact usage-table">
+                        <thead>
+                          <tr>
+                            <th>作物</th>
+                            <th>病蟲害</th>
+                            <th>稀釋倍數</th>
+                            <th>每公頃用藥量</th>
+                            <th class="col-highlight">安全採收期</th>
+                            <th>使用時期</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr
+                            v-for="(usage, i) in pagedUsages(ingredient.pesticideCode, formulation.usages)"
+                            :key="i"
+                          >
+                            <td class="cell-strong">{{ usage.cropName }}</td>
+                            <td>{{ usage.pestName }}</td>
+                            <td>{{ usage.dilution || '—' }}</td>
+                            <td>{{ usage.dosagePerHectare || '—' }}</td>
+                            <td class="col-highlight cell-strong">{{ usage.safeHarvestInterval || '—' }}</td>
+                            <td class="cell-note">{{ usage.applicationTiming || '—' }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- 前端分頁：一次全查回、記憶體切片。用共用的 PagerBar，但關掉「跳至第 N 頁」
+                         那一格（一頁裡可能有多個成分的表格，沒有共用的 jump 狀態）。
+                         超過一頁才顯示。 -->
+                    <PagerBar
+                      v-if="filterUsages(formulation.usages).length > usagePageSize"
+                      class="usage-pager"
+                      hide-jump
+                      :current-page="usageCurrentPage(ingredient.pesticideCode, formulation.usages)"
+                      :total-pages="usageTotalPages(formulation.usages)"
+                      :total-count="filterUsages(formulation.usages).length"
+                      :visible-pages="usageVisiblePages(ingredient.pesticideCode, formulation.usages)"
+                      :page-size="usagePageSize"
+                      :page-size-options="USAGE_PAGE_SIZE_OPTIONS"
+                      @change="setUsagePage(ingredient.pesticideCode, $event)"
+                      @update:page-size="setUsagePageSize"
+                    />
+                  </template>
 
                   <div
                     v-if="formulation.usages.length > 0 && filterUsages(formulation.usages).length === 0"
@@ -264,11 +286,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { weatherApi, type PesticideSearchResult, type PesticideUsage } from '@/api/weather'
 import { useLatestRequest } from '@/composables/useLatestRequest'
+import { paginationWindow } from '@/composables/usePagination'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
+import PagerBar from '@/components/PagerBar.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import HintBox from '@/components/ui/HintBox.vue'
@@ -299,6 +323,46 @@ const selectedForm = ref<Record<string, number>>({})
 // key 用「成分代碼 + 劑型索引」組合，讓不同劑型的展開狀態互相獨立。
 const openLicenses = ref<Record<string, boolean>>({})
 
+// 核准用途分頁（owner 2026-09-04：亞滅培一次顯示 174 列太多，要 data grid + 分頁）。
+// 這一頁是「一整包成分物件」、核准用途是巢狀陣列，不是列表型端點——所以做前端分頁
+// （一次全查回、記憶體切片），不改後端契約；用的仍是全站共用的 PagerBar。
+// pageSize 跨成分共用一份、記憶 localStorage；currentPage 每個成分各記一份（key 用成分代碼），
+// 因為模糊比對可能一次回多個成分、各自的表格要能獨立翻頁。
+const USAGE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+const USAGE_PAGE_SIZE_KEY = 'pesticide.usagePageSize'
+const storedUsagePageSize = Number(localStorage.getItem(USAGE_PAGE_SIZE_KEY))
+const usagePageSize = ref(
+  USAGE_PAGE_SIZE_OPTIONS.includes(storedUsagePageSize) ? storedUsagePageSize : 10,
+)
+const usagePage = ref<Record<string, number>>({})
+
+function usageTotalPages(usages: PesticideUsage[]): number {
+  return Math.max(1, Math.ceil(filterUsages(usages).length / usagePageSize.value))
+}
+/** 夾在合法範圍內的目前頁碼：篩選讓總頁數變少時，避免停在不存在的頁 */
+function usageCurrentPage(code: string, usages: PesticideUsage[]): number {
+  return Math.min(Math.max(1, usagePage.value[code] ?? 1), usageTotalPages(usages))
+}
+function pagedUsages(code: string, usages: PesticideUsage[]): PesticideUsage[] {
+  const filtered = filterUsages(usages)
+  const start = (usageCurrentPage(code, usages) - 1) * usagePageSize.value
+  return filtered.slice(start, start + usagePageSize.value)
+}
+function usageVisiblePages(code: string, usages: PesticideUsage[]): number[] {
+  return paginationWindow(usageCurrentPage(code, usages), usageTotalPages(usages))
+}
+function setUsagePage(code: string, page: number) {
+  usagePage.value = { ...usagePage.value, [code]: page }
+}
+function setUsagePageSize(n: number) {
+  usagePageSize.value = n
+  localStorage.setItem(USAGE_PAGE_SIZE_KEY, String(n))
+  usagePage.value = {}   // 換每頁筆數，全部成分回第一頁
+}
+
+// 篩選字串一改，符合的列數就變了，停在第 5 頁會看到空白——一律回第一頁
+watch(cropFilter, () => { usagePage.value = {} })
+
 // 請求序號防競態：使用者連續改條件按查詢時，較早發出的請求可能較晚回來
 const searchRequest = useLatestRequest()
 
@@ -327,6 +391,8 @@ function selectForm(pesticideCode: string, index: number) {
   // 切換劑型時清掉作物篩選：上一個劑型的篩選字串套到新劑型多半是空結果，
   // 使用者會誤以為新劑型沒有核准用途
   cropFilter.value = ''
+  // 換劑型也回第一頁：新劑型的用途列數不同，停在舊頁碼可能超出範圍
+  usagePage.value = { ...usagePage.value, [pesticideCode]: 1 }
 }
 
 function licenseKey(pesticideCode: string, index: number) {
@@ -370,6 +436,7 @@ async function handleSearch() {
   selectedForm.value = {}
   openLicenses.value = {}
   cropFilter.value = ''
+  usagePage.value = {}
 
   try {
     const data = await weatherApi.searchPesticides(
@@ -568,6 +635,7 @@ async function handleSearch() {
 
 /* ── 表格 ── */
 .table-scroll { overflow-x: auto; }
+.usage-pager { margin-top: var(--space-3); }
 
 /* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
