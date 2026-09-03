@@ -44,7 +44,7 @@
         <span class="mdi mdi-page-last" />
       </button>
 
-      <div class="jump-to-page">
+      <div v-if="!hideJump" class="jump-to-page">
         <span class="jump-label">跳至</span>
         <input
           :value="jumpPageInput"
@@ -67,13 +67,18 @@ withDefaults(
     totalCount: number
     visiblePages: number[]
     /** 跳頁輸入框目前的值，由呼叫端的 usePagination().jumpPageInput 透過 v-model 傳入 */
-    jumpPageInput: number | null
+    jumpPageInput?: number | null
     /** 每頁筆數。只有同時給 pageSizeOptions 時那一格才會出現 */
     pageSize?: number
     /** 可選的每頁筆數。不給就不顯示這一格——多數頁面的資料量不需要讓使用者調 */
     pageSizeOptions?: number[]
+    /**
+     * 隱藏「跳至第 N 頁」那一格。用在「一頁裡有多個各自分頁的表格」的場合
+     * （農藥查詢）：那裡沒有共用的 jumpPageInput 狀態，也不需要跳頁，只要頁碼按鈕與每頁筆數。
+     */
+    hideJump?: boolean
   }>(),
-  { pageSize: undefined, pageSizeOptions: undefined },
+  { jumpPageInput: null, pageSize: undefined, pageSizeOptions: undefined, hideJump: false },
 )
 
 const emit = defineEmits<{
