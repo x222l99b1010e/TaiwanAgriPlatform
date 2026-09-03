@@ -27,6 +27,7 @@
       title="今天的田，有多少數字"
       title-en="Today's Field, in Numbers"
       title-size="display"
+      band-size="hero"
       :eyebrow="`禾 ${solarTerm.current.zh}｜${solarTerm.current.en}`"
       lead="行情、氣象、食安、動物——四個模組一次看，資料一律來自政府開放資料。"
     >
@@ -76,34 +77,42 @@
         </div>
       </section>
 
-      <!-- 屏 3：四個模組入口卡 -->
+      <!-- 屏 3：四個模組，左右交錯的特寫列（owner 2026-09-03：交錯呈現、旁邊補文字、
+           文字位置做點設計感）。每一列＝一塊深色視覺 ＋ 一段文案，奇偶列左右對調，
+           文字用襯線大標＋柿橙 eyebrow＋大號序號，跟一排一模一樣的卡片拉開差異。 -->
       <section class="entry-screen">
-        <h2 class="screen-title">四個模組</h2>
-        <div class="module-grid">
+        <p class="screen-eyebrow">EXPLORE</p>
+        <h2 class="screen-title">四個模組，一次看懂一塊田</h2>
+        <div class="module-showcase">
           <RouterLink
-            v-for="m in moduleCards"
+            v-for="(m, i) in moduleCards"
             :key="m.route"
             :to="m.route"
-            class="module-card"
+            class="showcase-row"
+            :class="{ 'showcase-row--flip': i % 2 === 1 }"
           >
-            <span class="mdi module-card__icon" :class="m.icon" />
-            <h3 class="module-card__title">
-              <Bilingual :zh="m.name" :en="m.nameEn" />
-            </h3>
-            <p class="module-card__lead">{{ m.lead }}</p>
-            <span class="module-card__arrow mdi mdi-arrow-right" />
+            <div class="showcase-visual">
+              <span class="showcase-visual__num">{{ String(i + 1).padStart(2, '0') }}</span>
+              <span class="mdi showcase-visual__icon" :class="m.icon" />
+              <!-- hover 光點：滑鼠移上去時，深色圖塊裡浮起幾顆光點再往上淡出漂走
+                   （owner 2026-09-04 要的「星星／光點散開漂浮」）。純裝飾，aria-hidden。
+                   prefers-reduced-motion 開啟時，base.css 的全域規則會把動畫時長歸零、
+                   光點維持不動不出現。 -->
+              <span class="showcase-sparks" aria-hidden="true">
+                <span v-for="(s, si) in SPARKS" :key="si" class="spark" :style="sparkVars(s)" />
+              </span>
+            </div>
+            <div class="showcase-text">
+              <span class="showcase-text__eyebrow">{{ m.nameEn }}</span>
+              <h3 class="showcase-text__name">{{ m.name }}</h3>
+              <p class="showcase-text__lead">{{ m.lead }}</p>
+              <span class="showcase-text__go">進入模組<span class="mdi mdi-arrow-right" /></span>
+            </div>
           </RouterLink>
         </div>
       </section>
     </EntryLayout>
-
-    <!-- 屏 4：資料來源與更新時間 -->
-    <footer class="home-footer">
-      <p class="home-footer__text">
-        資料來源：行政院農業部開放資料。各模組依各自排程更新，不是同一支資料，
-        實際時間以各頁查詢結果為準。
-      </p>
-    </footer>
+    <!-- 頁尾（屏 4）已抽成全站共用的 SiteFooter，掛在 App.vue，這裡不再自己養一份 -->
   </div>
 </template>
 
@@ -149,6 +158,32 @@ const moduleCards = computed(() =>
     lead: MODULE_LEAD[m.name] ?? '',
   }))
 )
+
+// hover 光點的位置/大小/延遲/週期寫成資料，template v-for 出來，CSS 只負責動。
+// 位置刻意集中在圖塊下半（y 偏大），光點往上漂才有「從地面升起」的感覺。
+// owner 2026-09-04 要更明顯強烈：數量、尺寸、亮度都加碼。
+const SPARKS = [
+  { x: 14, y: 72, size: 7,  delay: 0,    dur: 2.2 },
+  { x: 24, y: 84, size: 5,  delay: 0.35, dur: 2.6 },
+  { x: 34, y: 60, size: 9,  delay: 0.15, dur: 2.4 },
+  { x: 44, y: 88, size: 4,  delay: 0.6,  dur: 2.8 },
+  { x: 52, y: 66, size: 11, delay: 0.05, dur: 2.3 },
+  { x: 60, y: 82, size: 6,  delay: 0.45, dur: 2.7 },
+  { x: 68, y: 56, size: 9,  delay: 0.25, dur: 2.5 },
+  { x: 76, y: 86, size: 5,  delay: 0.7,  dur: 2.9 },
+  { x: 86, y: 64, size: 7,  delay: 0.5,  dur: 2.4 },
+  { x: 40, y: 76, size: 4,  delay: 0.9,  dur: 3.0 },
+  { x: 64, y: 92, size: 6,  delay: 0.8,  dur: 2.6 },
+]
+function sparkVars(s: (typeof SPARKS)[number]): Record<string, string> {
+  return {
+    '--x': `${s.x}%`,
+    '--y': `${s.y}%`,
+    '--spark-size': `${s.size}px`,
+    '--spark-delay': `${s.delay}s`,
+    '--spark-dur': `${s.dur}s`,
+  }
+}
 
 // ── 三個今日數字 ─────────────────────────────────────────────────────────
 interface StatTile {
@@ -236,33 +271,52 @@ onMounted(() => {
    只是坐在深色底上。全站的分工是「方角＝動作按鈕、藥丸＝切換條件的 chip」，
    所以它不是藥丸——原本的 --radius-full 是 P3 之前留下來的。
    hover 不給陰影：陰影只留給真的浮在頁面上方的浮動層（style tile §三）。 */
+/* 首頁主 CTA：綠底＋白字（owner 2026-09-04 定：橘色跟整屏綠調不搭、很突兀，維持綠色）。
+   用的是全站按鈕的同一個動作綠（--color-action），跟其他頁的按鈕一致；白字讓它在深色 hero
+   上一眼讀得到（白字對這個綠對比約 5.6，比原本的深字清楚很多——原本深字壓在綠上、綠又壓在
+   深底上，整顆才會糊掉）。再加一圈綠色光暈把按鈕從深背景浮起來，避免被吃掉。 */
 .hero-cta {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--control-h);
-  padding: 0 var(--space-6);
+  min-height: calc(var(--control-h) + var(--space-2));
+  padding: 0 var(--space-8);
   border-radius: var(--radius-md);
-  background: var(--color-action-on-deep);
-  color: var(--color-deep);
+  background: var(--color-action);
+  color: var(--color-on-action);
   font-weight: var(--weight-bold);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   letter-spacing: 0.02em;
   text-decoration: none;
+  box-shadow: 0 10px 30px rgb(47 143 107 / 0.4);
   transition:
     background var(--duration-fast) var(--ease-work),
+    box-shadow var(--duration-fast) var(--ease-work),
     transform var(--duration-fast) var(--ease-work);
 }
-.hero-cta:hover { background: var(--seed-300); }
-.hero-cta:active { transform: translateY(1px); }
-.hero-cta:focus-visible { outline: 2px solid var(--color-on-deep); outline-offset: 2px; }
+.hero-cta:hover {
+  background: var(--color-brand);
+  box-shadow: 0 12px 38px rgb(47 143 107 / 0.55);
+  transform: translateY(-2px);
+}
+.hero-cta:active { transform: translateY(0); }
+.hero-cta:focus-visible { outline: 2px solid var(--color-on-deep); outline-offset: 3px; }
+.hero-cta .mdi { font-size: var(--text-lg); }
 
+/* 節氣牌（owner 2026-09-04）：往左移一點、不貼右緣；並跟深色 hero 拉開層次——
+   ①頂部一層極淡的暖白光film＋②一道 1px 頂緣高光，讓卡片像被上方光線照到、浮起來；
+   ③邊框改用較亮的 strong 版把輪廓描清楚；④一道柔和落影墊在底下。
+   這幾個線索疊起來，卡片就從「跟背景幾乎同色」變成明顯的一層。 */
 .term-card {
   width: 280px;
+  margin-inline-end: var(--space-12);
   padding: var(--space-6);
   border-radius: var(--radius-xl);
-  background: var(--color-deep-surface);
-  border: 1px solid var(--color-deep-border);
+  background:
+    linear-gradient(rgb(242 237 227 / 0.06), transparent 55%),
+    var(--color-deep-surface);
+  border: 1px solid var(--color-deep-border-strong);
+  box-shadow: var(--shadow-float), inset 0 1px 0 var(--white-a12);
 }
 .term-card__label { color: var(--color-on-deep-dim); }
 .term-card__zh {
@@ -297,7 +351,16 @@ onMounted(() => {
   color: var(--color-text);
   margin-bottom: var(--space-8);
 }
-.entry-screen { margin-top: var(--space-16); }
+.screen-eyebrow {
+  font-family: var(--font-num);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-action);
+  margin-bottom: var(--space-2);
+}
+.entry-screen { margin-top: var(--space-20); }
 
 /* ── 屏 2：三個今日數字 ─────────────────────────────────────────────── */
 .stat-grid {
@@ -331,61 +394,152 @@ onMounted(() => {
 .stat-tile__unit { margin-left: var(--space-2); font-size: var(--text-lg); color: var(--color-text-dim); }
 .stat-tile__hint { display: block; margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-text-dim); }
 
-/* ── 屏 3：四個模組入口卡 ───────────────────────────────────────────── */
-.module-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-6);
-}
-.module-card {
-  position: relative;
+/* ── 屏 3：四個模組，左右交錯的特寫列 ───────────────────────────────── */
+.module-showcase { display: flex; flex-direction: column; gap: var(--space-8); }
+
+.showcase-row {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-8) var(--space-6);
-  background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-6);
+  border: var(--border-width) solid transparent;
   border-radius: var(--radius-xl);
   text-decoration: none;
   color: inherit;
-  transition: transform var(--duration-base) var(--ease-work), box-shadow var(--duration-base) var(--ease-work), border-color var(--duration-base);
+  transition:
+    background var(--duration-base) var(--ease-work),
+    border-color var(--duration-base) var(--ease-work);
 }
-.module-card:hover {
-  transform: translateY(calc(var(--lift-work) * -1));
-  box-shadow: var(--shadow-float);
-  border-color: var(--seed-300);
-}
-.module-card__icon { font-size: var(--text-3xl); color: var(--color-action); }
-.module-card__title { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--color-text); }
-.module-card__lead { font-size: var(--text-sm); color: var(--color-text-dim); line-height: var(--leading-normal); }
-.module-card__arrow {
-  position: absolute;
-  right: var(--space-6);
-  bottom: var(--space-6);
-  color: var(--color-text-dim);
-  transition: transform var(--duration-fast) var(--ease-work);
-}
-.module-card:hover .module-card__arrow { transform: translateX(var(--lift-work)); color: var(--color-action); }
+.showcase-row:hover { background: var(--color-surface); border-color: var(--color-border); }
+/* 奇偶列左右對調＝交錯 */
+.showcase-row--flip { flex-direction: row-reverse; }
 
-/* ── 屏 4：資料來源 ─────────────────────────────────────────────────── */
-.home-footer {
-  background: var(--color-deep);
-  color: var(--color-on-deep-dim);
-  padding: var(--space-10) var(--page-padding-x);
+.showcase-visual {
+  flex: 0 0 38%;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 深色視覺塊：帶一層綠光暈，讓交錯的圖塊自己就是畫面上的節奏 */
+  background:
+    radial-gradient(120% 120% at 78% 18%, var(--color-glow-1), transparent),
+    linear-gradient(135deg, var(--color-deep-surface), var(--color-deep));
 }
-.home-footer__text {
-  max-width: var(--container-lg);
-  margin-inline: auto;
+/* 深色圖塊在 hover 時整塊透出一圈綠光，把「這一格被選到」講得更明顯（owner 要更強烈）。 */
+.showcase-visual { transition: box-shadow var(--duration-base) var(--ease-work); }
+.showcase-row:hover .showcase-visual {
+  box-shadow: inset 0 0 70px rgb(79 176 136 / 0.28);
+}
+
+.showcase-visual__icon {
+  font-size: 88px;
+  color: var(--color-action-on-deep);
+  position: relative;
+  z-index: 1;
+  transition: transform var(--duration-base) var(--ease-work);
+}
+.showcase-row:hover .showcase-visual__icon { transform: scale(1.14); }
+
+/* hover 一次性光掃：一道斜向亮線從左掃過整個深色圖塊，呼應 owner「由左邊進入」的想法。
+   平常在畫面外（translateX -130%），hover 時播一次。 */
+.showcase-visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 36%, var(--white-a30) 50%, transparent 64%);
+  transform: translateX(-130%);
+  z-index: 1;
+  pointer-events: none;
+}
+.showcase-row:hover .showcase-visual::after {
+  animation: showcase-sweep var(--duration-slow) var(--ease-out);
+}
+@keyframes showcase-sweep {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(130%); }
+}
+
+/* hover 光點層：滑鼠移上去才浮起、往上漂再淡出。單一顆的位置/大小/週期由 sparkVars 給。
+   每三顆換成更亮的淺綠，讓光點群有層次不是一片同色。 */
+.showcase-sparks { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.spark {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--spark-size);
+  height: var(--spark-size);
+  border-radius: var(--radius-full);
+  background: var(--color-action-on-deep);
+  box-shadow: 0 0 14px 3px rgb(79 176 136 / 0.75);
+  opacity: 0;
+}
+.spark:nth-child(3n) { background: var(--seed-300); box-shadow: 0 0 16px 3px rgb(124 195 166 / 0.8); }
+.showcase-row:hover .spark {
+  animation: spark-drift var(--spark-dur) var(--spark-delay) var(--ease-work) infinite;
+}
+@keyframes spark-drift {
+  0%   { transform: translateY(14px) scale(0.3); opacity: 0; }
+  30%  { opacity: 1; }
+  70%  { opacity: 0.9; }
+  100% { transform: translateY(-46px) scale(1.2); opacity: 0; }
+}
+.showcase-visual__num {
+  position: absolute;
+  top: var(--space-2);
+  inset-inline-start: var(--space-5);
+  font-family: var(--font-num);
+  font-size: var(--text-6xl);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  color: var(--white-a12);
+}
+
+.showcase-text { flex: 1; min-width: 0; }
+.showcase-text__eyebrow {
+  font-family: var(--font-num);
   font-size: var(--text-xs);
-  line-height: var(--leading-normal);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-accent-2);
 }
+.showcase-text__name {
+  margin-top: var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-title);
+  color: var(--color-text);
+}
+.showcase-text__lead {
+  margin-top: var(--space-4);
+  max-width: 46ch;
+  font-size: var(--text-lg);
+  line-height: var(--leading-loose);
+  color: var(--color-text-dim);
+}
+.showcase-text__go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  color: var(--color-action);
+  font-weight: var(--weight-medium);
+}
+.showcase-text__go .mdi { transition: transform var(--duration-fast) var(--ease-work); }
+.showcase-row:hover .showcase-text__go .mdi { transform: translateX(var(--lift-work)); }
 
 @media (max-width: 960px) {
   .stat-grid { grid-template-columns: 1fr; }
-  .module-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-@media (max-width: 640px) {
-  .module-grid { grid-template-columns: 1fr; }
+@media (max-width: 760px) {
+  .showcase-row,
+  .showcase-row--flip { flex-direction: column; align-items: stretch; gap: var(--space-6); }
+  .showcase-visual { flex-basis: auto; width: 100%; }
 }
 </style>

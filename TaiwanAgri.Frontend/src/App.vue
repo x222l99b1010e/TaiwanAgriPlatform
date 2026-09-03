@@ -9,6 +9,9 @@
     <main class="main-content">
       <RouterView />
     </main>
+    <!-- 企業官網式頁尾：掛在這裡而不是各頁裡面，每一頁的底部才都有同一份頁尾。
+         .main-content 是 flex:1，內容不夠長時會把頁尾推到視窗底部（sticky footer）。 -->
+    <SiteFooter />
   </div>
 </template>
 
@@ -16,6 +19,7 @@
 import { onMounted } from 'vue'
 import TopNav from '@/components/TopNav.vue'
 import VegPriceTicker from '@/components/VegPriceTicker.vue'
+import SiteFooter from '@/components/SiteFooter.vue'
 import { useNavStore } from '@/stores/nav'
 
 const navStore = useNavStore()
