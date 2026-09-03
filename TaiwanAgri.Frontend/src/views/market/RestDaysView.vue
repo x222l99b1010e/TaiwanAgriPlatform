@@ -55,21 +55,16 @@
         </div>
       </div>
 
-      <!-- 按月份分組 -->
+      <!-- 按月份分組，一個月一張月曆——比一排排 chip 更容易看出「連續休了幾天」，
+           不用自己在腦中換算某個日期是星期幾 -->
       <div class="month-groups">
-        <div class="month-group" v-for="group in groupedByMonth" :key="group.label">
-          <div class="month-label">
-            <span class="mdi mdi-calendar-month" />
-            {{ group.label }}
-            <span class="month-count">{{ group.days.length }} 天</span>
-          </div>
-          <div class="day-row">
-            <div class="rest-chip" v-for="d in group.days" :key="d.restDate">
-              <span class="mdi mdi-calendar-remove chip-icon" />
-              {{ formatDate(d.restDate) }}
-            </div>
-          </div>
-        </div>
+        <MonthCalendar
+          v-for="group in groupedByMonth"
+          :key="`${group.year}-${group.month}`"
+          :year="group.year"
+          :month="group.month"
+          :marked-dates="group.markedDates"
+        />
       </div>
     </div>
   </div>
@@ -84,6 +79,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import MonthCalendar from '@/components/MonthCalendar.vue'
 
 const today = new Date().toISOString().split('T')[0]!
 const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
@@ -112,16 +108,11 @@ const groupedByMonth = computed(() => {
   return Array.from(map.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, days]) => ({
-      label: `${key.substring(0, 4)} 年 ${parseInt(key.substring(5, 7))} 月`,
-      days,
+      year: Number(key.substring(0, 4)),
+      month: Number(key.substring(5, 7)),
+      markedDates: new Set(days.map(d => d.restDate)),
     }))
 })
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六']
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} (${weekdays[d.getDay()]})`
-}
 
 async function loadMarkets() {
   isLoadingMarkets.value = true
@@ -159,58 +150,34 @@ onMounted(() => loadMarkets())
 <style scoped>
 .restdays-view { min-width: 960px; }
 .field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-label { font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
+.field-label { font-size: var(--text-xs); color: var(--color-text-dim); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
 
 .market-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--color-text); font-size: var(--text-base);
   min-width: 200px; cursor: pointer;
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.market-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
+.market-select:focus { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
 .market-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.loading-hint { font-size: var(--text-xs); color: var(--neutral-400); }
+.loading-hint { font-size: var(--text-xs); color: var(--color-text-dim); }
 /* 摘要列 */
 .summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-8); }
 .stat-card {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: var(--space-2);
   box-shadow: var(--shadow-sm);
 }
-.stat-label { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium); }
-.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--green-800); }
+.stat-label { font-size: var(--text-xs); color: var(--color-text-dim); letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium); }
+.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--color-brand); }
 .stat-value.name { font-size: var(--text-lg); }
 
-/* 月份分組 */
-.month-groups { display: flex; flex-direction: column; gap: var(--space-8); }
-
-.month-label {
-  display: flex; align-items: center; gap: var(--space-2);
-  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green-600);
-  margin-bottom: var(--space-3);
-  padding-bottom: var(--space-3);
-  border-bottom: 2px solid var(--green-100);
+/* 月曆網格：一個月一張卡片，卡片外殼在 MonthCalendar 元件自己身上 */
+.month-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-6);
 }
-
-.month-count {
-  font-size: var(--text-xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
-  background: var(--green-100); color: var(--green-600);
-  border: 1px solid var(--green-200);
-  font-weight: var(--weight-medium); margin-left: var(--space-1);
-}
-
-.day-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-
-.rest-chip {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-3) var(--space-5); border-radius: var(--radius-lg);
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--neutral-900);
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
-}
-.rest-chip:hover { box-shadow: var(--shadow-md); border-color: var(--warning-100); }
-.chip-icon { font-size: var(--text-base); color: var(--warning-700); }
 </style>

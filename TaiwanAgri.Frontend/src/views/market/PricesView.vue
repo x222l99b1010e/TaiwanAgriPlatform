@@ -175,7 +175,7 @@ function handleExportCsv() {
 
 <style scoped>
 .prices-view { min-width: 960px; }
-.filter-bottom { display: flex; align-items: flex-start; gap: var(--space-8); flex-wrap: wrap; }
+.filter-bottom { display: flex; align-items: flex-end; gap: var(--space-8); flex-wrap: wrap; }
 
 .bottom-grid {
   display: grid; grid-template-columns: 1fr 280px;
