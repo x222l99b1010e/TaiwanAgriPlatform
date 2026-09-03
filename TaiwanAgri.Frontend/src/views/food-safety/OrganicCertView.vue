@@ -60,8 +60,12 @@
         </div>
       </template>
 
+      <!-- 用 warning 語氣（柿橙色條＋淡暖底）讓這則判讀提醒更醒目——而且色條的橙剛好
+           跟下方 .ambiguous 卡片的邊框同色，提示與它在講的那種卡片就對得起來。 -->
       <template #hint>
-        <HintBox>邊框變色的卡片代表品項資料可能來自多證號合併，請自行核對。</HintBox>
+        <HintBox tone="warning" title="資料判讀提醒">
+          邊框帶色的卡片，代表品項資料可能來自多證號合併，數字請自行核對。
+        </HintBox>
       </template>
 
       <template #results>
@@ -105,7 +109,14 @@
               <span class="cert-label">驗證機構</span>{{ item.verificationBodyName }}
             </div>
             <div class="cert-row cert-row-products">
-              <span class="cert-label">品項範圍</span>
+              <span class="cert-label products-label">
+                品項範圍
+                <!-- 橙色邊框只是視覺線索，一般人不會把「橙框」聯想成「待核對」；
+                     這裡補一句明講的小旗標，把邊框的含意直接寫出來（owner 2026-09-04） -->
+                <span v-if="item.hasAmbiguousProductMapping" class="ambiguous-flag">
+                  <span class="mdi mdi-alert-outline" />多證號合併・請核對
+                </span>
+              </span>
 
               <div v-if="!expandedIds.has(item.id)" class="products-text-clamp">
                   {{ productText(item) }}
@@ -290,10 +301,33 @@ onMounted(() => {
 }
 .cert-card:hover { border-color: var(--color-border-strong); }
 
-/* 決策：品項可能為多證號合併時，僅用邊框變色提示，不額外加文字標籤。
-   ⚠ 原本是 `border: 2px solid`，比其餘卡片多 1px，整張卡片會位移半像素、
-   而且在網格裡跟鄰居對不齊。改成同寬邊框只換顏色。 */
-.cert-card.ambiguous { border-color: var(--color-accent-2-fill); }
+/* 品項可能為多證號合併時的提示。
+   ⚠ 不能用 `border: 2px` 加粗——比其餘卡片多 1px 會讓整張卡片位移半像素、在網格裡
+   跟鄰居對不齊（這是原本從 2px 改回 1px 的原因）。改用 inset box-shadow 畫一道 4px 的
+   橙色左邊條：它不佔盒模型、不影響對齊，但比 1px 邊框顯眼得多（owner 2026-09-04
+   回報 1px 橙框「細心才看得到」）。邊框本身也換成更實的柿橙填色。 */
+.cert-card.ambiguous {
+  border-color: var(--color-accent-2-fill);
+  box-shadow: inset 4px 0 0 var(--color-accent-2-fill);
+}
+
+/* 品項範圍那一行的小旗標：把橙框的含意明說出來。用 warning 語氣的暖色，
+   跟卡片左邊條同一個色系，兩個線索指向同一件事。 */
+.products-label { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ambiguous-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--warning-50);
+  color: var(--warning-700);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ambiguous-flag .mdi { font-size: var(--text-sm); }
 
 .cert-card-header {
   display: flex;

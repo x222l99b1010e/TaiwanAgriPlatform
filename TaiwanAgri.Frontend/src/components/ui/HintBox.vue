@@ -50,23 +50,33 @@ const defaultIcon = computed(() => DEFAULT_ICON[props.tone])
 </script>
 
 <style scoped>
+/* callout：中性底 ＋ 左側色條 ＋ 該色圖示，不是整塊染色的色塊（owner 回報滿版色塊很醜）。
+   ──資訊本身一律用可讀的墨色，顏色只出現在色條、圖示與標題上。
+
+   P3 第二輪（owner 2026-09-04）：原本 warning 只有 3px 細條，「細心才看得到」。
+   要更醒目、又不退回色塊，設計上的解法是**加焦點**而不是**加填色**：
+   ① 色條加粗（--hint-bar，warning/success 5px）② 圖示改成有底色的圓形徽章
+   ③ 標題染成該語氣的深色。三個線索疊起來，一眼就掃到，但底仍是淺色不是重色塊。 */
 .hint-box {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-inline-start: var(--hint-bar, 3px) solid var(--hint-accent);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
   line-height: var(--leading-normal);
+  color: var(--color-text);
 }
 
 /* 圖示跟著第一行文字的行高對齊。用 align-items: center 的話，
    多行提示的圖示會掉到整段的中間高度，看起來像浮在旁邊 */
 .hint-box-icon {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   line-height: var(--leading-normal);
+  color: var(--hint-accent);
   flex-shrink: 0;
 }
 
@@ -79,23 +89,43 @@ const defaultIcon = computed(() => DEFAULT_ICON[props.tone])
 
 .hint-box-title {
   font-weight: var(--weight-bold);
+  color: var(--hint-title, var(--color-text));
 }
 
-.hint-box--info {
-  background: var(--info-50);
-  border-color: var(--info-100);
-  color: var(--info-500);
-}
+/* info 維持安靜：它是中性說明，不該跟 warning 一樣搶眼——只換色條與圖示顏色 */
+.hint-box--info { --hint-accent: var(--info-500); }
 
+/* success／warning 是「要被看到」的語氣：色條加粗、底邊框染成同色系、
+   圖示變成圓形徽章、標題染深色。 */
 .hint-box--success {
-  background: var(--seed-100);
+  --hint-accent: var(--color-brand);
+  --hint-bar: 5px;
+  --hint-title: var(--color-action-hover);
+  --hint-badge-bg: var(--seed-100);
+  background: var(--seed-50);
   border-color: var(--seed-200);
-  color: var(--color-action);
 }
-
 .hint-box--warning {
+  --hint-accent: var(--warning-500);
+  --hint-bar: 5px;
+  --hint-title: var(--warning-700);
+  --hint-badge-bg: var(--warning-100);
   background: var(--warning-50);
   border-color: var(--warning-100);
-  color: var(--warning-700);
+}
+
+/* 圓形圖示徽章：只在 success／warning 出現。把細長的字型圖示換成一塊有底色的圓，
+   眼睛先被這個「有顏色的點」抓到，再讀旁邊的字——這是 callout 常見的視線引導。
+   info 沒有這一條，維持純圖示。 */
+.hint-box--success .hint-box-icon,
+.hint-box--warning .hint-box-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--hint-badge-bg);
+  font-size: var(--text-lg);
 }
 </style>

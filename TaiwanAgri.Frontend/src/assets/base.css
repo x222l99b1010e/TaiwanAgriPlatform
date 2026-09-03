@@ -151,21 +151,28 @@
 
   /* --- 語意色：各自成階 ---------------------------------------------------
      50＝底色、100＝邊框與淺色塊、500＝文字與圖示、700＝深色強調。
-     提示框、狀態標籤、警示列一律取同一組階，同樣是「警告」才不會在兩頁長得不一樣。 */
-  --info-50:    #e3f2fd;
-  --info-100:   #bbdefb;
-  --info-500:   #1565c0;
-  --info-700:   #0d47a1;
+     提示框、狀態標籤、警示列一律取同一組階，同樣是「警告」才不會在兩頁長得不一樣。
 
-  --warning-50:  #fff3e0;
-  --warning-100: #ffe0b2;
-  --warning-500: #e65100;
-  --warning-700: #bf360c;
+     ⚠ P3 視覺精修：三組原本是 Material Design 的藍／橘／紅（#1565c0 等），在暖米白＋
+     秧苗綠的頁面上是「唯一的冷色」與「唯一的高彩度色」，callout 一鋪滿就像貼上去的
+     外來物（owner 回報「一個框框內的色塊很醜」「藍色突兀」）。這一版把三組都拉進暖色域：
+     info 改暖青灰（不再是純藍、彩度壓低到不跟暖底打架）、warning 收斂到柿橙系、
+     danger 收斂到磚紅系，與 --color-up／--persimmon 同溫。搭配 HintBox 改成
+     「左側色條＋中性底」、不再滿版填色，色塊感就消失了。 */
+  --info-50:    #edf1f0;
+  --info-100:   #ccd6d4;
+  --info-500:   #47686a;
+  --info-700:   #31494a;
 
-  --danger-50:   #fff5f5;
-  --danger-100:  #ffcdd2;
-  --danger-500:  #c62828;
-  --danger-700:  #a01c1c;
+  --warning-50:  #f9ecd9;
+  --warning-100: #eecfa3;
+  --warning-500: #a8641b;
+  --warning-700: #834c14;
+
+  --danger-50:   #f8e8e2;
+  --danger-100:  #e9c2b4;
+  --danger-500:  #b23f22;
+  --danger-700:  #8c2f19;
 
   /* ⚠ 青色階（--teal-*）也在 P3 收工時刪除：它原本是「次要強調色」，
      但秋田的次要強調色是柿橙（--color-accent-2），畫面上不需要第三個聲音。
@@ -212,6 +219,7 @@
      （導覽列的綠、使用者上傳的照片），半透明白／黑才會跟著底色走。 */
   --white-a12: rgba(255, 255, 255, 0.12);
   --white-a20: rgba(255, 255, 255, 0.20);
+  --white-a30: rgba(255, 255, 255, 0.30);
   --white-a60: rgba(255, 255, 255, 0.60);
   --white-a70: rgba(255, 255, 255, 0.70);
   --white-a80: rgba(255, 255, 255, 0.80);
@@ -714,29 +722,36 @@ textarea.form-control {
   white-space: nowrap;
 }
 
+/* 範例碼 chip：原本是「藍框藍字藥丸」，跟全站方角的輸入框／按鈕不同調、又用到被
+   淘汰的 Material 藍。改成中性的方角小卡（跟輸入框同一種圓角），hover 才亮成動作綠——
+   平常安靜、可點時才有顏色，跟其他可點元素的手感一致。 */
 .example-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  border: var(--border-width) solid var(--info-100);
-  background: var(--color-surface);
-  color: var(--info-500);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-sunken);
+  color: var(--color-text);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition:
+    background var(--duration-fast) var(--ease-work),
+    border-color var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work);
 }
 
 .example-chip:hover {
-  background: var(--color-bg-sunken);
-  border-color: var(--info-500);
+  background: var(--color-action-soft);
+  border-color: var(--color-action);
+  color: var(--color-action);
 }
 .example-chip:focus-visible {
   outline: none;
-  border-color: var(--info-500);
+  border-color: var(--color-action);
   box-shadow: var(--shadow-focus);
 }
 
