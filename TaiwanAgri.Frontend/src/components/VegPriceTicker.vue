@@ -178,10 +178,13 @@ const animationDuration = computed(() =>
   font-weight: var(--weight-normal);
 }
 
-/* 價格是這條橫幅唯一的主角，所以只有它拿到最亮的字色與數字字型 */
+/* 價格是這條橫幅唯一的主角：拿最亮的字色、數字字型、也拿最大的字級——
+   品名（dim、text-sm）與價格（亮、text-xl）之間的級距拉開，滾動時才有主次，
+   不會整條看起來一樣重（owner 2026-09-03：這排沒層次）。整條刻意維持深色不調亮：
+   調亮會變成導覽列下方第二條亮帶，跟內容搶注意力，層次靠對比做、不靠整體變亮。 */
 .ticker-price {
   font-family: var(--font-num);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   color: var(--color-on-deep);
   font-variant-numeric: tabular-nums;

@@ -26,9 +26,11 @@
     <div v-else class="price-grid">
       <article
         class="price-card"
-        v-for="item in store.todayVegPrices"
+        :class="{ 'price-card--feature': i === 0 }"
+        v-for="(item, i) in orderedItems"
         :key="item.cropCode"
       >
+        <span v-if="i === 0" class="feature-eyebrow">今日交易量最大 · TOP VOLUME</span>
         <h2 class="crop-name">{{ item.cropName }}</h2>
 
         <div class="avg-price-row">
@@ -71,6 +73,17 @@ const latestDate = computed(() =>
   store.todayVegPrices.length > 0 ? store.todayVegPrices[0]?.transDate : null
 )
 
+/** 把「今日交易量最大」那一項挑到最前面當特寫卡，其餘維持原順序。
+ *  品項不多時整齊排一排會在右邊留一片空格看起來很空，改成 bento：一張大卡＋其餘小卡，
+ *  版面就有主次、也把空格吃掉（owner 2026-09-03）。交易量最大＝今天最多人買的菜，
+ *  拿它當主角比隨便挑第一筆有意義。 */
+const orderedItems = computed(() => {
+  const list = store.todayVegPrices
+  if (list.length === 0) return []
+  const top = [...list].sort((a, b) => b.transQuantity - a.transQuantity)[0]!
+  return [top, ...list.filter(x => x.cropCode !== top.cropCode)]
+})
+
 /** 均價在「下價～上價」這條帶子上的位置。
  *  上下價相同時（單一成交價）除數會是 0，這時直接放中間，不要讓它變成 NaN%
  *  ——CSS 收到 NaN% 會整條規則失效，marker 會掉回帶子最左邊，看起來像資料有問題。 */
@@ -94,12 +107,14 @@ onMounted(() => {
   color: var(--color-text);
 }
 
-/* 原本是固定兩欄、每張卡片 32px 內距的大卡片，十種菜要捲三屏才看得完。
-   改成自動填滿的窄卡片：一屏就看得到全部，才有「互相比較」的可能。 */
+/* bento 版面：四欄固定格線 ＋ 第一張（今日交易量最大）跨 2×2 當主角，其餘小卡用
+   dense 填滿。品項不多時右邊不會再留一整排空格，版面也有了主次（owner 2026-09-03）。 */
 .price-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: minmax(150px, auto);
   gap: var(--space-4);
+  grid-auto-flow: row dense;
 }
 
 .price-card {
@@ -113,6 +128,29 @@ onMounted(() => {
   transition: border-color var(--duration-fast) var(--ease-work);
 }
 .price-card:hover { border-color: var(--color-border-strong); }
+
+/* 主角卡：跨兩欄兩列、字級放大、帶一層很淡的綠光暈把它跟其餘小卡分出來 */
+.price-card--feature {
+  grid-column: span 2;
+  grid-row: span 2;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  background:
+    radial-gradient(120% 120% at 88% 6%, var(--seed-50), transparent),
+    var(--color-surface);
+}
+.feature-eyebrow {
+  font-family: var(--font-num);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-accent-2);
+}
+.price-card--feature .crop-name { font-size: var(--text-2xl); }
+.price-card--feature .price-value { font-size: var(--text-6xl); }
+.price-card--feature .range-labels { font-size: var(--text-xs); }
+.price-card--feature .card-footer { font-size: var(--text-xs); }
 
 .crop-name {
   font-size: var(--text-base);
@@ -185,5 +223,19 @@ onMounted(() => {
   font-size: var(--text-2xs);
   color: var(--color-text-dim);
   font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1080px) {
+  .price-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 820px) {
+  .price-grid { grid-template-columns: repeat(2, 1fr); }
+  /* 主角卡改成滿寬一列，下面的小卡兩欄排——窄螢幕塞不下 2×2 又要小卡並排 */
+  .price-card--feature { grid-column: span 2; grid-row: span 1; }
+  .price-card--feature .price-value { font-size: var(--text-4xl); }
+}
+@media (max-width: 520px) {
+  .price-grid { grid-template-columns: 1fr; }
+  .price-card--feature { grid-column: span 1; }
 }
 </style>
