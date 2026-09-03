@@ -232,20 +232,30 @@ onMounted(() => {
 }
 
 /* ── hero：CTA 與節氣牌 ─────────────────────────────────────────────── */
+/* 形狀與高度跟 Btn 同一組 token：這顆是首頁的主要動作，跟內頁的「查詢」是同一種東西，
+   只是坐在深色底上。全站的分工是「方角＝動作按鈕、藥丸＝切換條件的 chip」，
+   所以它不是藥丸——原本的 --radius-full 是 P3 之前留下來的。
+   hover 不給陰影：陰影只留給真的浮在頁面上方的浮動層（style tile §三）。 */
 .hero-cta {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-full);
+  min-height: var(--control-h);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-md);
   background: var(--color-action-on-deep);
   color: var(--color-deep);
   font-weight: var(--weight-bold);
   font-size: var(--text-sm);
+  letter-spacing: 0.02em;
   text-decoration: none;
-  transition: transform var(--duration-fast) var(--ease-work), box-shadow var(--duration-fast) var(--ease-work);
+  transition:
+    background var(--duration-fast) var(--ease-work),
+    transform var(--duration-fast) var(--ease-work);
 }
-.hero-cta:hover { transform: translateY(calc(var(--lift-work) * -1)); box-shadow: var(--shadow-float); }
+.hero-cta:hover { background: var(--seed-300); }
+.hero-cta:active { transform: translateY(1px); }
+.hero-cta:focus-visible { outline: 2px solid var(--color-on-deep); outline-offset: 2px; }
 
 .term-card {
   width: 280px;

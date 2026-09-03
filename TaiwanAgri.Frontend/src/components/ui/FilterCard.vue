@@ -29,7 +29,9 @@ withDefaults(
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  /* 卡片不給陰影：style tile §三「卡片邊界只用 1px 邊框＋底色差」，
+     陰影降級成只給真的浮在頁面上方的東西（下拉、對話框、吸頂後的工具列）。
+     暖米白底與卡片面的明度差本來就足以讓卡片浮起來，再加陰影只會糊掉邊界。 */
   padding: var(--space-5) var(--space-6);
   margin-bottom: var(--space-6);
 }
