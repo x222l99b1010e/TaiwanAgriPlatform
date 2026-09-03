@@ -32,5 +32,11 @@ html { width: 100%; scrollbar-gutter: stable both-edges; }
 /* 這裡不再有 padding——頁面留白統一由 base.css 的 .page 負責。
    原本這層 24px 會跟各頁自己的 36px 56px 疊加成 60px / 80px，
    造成「改了頁面裡的數字，量出來卻是別的值」。 */
-.main-content { flex: 1; overflow-y: auto; background: var(--neutral-100); }
+/* ⚠ 這裡曾經是 overflow-y: auto，但 .app-layout 是 min-height: 100vh 不是 height:
+   100vh，內容一旦超過一屏就會把 .app-layout 撐高，捲動的實際上一直是 body／視窗，
+   這個屬性從未真正生效過（.main-content 自己永遠沒有機會出現捲軸）。
+   問題是 CSS 規格認定「有沒有 overflow」不看「現在有沒有捲軸」，只看這個屬性值——
+   所以它雖然沒在做事，卻會讓底下任何 position: sticky 的元素改認它當捲動容器，
+   而它自己又不捲動，sticky 就整個失效（QueryLayout 的吸頂工具列查出這個坑）。 */
+.main-content { flex: 1; background: var(--neutral-100); }
 </style>

@@ -1,161 +1,166 @@
 <template>
   <div class="page poultry-view">
-    <PageHeader
+    <QueryLayout
       title="家禽行情查詢"
+      title-en="POULTRY PRICES"
       subtitle="雞、鴨、鵝與雞蛋的產地價與批發價指標，可多選指標比較同一區間走勢"
-    />
-
-    <!-- 篩選區 -->
-    <FilterCard layout="stack">
-      <div class="filter-row">
-        <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
-      </div>
-
-      <!-- 指標勾選區：依來源分組，每個指標旁的百分比是「查詢區間內正常報價天數佔比」 -->
-      <div class="metric-groups" v-if="metricsList.length">
-        <div class="metric-groups-toolbar">
-          <span class="group-label">指標（{{ selectedMetrics.length }}／{{ metricsList.length }}）</span>
-          <div class="metric-bulk-actions">
-            <Btn variant="secondary" size="sm" icon="mdi-checkbox-multiple-marked-outline" @click="selectAllMetrics">
-              全選
-            </Btn>
-            <Btn variant="secondary" size="sm" icon="mdi-close-circle-outline" @click="clearAllMetrics">
-              清空
-            </Btn>
-          </div>
-        </div>
-        <HintBox v-if="hasQueried && completenessByMetric.size > 0">
-          指標名稱右側的百分比 ＝ 該指標在目前區間內「正常報價」天數佔比，數字低是該指標的常態
-          （如雞蛋產地價本來就少報價），並非同步異常。
-        </HintBox>
-        <div v-for="group in metricGroups" :key="group.name" class="metric-group">
-          <span class="group-label">{{ group.name }}</span>
-          <div class="metric-chips">
-            <label
-              v-for="m in group.items"
-              :key="m.metricCode"
-              class="metric-chip"
-              :class="{ active: selectedMetrics.includes(m.metricCode) }"
-            >
-              <input type="checkbox" :value="m.metricCode" v-model="selectedMetrics" />
-              {{ m.displayName }}
-              <span
-                v-if="hasQueried && completenessByMetric.has(m.metricCode)"
-                class="badge completeness-badge"
-                :class="completenessClass(completenessByMetric.get(m.metricCode)!.pct)"
-              >
-                {{ completenessByMetric.get(m.metricCode)!.pct }}%
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
-      <HintBox v-else>指標清單載入中...</HintBox>
-
-      <div class="action-row">
+    >
+      <!-- 查詢／匯出：頂部右側，捲到結果中段依然吸頂，不用捲回頁首 -->
+      <template #actions>
         <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
           {{ isLoading ? '查詢中...' : '查詢行情' }}
         </Btn>
         <Btn v-if="filteredData.length > 0" variant="secondary" icon="mdi-file-chart" @click="handleExportCsv">
           匯出 CSV
         </Btn>
-      </div>
+      </template>
 
-      <HintBox v-if="hasQueried && selectedMetrics.length === 0">
-        請至少勾選一項指標才會顯示圖表
-      </HintBox>
-    </FilterCard>
+      <template #filters>
+        <div class="filter-row">
+          <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
+        </div>
 
-    <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間與指標後按下查詢行情" />
-    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
-    <StateBlock
-      v-else-if="errorMsg"
-      state="error"
-      :message="errorMsg"
-      retryable
-      @retry="handleQuery"
-    />
-    <StateBlock
-      v-else-if="chartData.datasets.length === 0"
-      state="empty"
-      message="查無資料"
-      hint="請調整日期區間，或至少勾選一項指標後重試"
-    />
+        <!-- 指標勾選區：依來源分組，每個指標旁的百分比是「查詢區間內正常報價天數佔比」 -->
+        <div class="metric-groups" v-if="metricsList.length">
+          <div class="metric-groups-toolbar">
+            <span class="group-label">指標（{{ selectedMetrics.length }}／{{ metricsList.length }}）</span>
+            <div class="metric-bulk-actions">
+              <Btn variant="secondary" size="sm" icon="mdi-checkbox-multiple-marked-outline" @click="selectAllMetrics">
+                全選
+              </Btn>
+              <Btn variant="secondary" size="sm" icon="mdi-close-circle-outline" @click="clearAllMetrics">
+                清空
+              </Btn>
+            </div>
+          </div>
+          <HintBox v-if="hasQueried && completenessByMetric.size > 0">
+            指標名稱右側的百分比 ＝ 該指標在目前區間內「正常報價」天數佔比，數字低是該指標的常態
+            （如雞蛋產地價本來就少報價），並非同步異常。
+          </HintBox>
+          <div v-for="group in metricGroups" :key="group.name" class="metric-group">
+            <span class="group-label">{{ group.name }}</span>
+            <div class="metric-chips">
+              <label
+                v-for="m in group.items"
+                :key="m.metricCode"
+                class="metric-chip"
+                :class="{ active: selectedMetrics.includes(m.metricCode) }"
+              >
+                <input type="checkbox" :value="m.metricCode" v-model="selectedMetrics" />
+                {{ m.displayName }}
+                <span
+                  v-if="hasQueried && completenessByMetric.has(m.metricCode)"
+                  class="badge completeness-badge"
+                  :class="completenessClass(completenessByMetric.get(m.metricCode)!.pct)"
+                >
+                  {{ completenessByMetric.get(m.metricCode)!.pct }}%
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <HintBox v-else>指標清單載入中...</HintBox>
+      </template>
 
-    <!-- 查詢後區塊 -->
-    <div v-else>
-      <!-- 摘要統計列 -->
-      <div class="summary-bar">
-        <div class="stat-card">
-          <span class="stat-label">已選指標</span>
-          <span class="stat-value">{{ selectedMetrics.length }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">資料筆數</span>
-          <span class="stat-value">{{ filteredData.length }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">正常報價佔比</span>
-          <span class="stat-value">{{ overallCompletenessPct }}%</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">非常態資料點</span>
-          <span class="stat-value">{{ abnormalPoints.length }}</span>
-        </div>
-      </div>
-
-      <!-- 圖表 -->
-      <div class="chart-card">
-        <div class="chart-toolbar">
-          <span class="chart-title">家禽行情趨勢</span>
-          <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
-            匯出圖片
-          </Btn>
-        </div>
-        <div class="canvas-wrap">
-          <canvas ref="canvasRef" />
-        </div>
-        <HintBox class="chart-note">
-          線段中斷代表當日休市／未報價／議價（無公定價格），並非資料同步異常。
-          不同指標的計價單位可能不同，圖表僅供趨勢比較，非同單位換算。
+      <template #hint>
+        <HintBox v-if="hasQueried && selectedMetrics.length === 0">
+          請至少勾選一項指標才會顯示圖表
         </HintBox>
-      </div>
+      </template>
 
-      <!-- 非常態資料明細 -->
-      <div class="abnormal-card" v-if="abnormalPoints.length > 0">
-        <!-- 刻意不轉 Btn：這是整列可點的展開/收合標頭（width:100%、文字左對齊、
-             chevron 隨狀態換向），跟 Btn 的定寬藥丸鈕在結構上不同類，跟分頁/tab
-             一樣屬於「有自己選取態與排列邏輯」的排除範圍（見 Btn.vue 檔頭註解）。 -->
-        <button class="btn-toggle-abnormal" @click="showAbnormalTable = !showAbnormalTable">
-          <span class="mdi" :class="showAbnormalTable ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
-          {{ showAbnormalTable ? '收合' : '展開' }}非常態資料明細（{{ abnormalPoints.length }} 筆）
-        </button>
-        <div class="abnormal-table-wrap" v-if="showAbnormalTable">
-          <table class="data-table abnormal-table">
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>指標</th>
-                <th>狀態</th>
-                <th>原始文字</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(p, i) in abnormalPoints" :key="i">
-                <td>{{ p.transDate }}</td>
-                <td>{{ p.displayName }}</td>
-                <td>
-                  <span class="badge status-chip" :class="statusClass(p.priceStatus)">
-                    {{ statusLabel(p.priceStatus) }}
-                  </span>
-                </td>
-                <td>{{ p.rawValue ?? '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+      <template #results>
+        <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間與指標後按下查詢行情" />
+        <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+        <StateBlock
+          v-else-if="errorMsg"
+          state="error"
+          :message="errorMsg"
+          retryable
+          @retry="handleQuery"
+        />
+        <StateBlock
+          v-else-if="chartData.datasets.length === 0"
+          state="empty"
+          message="查無資料"
+          hint="請調整日期區間，或至少勾選一項指標後重試"
+        />
+
+        <!-- 查詢後區塊 -->
+        <div v-else>
+          <!-- 摘要統計列 -->
+          <div class="summary-bar">
+            <div class="stat-card">
+              <span class="stat-label">已選指標</span>
+              <span class="stat-value">{{ selectedMetrics.length }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">資料筆數</span>
+              <span class="stat-value">{{ filteredData.length }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">正常報價佔比</span>
+              <span class="stat-value">{{ overallCompletenessPct }}%</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">非常態資料點</span>
+              <span class="stat-value">{{ abnormalPoints.length }}</span>
+            </div>
+          </div>
+
+          <!-- 圖表 -->
+          <div class="chart-card">
+            <div class="chart-toolbar">
+              <span class="chart-title">家禽行情趨勢</span>
+              <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
+                匯出圖片
+              </Btn>
+            </div>
+            <div class="canvas-wrap">
+              <canvas ref="canvasRef" />
+            </div>
+            <HintBox class="chart-note">
+              線段中斷代表當日休市／未報價／議價（無公定價格），並非資料同步異常。
+              不同指標的計價單位可能不同，圖表僅供趨勢比較，非同單位換算。
+            </HintBox>
+          </div>
+
+          <!-- 非常態資料明細 -->
+          <div class="abnormal-card" v-if="abnormalPoints.length > 0">
+            <!-- 刻意不轉 Btn：這是整列可點的展開/收合標頭（width:100%、文字左對齊、
+                 chevron 隨狀態換向），跟 Btn 的定寬藥丸鈕在結構上不同類，跟分頁/tab
+                 一樣屬於「有自己選取態與排列邏輯」的排除範圍（見 Btn.vue 檔頭註解）。 -->
+            <button class="btn-toggle-abnormal" @click="showAbnormalTable = !showAbnormalTable">
+              <span class="mdi" :class="showAbnormalTable ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
+              {{ showAbnormalTable ? '收合' : '展開' }}非常態資料明細（{{ abnormalPoints.length }} 筆）
+            </button>
+            <div class="abnormal-table-wrap" v-if="showAbnormalTable">
+              <table class="data-table abnormal-table">
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>指標</th>
+                    <th>狀態</th>
+                    <th>原始文字</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(p, i) in abnormalPoints" :key="i">
+                    <td>{{ p.transDate }}</td>
+                    <td>{{ p.displayName }}</td>
+                    <td>
+                      <span class="badge status-chip" :class="statusClass(p.priceStatus)">
+                        {{ statusLabel(p.priceStatus) }}
+                      </span>
+                    </td>
+                    <td>{{ p.rawValue ?? '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </QueryLayout>
   </div>
 </template>
 
@@ -170,8 +175,7 @@ import {
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PoultryResponseDto, type PoultryMetricDto } from '@/api/market'
-import PageHeader from '@/components/ui/PageHeader.vue'
-import FilterCard from '@/components/ui/FilterCard.vue'
+import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import HintBox from '@/components/ui/HintBox.vue'
@@ -437,6 +441,9 @@ function exportChartImage() {
 </script>
 
 <style scoped>
+/* ⚠ 這一頁的顏色已經全部改用 semantic 層（--color- 與 --seed- 開頭），不再引用
+   待刪的 --neutral- 與 --green- 開頭舊色階——套 QueryLayout 順手做，
+   判準見 style tile §九：全部頁面改完後，這兩組舊色階全站 grep 要回傳 0。 */
 .poultry-view { min-width: 960px; }
 /* 篩選區 */
 .filter-row { display: flex; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
@@ -446,13 +453,13 @@ function exportChartImage() {
 .metric-groups { display: flex; flex-direction: column; gap: var(--space-3); }
 .metric-groups-toolbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding-bottom: var(--space-3); border-bottom: 1px solid var(--neutral-200);
+  padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border);
 }
 .metric-bulk-actions { display: flex; gap: var(--space-3); }
 
 .metric-group { display: flex; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; }
 .group-label {
-  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
+  font-size: var(--text-xs); color: var(--color-text-dim); font-weight: var(--weight-medium);
   letter-spacing: 0.05em; text-transform: uppercase;
   min-width: 108px; padding-top: var(--space-2); flex-shrink: 0;
 }
@@ -460,67 +467,67 @@ function exportChartImage() {
 .metric-chip {
   display: inline-flex; align-items: center; gap: var(--space-2);
   padding: var(--space-2) var(--space-3); border-radius: var(--radius-full);
-  background: var(--neutral-50); border: 1px solid var(--neutral-200);
-  color: var(--neutral-600); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  background: var(--color-bg-sunken); border: 1px solid var(--color-border);
+  color: var(--color-text-dim); font-size: var(--text-sm); font-weight: var(--weight-medium);
   cursor: pointer; transition: all var(--duration-fast); user-select: none;
 }
-.metric-chip input { accent-color: var(--green-600); cursor: pointer; }
-.metric-chip:hover { border-color: var(--green-300); }
-.metric-chip.active { background: var(--green-100); border-color: var(--green-300); color: var(--green-600); }
+.metric-chip input { accent-color: var(--color-action); cursor: pointer; }
+.metric-chip:hover { border-color: var(--seed-300); }
+.metric-chip.active { background: var(--seed-100); border-color: var(--seed-300); color: var(--color-action); }
 
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
-.completeness-badge.high { background: var(--green-100); color: var(--green-600); }
+.completeness-badge.high { background: var(--seed-100); color: var(--color-action); }
 .completeness-badge.mid  { background: var(--warning-50); color: var(--warning-500); }
 .completeness-badge.low  { background: var(--danger-50); color: var(--danger-700); }
 
 
-/* 按鈕（沿用 PorkView 同一組樣式） */
 /* 摘要列 */
 .summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap; }
 .stat-card {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
   display: flex; flex-direction: column; gap: var(--space-2);
   box-shadow: var(--shadow-sm);
 }
 .stat-label {
-  font-size: var(--text-xs); color: var(--neutral-500);
+  font-size: var(--text-xs); color: var(--color-text-dim);
   letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium);
 }
-.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--green-800); }
+/* 大數字用 --color-brand（品牌綠本體）而非 --color-action：這是資料強調，不是可點的東西 */
+.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--color-brand); }
 
 /* 圖表卡片 */
 .chart-card {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-xl); padding: var(--space-8) var(--space-8) var(--space-8);
   box-shadow: var(--shadow-md);
   margin-bottom: var(--space-6);
 }
 .chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
-.chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700); }
+.chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--color-text); }
 .canvas-wrap { position: relative; height: 460px; width: 100%; }
 /* 圖表下方的說明與圖表本身留一段距離，不然會像圖的一部分 */
 .chart-note { margin-top: var(--space-5); }
 
 /* 非常態資料明細 */
 .abnormal-card {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-xl); padding: var(--space-5) var(--space-8);
   box-shadow: var(--shadow-md);
 }
 .btn-toggle-abnormal {
   display: flex; align-items: center; gap: var(--space-2);
   background: none; border: none; cursor: pointer;
-  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700);
+  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--color-text);
   padding: var(--space-1) 0; width: 100%; text-align: left;
 }
 .abnormal-table-wrap { margin-top: var(--space-4); max-height: 360px; overflow-y: auto; overflow-x: auto; }
 /* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
-.status-empty        { background: var(--neutral-100); color: var(--neutral-600); }
-.status-closed        { background: var(--neutral-100); color: var(--neutral-600); }
+.status-empty        { background: var(--color-bg-sunken); color: var(--color-text-dim); }
+.status-closed        { background: var(--color-bg-sunken); color: var(--color-text-dim); }
 .status-notquoted     { background: var(--warning-50); color: var(--warning-500); }
 .status-negotiated    { background: var(--info-50); color: var(--info-500); }
-.status-rangequote    { background: var(--green-100); color: var(--green-600); }
+.status-rangequote    { background: var(--seed-100); color: var(--color-action); }
 .status-unrecognized  { background: var(--danger-50); color: var(--danger-700); }
 </style>

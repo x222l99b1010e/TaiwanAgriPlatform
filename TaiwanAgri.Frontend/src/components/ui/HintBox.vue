@@ -88,9 +88,9 @@ const defaultIcon = computed(() => DEFAULT_ICON[props.tone])
 }
 
 .hint-box--success {
-  background: var(--green-100);
-  border-color: var(--green-200);
-  color: var(--green-600);
+  background: var(--seed-100);
+  border-color: var(--seed-200);
+  color: var(--color-action);
 }
 
 .hint-box--warning {

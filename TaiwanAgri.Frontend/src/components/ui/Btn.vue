@@ -77,31 +77,31 @@ withDefaults(
 
 /* ── primary ── */
 .btn--primary {
-  background: var(--green-600);
-  color: var(--neutral-0);
+  background: var(--color-action);
+  color: var(--color-on-action);
   box-shadow: var(--shadow-sm);
 }
 .btn--primary:hover:not(:disabled) {
-  background: var(--green-700);
+  background: var(--color-action-hover);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 
 /* ── secondary（描邊，用在重試、清除、次要動作） ── */
 .btn--secondary {
-  background: var(--neutral-0);
-  border-color: var(--neutral-300);
-  color: var(--neutral-700);
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 .btn--secondary:hover:not(:disabled) {
-  border-color: var(--green-600);
-  color: var(--green-700);
-  background: var(--green-50);
+  border-color: var(--color-action);
+  color: var(--color-action-hover);
+  background: var(--seed-50);
 }
 
 /* ── danger ── */
 .btn--danger {
-  background: var(--neutral-0);
+  background: var(--color-surface);
   border-color: var(--danger-100);
   color: var(--danger-500);
 }
@@ -116,7 +116,7 @@ withDefaults(
 /* 只在鍵盤操作時顯示外框，滑鼠點擊不顯示——滑鼠使用者不需要這個提示，
    但鍵盤使用者沒有它就完全不知道焦點在哪 */
 .btn:focus-visible {
-  outline: 2px solid var(--green-600);
+  outline: 2px solid var(--color-action);
   outline-offset: 2px;
 }
 

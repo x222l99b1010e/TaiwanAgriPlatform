@@ -26,8 +26,8 @@ withDefaults(
 
 <style scoped>
 .filter-card {
-  background: var(--neutral-0);
-  border: var(--border-width) solid var(--neutral-200);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: var(--space-5) var(--space-6);

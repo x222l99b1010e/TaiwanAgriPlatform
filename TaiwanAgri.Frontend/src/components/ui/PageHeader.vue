@@ -50,7 +50,7 @@ defineProps<{
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
-  color: var(--neutral-900);
+  color: var(--color-text);
 }
 
 .page-subtitle {
@@ -60,7 +60,7 @@ defineProps<{
   font-size: var(--text-sm);
   font-weight: var(--weight-normal);
   line-height: var(--leading-normal);
-  color: var(--neutral-500);
+  color: var(--color-text-dim);
 }
 
 .page-header-actions {
