@@ -73,20 +73,29 @@ export function usePagination(options: UsePaginationOptions) {
   }
 
   /**
-   * 每頁筆數變更處理。
+   * 每頁筆數變更。
    * 刻意不用 v-model + @change 混用（曾經發生 handler 讀到舊值的時序問題），
-   * 改成從原生 change 事件直接取值、手動賦值，確保 pageSize 更新完成後才觸發查詢。
+   * 改成由呼叫端把新的值直接交進來、手動賦值，確保 pageSize 更新完成後才觸發查詢。
    * 不管會不會重新查詢，都先存進 localStorage 記住這個選擇；
    * shouldRefetch=false 讓「尚未查詢過」的頁面只記住選擇、不打 API（違規牆行為）
    */
-  function handlePageSizeChange(event: Event, shouldRefetch = true) {
-    const newSize = Number((event.target as HTMLSelectElement).value)
+  function setPageSize(newSize: number, shouldRefetch = true) {
     pageSize.value = newSize
     localStorage.setItem(options.storageKey, String(newSize))
     if (shouldRefetch) {
       currentPage.value = 1
       options.onChange()
     }
+  }
+
+  /**
+   * 上面那一支的原生事件版本。
+   * PagerBar 收斂完成後，畫面上已經沒有頁面直接掛 @change 了——保留是因為它是
+   * 「從 DOM 事件取值」與「改狀態」的分界點，之後若有非 PagerBar 的地方要用，
+   * 不必再寫一次 `Number((e.target as HTMLSelectElement).value)` 這串轉型。
+   */
+  function handlePageSizeChange(event: Event, shouldRefetch = true) {
+    setPageSize(Number((event.target as HTMLSelectElement).value), shouldRefetch)
   }
 
   /**
@@ -105,6 +114,7 @@ export function usePagination(options: UsePaginationOptions) {
     visiblePages,
     changePage,
     handleJumpPage,
+    setPageSize,
     handlePageSizeChange,
     rowNumber,
   }

@@ -1,62 +1,70 @@
 <template>
   <div class="page organic-cert-view">
-    <PageHeader
+    <QueryLayout
       title="有機驗證查詢"
+      title-en="ORGANIC CERTS"
       subtitle="有機農產品驗證證書的有效狀態、驗證機構與品項範圍"
-    />
+    >
+      <!-- 這一頁沒有查詢按鈕：三個關鍵字都是打字即查（onFilterChange 有 debounce），
+           所以動作插槽放的是「目前有幾筆」與清除條件，不是送出。 -->
+      <template #actions>
+        <span class="result-count" v-if="store.organicCertPage">
+          共 {{ store.organicCertPage.totalCount }} 筆
+        </span>
+        <Btn
+          v-if="hasAnyFilter"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
+          @click="clearFilters"
+        >清除條件</Btn>
+      </template>
 
-    <div class="cert-layout">
-      <!-- 側邊篩選欄 -->
-      <aside class="filter-sidebar">
-        <h3 class="filter-title">篩選條件</h3>
-
-        <div class="filter-field">
-          <label class="filter-label">業者名稱</label>
+      <!-- 原本這三個欄位在左側 240px 的側邊欄裡，是全站唯一一頁把查詢條件放左邊的。
+           查詢條件的位置每頁不同，使用者換一頁就要重新找一次——改成跟其餘查詢頁
+           同一個位置（頂部、吸頂）。 -->
+      <template #filters>
+        <div class="field-group cert-field">
+          <label class="field-label" for="cert-operator">業者名稱</label>
           <input
+            id="cert-operator"
             v-model="operatorName"
             type="text"
-            class="filter-input"
+            class="form-control"
             placeholder="輸入業者名稱關鍵字"
             @input="onFilterChange"
           />
         </div>
 
-        <div class="filter-field">
-          <label class="filter-label">驗證機構</label>
+        <div class="field-group cert-field">
+          <label class="field-label" for="cert-body">驗證機構</label>
           <input
+            id="cert-body"
             v-model="verificationBodyName"
             type="text"
-            class="filter-input"
+            class="form-control"
             placeholder="輸入驗證機構名稱關鍵字"
             @input="onFilterChange"
           />
         </div>
 
-        <div class="filter-field">
-          <label class="filter-label">品項關鍵字</label>
+        <div class="field-group cert-field">
+          <label class="field-label" for="cert-product">品項關鍵字</label>
           <input
+            id="cert-product"
             v-model="productKeyword"
             type="text"
-            class="filter-input"
+            class="form-control"
             placeholder="輸入作物或產品名稱"
             @input="onFilterChange"
           />
         </div>
+      </template>
 
-        <p class="filter-hint">
-          <span class="mdi mdi-information-outline" />
-          邊框變色的卡片代表品項資料可能來自多證號合併，請自行核對。
-        </p>
-      </aside>
+      <template #hint>
+        <HintBox>邊框變色的卡片代表品項資料可能來自多證號合併，請自行核對。</HintBox>
+      </template>
 
-      <!-- 右側結果區 -->
-      <div class="result-area">
-        <div class="result-header">
-          <span class="result-count" v-if="store.organicCertPage">
-            共 {{ store.organicCertPage.totalCount }} 筆
-          </span>
-        </div>
-
+      <template #results>
         <StateBlock v-if="store.isLoadingOrganicCert" state="loading" message="資料載入中..." />
         <StateBlock
           v-else-if="store.organicCertError"
@@ -70,7 +78,7 @@
           state="empty"
           icon="mdi-file-search-outline"
           message="查無符合條件的驗證紀錄"
-          hint="可以把左側的關鍵字放寬或清空再查一次"
+          hint="可以把上方的關鍵字放寬或清空再查一次"
         />
 
         <!-- 卡片列表 -->
@@ -123,75 +131,36 @@
           </div>
         </div>
 
-        <!-- 分頁列（跳頁 + 每頁筆數，沿用 ViolationWallView 的模式） -->
-        <div v-if="store.organicCertPage" class="pagination-bar">
-          <span class="pagination-info">
-            第 {{ store.organicCertPage.page }} / {{ store.organicCertPage.totalPages }} 頁
-          </span>
-          <div class="pagination-controls">
-            <div class="page-size-group">
-              <span class="jump-label">每頁</span>
-              <select class="page-size-select" :value="pageSize" @change="handlePageSizeChange">
-                <option v-for="n in pageSizeOptions" :key="n" :value="n">{{ n }} 筆</option>
-              </select>
-            </div>
-
-            <button class="page-btn" :disabled="currentPage <= 1" @click="changePage(1)" title="第一頁">
-              <span class="mdi mdi-page-first" />
-            </button>
-            <button class="page-btn" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">
-              <span class="mdi mdi-chevron-left" />
-            </button>
-            <button
-              v-for="p in visiblePages"
-              :key="p"
-              class="page-btn"
-              :class="{ active: p === currentPage }"
-              @click="changePage(p)"
-            >{{ p }}</button>
-            <button
-              class="page-btn"
-              :disabled="currentPage >= store.organicCertPage.totalPages"
-              @click="changePage(currentPage + 1)"
-            >
-              <span class="mdi mdi-chevron-right" />
-            </button>
-            <button
-              class="page-btn"
-              :disabled="currentPage >= store.organicCertPage.totalPages"
-              @click="changePage(store.organicCertPage.totalPages)"
-              title="最後一頁"
-            >
-              <span class="mdi mdi-page-last" />
-            </button>
-
-            <div class="jump-to-page">
-              <span class="jump-label">跳至</span>
-              <input
-                v-model.number="jumpPageInput"
-                type="number"
-                min="1"
-                :max="store.organicCertPage.totalPages"
-                class="jump-input"
-                @keyup.enter="handleJumpPage"
-              />
-              <span class="jump-label">頁</span>
-              <button class="jump-btn" @click="handleJumpPage">Go</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        <!-- 分頁列改用共用的 PagerBar。原本的註解寫著「沿用 ViolationWallView 的模式」，
+             但沿用的是「複製一份」不是「共用一份」——那條分頁列在兩個檔案裡各有一份。 -->
+        <PagerBar
+          v-if="store.organicCertPage"
+          :current-page="currentPage"
+          :total-pages="store.organicCertPage.totalPages"
+          :total-count="store.organicCertPage.totalCount"
+          :visible-pages="visiblePages"
+          v-model:jump-page-input="jumpPageInput"
+          :page-size="pageSize"
+          :page-size-options="pageSizeOptions"
+          @change="changePage"
+          @jump="handleJumpPage"
+          @update:page-size="setPageSize"
+        />
+      </template>
+    </QueryLayout>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
 import { usePagination } from '@/composables/usePagination'
 import type { OrganicCertificationQueryParams, OrganicCertificationResult } from '@/api/foodSafety'
-import PageHeader from '@/components/ui/PageHeader.vue'
+import QueryLayout from '@/components/layouts/QueryLayout.vue'
+import PagerBar from '@/components/PagerBar.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
+import HintBox from '@/components/ui/HintBox.vue'
+import Btn from '@/components/ui/Btn.vue'
 
 const store = useFoodSafetyStore()
 
@@ -210,12 +179,24 @@ const {
   visiblePages,
   changePage,
   handleJumpPage,
-  handlePageSizeChange,
+  setPageSize,
 } = usePagination({
   storageKey: 'organicCert.pageSize',
   totalPages: () => store.organicCertPage?.totalPages,
   onChange: fetchImmediate,
 })
+
+/** 有沒有任何一個關鍵字有值——決定要不要出現「清除條件」 */
+const hasAnyFilter = computed(
+  () => !!(operatorName.value || verificationBodyName.value || productKeyword.value),
+)
+
+function clearFilters() {
+  operatorName.value = ''
+  verificationBodyName.value = ''
+  productKeyword.value = ''
+  onFilterChange()
+}
 
 // 記錄哪些卡片目前是展開狀態（存 item.id）
 const expandedIds = ref<Set<number>>(new Set())
@@ -274,98 +255,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 頁首在最上方，左側篩選欄與右側結果區包在 .cert-layout 裡——
-   兩欄排版原本掛在頁面根元素上，導致這頁沒有地方可以放頁首。 */
-.cert-layout {
-  display: flex;
-  gap: var(--space-6);
-}
+/* 顏色全部改用 semantic 層（style tile §九）。
+   側邊篩選欄整個拿掉、分頁列整條換成共用的 PagerBar，所以原本 300 行的樣式
+   （.filter-sidebar／.pagination-*／.page-btn／.jump-*）在這裡全部消失，
+   只剩下這一頁真正獨有的：卡片本身。 */
 
-/* ── 側邊篩選欄 ── */
-.filter-sidebar {
-  flex: 0 0 240px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background: var(--neutral-0);
-  border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg);
-  align-self: flex-start;
-}
-
-.filter-title {
-  font-size: var(--text-base);
-  font-weight: var(--weight-bold);
-  color: var(--neutral-900);
-  margin: 0;
-}
-
-.filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.filter-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  color: var(--neutral-400);
-}
-
-.filter-input {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-200);
-  font-size: var(--text-sm);
-  background: var(--neutral-0);
-  color: var(--neutral-900);
-  outline: none;
-}
-
-.filter-input:focus { border-color: var(--green-500); }
-
-/* .filter-hint {
-  font-size: var(--text-2xs);
-  color: var(--neutral-400);
-  line-height: var(--leading-normal);
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
-} */
-.filter-hint {
-  font-size: var(--text-xs);
-  color: var(--warning-500);
-  line-height: var(--leading-normal);
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
-  background: var(--warning-50);
-  border: 1px solid var(--warning-100);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-}
-
-/* ── 右側結果區 ── */
-.result-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-.result-header {
-  display: flex;
-  justify-content: flex-end;
-}
+/* 三個關鍵字欄位在頂部橫排，各自可伸縮但不要窄到看不出 placeholder */
+.cert-field { flex: 1 1 220px; min-width: 0; }
 
 .result-count {
+  font-family: var(--font-num);
   font-size: var(--text-xs);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-
-/* ── 狀態容器（沿用 ViolationWallView 樣式） ── */
 
 /* ── 卡片列表 ── */
 .cert-grid {
@@ -376,45 +280,47 @@ onMounted(() => {
 
 .cert-card {
   padding: var(--space-4);
-  background: var(--neutral-0);
-  border: 1px solid var(--neutral-200);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  transition: border-color var(--duration-fast) var(--ease-work);
 }
+.cert-card:hover { border-color: var(--color-border-strong); }
 
-/* 決策：品項可能為多證號合併時，僅用邊框變色提示，不額外加文字標籤 */
-.cert-card.ambiguous {
-  border: 2px solid var(--warning-500);
-}
+/* 決策：品項可能為多證號合併時，僅用邊框變色提示，不額外加文字標籤。
+   ⚠ 原本是 `border: 2px solid`，比其餘卡片多 1px，整張卡片會位移半像素、
+   而且在網格裡跟鄰居對不齊。改成同寬邊框只換顏色。 */
+.cert-card.ambiguous { border-color: var(--color-accent-2-fill); }
 
 .cert-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-2);
 }
 
 .cert-sn {
-  font-family: monospace;
+  font-family: var(--font-num);
   font-size: var(--text-xs);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
 }
 
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
-.status-badge.active { background: var(--green-100); color: var(--green-600); }
-/* .status-badge.inactive { background: var(--neutral-100); color: var(--neutral-500); } */
-.status-badge.inactive { background: var(--neutral-200); color: var(--neutral-700); }
+.status-badge.active { background: var(--color-action-soft-2); color: var(--color-action); }
+.status-badge.inactive { background: var(--color-bg-sunken); color: var(--color-text-dim); }
 
 .cert-operator {
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--neutral-900);
+  color: var(--color-text);
 }
 
 .cert-row {
   font-size: var(--text-xs);
-  color: var(--neutral-900);
+  color: var(--color-text);
   line-height: var(--leading-normal);
 }
 
@@ -424,13 +330,11 @@ onMounted(() => {
   gap: var(--space-1);
 }
 
-.cert-row-products .cert-label {
-  min-width: auto;
-}
+.cert-row-products .cert-label { min-width: auto; }
 
 .products-text-clamp {
   font-size: var(--text-xs);
-  color: var(--neutral-900);
+  color: var(--color-text);
   line-height: var(--leading-normal);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -443,135 +347,38 @@ onMounted(() => {
   margin: 0;
   padding-left: var(--space-5);
   font-size: var(--text-xs);
-  color: var(--neutral-900);
+  color: var(--color-text);
   line-height: var(--leading-normal);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
+/* 展開／收合是卡片內的次要動作，做成低調的文字鈕而不是實心色塊——
+   一整頁十幾張卡片各有一顆綠色藥丸時，最先被看到的會是這些按鈕而不是資料 */
 .expand-toggle {
   align-self: flex-start;
+  font-family: inherit;
   font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  padding: var(--space-1) var(--space-3);
+  font-weight: var(--weight-medium);
+  padding: var(--space-1) 0;
   border: none;
-  border-radius: var(--radius-full);
-  background: var(--green-100);
-  color: var(--green-600);
+  background: none;
+  color: var(--color-action);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  transition: background var(--duration-fast);
+  transition: color var(--duration-fast) var(--ease-work);
 }
-
-.expand-toggle:hover {
-  background: var(--green-200);
-  text-decoration: none;
-}
-
-.expand-toggle .mdi {
-  font-size: var(--text-base);
-  transition: transform var(--duration-fast);
-}
+.expand-toggle:hover { color: var(--color-action-hover); text-decoration: underline; }
+.expand-toggle:focus-visible { outline: 2px solid var(--color-action); outline-offset: 2px; border-radius: var(--radius-sm); }
+.expand-toggle .mdi { font-size: var(--text-base); }
 
 .cert-label {
   display: inline-block;
   min-width: 60px;
-  color: var(--neutral-400);
-  font-weight: var(--weight-bold);
-}
-
-/* ── 分頁列（跟 ViolationWallView 相同結構） ── */
-.pagination-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
-.pagination-info { font-size: var(--text-xs); color: var(--neutral-400); }
-
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.page-size-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-right: var(--space-2);
-  padding-right: var(--space-2);
-  border-right: 1px solid var(--neutral-200);
-}
-
-.page-size-select {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-200);
-  font-size: var(--text-sm);
-  color: var(--neutral-900);
-  background: var(--neutral-0);
-}
-
-.jump-to-page {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-left: var(--space-2);
-  padding-left: var(--space-2);
-  border-left: 1px solid var(--neutral-200);
-}
-
-.jump-label { font-size: var(--text-xs); color: var(--neutral-400); white-space: nowrap; }
-
-.jump-input {
-  width: 50px;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-200);
-  font-size: var(--text-sm);
-  text-align: center;
-  outline: none;
-}
-
-.jump-btn {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--green-600);
-  background: var(--green-600);
-  color: var(--neutral-0);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  cursor: pointer;
-}
-.jump-btn:hover { background: var(--green-500); }
-
-.page-btn {
-  min-width: 32px;
-  height: 32px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-200);
-  background: var(--neutral-0);
-  color: var(--neutral-900);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.page-btn:hover:not(:disabled) { border-color: var(--green-500); color: var(--green-600); }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.page-btn.active {
-  background: var(--green-600);
-  border-color: var(--green-600);
-  color: var(--neutral-0);
+  color: var(--color-text-dim);
+  font-weight: var(--weight-medium);
 }
 </style>
