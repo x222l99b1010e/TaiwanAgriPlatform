@@ -107,16 +107,20 @@
             </div>
           </div>
 
-          <!-- 分頁控制：沿用 usePagination 共用邏輯 + PagerBar 共用元件 -->
+          <!-- 分頁控制：沿用 usePagination 共用邏輯 + PagerBar 共用元件。
+               只要有結果就顯示，讓「每頁筆數」下拉一直可用（即使只有一頁） -->
           <PagerBar
-            v-if="alertsPage && alertsPage.totalPages > 1"
+            v-if="alertsPage && alertsPage.totalCount > 0"
             :current-page="currentPage"
             :total-pages="alertsPage.totalPages"
             :total-count="alertsPage.totalCount"
             :visible-pages="visiblePages"
             :jump-page-input="jumpPageInput"
+            :page-size="pageSize"
+            :page-size-options="pageSizeOptions"
             @change="changePage"
             @update:jump-page-input="jumpPageInput = $event"
+            @update:page-size="setPageSize"
             @jump="handleJumpPage"
           />
         </div>
@@ -148,12 +152,18 @@ const alerts = computed(() => alertsPage.value?.items ?? [])
 const {
   currentPage,
   pageSize,
+  pageSizeOptions,
   jumpPageInput,
   visiblePages,
   changePage,
   handleJumpPage,
+  setPageSize,
 } = usePagination({
   storageKey: 'pestAlerts.pageSize',
+  // 每頁筆數選項（owner 2026-09-04）：預設 10，把「一頁太長」直接砍半。
+  // 這一頁是伺服器分頁（getPestAlerts 收 page/pageSize），改每頁筆數會重打 API 拿新一頁。
+  pageSizeOptions: [5, 10, 20, 50],
+  defaultPageSize: 10,
   totalPages: () => alertsPage.value?.totalPages,
   onChange: fetchAlerts,
 })
