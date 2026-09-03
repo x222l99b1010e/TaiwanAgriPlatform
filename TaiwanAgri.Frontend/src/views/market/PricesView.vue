@@ -5,35 +5,35 @@
       title-en="CROP PRICES"
       subtitle="蔬菜、水果、花卉在各批發市場的每日交易均價，可同時比較多項作物並疊上同期天災警戒"
     >
-      <!-- 動作列改放 QueryLayout 的頂部右側插槽。原本是 FilterCard layout="stack"
-           底下自己手寫一層 .filter-bottom，那一層的 align-items 是 flex-start，
-           讓按鈕比左邊的日期輸入框高 23px（決策 59.十一）——繞過共用元件自己排，
-           就會繞過共用元件已經修好的東西。 -->
-      <template #actions>
-        <Btn
-          icon="mdi-magnify"
-          :loading="isLoading"
-          :disabled="store.selectedCropCodes.length === 0"
-          @click="handleQuery"
-        >{{ isLoading ? '查詢中...' : '查詢價格' }}</Btn>
-        <Btn
-          v-if="prices.length > 0"
-          variant="secondary"
-          icon="mdi-file-chart"
-          @click="handleExportCsv"
-        >匯出 CSV</Btn>
-        <Btn
-          v-if="store.selectedCropCodes.length > 0"
-          variant="secondary"
-          icon="mdi-filter-remove-outline"
-          @click="store.$patch({ selectedCropCodes: [] })"
-        >清空作物</Btn>
-      </template>
-
+      <!-- 作物選擇是一整塊、日期是一列，所以查詢／匯出／清空跟日期擺同一列的尾端
+           （owner 2026-09-03：選完日期查詢鈕就在旁邊比較直覺）。不再用 QueryLayout 的
+           頂部插槽——這一頁的「日期」在條件區的最下面，動作跟著日期走才是「旁邊」。 -->
       <template #filters>
         <div class="filter-stack">
           <MarketFilter />
-          <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
+          <div class="date-row">
+            <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
+            <div class="date-row__actions">
+              <Btn
+                icon="mdi-magnify"
+                :loading="isLoading"
+                :disabled="store.selectedCropCodes.length === 0"
+                @click="handleQuery"
+              >{{ isLoading ? '查詢中...' : '查詢價格' }}</Btn>
+              <Btn
+                v-if="prices.length > 0"
+                variant="secondary"
+                icon="mdi-file-chart"
+                @click="handleExportCsv"
+              >匯出 CSV</Btn>
+              <Btn
+                v-if="store.selectedCropCodes.length > 0"
+                variant="secondary"
+                icon="mdi-filter-remove-outline"
+                @click="store.$patch({ selectedCropCodes: [] })"
+              >清空作物</Btn>
+            </div>
+          </div>
           <p v-if="validationMsg" class="validation-msg">
             <span class="mdi mdi-alert-circle-outline" />{{ validationMsg }}
           </p>
@@ -195,6 +195,16 @@ function handleExportCsv() {
    直接堆疊。QueryLayout 的 __body 本身是 flex-end 的橫列，兩者不衝突：
    這裡包一層自己的縱向容器，橫列規則只作用在這一個子元素上。 */
 .filter-stack { display: flex; flex-direction: column; gap: var(--space-5); width: 100%; }
+
+/* 日期與動作按鈕同一列：日期靠左、動作被 margin-auto 推到最右，選完日期查詢就在旁邊 */
+.date-row {
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  gap: var(--space-4) var(--space-5); width: 100%;
+}
+.date-row__actions {
+  display: flex; align-items: flex-end; gap: var(--space-3);
+  margin-inline-start: auto;
+}
 
 .validation-msg {
   display: flex; align-items: center; gap: var(--space-2);

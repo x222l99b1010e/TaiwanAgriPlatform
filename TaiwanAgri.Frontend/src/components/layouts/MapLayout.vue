@@ -9,7 +9,9 @@
   ⚠ 地圖的外框與資料點一定要用同一組投影算出來。外框自己畫得「像台灣」、
   資料點由經緯度投影，兩者一定對不準——北部幾個點會落在海裡。
 
-  窄螢幕改成上下疊，地圖在上：先看得到地圖才知道能點。
+  版面是「地圖在上、清單在下」的上下疊（owner 2026-09-03：左右排時清單被擠成窄欄，
+  一則警報的內文擠成細長一條很難讀）。清單改成滿版之後每張卡片都寬，長內文一行放得下。
+  先看得到地圖才知道能點，所以地圖在上。
 -->
 <template>
   <div class="map-layout">
@@ -57,10 +59,9 @@ withDefaults(
 }
 
 .map-layout__cols {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-6);
-  align-items: start;
 }
 
 .map-layout__map,
@@ -76,7 +77,7 @@ withDefaults(
      ⚠ 這裡要用 height 不能只用 min-height——地圖庫（Leaflet 之類）掛載的容器
      一律用 height:100% 撐滿這一層，而百分比高度只認父層的「明確高度」，
      min-height 不算，撐出來的容器高度會是 0，地圖會整片空白。 */
-  height: min(62vh, 620px);
+  height: min(56vh, 560px);
 }
 
 .map-layout__legend {
@@ -88,19 +89,8 @@ withDefaults(
 }
 
 .map-layout__list {
-  /* 清單自己捲，地圖才會一直留在視線裡——整頁一起捲的話點完圖就看不到圖了 */
-  max-height: min(72vh, 720px);
-  overflow-y: auto;
-  padding: var(--space-4);
-}
-
-@media (max-width: 960px) {
-  .map-layout__cols {
-    grid-template-columns: 1fr;
-  }
-
-  .map-layout__list {
-    max-height: none;
-  }
+  /* 清單滿版、順著頁面往下捲（不再自己開一個內捲區）——上下疊之後地圖在上面，
+     不需要把地圖釘住，清單就讓它一路讀下去，長度由分頁控制。 */
+  padding: var(--space-5) var(--space-6);
 }
 </style>
