@@ -85,8 +85,8 @@ function handleLogout() {
    logo 的左邊界因此與各頁頁首標題落在同一條垂直線上。 */
 .top-nav {
   height: 56px;
-  background: var(--green-800);
-  color: var(--neutral-0);
+  background: var(--color-deep);
+  color: var(--color-on-deep);
   position: relative;
   z-index: var(--z-dropdown);
   box-shadow: var(--shadow-md);
@@ -110,20 +110,22 @@ function handleLogout() {
 .tab {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
-  color: var(--white-a80); text-decoration: none; font-size: var(--text-base);
+  color: var(--color-on-deep-dim); text-decoration: none; font-size: var(--text-base);
   transition: background var(--duration-base);
   white-space: nowrap;
 }
 .tab:hover { background: var(--white-a12); }
-.tab.active { background: var(--white-a20); color: var(--neutral-0); font-weight: var(--weight-medium); }
+.tab.active { background: var(--white-a20); color: var(--color-on-deep); font-weight: var(--weight-medium); }
 
+/* 下拉選單本身是浮在深色列下面的淺色浮動層，不是深色列的延伸——
+   跟頁面其餘的淺色卡片同一組色，才不會兩種底色系統在同一個選單裡混用 */
 .tab-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   min-width: 160px;
-  background: var(--neutral-0);
-  border: 1px solid var(--neutral-200);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-1) var(--space-2) var(--space-2);
   box-shadow: var(--shadow-lg);
@@ -136,26 +138,26 @@ function handleLogout() {
 .dropdown-item {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
-  color: var(--neutral-700); text-decoration: none; font-size: var(--text-sm);
+  color: var(--color-text); text-decoration: none; font-size: var(--text-sm);
   transition: background var(--duration-fast), color var(--duration-fast);
   white-space: nowrap;
 }
-.dropdown-item:hover { background: var(--green-50); color: var(--neutral-900); }
-.dropdown-item.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-medium); }
+.dropdown-item:hover { background: var(--seed-50); color: var(--color-text); }
+.dropdown-item.active { background: var(--seed-100); color: var(--color-action); font-weight: var(--weight-medium); }
 
 .top-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
 
 .login-btn {
   padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
   border: 1px solid var(--white-a60);
-  background: transparent; color: var(--neutral-0); cursor: pointer;
+  background: transparent; color: var(--color-on-deep); cursor: pointer;
   transition: background var(--duration-fast);
 }
 .login-btn:hover { background: var(--white-a12); }
 
 .user-name {
   font-size: var(--text-base);
-  color: var(--white-a80);
+  color: var(--color-on-deep-dim);
   font-weight: var(--weight-medium);
 }
 </style>

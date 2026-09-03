@@ -38,5 +38,5 @@ html { width: 100%; scrollbar-gutter: stable both-edges; }
    問題是 CSS 規格認定「有沒有 overflow」不看「現在有沒有捲軸」，只看這個屬性值——
    所以它雖然沒在做事，卻會讓底下任何 position: sticky 的元素改認它當捲動容器，
    而它自己又不捲動，sticky 就整個失效（QueryLayout 的吸頂工具列查出這個坑）。 */
-.main-content { flex: 1; background: var(--neutral-100); }
+.main-content { flex: 1; background: var(--color-bg); }
 </style>
