@@ -195,17 +195,23 @@
      後面依序拉開色相，相鄰兩條線不會撞色。
 
      ⚠ 這組同時被 CSS 與 chartTheme.ts 讀取（後者用 getComputedStyle 取值），
-     所以圖表配色只有這一份定義，改色只改這裡。 */
-  --cat-1:  var(--green-600);
-  --cat-2:  var(--warning-500);
-  --cat-3:  var(--info-500);
+     所以圖表配色只有這一份定義，改色只改這裡。
+
+     ⚠ 這組當初是對「純白」底調的。底色換成暖米白之後（卡片 #fffdf9）偏亮的幾階會變糊，
+     所以 P3 逐一量過對 --color-surface 的對比，非文字圖形的門檻 3.0：
+     只有 --cat-10 的 #f57f17 是 2.61 不及格，往深調成 #b45309（4.94）；
+     其餘十六階最低的是 --cat-5 的 3.41，維持原值。
+     前三階改成秋田的色：綠／柿橙／藍灰，跟畫面上的主色是同一組。 */
+  --cat-1:  var(--seed-700);        /* 對 --color-surface 7.03 */
+  --cat-2:  var(--persimmon-500);   /* 3.45 */
+  --cat-3:  #6e7ca8;                /* 4.04 */
   --cat-4:  var(--purple-500);
   --cat-5:  #c77700;
   --cat-6:  var(--teal-700);
   --cat-7:  var(--danger-700);
   --cat-8:  #0277bd;
   --cat-9:  #558b2f;
-  --cat-10: #f57f17;
+  --cat-10: #b45309;
   --cat-11: #ad1457;
   --cat-12: #37474f;
   --cat-13: #827717;
@@ -327,6 +333,13 @@
 
   --color-map-fill:   var(--cream-300);
   --color-map-stroke: var(--cream-500);
+
+  /* 圖表的非資料部位。資料本身的顏色走 --cat-*，這裡只管格線、軸線、指示線。
+     格線要比軸線淡、軸線要比指示線淡——三層都比資料淡，資料才是視覺主角。 */
+  --color-chart-grid:       var(--cream-200);
+  --color-chart-axis:       var(--cream-400);
+  --color-chart-crosshair:  var(--cream-500);
+  --color-chart-annotation: var(--color-lv3);   /* 時間軸上的災害標註，與最高等級燈號同色 */
 
   /* 深色區的裝飾層。母題與光暈只出現在深色區，內頁一律沒有。 */
   --color-motif:  rgb(217 164 65 / 0.12);

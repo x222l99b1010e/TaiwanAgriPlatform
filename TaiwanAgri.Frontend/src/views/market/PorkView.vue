@@ -115,7 +115,7 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend,
-  type ChartDataset, type Scale,
+  type ChartDataset,
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PorkResponseDto } from '@/api/market'
@@ -125,8 +125,8 @@ import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import HintBox from '@/components/ui/HintBox.vue'
 import {
-  seriesColor, pointBorderColor, exportBackground,
-  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+  seriesColor, seriesDash, pointBorderColor, exportBackground,
+  lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
@@ -203,6 +203,7 @@ const chartData = computed(() => {
     label: marketName,
     data: labels.map(date => dateMap[date] ?? null),  // 該日期沒資料 → null（Chart.js 會跳過）
     borderColor: seriesColor(i),
+    borderDash: seriesDash(i),   // 顏色以外的第二個線索，見 chartTheme.seriesDash
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: labels.length <= 90 ? 3 : 0,
@@ -227,45 +228,10 @@ function buildChart() {
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          ticks: {
-            maxTicksLimit: 12,
-            ...axisTicks(),
-            callback(this: Scale, val, index) {
-              return this.getLabelForValue(index) ?? String(val)
-            },
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-        y: {
-          ticks: {
-            ...axisTicks(),
-            callback: (val) => `${val} ${unit}`,
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-      },
-      plugins: {
-        tooltip: {
-          ...tooltipStyle(),
-          callbacks: {
-            label: (ctx) =>
-              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} ${unit}` : '',
-          },
-        },
-        legend: {
-          position: 'top',
-          labels: legendLabels(),
-        },
-      },
-    },
+    // 毛豬的三個指標（價格／頭數／重量）數字級距差很多，但每一個都是小幅波動，
+    // 所以一律讓 y 軸貼著資料範圍，不要從 0 起跳
+    options: lineChartOptions({ unit, fitY: 2 }),
+    plugins: [crosshairPlugin],
   })
 }
 

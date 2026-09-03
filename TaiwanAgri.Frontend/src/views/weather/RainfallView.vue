@@ -111,7 +111,7 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend, Filler,
-  type ChartDataset, type Scale,
+  type ChartDataset,
 } from 'chart.js'
 import { weatherApi, type RainfallResponseDto } from '@/api/weather'
 import CitySelector from '@/components/CitySelector.vue'
@@ -121,8 +121,8 @@ import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import {
-  seriesColor, seriesFill, pointBorderColor,
-  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+  seriesColor, seriesFill, seriesDash, pointBorderColor,
+  lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
@@ -184,6 +184,7 @@ const chartData = computed(() => {
       label: station,
       data: labels.map(t => timeMap[t] ?? null),
       borderColor: seriesColor(i),
+      borderDash: seriesDash(i),   // 顏色以外的第二個線索，見 chartTheme.seriesDash
       backgroundColor: seriesFill(i),
       borderWidth: 2,
       pointRadius: labels.length <= 60 ? 3.5 : 0,
@@ -208,45 +209,9 @@ function buildChart() {
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          ticks: {
-            maxTicksLimit: 10,
-            ...axisTicks(),
-            callback(this: Scale, val, index) {
-              return this.getLabelForValue(index) ?? String(val)
-            },
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-        y: {
-          ticks: {
-            ...axisTicks(),
-            callback: (val) => `${val} mm`,
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-      },
-      plugins: {
-        tooltip: {
-          ...tooltipStyle(),
-          callbacks: {
-            label: (ctx) =>
-              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
-          },
-        },
-        legend: {
-          position: 'top',
-          labels: legendLabels(),
-        },
-      },
-    },
+    // 雨量不開 fitY：0 mm 是有意義的基準（沒下雨），軸從 0 起跳才讀得出「這天幾乎沒雨」
+    options: lineChartOptions({ unit: 'mm', maxTicksLimit: 10 }),
+    plugins: [crosshairPlugin],
   })
 }
 

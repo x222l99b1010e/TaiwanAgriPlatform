@@ -12,13 +12,15 @@ import {
   Tooltip,
   Legend,
   Filler,
-  type ChartDataset, type Scale, type TooltipItem,
+  type ChartDataset,
 } from 'chart.js'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
 import {
   seriesColor, seriesFill, seriesAccent, pointBorderColor, exportBackground,
-  annotationColor, withAlpha, axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+  annotationColor, withAlpha, lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
+// ⚠ 這一頁刻意不用 seriesDash：虛線在這裡已經被「7 日移動平均」佔用了。
+//   同一個視覺屬性一次只能承載一種意思，兩種疊上去讀者就分不出虛線代表什麼。
 
 // Chart.js 採用「按需註冊」設計，沒 register 就沒功能
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend, Filler)
@@ -192,49 +194,9 @@ function buildChart() {
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index' as const,
-        intersect: false,
-      },
-      scales: {
-        x: {
-          ticks: {
-            maxTicksLimit: 12,
-            ...axisTicks(),
-            callback(this: Scale, val: unknown, index: number) {
-              return this.getLabelForValue(index) ?? String(val)
-            },
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-        y: {
-          ticks: {
-            ...axisTicks(),
-            callback: (val: unknown) => `${val} 元`,
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-      },
-      plugins: {
-        tooltip: {
-          ...tooltipStyle(),
-          callbacks: {
-            label: (ctx: TooltipItem<'line'>) =>
-              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
-          },
-        },
-        legend: {
-          position: 'top' as const,
-          labels: legendLabels(),
-        },
-      },
-    },
-    plugins: [disasterPlugin],
+    // 作物價格同樣是小幅波動，y 軸貼資料範圍；災害標註是這一頁專屬的外掛
+    options: lineChartOptions({ unit: '元', fitY: 2 }),
+    plugins: [crosshairPlugin, disasterPlugin],
   })
 }
 

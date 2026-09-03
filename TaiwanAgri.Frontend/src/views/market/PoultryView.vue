@@ -166,7 +166,7 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend,
-  type ChartDataset, type Scale,
+  type ChartDataset,
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PoultryResponseDto, type PoultryMetricDto } from '@/api/market'
@@ -176,8 +176,8 @@ import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import HintBox from '@/components/ui/HintBox.vue'
 import {
-  seriesColor, pointBorderColor, exportBackground,
-  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+  seriesColor, seriesDash, pointBorderColor, exportBackground,
+  lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
@@ -327,6 +327,9 @@ const chartData = computed(() => {
       label: displayName,
       data: labels.map(date => dateMap[date] ?? null),
       borderColor: seriesColor(i),
+      // 前三階分類色彼此的明度差不夠（--cat-1 對 --cat-3 只差 2.56 倍），
+      // 所以再給一個顏色以外的線索：前三條線各一種 dash
+      borderDash: seriesDash(i),
       backgroundColor: 'transparent',
       borderWidth: 2,
       pointRadius: labels.length <= 90 ? 3 : 0,
@@ -350,45 +353,10 @@ function buildChart() {
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          ticks: {
-            maxTicksLimit: 12,
-            ...axisTicks(),
-            callback(this: Scale, val, index) {
-              return this.getLabelForValue(index) ?? String(val)
-            },
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-        y: {
-          ticks: {
-            ...axisTicks(),
-            callback: (val) => `${val} 元`,
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-      },
-      plugins: {
-        tooltip: {
-          ...tooltipStyle(),
-          callbacks: {
-            label: (ctx) =>
-              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} 元` : '',
-          },
-        },
-        legend: {
-          position: 'top',
-          labels: legendLabels(),
-        },
-      },
-    },
+    // fitY: 2 ＝ y 軸貼著資料範圍上下各留 2 元。家禽價一週之內只動幾個百分點，
+    // 軸從 0 起跳會把三條線壓成三條直線，看起來像「沒有變化」。
+    options: lineChartOptions({ unit: '元', fitY: 2 }),
+    plugins: [crosshairPlugin],
   })
 }
 

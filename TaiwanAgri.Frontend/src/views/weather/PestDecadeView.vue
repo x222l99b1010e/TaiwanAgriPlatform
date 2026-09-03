@@ -124,7 +124,7 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend,
-  type ChartDataset, type Scale,
+  type ChartDataset,
 } from 'chart.js'
 import { weatherApi, type PestDecadeResponseDto } from '@/api/weather'
 import PageHeader from '@/components/ui/PageHeader.vue'
@@ -132,7 +132,7 @@ import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import {
-  seriesColor, pointBorderColor, axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+  seriesColor, seriesDash, pointBorderColor, lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
@@ -200,6 +200,7 @@ const chartData = computed(() => {
     label: city,
     data: labels.map(l => timeMap[l] ?? null),
     borderColor: seriesColor(i),
+    borderDash: seriesDash(i),   // 顏色以外的第二個線索，見 chartTheme.seriesDash
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: 3.5,
@@ -223,41 +224,11 @@ function buildChart() {
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          ticks: {
-            maxTicksLimit: 10,
-            ...axisTicks(),
-            callback(this: Scale, val, index) {
-              return this.getLabelForValue(index) ?? String(val)
-            },
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-        y: {
-          ticks: axisTicks(),
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-      },
-      plugins: {
-        tooltip: {
-          ...tooltipStyle(),
-          callbacks: {
-            label: (ctx) =>
-              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} mm` : '',
-          },
-        },
-        legend: {
-          labels: legendLabels(),
-        },
-      },
-    },
+    // ⚠ 這裡的提示框原本寫「mm」，是從雨量頁抄過來時漏改的——這條線畫的是平均密度，
+    // 不是雨量。收進共用設定後單位由 spec 指定，抄一份就跟著抄一次的機會不再有。
+    // 密度是「越少越好」的量，從 0 起跳才讀得出絕對高低，所以不開 fitY。
+    options: lineChartOptions({ maxTicksLimit: 10 }),
+    plugins: [crosshairPlugin],
   })
 }
 
