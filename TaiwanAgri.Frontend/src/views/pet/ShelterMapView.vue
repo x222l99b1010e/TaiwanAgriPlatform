@@ -1,19 +1,22 @@
 <template>
   <div class="page shelter-map-view">
-    <PageHeader title="收容動物地圖">
+    <PageHeader title="收容動物地圖" title-en="SHELTER MAP">
       <template #subtitle>
         全台收容所在養動物。一個標記代表一間收容所，點開可看該所目前的在養動物；
         相鄰的收容所會自動聚合成數字圓圈，拉近後展開
       </template>
     </PageHeader>
 
-    <!-- 篩選列 -->
+    <!-- ⚠ 這一頁刻意不套 MapLayout。那個樣板的形狀是「左地圖、右清單」，
+         而這一頁沒有清單——每一間收容所的內容在 popup 與獨立的詳情頁裡，
+         右欄會是一整塊空白。樣板是為了讓「同一種頁面長一樣」，
+         不是為了讓每一頁都套到一個。共用的是 token 與元件，不是版型。 -->
     <FilterCard>
       <CitySelector v-model="selectedCounty" include-all />
 
       <div class="field-group">
-        <label class="field-label">動物種類</label>
-        <select class="kind-select" v-model="selectedKind">
+        <label class="field-label" for="kind-select">動物種類</label>
+        <select id="kind-select" class="form-control kind-select" v-model="selectedKind">
           <option v-for="opt in kindOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </div>
@@ -29,7 +32,7 @@
           跟這裡的總數本來就不會相等，這點仍要說出來否則使用者會互相對不上。
         -->
         <span v-else class="stat-text">
-          符合條件 {{ totalAnimalCount }} 筆
+          符合條件 <b class="stat-num">{{ totalAnimalCount }}</b> 筆
           <span class="stat-muted">
             ｜分佈於 {{ shelterMarkerCount }} 間收容所<template
               v-if="noCoordinateCount > 0">，另 {{ noCoordinateCount }} 間收容所座標未知</template>
@@ -217,56 +220,54 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-label {
-  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
-  letter-spacing: 0.05em; text-transform: uppercase;
-}
+/* 欄位外殼走 base.css 的 .field-group／.field-label／.form-control，
+   顏色全部改用 semantic 層（style tile §九）。 */
+.kind-select { min-width: 140px; }
 
-.kind-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
-  min-width: 140px; cursor: pointer;
-}
-.kind-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
-
-.stat-bar { margin-left: auto; font-size: var(--text-sm); }
-.stat-text { color: var(--neutral-500); }
-.stat-muted { color: var(--neutral-400); }
-.stat-error { color: var(--danger-500); font-weight: var(--weight-medium); }
-.stat-loading { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); }
+/* 這一段是「目前篩出幾筆」的說明，限寬才不會在寬螢幕上拉成一整條長行 */
+.stat-bar { margin-left: auto; font-size: var(--text-sm); max-width: 46ch; }
+.stat-text { color: var(--color-text-dim); }
+.stat-num { font-family: var(--font-num); color: var(--color-text); font-variant-numeric: tabular-nums; }
+.stat-muted { color: var(--color-text-dim); }
+.stat-error { color: var(--danger-700); font-weight: var(--weight-medium); }
+.stat-loading { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-dim); }
 
 .loading-spinner-sm {
   width: 14px; height: 14px;
-  border: 2px solid var(--green-200); border-top-color: var(--green-600);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
+  border: 2px solid var(--seed-200); border-top-color: var(--color-action);
+  border-radius: var(--radius-full); animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 高度改用視窗比例，跟 MapLayout 同一條規則：固定 640px 在筆電上會佔掉整個畫面，
+   而在大螢幕上又浪費下半屏。 */
 .map-container {
-  height: 640px;
+  height: min(68vh, 680px);
   width: 100%;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--neutral-200);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--color-border);
+  overflow: hidden;
 }
 </style>
 
 <!-- 未加 scoped：Leaflet popup 內容是用 document.createElement 動態插入的 DOM，
      不是 Vue 模板渲染出來的節點，scoped 屬性不會套用到這些節點上，樣式必須寫在全域區塊 -->
 <style>
-.shelter-popup-content { font-size: var(--text-sm); min-width: 260px; }
-.shelter-popup-content .popup-title { font-weight: var(--weight-bold); font-size: var(--text-base); color: var(--green-800); margin-bottom: var(--space-1); }
-.shelter-popup-content .popup-address { color: var(--neutral-500); margin-bottom: var(--space-2); font-size: var(--text-xs); }
+.shelter-popup-content { font-size: var(--text-sm); min-width: 260px; font-family: var(--font-body); }
+.shelter-popup-content .popup-title { font-weight: var(--weight-bold); font-size: var(--text-base); color: var(--color-text); margin-bottom: var(--space-1); }
+.shelter-popup-content .popup-address { color: var(--color-text-dim); margin-bottom: var(--space-2); font-size: var(--text-xs); }
 
 .shelter-popup-content .popup-summary {
-  font-weight: var(--weight-bold); color: var(--neutral-900); padding: var(--space-2) 0;
-  border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200);
+  font-weight: var(--weight-bold); color: var(--color-text); padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
-/* popup 只放摘要＋這顆連結，完整清單在獨立詳情頁（不掛週次分支改版） */
+/* popup 只放摘要＋這顆連結，完整清單在獨立詳情頁（不掛週次分支改版）。
+   連結用動作色而不是藍：藍在這一版沒有「可點」的語意，動作綠才有。 */
 .shelter-popup-content .popup-view-all {
-  display: block; margin-top: var(--space-2); color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-bold);
+  display: block; margin-top: var(--space-2);
+  color: var(--color-action); font-size: var(--text-sm); font-weight: var(--weight-bold);
   text-decoration: none;
 }
 .shelter-popup-content .popup-view-all:hover { text-decoration: underline; }

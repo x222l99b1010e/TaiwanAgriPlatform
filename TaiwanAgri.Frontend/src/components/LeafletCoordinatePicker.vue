@@ -145,25 +145,29 @@ onUnmounted(() => {
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-xs);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
 }
 
+/* 高度從固定 600px 改成視窗比例：這張地圖是「表單裡的一個欄位」，
+   600px 在筆電上會把送出按鈕整個推到畫面外，使用者以為表單沒填完 */
 .map-container {
-  height: 600px;
+  height: min(48vh, 480px);
   width: 100%;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--neutral-200);
+  border: var(--border-width) solid var(--color-border);
+  overflow: hidden;
   /* Leaflet 內部用絕對定位排版圖磚，容器沒有明確高度地圖會整個塌陷看不到 */
 }
 
 .picker-coords {
   font-size: var(--text-xs);
-  color: var(--neutral-500);
-  font-family: monospace;
+  color: var(--color-text);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 .coords-empty {
-  color: var(--neutral-400);
-  font-family: inherit;
+  color: var(--color-text-dim);
+  font-family: var(--font-body);
 }
 </style>

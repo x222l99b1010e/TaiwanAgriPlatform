@@ -596,6 +596,27 @@ textarea.form-control {
   color: var(--color-text);
 }
 
+/* ── 返回上一層 ───────────────────────────────────────────────────────────
+   DetailLayout 自己有一份（詳情頁的返回列是那個樣板的一部分），這一份是給
+   「用了 QueryLayout 但仍需要返回連結」的頁面用的，兩者外觀刻意一致。
+   hover 往左移是因為返回這個動作就是往左——方向跟動作一致，手感才對得上。 */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-action);
+  text-decoration: none;
+  transition:
+    color var(--duration-fast) var(--ease-work),
+    transform var(--duration-fast) var(--ease-work);
+}
+.back-link:hover {
+  color: var(--color-action-hover);
+  transform: translateX(calc(-1 * var(--space-1)));
+}
+
 /* ── 分段控制器（一次只能選一個的切換列） ────────────────────────────────
    蔬菜／水果／花卉、三個副指標、地圖／清單……這種「同一個設定的幾個值」原本在各頁
    都做成幾顆各自獨立的按鈕，選中的那顆換色。問題是分開的按鈕看起來像幾個互不相干

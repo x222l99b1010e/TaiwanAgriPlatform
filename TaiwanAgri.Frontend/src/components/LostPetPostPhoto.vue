@@ -54,18 +54,21 @@ const failed = ref(false)
 */
 .photo-img {
   width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
-  border-radius: var(--radius-lg); border: 1px solid var(--neutral-200); background: var(--neutral-100);
+  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-sunken);
 }
 .photo-img.uncropped {
   aspect-ratio: auto; max-height: 480px; object-fit: contain;
 }
 .photo-failed {
   display: flex; align-items: center; justify-content: center; gap: var(--space-2);
-  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-lg); border: 1px dashed var(--neutral-200);
-  background: var(--neutral-50); color: var(--neutral-400); font-size: var(--text-sm);
+  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-lg);
+  border: var(--border-width) dashed var(--color-border-strong);
+  background: var(--color-bg-sunken); color: var(--color-text-dim); font-size: var(--text-sm);
 }
 .photo-failed.uncropped { aspect-ratio: 16 / 9; }
-.photo-note { font-size: var(--text-xs); color: var(--neutral-400); }
+.photo-note { font-size: var(--text-xs); color: var(--color-text-dim); }
 
 /* 縮圖疊一層「看完整圖片」提示，滑過才浮現，避免常駐蓋住照片內容 */
 .photo-link { position: relative; display: block; }
@@ -73,8 +76,8 @@ const failed = ref(false)
   position: absolute; right: 8px; bottom: 8px;
   display: inline-flex; align-items: center; gap: var(--space-1);
   padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  background: var(--black-a60); color: var(--neutral-0); font-size: var(--text-xs); font-weight: var(--weight-medium);
-  opacity: 0; transition: opacity var(--duration-fast);
+  background: var(--black-a60); color: var(--color-on-deep); font-size: var(--text-xs); font-weight: var(--weight-medium);
+  opacity: 0; transition: opacity var(--duration-fast) var(--ease-work);
 }
 .photo-link:hover .photo-zoom-hint { opacity: 1; }
 </style>

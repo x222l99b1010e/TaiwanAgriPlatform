@@ -16,141 +16,143 @@
       <span class="mdi mdi-arrow-left" /> 回收容動物地圖
     </RouterLink>
 
-    <PageHeader
-      v-if="shelterHeader"
-      :title="`${shelterHeader.name}（${shelterHeader.county}）`"
-      :subtitle="shelterHeader.address"
-    />
+    <QueryLayout
+      :title="shelterHeader ? `${shelterHeader.name}（${shelterHeader.county}）` : '收容所詳情'"
+      :subtitle="shelterHeader?.address"
+    >
+      <template #actions>
+        <span v-if="store.isLoadingShelterAnimalsByShelter" class="loading-hint">
+          <span class="loading-spinner-sm" />載入中...
+        </span>
+        <span v-else-if="page" class="stat-text">共 {{ page.totalCount }} 隻在養動物</span>
+        <Btn
+          v-if="hasActiveFilters"
+          variant="secondary"
+          icon="mdi-filter-remove-outline"
+          title="清除所有篩選條件，回到未篩選狀態"
+          @click="clearFilters"
+        >清除篩選</Btn>
+      </template>
 
-    <!-- 篩選列：頁首（收容所名稱）先抓到就先顯示，篩選列在資料還沒回來前也能先操作，
-         不必等第一次查詢完成——跟 ShelterMapView 的篩選列同一個設計慣例 -->
-    <FilterCard>
-      <div class="field-group">
-        <label class="field-label">動物種類</label>
-        <select v-model="kind" class="filter-select">
-          <option v-for="opt in kindOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-        </select>
-      </div>
-
-      <div class="field-group">
-        <label class="field-label">性別</label>
-        <select v-model="sex" class="filter-select">
-          <option v-for="opt in sexOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-        </select>
-      </div>
-
-      <div class="field-group">
-        <label class="field-label">排序</label>
-        <div class="sort-control">
-          <select v-model="sortBy" class="filter-select">
-            <option v-for="opt in sortByOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+      <!-- 篩選列：頁首（收容所名稱）先抓到就先顯示，篩選列在資料還沒回來前也能先操作，
+           不必等第一次查詢完成——跟 ShelterMapView 的篩選列同一個設計慣例 -->
+      <template #filters>
+        <div class="field-group">
+          <label class="field-label" for="shelter-kind">動物種類</label>
+          <select id="shelter-kind" v-model="kind" class="form-control filter-select">
+            <option v-for="opt in kindOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
-          <button
-            type="button" class="sort-dir-btn" :title="sortDescending ? '降冪，點擊切換升冪' : '升冪，點擊切換降冪'"
-            @click="sortDescending = !sortDescending"
-          >
-            <span class="mdi" :class="sortDescending ? 'mdi-sort-descending' : 'mdi-sort-ascending'" />
-          </button>
         </div>
-      </div>
 
-      <Btn
-        v-if="hasActiveFilters"
-        variant="secondary"
-        icon="mdi-filter-remove-outline"
-        title="清除所有篩選條件，回到未篩選狀態"
-        @click="clearFilters"
-      >清除篩選</Btn>
+        <div class="field-group">
+          <label class="field-label" for="shelter-sex">性別</label>
+          <select id="shelter-sex" v-model="sex" class="form-control filter-select">
+            <option v-for="opt in sexOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
 
-      <span v-if="store.isLoadingShelterAnimalsByShelter" class="loading-hint">
-        <span class="loading-spinner-sm" />載入中...
-      </span>
-      <span v-else-if="page" class="stat-text">共 {{ page.totalCount }} 隻在養動物</span>
-    </FilterCard>
+        <div class="field-group">
+          <label class="field-label" for="shelter-sort">排序</label>
+          <div class="sort-control">
+            <select id="shelter-sort" v-model="sortBy" class="form-control filter-select">
+              <option v-for="opt in sortByOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+            <button
+              type="button" class="sort-dir-btn" :title="sortDescending ? '降冪，點擊切換升冪' : '升冪，點擊切換降冪'"
+              @click="sortDescending = !sortDescending"
+            >
+              <span class="mdi" :class="sortDescending ? 'mdi-sort-descending' : 'mdi-sort-ascending'" />
+            </button>
+          </div>
+        </div>
+      </template>
 
-    <StateBlock
-      v-if="store.shelterAnimalsByShelterError"
-      state="error"
-      :message="store.shelterAnimalsByShelterError"
-      retryable
-      @retry="fetchPage"
-    />
+      <template #results>
+        <StateBlock
+          v-if="store.shelterAnimalsByShelterError"
+          state="error"
+          :message="store.shelterAnimalsByShelterError"
+          retryable
+          @retry="fetchPage"
+        />
 
-    <!-- shelterId 打錯、或這間收容所目前剛好沒有在養動物、或篩選條件太窄，三種情況後端都回傳空頁；
-         有沒有下篩選條件決定文案要不要提「調整篩選」這個出口 -->
-    <StateBlock
-      v-else-if="page && page.totalCount === 0"
-      state="empty"
-      icon="mdi-home-search-outline"
-      :message="hasActiveFilters ? '此篩選條件下查無在養動物' : '查無此收容所，或目前沒有在養動物資料'"
-      :hint="hasActiveFilters ? '可以按上方的「清除篩選」看全部' : undefined"
-    />
+        <!-- shelterId 打錯、或這間收容所目前剛好沒有在養動物、或篩選條件太窄，三種情況後端都回傳空頁；
+             有沒有下篩選條件決定文案要不要提「調整篩選」這個出口 -->
+        <StateBlock
+          v-else-if="page && page.totalCount === 0"
+          state="empty"
+          icon="mdi-home-search-outline"
+          :message="hasActiveFilters ? '此篩選條件下查無在養動物' : '查無此收容所，或目前沒有在養動物資料'"
+          :hint="hasActiveFilters ? '可以按上方的「清除篩選」看全部' : undefined"
+        />
 
-    <div v-else-if="page" class="table-section">
-      <div class="table-wrapper">
-        <table class="data-table">
-          <colgroup>
-            <col class="col-id" />
-            <col class="col-kind" />
-            <col class="col-sex" />
-            <col class="col-age" />
-            <col class="col-sterilization" />
-            <col class="col-variety" />
-            <col class="col-colour" />
-            <col class="col-place" />
-            <col class="col-date" />
-            <col class="col-album" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>編號</th>
-              <th>種類</th>
-              <th>性別</th>
-              <th>年齡</th>
-              <th>結紮</th>
-              <th>品種</th>
-              <th>毛色</th>
-              <th>拾獲地點</th>
-              <th>建檔日期</th>
-              <th>相簿</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="a in page.items" :key="a.id">
-              <td class="cell-mono">
-                <RouterLink :to="`/pet/shelter-map/animals/${a.id}`" class="animal-link">{{ a.animalSubId }}</RouterLink>
-              </td>
-              <td>{{ animalKindLabel(a.kind) }}</td>
-              <td>{{ animalSexLabel(a.sex) }}</td>
-              <td>{{ a.age || '—' }}</td>
-              <td>{{ sterilizationLabel(a.sterilization) }}</td>
-              <td>{{ a.variety || '—' }}</td>
-              <td>{{ a.colour || '—' }}</td>
-              <td class="cell-address" :title="a.foundPlace">{{ a.foundPlace || '—' }}</td>
-              <td class="cell-date">{{ a.createdTime }}</td>
-              <td>
-                <a v-if="isDisplayableAlbumLink(a.albumFile)" :href="a.albumFile" target="_blank" rel="noopener noreferrer" class="album-link">
-                  <span class="mdi mdi-image-multiple-outline" /> 查看
-                </a>
-                <span v-else class="cell-muted">—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <div v-else-if="page" class="table-section">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <colgroup>
+                <col class="col-id" />
+                <col class="col-kind" />
+                <col class="col-sex" />
+                <col class="col-age" />
+                <col class="col-sterilization" />
+                <col class="col-variety" />
+                <col class="col-colour" />
+                <col class="col-place" />
+                <col class="col-date" />
+                <col class="col-album" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>編號</th>
+                  <th>種類</th>
+                  <th>性別</th>
+                  <th>年齡</th>
+                  <th>結紮</th>
+                  <th>品種</th>
+                  <th>毛色</th>
+                  <th>拾獲地點</th>
+                  <th>建檔日期</th>
+                  <th>相簿</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="a in page.items" :key="a.id">
+                  <td class="cell-mono">
+                    <RouterLink :to="`/pet/shelter-map/animals/${a.id}`" class="animal-link">{{ a.animalSubId }}</RouterLink>
+                  </td>
+                  <td>{{ animalKindLabel(a.kind) }}</td>
+                  <td>{{ animalSexLabel(a.sex) }}</td>
+                  <td>{{ a.age || '—' }}</td>
+                  <td>{{ sterilizationLabel(a.sterilization) }}</td>
+                  <td>{{ a.variety || '—' }}</td>
+                  <td>{{ a.colour || '—' }}</td>
+                  <td class="cell-address" :title="a.foundPlace">{{ a.foundPlace || '—' }}</td>
+                  <td class="cell-date">{{ a.createdTime }}</td>
+                  <td>
+                    <a v-if="isDisplayableAlbumLink(a.albumFile)" :href="a.albumFile" target="_blank" rel="noopener noreferrer" class="album-link">
+                      <span class="mdi mdi-image-multiple-outline" /> 查看
+                    </a>
+                    <span v-else class="cell-muted">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-      <PagerBar
-        v-if="page.totalPages > 1"
-        :current-page="currentPage"
-        :total-pages="page.totalPages"
-        :total-count="page.totalCount"
-        :visible-pages="visiblePages"
-        :jump-page-input="jumpPageInput"
-        @change="changePage"
-        @update:jump-page-input="jumpPageInput = $event"
-        @jump="handleJumpPage"
-      />
-    </div>
+          <PagerBar
+            v-if="page.totalPages > 1"
+            :current-page="currentPage"
+            :total-pages="page.totalPages"
+            :total-count="page.totalCount"
+            :visible-pages="visiblePages"
+            :jump-page-input="jumpPageInput"
+            @change="changePage"
+            @update:jump-page-input="jumpPageInput = $event"
+            @jump="handleJumpPage"
+          />
+        </div>
+      </template>
+    </QueryLayout>
   </div>
 </template>
 
@@ -161,8 +163,7 @@ import { usePetStore } from '@/stores/pet'
 import { usePagination } from '@/composables/usePagination'
 import { animalKindLabel, animalSexLabel, isDisplayableAlbumLink, sterilizationLabel } from '@/utils/shelterAnimal'
 import type { AnimalKind, AnimalSex, ShelterAnimalSortByValue } from '@/api/pet'
-import PageHeader from '@/components/ui/PageHeader.vue'
-import FilterCard from '@/components/ui/FilterCard.vue'
+import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 
@@ -261,47 +262,39 @@ watch(() => props.shelterId, () => {
 </script>
 
 <style scoped>
-
-.back-link {
-  display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
-  text-decoration: none;
-}
-.back-link:hover { color: var(--green-600); }
-/* ── 篩選列（沿用 LegalBusinessView 的版面慣例） ── */
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-label {
-  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
-  letter-spacing: 0.05em; text-transform: uppercase;
-}
-.filter-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
-  min-width: 130px; cursor: pointer;
-}
-.filter-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
+/* 顏色全部改用 semantic 層（style tile §九）；返回連結與欄位外殼已收進 base.css。 */
+.filter-select { min-width: 130px; }
 
 .sort-control { display: flex; align-items: center; gap: var(--space-2); }
 .sort-dir-btn {
-  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-md); border: 1px solid var(--neutral-200); background: var(--neutral-0);
-  color: var(--neutral-500); cursor: pointer; flex-shrink: 0;
+  width: var(--control-h); height: var(--control-h);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-dim); cursor: pointer; flex-shrink: 0;
+  transition:
+    border-color var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work);
 }
-.sort-dir-btn:hover { border-color: var(--green-600); color: var(--green-600); }
-.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--neutral-400); font-size: var(--text-sm); margin-left: auto; }
+.sort-dir-btn:hover { border-color: var(--color-action); color: var(--color-action); }
+.sort-dir-btn:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
+
+.loading-hint { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-dim); font-size: var(--text-sm); }
 .loading-spinner-sm {
-  width: 14px; height: 14px; border: 2px solid var(--green-200); border-top-color: var(--green-600);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
+  width: 14px; height: 14px; border: 2px solid var(--seed-200); border-top-color: var(--color-action);
+  border-radius: var(--radius-full); animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.stat-text { margin-left: auto; font-size: var(--text-sm); color: var(--neutral-500); font-weight: var(--weight-medium); white-space: nowrap; }
+.stat-text { font-size: var(--text-sm); color: var(--color-text-dim); white-space: nowrap; }
 
-/* ── 狀態容器 ── */
 /* ── datagrid（沿用 LegalBusinessView 的表格慣例：高一點的可捲動容器，表頭黏頂） ── */
 .table-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .table-wrapper {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md); max-height: 720px; overflow: auto;
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  max-height: 720px; overflow: auto;
 }
 /* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 .data-table { min-width: 1020px; table-layout: fixed; }
@@ -317,13 +310,13 @@ watch(() => props.shelterId, () => {
 .col-date          { width: 110px; }
 .col-album         { width: 80px; }
 
-.cell-mono { font-family: monospace; font-size: var(--text-xs); color: var(--neutral-400); white-space: normal; word-break: break-all; }
-.animal-link { color: var(--green-600); font-weight: var(--weight-bold); text-decoration: none; }
+.cell-mono { font-family: var(--font-num); font-size: var(--text-xs); color: var(--color-text-dim); white-space: normal; word-break: break-all; }
+.animal-link { color: var(--color-action); font-weight: var(--weight-bold); text-decoration: none; }
 .animal-link:hover { text-decoration: underline; }
-.cell-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cell-date { white-space: nowrap; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .cell-address { white-space: normal; word-break: break-word; font-size: var(--text-xs); }
-.cell-muted { color: var(--neutral-400); }
+.cell-muted { color: var(--color-text-dim); }
 
-.album-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--info-500); text-decoration: none; white-space: nowrap; }
+.album-link { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--color-action); text-decoration: none; white-space: nowrap; }
 .album-link:hover { text-decoration: underline; }
 </style>
