@@ -4,6 +4,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
+import HomeView         from '@/views/HomeView.vue'
 import MarketView      from '@/views/MarketView.vue'
 import PricesView      from '@/views/market/PricesView.vue'
 import DisastersView   from '@/views/market/DisastersView.vue'
@@ -43,7 +44,7 @@ const router = createRouter({
   routes: [
     // 公開路由
     { path: '/login', name: 'login', component: LoginView },
-    { path: '/', name: 'home', redirect: '/market/prices' },
+    { path: '/', name: 'home', component: HomeView },
 
     // 市場（公開，巢狀）
     {
