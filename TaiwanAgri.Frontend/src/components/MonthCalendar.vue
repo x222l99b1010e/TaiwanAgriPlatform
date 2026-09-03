@@ -55,7 +55,7 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
-  box-shadow: var(--shadow-sm);
+
 }
 
 .month-calendar__title {

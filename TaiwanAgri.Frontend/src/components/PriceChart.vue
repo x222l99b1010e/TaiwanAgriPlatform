@@ -275,19 +275,17 @@ function exportChartImage() {
 </template>
 
 <style scoped>
+/* 這一張是 PricesView 已經包在 .card--lg 裡的內容，所以自己不再畫一層卡片外框——
+   顏色改用 semantic 層，陰影拿掉（style tile §三：卡片只用 1px 邊框＋底色差）。 */
 .chart-card {
-  background: var(--neutral-0);
-  border: 1px solid var(--neutral-200);
   border-radius: var(--radius-xl);
-  padding: var(--space-8) var(--space-8) var(--space-10);
-  animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: fadeUp var(--duration-slow) var(--ease-work);
   width: 100%;
   box-sizing: border-box;
-  box-shadow: var(--shadow-md);
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(var(--lift-work)); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -298,29 +296,31 @@ function exportChartImage() {
   flex-wrap: wrap;
   margin-bottom: var(--space-8);
   padding-bottom: var(--space-5);
-  border-bottom: 1px solid var(--neutral-200);
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .stat { display: flex; flex-direction: column; gap: var(--space-1); }
 
+/* 這一列是圖表上方的小字摘要，不是 base.css 那組大數字統計卡，所以刻意壓小一階 */
 .stat-label {
   font-size: var(--text-2xs);
-  color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.55 */
+  color: var(--color-text-dim);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .stat-value {
-  font-size: var(--text-base);              /* 從 13px → 14px */
-  color: var(--neutral-900);
+  font-family: var(--font-num);
+  font-size: var(--text-base);
+  color: var(--color-text);
   font-variant-numeric: tabular-nums;
-  font-weight: var(--weight-medium);             /* 加粗 */
+  font-weight: var(--weight-medium);
 }
 
 .sep {
   width: 1px;
   height: 36px;
-  background: var(--neutral-200);
+  background: var(--color-border);
   flex-shrink: 0;
 }
 

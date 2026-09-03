@@ -441,41 +441,229 @@ body {
   font-size: var(--text-sm);
 }
 
+/* 表頭不再上綠色底：綠是動作色，鋪在表頭上會讓整排欄位名稱看起來像可以點。
+   改成「比卡片深一階的中性底＋字距拉開的小字」，表頭的角色是標示不是強調。 */
 .data-table thead th {
   position: sticky;
   top: 0;
   z-index: var(--z-base);
-  background: var(--green-50);
-  color: var(--green-800);
+  background: var(--color-bg-sunken);
+  color: var(--color-text-dim);
   text-align: left;
   padding: var(--space-3) var(--space-4);
+  font-size: var(--text-xs);
   font-weight: var(--weight-bold);
+  letter-spacing: 0.05em;
   white-space: nowrap;
-  border-bottom: var(--border-width) solid var(--neutral-200);
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .data-table td {
   padding: var(--space-3) var(--space-4);
-  border-bottom: var(--border-width) solid var(--neutral-200);
-  color: var(--neutral-900);
+  border-bottom: var(--border-width) solid var(--color-border);
+  color: var(--color-text);
   vertical-align: top;
 }
 
-.data-table tbody tr:hover { background: var(--green-50); }
+/* hover 底色同樣不用綠：一整列變綠會被讀成「這一列被選取了」。
+   用最淺的中性底表示「游標在這一列」就夠。 */
+.data-table tbody tr { transition: background var(--duration-fast) var(--ease-work); }
+.data-table tbody tr:hover { background: var(--color-bg-sunken); }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table .num { text-align: right; }
+
+/* 數字欄一律靠右並等寬：等寬之後同一欄的個位數會對齊，掃一眼就看得出量級差異 */
+.data-table .num {
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
 
 /* 卡片內的次要表格：標頭不吸頂也不上底色，否則會跟卡片本身搶視覺 */
 .data-table--compact thead th {
   position: static;
   background: transparent;
-  color: var(--neutral-500);
+  color: var(--color-text-dim);
   font-size: var(--text-xs);
   padding: var(--space-2) var(--space-3);
-  border-bottom: 2px solid var(--neutral-200);
+  border-bottom: 2px solid var(--color-border);
 }
 
 .data-table--compact td { padding: var(--space-2) var(--space-3); }
+
+/* ── 表單欄位：標籤＋控制項 ────────────────────────────────────────────────
+   `.field-label` 在 15 個檔案裡各寫過一份、`.field-group` 14 份，而且其中大多數
+   引用的還是待刪的 --neutral- 舊色階。同一顆標籤在不同頁的顏色與字距不同，
+   是「兩頁擺在一起像兩個產品」最便宜的來源之一。 */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* 輸入框／下拉／多行輸入的共同外觀。高度吃 --control-h，跟同一排的按鈕同高。
+   ⚠ 一律加在原生的 input／select／textarea 上，不要包一層 div 再模擬——
+   原生元素自己帶鍵盤操作、表單驗證與螢幕閱讀器語意。 */
+.form-control {
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-work),
+    box-shadow var(--duration-fast) var(--ease-work);
+}
+.form-control:hover:not(:disabled) { border-color: var(--color-border-strong); }
+.form-control:focus {
+  outline: none;
+  border-color: var(--color-action);
+  box-shadow: var(--shadow-focus);
+}
+.form-control:disabled { opacity: 0.5; cursor: not-allowed; }
+.form-control::placeholder { color: var(--color-text-dim); }
+
+/* select 要留出右側箭頭的位置，textarea 是多行所以高度不能鎖死 */
+select.form-control { padding-inline-end: var(--space-2); cursor: pointer; }
+textarea.form-control {
+  padding: var(--space-3);
+  line-height: var(--leading-normal);
+  resize: vertical;
+}
+
+/* 錯誤態：邊框與焦點環一起換色，只把提示文字變紅是不夠的——
+   使用者的視線在輸入框上，不在下面那行小字 */
+.form-control.is-invalid { border-color: var(--danger-500); }
+.form-control.is-invalid:focus { box-shadow: var(--shadow-focus-danger); }
+
+.field-error {
+  font-size: var(--text-xs);
+  color: var(--danger-700);
+}
+
+/* ── 摘要統計列 ───────────────────────────────────────────────────────────
+   七個頁面各寫過一份。數字用 --color-brand（品牌綠本體）不是 --color-action：
+   這是資料強調，不是可以點的東西——動作綠只出現在可點的元素上。 */
+.summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.stat-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-family: var(--font-num);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--color-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 值是文字不是數字時（市場名稱、狀態），字級降一階並換回內文字型與墨色——
+   --font-num 是拉丁數字字型，中文落在它上面會 fallback 成另一套字 */
+.stat-value--text {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--color-text);
+}
+
+/* ── 分段控制器（一次只能選一個的切換列） ────────────────────────────────
+   蔬菜／水果／花卉、三個副指標、地圖／清單……這種「同一個設定的幾個值」原本在各頁
+   都做成幾顆各自獨立的按鈕，選中的那顆換色。問題是分開的按鈕看起來像幾個互不相干
+   的動作，而它們其實互斥。包在同一個外框裡用分隔線隔開，這件事不必讀文字就看得出來。
+
+   高度剛好湊成 --control-h（外框 1px × 2 ＋ 內部按鈕），跟旁邊的輸入框同高。 */
+.segmented {
+  display: inline-flex;
+  align-items: stretch;
+  /* 外層多半是 flex-direction: column，預設的 stretch 會把它拉滿整列寬 */
+  align-self: flex-start;
+  height: var(--control-h);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.segmented__btn {
+  padding: 0 var(--space-5);
+  border: none;
+  border-inline-end: var(--border-width) solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-dim);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work);
+}
+.segmented__btn:last-child { border-inline-end: none; }
+.segmented__btn:hover:not(:disabled):not(.is-active) {
+  background: var(--color-bg-sunken);
+  color: var(--color-text);
+}
+.segmented__btn.is-active {
+  background: var(--color-action-soft-2);
+  color: var(--color-action);
+  font-weight: var(--weight-medium);
+}
+.segmented__btn:focus-visible { outline: 2px solid var(--color-action); outline-offset: -2px; }
+.segmented__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── 卡片與區塊標題 ───────────────────────────────────────────────────────
+   卡片一律「1px 邊框＋底色差」，不給陰影（style tile §三）。 */
+.card {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+.card--lg { border-radius: var(--radius-xl); padding: var(--space-8); }
+
+.section-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--color-text);
+}
+
+.section-subtitle {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-dim);
+}
 
 /* ── 狀態標籤 ──────────────────────────────────────────────────────────────
    只定形狀與字級，顏色由各頁依語意自己給——同一顆標籤在不同頁代表的意思不同，
@@ -532,7 +720,7 @@ body {
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   border: var(--border-width) solid var(--info-100);
-  background: var(--white-a70);
+  background: var(--color-surface);
   color: var(--info-500);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
@@ -542,9 +730,13 @@ body {
 }
 
 .example-chip:hover {
-  background: var(--neutral-0);
+  background: var(--color-bg-sunken);
   border-color: var(--info-500);
-  box-shadow: var(--shadow-sm);
+}
+.example-chip:focus-visible {
+  outline: none;
+  border-color: var(--info-500);
+  box-shadow: var(--shadow-focus);
 }
 
 /* warn＝這筆資料有時效性；danger＝這筆資料已經被禁用。兩者不是同一件事，

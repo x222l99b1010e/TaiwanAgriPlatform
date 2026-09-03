@@ -108,9 +108,9 @@
           </div>
 
           <!-- 圖表 -->
-          <div class="chart-card">
+          <div class="chart-card card card--lg">
             <div class="chart-toolbar">
-              <span class="chart-title">家禽行情趨勢</span>
+              <span class="section-title">家禽行情趨勢</span>
               <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
                 匯出圖片
               </Btn>
@@ -125,7 +125,7 @@
           </div>
 
           <!-- 非常態資料明細 -->
-          <div class="abnormal-card" v-if="abnormalPoints.length > 0">
+          <div class="abnormal-card card card--lg" v-if="abnormalPoints.length > 0">
             <!-- 刻意不轉 Btn：這是整列可點的展開/收合標頭（width:100%、文字左對齊、
                  chevron 隨狀態換向），跟 Btn 的定寬藥丸鈕在結構上不同類，跟分頁/tab
                  一樣屬於「有自己選取態與排列邏輯」的排除範圍（見 Btn.vue 檔頭註解）。 -->
@@ -481,40 +481,19 @@ function exportChartImage() {
 .completeness-badge.low  { background: var(--danger-50); color: var(--danger-700); }
 
 
-/* 摘要列 */
-.summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap; }
-.stat-card {
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
-  display: flex; flex-direction: column; gap: var(--space-2);
-  box-shadow: var(--shadow-sm);
-}
-.stat-label {
-  font-size: var(--text-xs); color: var(--color-text-dim);
-  letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium);
-}
-/* 大數字用 --color-brand（品牌綠本體）而非 --color-action：這是資料強調，不是可點的東西 */
-.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--color-brand); }
+/* 摘要列與卡片外殼已收進 base.css 的 .summary-bar／.stat-*／.card，
+   卡片一律不給陰影（style tile §三），這裡只留這一頁真正不同的部分。 */
 
 /* 圖表卡片 */
-.chart-card {
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl); padding: var(--space-8) var(--space-8) var(--space-8);
-  box-shadow: var(--shadow-md);
-  margin-bottom: var(--space-6);
-}
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
-.chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--color-text); }
+.chart-card { margin-bottom: var(--space-6); }
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-6); }
 .canvas-wrap { position: relative; height: 460px; width: 100%; }
 /* 圖表下方的說明與圖表本身留一段距離，不然會像圖的一部分 */
 .chart-note { margin-top: var(--space-5); }
 
-/* 非常態資料明細 */
-.abnormal-card {
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl); padding: var(--space-5) var(--space-8);
-  box-shadow: var(--shadow-md);
-}
+/* 非常態資料明細：外殼走 .card--lg，只把上下內距收緊——這是一個可展開的列，
+   收合時就是一行字，用整張大卡片的 32px 上下內距會浮成一大塊空白 */
+.abnormal-card { padding-block: var(--space-5); }
 .btn-toggle-abnormal {
   display: flex; align-items: center; gap: var(--space-2);
   background: none; border: none; cursor: pointer;
