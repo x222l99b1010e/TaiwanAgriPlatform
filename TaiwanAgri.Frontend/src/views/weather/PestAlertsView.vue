@@ -435,14 +435,14 @@ onUnmounted(() => {
 .pest-alerts-view { min-width: 960px; }
 .alert-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-6); }
 
+/* 卡片不給陰影（style tile §三），hover 只換邊框顏色 */
 .alert-card {
-  background: var(--color-surface); border: 1px solid var(--color-border);
+  background: var(--color-surface); border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); cursor: pointer;
-  transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
-  box-shadow: var(--shadow-sm);
+  transition: border-color var(--duration-fast) var(--ease-work), background var(--duration-fast) var(--ease-work);
 }
-.alert-card:hover { box-shadow: var(--shadow-md); border-color: var(--seed-200); }
-.alert-card.expanded { border-color: var(--color-action); background: var(--seed-50); }
+.alert-card:hover { border-color: var(--color-border-strong); }
+.alert-card.expanded { border-color: var(--color-action); background: var(--color-action-soft); }
 
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 .card-meta { display: flex; align-items: center; gap: var(--space-3); }

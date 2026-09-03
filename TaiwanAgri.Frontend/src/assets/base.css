@@ -614,6 +614,11 @@ textarea.form-control {
   overflow: hidden;
 }
 
+/* 放在卡片工具列裡的小一號版本：那一列旁邊是 size="sm" 的按鈕，
+   用 40px 的版本會比隔壁高一截 */
+.segmented--sm { height: var(--control-h-sm); }
+.segmented--sm .segmented__btn { padding: 0 var(--space-4); font-size: var(--text-xs); }
+
 .segmented__btn {
   padding: 0 var(--space-5);
   border: none;
