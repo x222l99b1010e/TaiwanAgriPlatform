@@ -72,8 +72,11 @@ withDefaults(
 }
 
 .map-layout__canvas {
-  /* 地圖高度用視窗比例而不是固定 px：固定高度在筆電上會只剩一條縫 */
-  min-height: min(62vh, 620px);
+  /* 地圖高度用視窗比例而不是固定 px：固定高度在筆電上會只剩一條縫。
+     ⚠ 這裡要用 height 不能只用 min-height——地圖庫（Leaflet 之類）掛載的容器
+     一律用 height:100% 撐滿這一層，而百分比高度只認父層的「明確高度」，
+     min-height 不算，撐出來的容器高度會是 0，地圖會整片空白。 */
+  height: min(62vh, 620px);
 }
 
 .map-layout__legend {
