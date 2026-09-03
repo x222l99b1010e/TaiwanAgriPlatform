@@ -100,7 +100,6 @@ function handleLogout() {
   color: var(--color-on-deep);
   position: relative;
   z-index: var(--z-dropdown);
-  box-shadow: var(--shadow-md);
 }
 
 .top-nav-inner {
@@ -148,10 +147,10 @@ function handleLogout() {
   left: 0;
   min-width: 160px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-1) var(--space-2) var(--space-2);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);

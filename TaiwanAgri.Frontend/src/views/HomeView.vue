@@ -308,9 +308,9 @@ onMounted(() => {
 .stat-tile {
   padding: var(--space-8);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+
 }
 .stat-tile__label {
   display: block;
@@ -344,7 +344,7 @@ onMounted(() => {
   gap: var(--space-3);
   padding: var(--space-8) var(--space-6);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-xl);
   text-decoration: none;
   color: inherit;

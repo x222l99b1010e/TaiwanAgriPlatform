@@ -8,16 +8,17 @@
         <p class="card-subtitle">請登入以繼續</p>
       </div>
 
-      <!-- Tab 切換：登入 / 註冊 -->
-      <div class="tab-group">
+      <!-- Tab 切換：登入 / 註冊。用 base.css 的 .segmented，並補一個 --full 修飾子
+           讓它撐滿卡片寬——這一張卡片裡只有兩個選項，縮成內容寬會在右邊留一大塊空白 -->
+      <div class="segmented segmented--full tab-group">
         <button
-          class="tab-btn"
-          :class="{ active: mode === 'login' }"
+          class="segmented__btn"
+          :class="{ 'is-active': mode === 'login' }"
           @click="mode = 'login'"
         >登入</button>
         <button
-          class="tab-btn"
-          :class="{ active: mode === 'register' }"
+          class="segmented__btn"
+          :class="{ 'is-active': mode === 'register' }"
           @click="mode = 'register'"
         >註冊</button>
       </div>
@@ -27,7 +28,7 @@
         <div class="field-group">
           <label class="field-label">電子信箱</label>
           <input
-            class="field-input"
+            class="form-control field-input"
             type="email"
             v-model="email"
             placeholder="your@email.com"
@@ -38,7 +39,7 @@
         <div class="field-group">
           <label class="field-label">密碼</label>
           <input
-            class="field-input"
+            class="form-control field-input"
             type="password"
             v-model="password"
             placeholder="••••••••"
@@ -52,7 +53,7 @@
           <div class="field-group">
             <label class="field-label">確認密碼</label>
             <input
-              class="field-input"
+              class="form-control field-input"
               type="password"
               v-model="confirmPassword"
               placeholder="請再輸入一次密碼"
@@ -69,7 +70,7 @@
           <div class="field-group">
             <label class="field-label">顯示名稱（選填）</label>
             <input
-              class="field-input"
+              class="form-control field-input"
               type="text"
               v-model="displayName"
               placeholder="例如：信義區自耕農阿志頭"
@@ -79,7 +80,7 @@
 
           <div class="field-group">
             <label class="field-label">身份類型</label>
-            <select class="field-input" v-model="userType" :disabled="isLoading">
+            <select class="form-control field-input" v-model="userType" :disabled="isLoading">
               <option value="Farmer">農民</option>
               <option value="Consumer">消費者</option>
               <option value="Researcher">研究員</option>
@@ -198,23 +199,30 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
+/* 顏色全部改用 semantic 層（style tile §九）；欄位外殼走 base.css 的
+   .field-group／.field-label／.form-control／.field-error，分段控制器走 .segmented。
+
+   ⚠ 原本是 `min-height: 100vh`，但這一頁活在 TopNav（56px）與菜價橫幅（40px）
+   底下——100vh 會讓整頁一定比視窗高 96px，登入卡片被推到偏下、還多一條捲軸。
+   扣掉那兩層之後卡片才真的在視覺中央。 */
 .login-page {
-  min-height: 100vh;
+  min-height: calc(100vh - 56px - var(--control-h));
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--neutral-100);
-  padding: var(--space-6);
+  background: var(--color-bg-sunken);
+  padding: var(--space-8) var(--space-6);
 }
 
+/* 卡片不給陰影（style tile §三）。頁面底改用比卡片深一階的 --color-bg-sunken，
+   靠明度差把卡片浮起來——這正是決策 59.六說的「平坦的成因是底色與卡片一樣亮」。 */
 .login-card {
   width: 100%;
   max-width: 420px;
-  background: var(--neutral-0);
-  border: 1px solid var(--neutral-200);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: var(--space-10);
-  box-shadow: var(--shadow-lg);
 }
 
 /* Header */
@@ -225,7 +233,7 @@ async function handleSubmit() {
 
 .logo-icon {
   font-size: var(--text-3xl);
-  color: var(--green-600);
+  color: var(--color-brand);
   display: block;
   margin-bottom: var(--space-3);
 }
@@ -233,44 +241,16 @@ async function handleSubmit() {
 .card-title {
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
-  color: var(--neutral-900);
+  color: var(--color-text);
   margin-bottom: var(--space-2);
 }
 
 .card-subtitle {
   font-size: var(--text-base);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
 }
 
-/* Tab 切換 */
-.tab-group {
-  display: flex;
-  gap: var(--space-1);
-  background: var(--neutral-50);
-  border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg);
-  padding: var(--space-1);
-  margin-bottom: var(--space-6);
-}
-
-.tab-btn {
-  flex: 1;
-  padding: var(--space-2) 0;
-  border-radius: var(--radius-md);
-  border: none;
-  background: transparent;
-  color: var(--neutral-500);
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition: all var(--duration-fast);
-}
-
-.tab-btn.active {
-  background: var(--neutral-0);
-  color: var(--green-600);
-  box-shadow: var(--shadow-sm);
-}
+.tab-group { margin-bottom: var(--space-6); }
 
 /* 表單 */
 .form-body {
@@ -279,56 +259,15 @@ async function handleSubmit() {
   gap: var(--space-4);
 }
 
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.field-label {
-  font-size: var(--text-xs);
-  color: var(--neutral-400);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.field-input {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg);
-  background: var(--neutral-0);
-  color: var(--neutral-900);
-  font-size: var(--text-base);
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-
-.field-input:focus {
-  outline: none;
-  border-color: var(--green-600);
-  box-shadow: var(--shadow-focus);
-}
-
-.field-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.field-error {
-  font-size: var(--text-sm);
-  color: var(--danger-500);
-  font-weight: var(--weight-medium);
-}
-
 /* 錯誤訊息 */
 .error-box {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   background: var(--danger-50);
-  border: 1px solid var(--danger-100);
-  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--danger-100);
+  border-radius: var(--radius-md);
 }
 
 .error-icon {
@@ -346,15 +285,18 @@ async function handleSubmit() {
 
 .error-content p {
   font-size: var(--text-sm);
-  color: var(--danger-500);
+  color: var(--danger-700);
   line-height: var(--leading-normal);
   margin: 0;
 }
 
 /* 提交按鈕：外觀走共用的 Btn，這裡只補登入卡片特有的滿寬與高度——
-   登入頁只有一個動作，按鈕撐滿卡片寬度是這個版面的刻意設計，不是通用樣式。 */
+   登入頁只有一個動作，按鈕撐滿卡片寬度是這個版面的刻意設計，不是通用樣式。
+   高度也比一般動作按鈕高一階：它是整張卡片唯一的送出動作。 */
 .login-submit {
   width: 100%;
-  padding-block: var(--space-3);
+  min-height: 48px;
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
 }
 </style>
