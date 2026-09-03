@@ -84,6 +84,12 @@
             </div>
             <div class="canvas-wrap">
               <canvas ref="canvasRef" />
+              <!-- 預設全部隱藏：空白圖表補提示，避免看起來像壞掉 -->
+              <div v-if="visibleCount === 0" class="chart-empty-hint">
+                <span class="mdi mdi-gesture-tap chart-empty-hint__icon" />
+                <p class="chart-empty-hint__main">點上方圖例選擇要顯示的城市</p>
+                <span class="chart-empty-hint__sub">預設全部隱藏，避免多條線疊在一起看不清</span>
+              </div>
             </div>
           </div>
 
@@ -102,7 +108,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(r, i) in records" :key="i" :class="densityLevel(r.average)">
+                <tr v-for="(r, i) in pagedRecords" :key="i" :class="densityLevel(r.average)">
                   <td class="city-cell">{{ r.city }}</td>
                   <td class="town-cell">{{ r.town }}</td>
                   <td class="num">{{ r.year }}</td>
@@ -121,6 +127,22 @@
             <span class="legend-item"><i class="legend-swatch is-mid" />密度 3–9</span>
             <span class="legend-item"><i class="legend-swatch is-high" />密度 ≥ 10</span>
           </div>
+
+          <PagerBar
+            v-if="totalPages > 1"
+            class="decade-pager"
+            :current-page="currentPage"
+            :total-pages="totalPages"
+            :total-count="records.length"
+            :visible-pages="visiblePages"
+            :jump-page-input="jumpPageInput"
+            :page-size="pageSize"
+            :page-size-options="[50, 100, 200]"
+            @change="changePage"
+            @update:page-size="setPageSize"
+            @update:jump-page-input="jumpPageInput = $event"
+            @jump="handleJumpPage"
+          />
         </div>
       </template>
     </QueryLayout>
@@ -140,6 +162,8 @@ import { weatherApi, type PestDecadeResponseDto } from '@/api/weather'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import PagerBar from '@/components/PagerBar.vue'
+import { usePagination } from '@/composables/usePagination'
 import {
   seriesColor, seriesDash, pointBorderColor, lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
@@ -158,7 +182,17 @@ const isLoading      = ref(false)
 const hasQueried     = ref(false)
 const errorMsg       = ref('')
 const canvasRef      = ref<HTMLCanvasElement | null>(null)
-const allVisible     = ref(true)
+// 預設全部隱藏，起點是 false（按鈕顯示「全選」），由使用者自己點圖例選城市
+const allVisible     = ref(false)
+const visibleCount   = ref(0)
+const visibleCountPlugin = {
+  id: 'visibleCount',
+  afterUpdate(chart: Chart) {
+    visibleCount.value = chart.data.datasets.reduce(
+      (n, _d, i) => n + (chart.isDatasetVisible(i) ? 1 : 0), 0,
+    )
+  },
+}
 let   chartInstance: Chart | null = null
 
 // ── 統計 ─────────────────────────────────────────────
@@ -168,6 +202,24 @@ const cityCount = computed(() =>
 const maxAverage = computed(() => {
   const vals = records.value.map(r => r.average ?? 0)
   return vals.length ? Math.max(...vals) : 0
+})
+
+// ── 前端分頁 ──────────────────────────────────────────
+// 一種害蟲橫跨全台鄉鎮 × 多個旬別，列數常常上百，整頁列出來會很長。資料已全在 records
+// 記憶體裡，換頁只重切片、不重打 API，跟雨量頁同一套做法（onChange 因此是空的）。
+const {
+  pageSize, currentPage, jumpPageInput, visiblePages, totalPages,
+  changePage, handleJumpPage, setPageSize,
+} = usePagination({
+  storageKey: 'pestDecade.pageSize',
+  pageSizeOptions: [50, 100, 200],
+  defaultPageSize: 50,
+  totalCount: () => records.value.length,
+  onChange: () => {},
+})
+const pagedRecords = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return records.value.slice(start, start + pageSize.value)
 })
 
 // ── 旬標籤 ───────────────────────────────────────────
@@ -219,6 +271,9 @@ const chartData = computed(() => {
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
+    // 預設隱藏：一種害蟲橫跨全台多個城市，全畫出來線條互相蓋住。
+    // 讓使用者從圖例點開要比較的城市（owner 2026-09-04）
+    hidden: true,
   }))
 
   return { labels, datasets }
@@ -228,7 +283,8 @@ const chartData = computed(() => {
 function buildChart() {
   if (!canvasRef.value || !chartData.value.labels.length) return
   chartInstance?.destroy()
-  allVisible.value = true
+  // 新資料一律回到「全部隱藏」的起點，按鈕文字（全選）與圖表狀態才對得上
+  allVisible.value = false
 
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
@@ -237,7 +293,7 @@ function buildChart() {
     // 不是雨量。收進共用設定後單位由 spec 指定，抄一份就跟著抄一次的機會不再有。
     // 密度是「越少越好」的量，從 0 起跳才讀得出絕對高低，所以不開 fitY。
     options: lineChartOptions({ maxTicksLimit: 10 }),
-    plugins: [crosshairPlugin],
+    plugins: [crosshairPlugin, visibleCountPlugin],
   })
 }
 
@@ -286,6 +342,7 @@ async function handleQuery() {
   records.value = []
   try {
     records.value = await weatherApi.getPestDecade(selectedPest.value)
+    currentPage.value = 1   // 新查詢回到第一頁，否則會停在上次的頁碼看不到資料
   } catch {
     errorMsg.value = '查詢失敗，請稍後再試'
   } finally {
@@ -311,12 +368,33 @@ async function handleQuery() {
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
+/* 空狀態提示：預設全部隱藏時蓋在空白圖表上，不擋圖例互動 */
+.chart-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  pointer-events: none;
+  color: var(--color-text-dim);
+}
+.chart-empty-hint__icon { font-size: var(--text-4xl); color: var(--color-border-strong); }
+.chart-empty-hint__main { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.chart-empty-hint__sub { font-size: var(--text-xs); }
+
+/* 資料收在一個有高度上限的 data grid：內部自己捲、表頭吸頂，配合下方分頁，
+   整頁不會被上百列撐得很長（owner 2026-09-03 要求，跟雨量頁一致）。 */
 .table-wrap {
-  overflow-x: auto;
+  max-height: min(58vh, 620px);
+  overflow: auto;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
+.decade-pager { margin-top: var(--space-4); }
 /* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 
 .city-cell  { font-weight: var(--weight-bold); color: var(--color-text); }

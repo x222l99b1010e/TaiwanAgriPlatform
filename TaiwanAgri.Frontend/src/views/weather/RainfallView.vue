@@ -77,6 +77,13 @@
             </div>
             <div class="canvas-wrap">
               <canvas ref="canvasRef" />
+              <!-- 預設全部隱藏，畫面一開始是空的：補一個提示告訴使用者去點圖例，
+                   否則空白圖表看起來像壞掉。有任一條線顯示後就消失。 -->
+              <div v-if="visibleCount === 0" class="chart-empty-hint">
+                <span class="mdi mdi-gesture-tap chart-empty-hint__icon" />
+                <p class="chart-empty-hint__main">點上方圖例選擇要顯示的測站</p>
+                <span class="chart-empty-hint__sub">預設全部隱藏，避免十幾條線疊在一起看不清</span>
+              </div>
             </div>
           </div>
 
@@ -94,7 +101,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(r, i) in records" :key="i" :class="{ heavy: (r.hour24 ?? 0) >= 80 }">
+                <tr v-for="(r, i) in pagedRecords" :key="i" :class="{ heavy: (r.hour24 ?? 0) >= 80 }">
                   <td class="station-cell">{{ r.stationName }}</td>
                   <td class="num time-cell">{{ r.observedAt.replace('T', ' ').slice(0, 16) }}</td>
                   <td class="num">{{ r.hour3 ?? '—' }}</td>
@@ -112,6 +119,22 @@
             <span class="legend-item"><i class="legend-swatch is-moderate" />30–79 mm 中雨</span>
             <span class="legend-item"><i class="legend-swatch is-heavy" />≥ 80 mm 大雨（整列標記）</span>
           </div>
+
+          <PagerBar
+            v-if="totalPages > 1"
+            class="rainfall-pager"
+            :current-page="currentPage"
+            :total-pages="totalPages"
+            :total-count="records.length"
+            :visible-pages="visiblePages"
+            :jump-page-input="jumpPageInput"
+            :page-size="pageSize"
+            :page-size-options="[50, 100, 200]"
+            @change="changePage"
+            @update:page-size="setPageSize"
+            @update:jump-page-input="jumpPageInput = $event"
+            @jump="handleJumpPage"
+          />
         </div>
       </template>
     </QueryLayout>
@@ -133,6 +156,8 @@ import DateRangePicker from '@/components/DateRangePicker.vue'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import PagerBar from '@/components/PagerBar.vue'
+import { usePagination } from '@/composables/usePagination'
 import {
   seriesColor, seriesFill, seriesDash, pointBorderColor,
   lineChartOptions, crosshairPlugin,
@@ -169,6 +194,24 @@ const stationCount = computed(() =>
 const maxHour24 = computed(() => {
   const vals = records.value.map(r => r.hour24 ?? 0)
   return vals.length ? Math.max(...vals) : 0
+})
+
+// ── 前端分頁 ──────────────────────────────────────────
+// 單一縣市 × 一段區間 × 多測站，查回的列數常常很多，整頁列出來會非常長。資料已經全在
+// records 記憶體裡，分頁只是把當前頁切出來顯示，換頁不必重打 API，所以 onChange 是空的。
+const {
+  pageSize, currentPage, jumpPageInput, visiblePages, totalPages,
+  changePage, handleJumpPage, setPageSize,
+} = usePagination({
+  storageKey: 'rainfall.pageSize',
+  pageSizeOptions: [50, 100, 200],
+  defaultPageSize: 50,
+  totalCount: () => records.value.length,
+  onChange: () => {},
+})
+const pagedRecords = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return records.value.slice(start, start + pageSize.value)
 })
 
 // ── 圖表資料整理 ──────────────────────────────────────
@@ -208,6 +251,9 @@ const chartData = computed(() => {
       tension: 0.35,
       fill: false,
       spanGaps: true,
+      // 預設隱藏：一個縣市常常有十幾個測站，全畫出來是一團互相蓋住的線。
+      // 讓使用者從圖例自己點開要比較的那幾站（owner 2026-09-04）
+      hidden: true,
     }
   })
 
@@ -218,17 +264,30 @@ const chartData = computed(() => {
 function buildChart() {
   if (!canvasRef.value || !chartData.value.labels.length) return
   chartInstance?.destroy()
+  // 新資料一律回到「全部隱藏」的起點，按鈕文字（全選）與圖表狀態才不會對不上
+  allVisible.value = false
 
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
     // 雨量不開 fitY：0 mm 是有意義的基準（沒下雨），軸從 0 起跳才讀得出「這天幾乎沒雨」
     options: lineChartOptions({ unit: 'mm', maxTicksLimit: 10 }),
-    plugins: [crosshairPlugin],
+    // 第二個外掛回報「目前有幾條線顯示中」，給空狀態提示用（見 template 的 chart-empty-hint）
+    plugins: [crosshairPlugin, visibleCountPlugin],
   })
 }
 
-const allVisible = ref(true)
+// 預設全部隱藏，所以起點是 false（按鈕顯示「全選」）
+const allVisible = ref(false)
+const visibleCount = ref(0)
+const visibleCountPlugin = {
+  id: 'visibleCount',
+  afterUpdate(chart: Chart) {
+    visibleCount.value = chart.data.datasets.reduce(
+      (n, _d, i) => n + (chart.isDatasetVisible(i) ? 1 : 0), 0,
+    )
+  },
+}
 
 function toggleAllSeries() {
   if (!chartInstance) return
@@ -279,6 +338,7 @@ async function handleQuery() {
       startDate.value,
       endDate.value
     )
+    currentPage.value = 1   // 新查詢回到第一頁，否則會停在上次的頁碼看不到資料
   } catch {
     errorMsg.value = '查詢失敗，請稍後再試'
   } finally {
@@ -309,12 +369,33 @@ async function handleQuery() {
 
 .canvas-wrap { position: relative; height: 420px; width: 100%; }
 
+/* 空狀態提示：預設全部隱藏時蓋在空白圖表上。pointer-events:none 讓它不擋圖例互動 */
+.chart-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  pointer-events: none;
+  color: var(--color-text-dim);
+}
+.chart-empty-hint__icon { font-size: var(--text-4xl); color: var(--color-border-strong); }
+.chart-empty-hint__main { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.chart-empty-hint__sub { font-size: var(--text-xs); }
+
+/* 資料收在一個有高度上限的 data grid 裡，內部自己捲、表頭吸頂（.data-table thead 已是
+   sticky），配合下方分頁，整頁就不會被幾百列撐得很長（owner 2026-09-03 要求）。 */
 .table-wrap {
-  overflow-x: auto;
+  max-height: min(58vh, 620px);
+  overflow: auto;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
+.rainfall-pager { margin-top: var(--space-4); }
 /* 表格外殼已收進 base.css 的 .data-table，這裡只留這一頁真正不同的部分 */
 /* 大雨的列整列上色，比在某一格裡標記更容易掃到 */
 .data-table tbody tr.heavy { background: var(--warning-50); }

@@ -108,12 +108,24 @@
               <span class="section-title">
                 {{ metricOptions.find(m => m.key === activeMetric)?.label }} 趨勢
               </span>
-              <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
-                匯出圖片
-              </Btn>
+              <div class="toolbar-right">
+                <Btn variant="secondary" size="sm" @click="toggleAllSeries">
+                  {{ allVisible ? '全不選' : '全選' }}
+                </Btn>
+                <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
+                  匯出圖片
+                </Btn>
+              </div>
             </div>
             <div class="canvas-wrap">
               <canvas ref="canvasRef" />
+              <!-- 預設全部隱藏：一次查回十幾個縣市市場，全畫出來是一團線。
+                   空白圖表補提示，讓使用者從圖例自己點要比較的市場 -->
+              <div v-if="visibleCount === 0" class="chart-empty-hint">
+                <span class="mdi mdi-gesture-tap chart-empty-hint__icon" />
+                <p class="chart-empty-hint__main">點上方圖例選擇要顯示的市場</p>
+                <span class="chart-empty-hint__sub">預設全部隱藏，避免多個市場的線疊在一起看不清</span>
+              </div>
             </div>
           </div>
         </div>
@@ -164,7 +176,27 @@ const isLoading    = ref(false)
 const hasQueried   = ref(false)
 const errorMsg     = ref('')
 const canvasRef    = ref<HTMLCanvasElement | null>(null)
+// 預設全部隱藏，起點是 false（按鈕顯示「全選」）
+const allVisible   = ref(false)
+const visibleCount = ref(0)
+const visibleCountPlugin = {
+  id: 'visibleCount',
+  afterUpdate(chart: Chart) {
+    visibleCount.value = chart.data.datasets.reduce(
+      (n, _d, i) => n + (chart.isDatasetVisible(i) ? 1 : 0), 0,
+    )
+  },
+}
 let   chartInstance: Chart | null = null
+
+function toggleAllSeries() {
+  if (!chartInstance) return
+  const meta = chartInstance.data.datasets.map((_, i) => chartInstance!.getDatasetMeta(i))
+  const next = !allVisible.value
+  meta.forEach(m => { m.hidden = !next })
+  allVisible.value = next
+  chartInstance.update()
+}
 
 // ── computed：從原始資料萃取市場清單 ─────────────────────────────────────
 // 知識點：market 清單不是從 API 獨立撈的
@@ -226,6 +258,8 @@ const chartData = computed(() => {
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
+    // 預設隱藏：讓使用者從圖例自己點要比較的市場（owner 2026-09-04）
+    hidden: true,
   }))
 
   return { labels, datasets }
@@ -235,6 +269,8 @@ const chartData = computed(() => {
 function buildChart() {
   if (!canvasRef.value || !chartData.value.labels.length) return
   chartInstance?.destroy()
+  // 新資料一律回到「全部隱藏」的起點，按鈕文字（全選）與圖表狀態才對得上
+  allVisible.value = false
 
   const unit = metricOptions.find(m => m.key === activeMetric.value)?.unit ?? ''
 
@@ -244,7 +280,7 @@ function buildChart() {
     // 毛豬的三個指標（價格／頭數／重量）數字級距差很多，但每一個都是小幅波動，
     // 所以一律讓 y 軸貼著資料範圍，不要從 0 起跳
     options: lineChartOptions({ unit, fitY: 2 }),
-    plugins: [crosshairPlugin],
+    plugins: [crosshairPlugin, visibleCountPlugin],
   })
 }
 
@@ -343,5 +379,23 @@ function exportChartImage() {
   gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
 .canvas-wrap { position: relative; height: 500px; width: 100%; }
+
+/* 空狀態提示：預設全部隱藏時蓋在空白圖表上，不擋圖例互動 */
+.chart-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  pointer-events: none;
+  color: var(--color-text-dim);
+}
+.chart-empty-hint__icon { font-size: var(--text-4xl); color: var(--color-border-strong); }
+.chart-empty-hint__main { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.chart-empty-hint__sub { font-size: var(--text-xs); }
 </style>
