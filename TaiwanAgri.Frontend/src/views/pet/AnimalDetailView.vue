@@ -9,69 +9,76 @@
 -->
 <template>
   <div class="page animal-detail-view">
-    <RouterLink :to="backLink" class="back-link">
-      <span class="mdi mdi-arrow-left" /> 回收容所詳情
-    </RouterLink>
-
-    <StateBlock v-if="store.isLoadingShelterAnimalDetail" class="content-sm" state="loading" message="資料載入中..." />
-    <StateBlock
-      v-else-if="store.shelterAnimalDetailError"
-      class="content-sm"
-      state="error"
-      :message="store.shelterAnimalDetailError"
-      retryable
-      @retry="fetchDetail"
-    />
-
-    <article v-else-if="animal" class="detail-card">
-      <div class="detail-header">
-        <span class="badge kind-badge">{{ animalKindLabel(animal.kind) }}</span>
-        <span class="badge sex-badge">{{ animalSexLabel(animal.sex) }}</span>
-      </div>
-
-      <h2 class="detail-title">{{ animal.animalSubId }}</h2>
-      <p class="detail-meta">
+    <!-- 返回列由 DetailLayout 提供，而且是在資料載入前就先畫出來：原本的寫法是
+         標題與返回連結各自獨立，載入失敗時畫面上只剩一則錯誤，回去的路要靠瀏覽器上一頁。 -->
+    <DetailLayout
+      :title="animal?.animalSubId ?? '收容動物詳情'"
+      :back-to="backLink"
+      back-label="回收容所詳情"
+    >
+      <template v-if="animal" #subtitle>
         <RouterLink :to="`/pet/shelter-map/${animal.shelterPkId}`" class="shelter-link">
           {{ animal.shelterName }}
         </RouterLink>
         （{{ animal.county }}）・{{ animal.shelterAddress }}
-      </p>
+      </template>
 
-      <div class="info-grid">
-        <div class="info-item"><span class="info-label">體型</span><span class="info-value">{{ animal.bodyType || '—' }}</span></div>
-        <div class="info-item"><span class="info-label">年齡</span><span class="info-value">{{ animal.age || '—' }}</span></div>
-        <div class="info-item"><span class="info-label">結紮</span><span class="info-value">{{ sterilizationLabel(animal.sterilization) }}</span></div>
-        <div class="info-item"><span class="info-label">疫苗</span><span class="info-value">{{ bacterinLabel(animal.bacterin) }}</span></div>
-        <div class="info-item"><span class="info-label">品種</span><span class="info-value">{{ animal.variety || '—' }}</span></div>
-        <div class="info-item"><span class="info-label">毛色</span><span class="info-value">{{ animal.colour || '—' }}</span></div>
-        <div class="info-item"><span class="info-label">建檔日期</span><span class="info-value">{{ animal.createdTime }}</span></div>
-        <div v-if="animal.openDate" class="info-item"><span class="info-label">開放認養日</span><span class="info-value">{{ animal.openDate }}</span></div>
-      </div>
+      <template v-if="animal" #summary>
+        <div class="detail-header">
+          <span class="badge kind-badge">{{ animalKindLabel(animal.kind) }}</span>
+          <span class="badge sex-badge">{{ animalSexLabel(animal.sex) }}</span>
+        </div>
+      </template>
 
-      <p v-if="animal.foundPlace" class="detail-line">
-        <span class="mdi mdi-map-marker-outline" /> 拾獲地點：{{ animal.foundPlace }}
-      </p>
-      <p v-if="animal.remark" class="detail-remark">{{ animal.remark }}</p>
+      <StateBlock v-if="store.isLoadingShelterAnimalDetail" state="loading" message="資料載入中..." />
+      <StateBlock
+        v-else-if="store.shelterAnimalDetailError"
+        state="error"
+        :message="store.shelterAnimalDetailError"
+        retryable
+        @retry="fetchDetail"
+      />
 
-      <div class="detail-actions">
-        <a
-          v-if="isDisplayableAlbumLink(animal.albumFile)"
-          :href="animal.albumFile" target="_blank" rel="noopener noreferrer" class="action-link"
-        >
-          <span class="mdi mdi-image-multiple-outline" /> 查看相簿／照片
-        </a>
-        <a
-          v-if="animal.latitude != null && animal.longitude != null"
-          :href="googleMapsLink(animal.latitude, animal.longitude)" target="_blank" rel="noopener noreferrer" class="action-link"
-        >
-          <span class="mdi mdi-map-marker" /> 在 Google 地圖開啟收容所位置
-        </a>
-      </div>
-    </article>
+      <template v-else-if="animal">
+        <div class="info-grid">
+          <div class="info-item"><span class="info-label">體型</span><span class="info-value">{{ animal.bodyType || '—' }}</span></div>
+          <div class="info-item"><span class="info-label">年齡</span><span class="info-value">{{ animal.age || '—' }}</span></div>
+          <div class="info-item"><span class="info-label">結紮</span><span class="info-value">{{ sterilizationLabel(animal.sterilization) }}</span></div>
+          <div class="info-item"><span class="info-label">疫苗</span><span class="info-value">{{ bacterinLabel(animal.bacterin) }}</span></div>
+          <div class="info-item"><span class="info-label">品種</span><span class="info-value">{{ animal.variety || '—' }}</span></div>
+          <div class="info-item"><span class="info-label">毛色</span><span class="info-value">{{ animal.colour || '—' }}</span></div>
+          <div class="info-item"><span class="info-label">建檔日期</span><span class="info-value">{{ animal.createdTime }}</span></div>
+          <div v-if="animal.openDate" class="info-item"><span class="info-label">開放認養日</span><span class="info-value">{{ animal.openDate }}</span></div>
+        </div>
+
+        <div v-if="animal.foundPlace || animal.remark" class="detail-text">
+          <p v-if="animal.foundPlace" class="detail-line">
+            <span class="mdi mdi-map-marker-outline" /> 拾獲地點：{{ animal.foundPlace }}
+          </p>
+          <p v-if="animal.remark" class="detail-remark">{{ animal.remark }}</p>
+        </div>
+
+        <div class="detail-actions">
+          <a
+            v-if="isDisplayableAlbumLink(animal.albumFile)"
+            :href="animal.albumFile" target="_blank" rel="noopener noreferrer" class="action-link"
+          >
+            <span class="mdi mdi-image-multiple-outline" /> 查看相簿／照片
+          </a>
+          <a
+            v-if="animal.latitude != null && animal.longitude != null"
+            :href="googleMapsLink(animal.latitude, animal.longitude)" target="_blank" rel="noopener noreferrer" class="action-link"
+          >
+            <span class="mdi mdi-map-marker" /> 在 Google 地圖開啟收容所位置
+          </a>
+        </div>
+      </template>
+    </DetailLayout>
   </div>
 </template>
 
 <script setup lang="ts">
+import DetailLayout from '@/components/layouts/DetailLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import { computed, onMounted, watch } from 'vue'
 import { usePetStore } from '@/stores/pet'
@@ -99,49 +106,39 @@ watch(() => props.animalId, fetchDetail)
 </script>
 
 <style scoped>
-
-.back-link {
-  display: inline-flex; align-items: center; gap: var(--space-1);
-  margin-bottom: var(--space-5); color: var(--neutral-500); font-size: var(--text-sm); font-weight: var(--weight-medium);
-  text-decoration: none;
-}
-.back-link:hover { color: var(--green-600); }
-
-/* ── 內容卡片 ──
-   詳情頁是單欄文字，內容自己限寬並靠左——頁面容器本身維持 .page 的統一寬度，
-   所以返回連結與頁首的左邊界跟其他頁對齊，不會因為這頁比較窄就整片內縮。 */
-.detail-card {
-  max-width: var(--container-sm);
-  display: flex; flex-direction: column; gap: var(--space-4);
-  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
-  padding: var(--space-8); box-shadow: var(--shadow-sm);
-}
-
+/* 返回列、標題、限寬都由 DetailLayout 負責，這裡只留這一頁的內容樣式；
+   顏色全部改用 semantic 層（style tile §九）。 */
 .detail-header { display: flex; gap: var(--space-2); }
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
-.kind-badge { background: var(--green-100); color: var(--green-600); }
+.kind-badge { background: var(--color-action-soft-2); color: var(--color-action); }
 .sex-badge { background: var(--info-50); color: var(--info-500); }
 
-.detail-title { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--neutral-900); font-family: monospace; }
-.detail-meta { font-size: var(--text-sm); color: var(--neutral-400); }
-.shelter-link { color: var(--green-600); font-weight: var(--weight-medium); text-decoration: none; }
+.shelter-link { color: var(--color-action); font-weight: var(--weight-medium); text-decoration: none; }
 .shelter-link:hover { text-decoration: underline; }
 
 .info-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3) var(--space-5);
-  padding: var(--space-4) 0; border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 .info-item { display: flex; flex-direction: column; gap: var(--space-1); }
-.info-label { font-size: var(--text-2xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.04em; }
-.info-value { font-size: var(--text-base); color: var(--neutral-900); font-weight: var(--weight-medium); }
+.info-label { font-size: var(--text-2xs); color: var(--color-text-dim); font-weight: var(--weight-medium); letter-spacing: 0.04em; }
+.info-value { font-size: var(--text-base); color: var(--color-text); font-weight: var(--weight-medium); }
 
-.detail-line { font-size: var(--text-base); color: var(--neutral-900); }
-.detail-remark { font-size: var(--text-base); color: var(--neutral-500); line-height: var(--leading-normal); white-space: pre-wrap; }
+.detail-text { display: flex; flex-direction: column; gap: var(--space-3); }
+.detail-line { font-size: var(--text-base); color: var(--color-text); }
+.detail-remark { font-size: var(--text-base); color: var(--color-text-dim); line-height: var(--leading-normal); white-space: pre-wrap; }
 
-.detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--neutral-200); }
+.detail-actions {
+  display: flex; flex-wrap: wrap; gap: var(--space-4);
+  padding-top: var(--space-4); border-top: var(--border-width) solid var(--color-border);
+}
+/* 外部連結用動作色，不用藍：藍在這一版沒有「可點」的語意 */
 .action-link {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  color: var(--info-500); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
+  color: var(--color-action); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none;
 }
 .action-link:hover { text-decoration: underline; }
 </style>

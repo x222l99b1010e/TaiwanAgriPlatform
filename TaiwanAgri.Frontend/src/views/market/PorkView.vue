@@ -1,43 +1,11 @@
 <template>
   <div class="page pork-view">
-    <PageHeader
+    <QueryLayout
       title="毛豬行情查詢"
+      title-en="HOG PRICES"
       subtitle="毛豬拍賣的成交均價、交易頭數與平均重量，查詢後可再依單一市場篩選"
-    />
-
-    <FilterCard layout="stack">
-      <div class="filter-row">
-        <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
-
-        <div class="field-group">
-          <label class="field-label">市場</label>
-          <select class="market-select" v-model="selectedMarket" :disabled="!hasQueried">
-            <option value="">全部市場</option>
-            <option v-for="name in availableMarkets" :key="name" :value="name">
-              {{ name }}
-            </option>
-          </select>
-          <!-- 提示放在 select 正下方 -->
-          <HintBox v-if="!hasQueried">
-            請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
-          </HintBox>
-          <HintBox v-else-if="availableMarkets.length > 0" tone="success">
-            已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
-          </HintBox>
-        </div>
-
-        <div class="metric-tabs">
-          <button
-            v-for="m in metricOptions"
-            :key="m.key"
-            class="metric-tab"
-            :class="{ active: activeMetric === m.key }"
-            @click="activeMetric = m.key"
-          >{{ m.label }}</button>
-        </div>
-      </div>
-
-      <div class="action-row">
+    >
+      <template #actions>
         <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
           {{ isLoading ? '查詢中...' : '查詢行情' }}
         </Btn>
@@ -50,61 +18,119 @@
           icon="mdi-filter-remove-outline"
           @click="selectedMarket = ''"
         >顯示全部市場</Btn>
-      </div>
-    </FilterCard>
+      </template>
 
-    <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間後按下查詢行情" />
-    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
-    <StateBlock
-      v-else-if="errorMsg"
-      state="error"
-      :message="errorMsg"
-      retryable
-      @retry="handleQuery"
-    />
-    <StateBlock
-      v-else-if="chartData.datasets.length === 0"
-      state="empty"
-      message="查無資料"
-      hint="請調整日期區間或市場篩選後重試"
-    />
+      <template #filters>
+        <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
 
-    <div v-else>
-      <!-- 摘要統計列 -->
-      <div class="summary-bar">
-        <div class="stat-card">
-          <span class="stat-label">市場數</span>
-          <span class="stat-value">{{ availableMarkets.length }}</span>
+        <div class="field-group">
+          <label class="field-label" for="pork-market">市場</label>
+          <select
+            id="pork-market"
+            class="form-control market-select"
+            v-model="selectedMarket"
+            :disabled="!hasQueried"
+          >
+            <option value="">全部市場</option>
+            <option v-for="name in availableMarkets" :key="name" :value="name">
+              {{ name }}
+            </option>
+          </select>
         </div>
-        <div class="stat-card">
-          <span class="stat-label">資料筆數</span>
-          <span class="stat-value">{{ filteredData.length }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">最高均價</span>
-          <span class="stat-value">{{ maxPrice }} 元</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">最低均價</span>
-          <span class="stat-value">{{ minPrice }} 元</span>
-        </div>
-      </div>
 
-      <!-- 圖表 -->
-      <div class="chart-card">
-        <div class="chart-toolbar">
-          <span class="chart-title">
-            {{ metricOptions.find(m => m.key === activeMetric)?.label }} 趨勢
-          </span>
-          <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
-            匯出圖片
-          </Btn>
+        <div class="field-group">
+          <span class="field-label">副指標</span>
+          <div class="segmented">
+            <button
+              v-for="m in metricOptions"
+              :key="m.key"
+              class="segmented__btn"
+              :class="{ 'is-active': activeMetric === m.key }"
+              @click="activeMetric = m.key"
+            >{{ m.label }}</button>
+          </div>
         </div>
-        <div class="canvas-wrap">
-          <canvas ref="canvasRef" />
+      </template>
+
+      <!-- 市場下拉要等查詢回來才有選項可選，這件事沒有說明就會被當成「壞掉了」。
+           說明從 select 底下移到 hint 插槽：那裡是這一頁所有說明的固定位置，
+           擠在欄位底下會把整排篩選列撐高、與旁邊的欄位對不齊。 -->
+      <template #hint>
+        <HintBox v-if="!hasQueried">
+          請先按「查詢行情」載入資料，查詢完成後可從市場下拉選擇單一市場篩選
+        </HintBox>
+        <HintBox v-else-if="availableMarkets.length > 0" tone="success">
+          已載入 {{ availableMarkets.length }} 個市場的資料，可從上方下拉選擇單一市場篩選
+        </HintBox>
+      </template>
+
+      <template #results>
+        <StateBlock v-if="!hasQueried" state="hint" message="請設定日期區間後按下查詢行情" />
+        <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+        <StateBlock
+          v-else-if="errorMsg"
+          state="error"
+          :message="errorMsg"
+          retryable
+          @retry="handleQuery"
+        />
+        <StateBlock
+          v-else-if="chartData.datasets.length === 0"
+          state="empty"
+          message="查無資料"
+          hint="請調整日期區間或市場篩選後重試"
+        />
+
+        <div v-else>
+          <!-- 摘要統計列 -->
+          <div class="summary-bar">
+            <div class="stat-card">
+              <span class="stat-label">市場數</span>
+              <span class="stat-value">{{ availableMarkets.length }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">資料筆數</span>
+              <span class="stat-value">{{ filteredData.length }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">最高均價</span>
+              <span class="stat-value">{{ maxPrice }}<span class="stat-unit">元</span></span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">最低均價</span>
+              <span class="stat-value">{{ minPrice }}<span class="stat-unit">元</span></span>
+            </div>
+          </div>
+
+          <!-- 圖表 -->
+          <div class="chart-card card card--lg">
+            <div class="chart-toolbar">
+              <span class="section-title">
+                {{ metricOptions.find(m => m.key === activeMetric)?.label }} 趨勢
+              </span>
+              <div class="toolbar-right">
+                <Btn variant="secondary" size="sm" @click="toggleAllSeries">
+                  {{ allVisible ? '全不選' : '全選' }}
+                </Btn>
+                <Btn variant="secondary" size="sm" icon="mdi-image-outline" @click="exportChartImage">
+                  匯出圖片
+                </Btn>
+              </div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas ref="canvasRef" />
+              <!-- 預設全部隱藏：一次查回十幾個縣市市場，全畫出來是一團線。
+                   空白圖表補提示，讓使用者從圖例自己點要比較的市場 -->
+              <div v-if="visibleCount === 0" class="chart-empty-hint">
+                <span class="mdi mdi-gesture-tap chart-empty-hint__icon" />
+                <p class="chart-empty-hint__main">點上方圖例選擇要顯示的市場</p>
+                <span class="chart-empty-hint__sub">預設全部隱藏，避免多個市場的線疊在一起看不清</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </QueryLayout>
   </div>
 </template>
 
@@ -115,18 +141,17 @@ import {
   LineElement, PointElement, LineController,
   CategoryScale, LinearScale,
   Tooltip, Legend,
-  type ChartDataset, type Scale,
+  type ChartDataset,
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PorkResponseDto } from '@/api/market'
-import PageHeader from '@/components/ui/PageHeader.vue'
-import FilterCard from '@/components/ui/FilterCard.vue'
+import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import HintBox from '@/components/ui/HintBox.vue'
 import {
-  seriesColor, pointBorderColor, exportBackground,
-  axisTicks, axisGrid, axisBorder, tooltipStyle, legendLabels,
+  seriesColor, seriesDash, pointBorderColor, exportBackground,
+  lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
@@ -151,7 +176,27 @@ const isLoading    = ref(false)
 const hasQueried   = ref(false)
 const errorMsg     = ref('')
 const canvasRef    = ref<HTMLCanvasElement | null>(null)
+// 預設全部隱藏，起點是 false（按鈕顯示「全選」）
+const allVisible   = ref(false)
+const visibleCount = ref(0)
+const visibleCountPlugin = {
+  id: 'visibleCount',
+  afterUpdate(chart: Chart) {
+    visibleCount.value = chart.data.datasets.reduce(
+      (n, _d, i) => n + (chart.isDatasetVisible(i) ? 1 : 0), 0,
+    )
+  },
+}
 let   chartInstance: Chart | null = null
+
+function toggleAllSeries() {
+  if (!chartInstance) return
+  const meta = chartInstance.data.datasets.map((_, i) => chartInstance!.getDatasetMeta(i))
+  const next = !allVisible.value
+  meta.forEach(m => { m.hidden = !next })
+  allVisible.value = next
+  chartInstance.update()
+}
 
 // ── computed：從原始資料萃取市場清單 ─────────────────────────────────────
 // 知識點：market 清單不是從 API 獨立撈的
@@ -203,6 +248,7 @@ const chartData = computed(() => {
     label: marketName,
     data: labels.map(date => dateMap[date] ?? null),  // 該日期沒資料 → null（Chart.js 會跳過）
     borderColor: seriesColor(i),
+    borderDash: seriesDash(i),   // 顏色以外的第二個線索，見 chartTheme.seriesDash
     backgroundColor: 'transparent',
     borderWidth: 2,
     pointRadius: labels.length <= 90 ? 3 : 0,
@@ -212,6 +258,8 @@ const chartData = computed(() => {
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
+    // 預設隱藏：讓使用者從圖例自己點要比較的市場（owner 2026-09-04）
+    hidden: true,
   }))
 
   return { labels, datasets }
@@ -221,51 +269,18 @@ const chartData = computed(() => {
 function buildChart() {
   if (!canvasRef.value || !chartData.value.labels.length) return
   chartInstance?.destroy()
+  // 新資料一律回到「全部隱藏」的起點，按鈕文字（全選）與圖表狀態才對得上
+  allVisible.value = false
 
   const unit = metricOptions.find(m => m.key === activeMetric.value)?.unit ?? ''
 
   chartInstance = new Chart(canvasRef.value, {
     type: 'line',
     data: chartData.value,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          ticks: {
-            maxTicksLimit: 12,
-            ...axisTicks(),
-            callback(this: Scale, val, index) {
-              return this.getLabelForValue(index) ?? String(val)
-            },
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-        y: {
-          ticks: {
-            ...axisTicks(),
-            callback: (val) => `${val} ${unit}`,
-          },
-          grid:   axisGrid(),
-          border: axisBorder(),
-        },
-      },
-      plugins: {
-        tooltip: {
-          ...tooltipStyle(),
-          callbacks: {
-            label: (ctx) =>
-              ctx.parsed.y !== null ? ` ${ctx.dataset.label}：${ctx.parsed.y} ${unit}` : '',
-          },
-        },
-        legend: {
-          position: 'top',
-          labels: legendLabels(),
-        },
-      },
-    },
+    // 毛豬的三個指標（價格／頭數／重量）數字級距差很多，但每一個都是小幅波動，
+    // 所以一律讓 y 軸貼著資料範圍，不要從 0 起跳
+    options: lineChartOptions({ unit, fitY: 2 }),
+    plugins: [crosshairPlugin, visibleCountPlugin],
   })
 }
 
@@ -343,69 +358,44 @@ function exportChartImage() {
 </script>
 
 <style scoped>
+/* 顏色全部改用 semantic 層（style tile §九）；篩選欄位、摘要列、分段控制器與卡片
+   外殼都已收進 base.css，這裡只留這一頁真正不同的部分。 */
 .pork-view { min-width: 960px; }
-/* 篩選區 */
-.filter-row { display: flex; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
-.action-row { display: flex; align-items: center; gap: var(--space-3); }
 
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-label {
-  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
-  letter-spacing: 0.05em; text-transform: uppercase;
-}
+.market-select { min-width: 180px; }
 
-.market-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
-  min-width: 180px; cursor: pointer;
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.market-select:focus {
-  outline: none; border-color: var(--green-600);
-  box-shadow: var(--shadow-focus);
+/* 單位跟著數字走，但不搶數字的份量：小一階、換成次要文字色 */
+.stat-unit {
+  margin-inline-start: var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  color: var(--color-text-dim);
 }
 
-/* 指標切換 */
-.metric-tabs {
-  display: flex; gap: var(--space-1);
-  background: var(--neutral-50); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-md); padding: var(--space-1); align-self: flex-end;
-}
-.metric-tab {
-  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); border: none;
-  background: transparent; color: var(--neutral-500);
-  font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; transition: all var(--duration-fast);
-}
-.metric-tab:hover { color: var(--neutral-900); }
-.metric-tab.active { background: var(--green-100); color: var(--green-600); font-weight: var(--weight-bold); }
-
-/* 按鈕 */
-/* 摘要列 */
-.summary-bar {
-  display: flex; gap: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap;
-}
-.stat-card {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
-  display: flex; flex-direction: column; gap: var(--space-2);
-  box-shadow: var(--shadow-sm);
-}
-.stat-label {
-  font-size: var(--text-xs); color: var(--neutral-500);
-  letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium);
-}
-.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--green-800); }
-
-/* 圖表卡片 */
-.chart-card {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-xl); padding: var(--space-8) var(--space-8) var(--space-10);
-  box-shadow: var(--shadow-md);
-}
+.chart-card { padding-bottom: var(--space-10); }
 .chart-toolbar {
   display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
-.chart-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-700); }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
 .canvas-wrap { position: relative; height: 500px; width: 100%; }
+
+/* 空狀態提示：預設全部隱藏時蓋在空白圖表上，不擋圖例互動 */
+.chart-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  pointer-events: none;
+  color: var(--color-text-dim);
+}
+.chart-empty-hint__icon { font-size: var(--text-4xl); color: var(--color-border-strong); }
+.chart-empty-hint__main { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.chart-empty-hint__sub { font-size: var(--text-xs); }
 </style>

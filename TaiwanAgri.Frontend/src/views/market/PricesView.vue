@@ -1,82 +1,96 @@
 <template>
   <div class="page prices-view">
-    <PageHeader
+    <QueryLayout
       title="作物行情查詢"
+      title-en="CROP PRICES"
       subtitle="蔬菜、水果、花卉在各批發市場的每日交易均價，可同時比較多項作物並疊上同期天災警戒"
-    />
-
-    <FilterCard layout="stack">
-      <MarketFilter />
-      <div class="filter-bottom">
-        <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
-        <div class="action-row">
-          <Btn
-            icon="mdi-magnify"
-            :loading="isLoading"
-            :disabled="store.selectedCropCodes.length === 0"
-            @click="handleQuery"
-          >{{ isLoading ? '查詢中...' : '查詢價格' }}</Btn>
-          <Btn
-            v-if="prices.length > 0"
-            variant="secondary"
-            icon="mdi-file-chart"
-            @click="handleExportCsv"
-          >匯出 CSV</Btn>
-          <Btn
-            v-if="store.selectedCropCodes.length > 0"
-            variant="secondary"
-            icon="mdi-filter-remove-outline"
-            @click="store.$patch({ selectedCropCodes: [] })"
-          >清空作物</Btn>
-        </div>
-        <p v-if="validationMsg" class="validation-msg">{{ validationMsg }}</p>
-      </div>
-    </FilterCard>
-
-    <StateBlock v-if="!hasQueried" state="hint" message="請選擇作物與日期區間後按下查詢" />
-    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
-    <StateBlock
-      v-else-if="errorMsg"
-      state="error"
-      :message="errorMsg"
-      retryable
-      @retry="handleQuery"
-    />
-
-    <div class="bottom-grid" v-else>
-      <section class="chart-section" v-if="prices.length > 0">
-        <PriceChart :prices="prices" :disasters="rawDisasters" />
-      </section>
-      <StateBlock
-        v-else
-        state="empty"
-        message="查無價格資料"
-        hint="請確認作物、市場與日期區間後重試"
-      />
-
-      <section class="disaster-section">
-        <div class="disaster-header">
-          <span class="disaster-title">天災警戒紀錄</span>
-          <span class="disaster-count" v-if="disasterEvents.length > 0">{{ disasterEvents.length }} 件</span>
-        </div>
-        <div class="disaster-empty" v-if="disasterEvents.length === 0">查詢區間內無天災警戒紀錄</div>
-        <div class="disaster-list" v-else>
-          <div class="disaster-item" v-for="(event, i) in disasterEvents" :key="i">
-            <div class="disaster-date-range">
-              {{ event.firstDate }}
-              <span v-if="event.lastDate !== event.firstDate"> ～ {{ event.lastDate }}</span>
+    >
+      <!-- 作物選擇是一整塊、日期是一列，所以查詢／匯出／清空跟日期擺同一列的尾端
+           （owner 2026-09-03：選完日期查詢鈕就在旁邊比較直覺）。不再用 QueryLayout 的
+           頂部插槽——這一頁的「日期」在條件區的最下面，動作跟著日期走才是「旁邊」。 -->
+      <template #filters>
+        <div class="filter-stack">
+          <MarketFilter />
+          <div class="date-row">
+            <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
+            <div class="date-row__actions">
+              <Btn
+                icon="mdi-magnify"
+                :loading="isLoading"
+                :disabled="store.selectedCropCodes.length === 0"
+                @click="handleQuery"
+              >{{ isLoading ? '查詢中...' : '查詢價格' }}</Btn>
+              <Btn
+                v-if="prices.length > 0"
+                variant="secondary"
+                icon="mdi-file-chart"
+                @click="handleExportCsv"
+              >匯出 CSV</Btn>
+              <Btn
+                v-if="store.selectedCropCodes.length > 0"
+                variant="secondary"
+                icon="mdi-filter-remove-outline"
+                @click="store.$patch({ selectedCropCodes: [] })"
+              >清空作物</Btn>
             </div>
-            <div class="disaster-name">
-              <span class="badge alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
-                {{ event.alertType === 'D' ? '土石流' : '土石流潛勢' }}
-              </span>
-              {{ event.disasterName }}
-            </div>
-            <div class="disaster-counties">{{ event.affectedCounties.join('、') }}</div>
           </div>
+          <p v-if="validationMsg" class="validation-msg">
+            <span class="mdi mdi-alert-circle-outline" />{{ validationMsg }}
+          </p>
         </div>
-      </section>
-    </div>
+      </template>
+
+      <template #results>
+        <StateBlock v-if="!hasQueried" state="hint" message="請選擇作物與日期區間後按下查詢" />
+        <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+        <StateBlock
+          v-else-if="errorMsg"
+          state="error"
+          :message="errorMsg"
+          retryable
+          @retry="handleQuery"
+        />
+
+        <div class="bottom-grid" v-else>
+          <section class="chart-section card card--lg" v-if="prices.length > 0">
+            <PriceChart :prices="prices" :disasters="rawDisasters" />
+          </section>
+          <StateBlock
+            v-else
+            state="empty"
+            message="查無價格資料"
+            hint="請確認作物、市場與日期區間後重試"
+          />
+
+          <!-- 天災警戒是圖表的註腳而不是另一份資料：圖上那幾條標註線代表什麼，
+               在這裡才看得到名稱與縣市，所以兩者並排、不做成分頁 -->
+          <section class="disaster-section card">
+            <div class="disaster-header">
+              <span class="field-label">天災警戒紀錄</span>
+              <span class="badge disaster-count" v-if="disasterEvents.length > 0">
+                {{ disasterEvents.length }} 件
+              </span>
+            </div>
+            <div class="disaster-empty" v-if="disasterEvents.length === 0">查詢區間內無天災警戒紀錄</div>
+            <div class="disaster-list" v-else>
+              <div class="disaster-item" v-for="(event, i) in disasterEvents" :key="i">
+                <div class="disaster-date-range">
+                  {{ event.firstDate }}
+                  <span v-if="event.lastDate !== event.firstDate"> ～ {{ event.lastDate }}</span>
+                </div>
+                <div class="disaster-name">
+                  <span class="badge alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
+                    {{ event.alertType === 'D' ? '土石流' : '土石流潛勢' }}
+                  </span>
+                  {{ event.disasterName }}
+                </div>
+                <div class="disaster-counties">{{ event.affectedCounties.join('、') }}</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </template>
+    </QueryLayout>
   </div>
 </template>
 
@@ -89,8 +103,7 @@ import { useMarketStore } from '@/stores/market'
 import { marketApi } from '@/api/market'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
 import { exportPricesToCsv } from '@/utils/exportCsv'
-import PageHeader from '@/components/ui/PageHeader.vue'
-import FilterCard from '@/components/ui/FilterCard.vue'
+import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 
@@ -174,43 +187,63 @@ function handleExportCsv() {
 </script>
 
 <style scoped>
+/* 顏色全部改用 semantic 層，不再引用待刪的 --neutral- 舊色階（style tile §九）。
+   卡片外殼改用 base.css 的 .card／.card--lg，這裡只留這一頁真正不同的部分。 */
 .prices-view { min-width: 960px; }
-.filter-bottom { display: flex; align-items: flex-start; gap: var(--space-8); flex-wrap: wrap; }
+
+/* 這一頁的查詢條件是兩段式（作物選擇是一整塊、日期是一列），所以在 filters 插槽裡
+   直接堆疊。QueryLayout 的 __body 本身是 flex-end 的橫列，兩者不衝突：
+   這裡包一層自己的縱向容器，橫列規則只作用在這一個子元素上。 */
+.filter-stack { display: flex; flex-direction: column; gap: var(--space-5); width: 100%; }
+
+/* 日期與動作按鈕同一列：日期靠左、動作被 margin-auto 推到最右，選完日期查詢就在旁邊 */
+.date-row {
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  gap: var(--space-4) var(--space-5); width: 100%;
+}
+.date-row__actions {
+  display: flex; align-items: flex-end; gap: var(--space-3);
+  margin-inline-start: auto;
+}
+
+.validation-msg {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-sm); color: var(--danger-700);
+}
 
 .bottom-grid {
   display: grid; grid-template-columns: 1fr 280px;
   gap: var(--space-6); align-items: start;
 }
 
-.chart-section {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg); padding: var(--space-8);
-  box-shadow: var(--shadow-md);
-}
 .disaster-section {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg); padding: var(--space-6);
   max-height: 600px; overflow-y: auto;
-  box-shadow: var(--shadow-md);
-  scrollbar-width: thin; scrollbar-color: var(--neutral-300) transparent;
+  scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent;
 }
 .disaster-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: var(--space-4); padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--neutral-200);
+  border-bottom: var(--border-width) solid var(--color-border);
 }
-.disaster-title { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.06em; text-transform: uppercase; font-weight: var(--weight-bold); }
-.disaster-count { font-size: var(--text-xs); padding: var(--space-1) var(--space-2); background: var(--warning-50); border: 1px solid var(--warning-100); border-radius: var(--radius-full); color: var(--warning-700); font-weight: var(--weight-bold); }
-.disaster-empty { font-size: var(--text-xs); color: var(--neutral-400); text-align: center; padding: var(--space-6) 0; }
+.disaster-count { background: var(--warning-50); border: var(--border-width) solid var(--warning-100); color: var(--warning-700); }
+.disaster-empty { font-size: var(--text-xs); color: var(--color-text-dim); text-align: center; padding: var(--space-6) 0; }
 .disaster-list { display: flex; flex-direction: column; gap: var(--space-3); }
-.disaster-item { padding: var(--space-3) var(--space-4); background: var(--warning-50); border: 1px solid var(--warning-50); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: var(--space-1); }
-.disaster-date-range { font-size: var(--text-xs); color: var(--warning-700); font-variant-numeric: tabular-nums; font-weight: var(--weight-medium); }
-.disaster-name { font-size: var(--text-base); color: var(--neutral-900); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--space-2); }
+/* 左側那道橘色粗邊是刻意的：一整格淺橘底在暖米白卡片上幾乎看不出來
+   （兩者明度太近），改成「淺底＋左邊界」之後，一眼就數得出有幾件 */
+.disaster-item {
+  padding: var(--space-3) var(--space-4);
+  background: var(--warning-50);
+  border-inline-start: 3px solid var(--color-accent-2-fill);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  display: flex; flex-direction: column; gap: var(--space-1);
+}
+.disaster-date-range {
+  font-family: var(--font-num); font-size: var(--text-xs); color: var(--warning-700);
+  font-variant-numeric: tabular-nums; font-weight: var(--weight-medium);
+}
+.disaster-name { font-size: var(--text-base); color: var(--color-text); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--space-2); }
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
-.alert-badge.red { background: var(--danger-50); color: var(--danger-500); border: 1px solid var(--danger-100); }
-.alert-badge.orange { background: var(--warning-50); color: var(--warning-700); border: 1px solid var(--warning-100); }
-.disaster-counties { font-size: var(--text-xs); color: var(--neutral-500); line-height: var(--leading-normal); }
-
-.action-row { display: flex; align-items: center; gap: var(--space-3); }
-.validation-msg { font-size: var(--text-sm); color: var(--danger-500); }
+.alert-badge.red { background: var(--danger-50); color: var(--danger-500); border: var(--border-width) solid var(--danger-100); }
+.alert-badge.orange { background: var(--color-surface); color: var(--warning-700); border: var(--border-width) solid var(--warning-100); }
+.disaster-counties { font-size: var(--text-xs); color: var(--color-text-dim); line-height: var(--leading-normal); }
 </style>

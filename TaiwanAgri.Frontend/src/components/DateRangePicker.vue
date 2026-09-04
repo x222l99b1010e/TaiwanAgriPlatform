@@ -66,51 +66,78 @@ function applyShortcut(days: number) {
 
 .date-group label {
   font-size: var(--text-xs); font-weight: var(--weight-medium);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
+/* 高度吃 --control-h、垂直 padding 為 0：這個輸入框幾乎永遠跟一顆查詢按鈕排在
+   同一列，兩者高度必須由同一個 token 決定。先前是 padding 撐出來的 37.2px 對上
+   按鈕的 41.4px，底部對齊了還是差 4px。
+   日期是數字，用 --font-num 才會等寬，換日期時欄位寬度不會抖。 */
 .date-group input[type="date"] {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--neutral-200);
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--neutral-0);
-  color: var(--neutral-900);
-  font-size: var(--text-base);
-  width: 160px;
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-num);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  width: 152px;
+  transition:
+    border-color var(--duration-fast) var(--ease-work),
+    box-shadow var(--duration-fast) var(--ease-work);
 }
+.date-group input[type="date"]:hover { border-color: var(--color-border-strong); }
 .date-group input[type="date"]:focus {
   outline: none;
-  border-color: var(--green-600);
+  border-color: var(--color-action);
   box-shadow: var(--shadow-focus);
 }
 
-.separator { font-size: var(--text-lg); color: var(--neutral-400); padding-bottom: var(--space-2); }
+.separator {
+  font-size: var(--text-lg); color: var(--color-text-dim);
+  /* 有 label 的欄位比沒 label 的高一個 label 高度，波浪號要往下對到輸入框的中線 */
+  padding-bottom: var(--space-2);
+}
 
-.shortcuts { display: flex; gap: var(--space-2); flex-wrap: wrap; padding-bottom: var(--space-1); }
+.shortcuts { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
+/* 快捷鍵是 chip 不是動作按鈕，所以維持藥丸形。
+   全站的分工：**方角（--radius-md）＝按下去會做事的動作按鈕，
+   藥丸（--radius-full）＝切換條件的 chip**——形狀本身就在說明它是哪一種東西。 */
 .shortcut-btn {
-  padding: var(--space-2) var(--space-4);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-4);
   border-radius: var(--radius-full);
-  border: 1px solid var(--neutral-200);
-  background: var(--neutral-0);
-  color: var(--neutral-500);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-dim);
+  font-family: inherit;
   font-size: var(--text-xs);
   cursor: pointer;
-  transition: all var(--duration-fast);
+  transition:
+    border-color var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work),
+    background var(--duration-fast) var(--ease-work);
 }
 .shortcut-btn:hover {
-  border-color: var(--green-600);
-  color: var(--green-600);
-  background: var(--green-50);
+  border-color: var(--color-action);
+  color: var(--color-action);
+  background: var(--color-action-soft);
+}
+.shortcut-btn:focus-visible {
+  outline: none;
+  border-color: var(--color-action);
+  box-shadow: var(--shadow-focus);
 }
 
 .shortcut-btn.active {
-  border-color: var(--green-600);
-  color: var(--green-600);
-  background: var(--green-100);
+  border-color: var(--color-action);
+  color: var(--color-action);
+  background: var(--color-action-soft-2);
   font-weight: var(--weight-medium);
 }
 </style>

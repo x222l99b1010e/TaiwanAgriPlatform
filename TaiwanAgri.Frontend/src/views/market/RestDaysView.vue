@@ -1,77 +1,85 @@
 <template>
   <div class="page restdays-view">
-    <PageHeader
+    <QueryLayout
       title="休市日查詢"
+      title-en="MARKET CLOSURES"
       subtitle="各農產品批發市場的休市日期，請先選擇市場再查詢"
-    />
+    >
+      <template #actions>
+        <Btn
+          icon="mdi-magnify"
+          :loading="isLoading"
+          :disabled="!selectedMarketCode"
+          @click="handleQuery"
+        >{{ isLoading ? '查詢中...' : '查詢休市日' }}</Btn>
+      </template>
 
-    <FilterCard>
-      <div class="field-group">
-        <label class="field-label">選擇市場</label>
-        <select class="market-select" v-model="selectedMarketCode" :disabled="isLoadingMarkets">
-          <option value="" disabled>請選擇市場</option>
-          <option v-for="m in markets" :key="m.marketCode" :value="m.marketCode">
-            {{ m.marketName }}
-          </option>
-        </select>
-        <span v-if="isLoadingMarkets" class="loading-hint">載入中...</span>
-      </div>
-      <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
-      <Btn
-        icon="mdi-magnify"
-        :loading="isLoading"
-        :disabled="!selectedMarketCode"
-        @click="handleQuery"
-      >{{ isLoading ? '查詢中...' : '查詢休市日' }}</Btn>
-    </FilterCard>
-
-    <StateBlock v-if="!hasQueried" state="hint" message="請選擇市場與日期區間後按下查詢" />
-    <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
-    <StateBlock
-      v-else-if="errorMsg"
-      state="error"
-      :message="errorMsg"
-      retryable
-      @retry="handleQuery"
-    />
-    <StateBlock
-      v-else-if="restDays.length === 0"
-      state="empty"
-      icon="mdi-calendar-remove"
-      message="查詢區間內無休市紀錄"
-      hint="這個市場在所選期間內每天都有交易"
-    />
-
-    <div v-else>
-      <!-- 摘要列 -->
-      <div class="summary-bar">
-        <div class="stat-card">
-          <span class="stat-label">休市天數</span>
-          <span class="stat-value">{{ restDays.length }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">市場名稱</span>
-          <span class="stat-value name">{{ selectedMarketName }}</span>
-        </div>
-      </div>
-
-      <!-- 按月份分組 -->
-      <div class="month-groups">
-        <div class="month-group" v-for="group in groupedByMonth" :key="group.label">
-          <div class="month-label">
-            <span class="mdi mdi-calendar-month" />
-            {{ group.label }}
-            <span class="month-count">{{ group.days.length }} 天</span>
+      <template #filters>
+        <div class="field-group">
+          <label class="field-label" for="market-select">選擇市場</label>
+          <div class="select-wrap">
+            <select
+              id="market-select"
+              class="form-control market-select"
+              v-model="selectedMarketCode"
+              :disabled="isLoadingMarkets"
+            >
+              <option value="" disabled>請選擇市場</option>
+              <option v-for="m in markets" :key="m.marketCode" :value="m.marketCode">
+                {{ m.marketName }}
+              </option>
+            </select>
+            <span v-if="isLoadingMarkets" class="loading-hint">載入中...</span>
           </div>
-          <div class="day-row">
-            <div class="rest-chip" v-for="d in group.days" :key="d.restDate">
-              <span class="mdi mdi-calendar-remove chip-icon" />
-              {{ formatDate(d.restDate) }}
+        </div>
+        <DateRangePicker v-model:startDate="startDate" v-model:endDate="endDate" />
+      </template>
+
+      <template #results>
+        <StateBlock v-if="!hasQueried" state="hint" message="請選擇市場與日期區間後按下查詢" />
+        <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
+        <StateBlock
+          v-else-if="errorMsg"
+          state="error"
+          :message="errorMsg"
+          retryable
+          @retry="handleQuery"
+        />
+        <StateBlock
+          v-else-if="restDays.length === 0"
+          state="empty"
+          icon="mdi-calendar-remove"
+          message="查詢區間內無休市紀錄"
+          hint="這個市場在所選期間內每天都有交易"
+        />
+
+        <div v-else>
+          <!-- 摘要列 -->
+          <div class="summary-bar">
+            <div class="stat-card">
+              <span class="stat-label">休市天數</span>
+              <span class="stat-value">{{ restDays.length }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">市場名稱</span>
+              <span class="stat-value stat-value--text">{{ selectedMarketName }}</span>
             </div>
           </div>
+
+          <!-- 按月份分組，一個月一張月曆——比一排排 chip 更容易看出「連續休了幾天」，
+               不用自己在腦中換算某個日期是星期幾 -->
+          <div class="month-groups">
+            <MonthCalendar
+              v-for="group in groupedByMonth"
+              :key="`${group.year}-${group.month}`"
+              :year="group.year"
+              :month="group.month"
+              :marked-dates="group.markedDates"
+            />
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </QueryLayout>
   </div>
 </template>
 
@@ -80,10 +88,10 @@ import { ref, computed, onMounted } from 'vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi } from '@/api/market'
 import type { RestDayResponseDto, MarketResponseDto } from '@/api/market'
-import PageHeader from '@/components/ui/PageHeader.vue'
-import FilterCard from '@/components/ui/FilterCard.vue'
+import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import MonthCalendar from '@/components/MonthCalendar.vue'
 
 const today = new Date().toISOString().split('T')[0]!
 const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
@@ -112,16 +120,11 @@ const groupedByMonth = computed(() => {
   return Array.from(map.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, days]) => ({
-      label: `${key.substring(0, 4)} 年 ${parseInt(key.substring(5, 7))} 月`,
-      days,
+      year: Number(key.substring(0, 4)),
+      month: Number(key.substring(5, 7)),
+      markedDates: new Set(days.map(d => d.restDate)),
     }))
 })
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六']
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} (${weekdays[d.getDay()]})`
-}
 
 async function loadMarkets() {
   isLoadingMarkets.value = true
@@ -157,60 +160,17 @@ onMounted(() => loadMarkets())
 </script>
 
 <style scoped>
+/* 欄位與摘要列的外殼已收進 base.css，這裡只留這一頁真正不同的部分 */
 .restdays-view { min-width: 960px; }
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-.field-label { font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium); letter-spacing: 0.05em; text-transform: uppercase; }
 
-.market-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
-  min-width: 200px; cursor: pointer;
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+.select-wrap { display: flex; align-items: center; gap: var(--space-3); }
+.market-select { min-width: 200px; }
+.loading-hint { font-size: var(--text-xs); color: var(--color-text-dim); }
+
+/* 月曆網格：一個月一張卡片，卡片外殼在 MonthCalendar 元件自己身上 */
+.month-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-6);
 }
-.market-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
-.market-select:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.loading-hint { font-size: var(--text-xs); color: var(--neutral-400); }
-/* 摘要列 */
-.summary-bar { display: flex; gap: var(--space-4); margin-bottom: var(--space-8); }
-.stat-card {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg); padding: var(--space-4) var(--space-6);
-  display: flex; flex-direction: column; gap: var(--space-2);
-  box-shadow: var(--shadow-sm);
-}
-.stat-label { font-size: var(--text-xs); color: var(--neutral-500); letter-spacing: 0.05em; text-transform: uppercase; font-weight: var(--weight-medium); }
-.stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--green-800); }
-.stat-value.name { font-size: var(--text-lg); }
-
-/* 月份分組 */
-.month-groups { display: flex; flex-direction: column; gap: var(--space-8); }
-
-.month-label {
-  display: flex; align-items: center; gap: var(--space-2);
-  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green-600);
-  margin-bottom: var(--space-3);
-  padding-bottom: var(--space-3);
-  border-bottom: 2px solid var(--green-100);
-}
-
-.month-count {
-  font-size: var(--text-xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
-  background: var(--green-100); color: var(--green-600);
-  border: 1px solid var(--green-200);
-  font-weight: var(--weight-medium); margin-left: var(--space-1);
-}
-
-.day-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-
-.rest-chip {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-3) var(--space-5); border-radius: var(--radius-lg);
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--neutral-900);
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
-}
-.rest-chip:hover { box-shadow: var(--shadow-md); border-color: var(--warning-100); }
-.chip-icon { font-size: var(--text-base); color: var(--warning-700); }
 </style>

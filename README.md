@@ -320,7 +320,8 @@ TaiwanAgriPlatform/
 │   │   │   └── watchlist.ts          # Pinia：監看清單
 │   │   ├── composables/
 │   │   │   ├── useLatestRequest.ts   # 請求序號防競態（vitest 覆蓋）
-│   │   │   └── usePagination.ts      # 分頁邏輯共用（分頁視窗固定顯示 6 個頁碼，19 個 vitest 測試覆蓋）
+│   │   │   ├── usePagination.ts      # 分頁邏輯共用（分頁視窗固定顯示 6 個頁碼，19 個 vitest 測試覆蓋；paginationWindow 純函式已抽出供巢狀多表重用）
+│   │   │   └── useCountUp.ts         # 數字滾動動畫（首頁今日三數字）
 │   │   ├── components/
 │   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺
 │   │   │   ├── NotificationBell.vue  # 鈴鐺 + 未讀紅點 + Dropdown 無限捲動
@@ -332,8 +333,19 @@ TaiwanAgriPlatform/
 │   │   │   ├── LeafletCoordinatePicker.vue # 地圖點選座標（遺失啟事表單用）
 │   │   │   ├── LostPetPostForm.vue   # 遺失啟事新增/編輯共用表單（以單一 post prop 判斷模式）
 │   │   │   ├── LostPetPostPhoto.vue  # 遺失啟事照片渲染（外部圖床連結，載入失敗時降級）
-│   │   │   └── VegPriceTicker.vue    # 全站菜價輪播（今日菜價快覽用）
+│   │   │   ├── VegPriceTicker.vue    # 全站菜價輪播（今日菜價快覽用）
+│   │   │   ├── SiteFooter.vue        # 全站頁尾（P3 抽共用，掛在 App.vue 走 sticky footer）
+│   │   │   ├── MonthCalendar.vue     # 休市日月曆（P3，取代原按月分組清單）
+│   │   │   ├── SeasonMotif.vue       # 節氣母題（首頁節氣牌，只進內容層不進 token）
+│   │   │   ├── ui/
+│   │   │   │   └── Bilingual.vue     # 中英並排排版（四個模組英文定譯全站唯一）
+│   │   │   └── layouts/              # 四個頁面樣板（P2.5 抽出，P3 套到 28 頁）
+│   │   │       ├── QueryLayout.vue   # 查詢頁樣板（篩選卡 + 結果區 + 分頁）
+│   │   │       ├── DetailLayout.vue  # 詳情頁樣板（可分享固定網址）
+│   │   │       ├── MapLayout.vue     # 地圖頁樣板（地圖 + 清單上下排）
+│   │   │       └── EntryLayout.vue   # 入口頁樣板（深色頁首帶，首頁 hero 共用同一支）
 │   │   ├── views/
+│   │   │   ├── HomeView.vue          # 全站首頁（P3 新建，`/` 直接掛此頁不再 redirect）
 │   │   │   ├── auth/
 │   │   │   │   └── LoginView.vue     # 登入 / 註冊 Tab + 錯誤中文翻譯
 │   │   │   ├── food-safety/
@@ -344,12 +356,12 @@ TaiwanAgriPlatform/
 │   │   │   ├── market/
 │   │   │   │   ├── PricesView.vue    # 作物行情查詢
 │   │   │   │   ├── DisastersView.vue # 天災警戒紀錄
-│   │   │   │   ├── RestDaysView.vue  # 休市日查詢（按月分組）
+│   │   │   │   ├── RestDaysView.vue  # 休市日查詢（月曆呈現）
 │   │   │   │   └── PorkView.vue      # 毛豬行情（多線折線圖 + 指標切換）
 │   │   │   ├── weather/
 │   │   │   │   ├── StationView.vue   # 農場氣象（卡片格）
 │   │   │   │   ├── RainfallView.vue  # 雨量趨勢（折線圖 + 明細表格）
-│   │   │   │   ├── PestAlertsView.vue # 病蟲害警報牆（可展開）
+│   │   │   │   ├── PestAlertsView.vue # 病蟲害警報牆（真地圖 + 三級燈號 + 可展開）
 │   │   │   │   ├── PestDecadeView.vue # 旬密度趨勢（折線圖 + 全選切換）
 │   │   │   │   └── PesticideSearchView.vue # 農藥查詢（三層巢狀：成分 → 劑型 → 用途/許可證）
 │   │   │   ├── pet/
@@ -370,9 +382,13 @@ TaiwanAgriPlatform/
 │   │   ├── App.vue                   # 兩層 Shell：TopNav + RouterView
 │   │   ├── router/index.ts           # 路由守衛（requiresAuth + redirect-after-login）
 │   │   ├── main.ts
+│   │   ├── constants/
+│   │   │   └── chartTheme.ts         # 全站圖表共用主題（P2 收斂 5 份重複色盤成單一來源）
 │   │   └── utils/
 │   │       ├── exportCsv.ts          # CSV 匯出（UTF-8 BOM）
-│   │       └── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
+│   │       ├── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
+│   │       ├── calendar.ts           # 休市日月曆計算（vitest 覆蓋）
+│   │       └── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
 └── TaiwanAgri.Tests/                 # xUnit + Moq（後端 185 個測試案例）
@@ -407,7 +423,7 @@ TaiwanAgriPlatform/
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
 | 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils 單元測試（`npm test`） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板單元測試（`npm test`，6 檔 50 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
 ---
@@ -552,12 +568,12 @@ npm run dev
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 27 個測試案例）
+# 前端（Vitest，共 50 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather / Pet / Worker 八個面向；前端涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）與 `usePagination`（分頁視窗計算與跳頁邊界，19 個測試）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather / Pet / Worker 八個面向；前端 6 個測試檔共 50 個案例，涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`calendar`（休市月曆）與 `solarTerms`（二十四節氣）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -592,7 +608,7 @@ npm test
 >
 > **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35_2.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35_3.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -744,6 +760,7 @@ npm test
 | W24 | 模組 2（農藥查詢） | GET /api/Weather/pesticides：中英文成分名查詢（可併用，英文名字元白名單防護）；即時打農業部 PesticideDataQueryType，不落地；三層回應（成分 → 劑型 → 用途/許可證），使用範圍依 (成分,含量,劑型) 去重後並行抓取；PesticideForms 劑型代碼對照表（5246 張許可證實測校正）；PesticideSearchView.vue 前端畫面；NavModules 補入口。84→151 測試（GitHub PR #26／#27） | ✅ 完成 |
 | W25 | 模組 4（家禽行情） | 四支來源 API（白肉雞/雞蛋、紅羽土雞、黑羽土雞、肉鵝/番鴨/鴨蛋）串接完成畜禽面板的家禽半邊。`PoultryTrans` 長表設計取代寬表；價格拆成 7 態 `PriceStatus` + `RawValue`（全歷史窮舉 8 種非數值字串後定案）；四組獨立 `SyncState`（四支歷史起點不一致：2010/10/07 與 2014/04/01）；逐年切塊抓取讓回填與日常增量共用同一段程式碼。Worker 實跑回填 88,236 列，七態分布與探勘預估逐一吻合。`PoultryView.vue` 17 指標分組勾選 + 斷線呈現 + 完整度徽章 + 非常態明細表。151→185 測試 | ✅ 完成 |
 | —（不掛週次） | 全專案 Code Review | 四個功能模組首次全部完成後的跨模組一致性盤點（後端 294 個 `.cs` 檔／26,264 行＋前端全案）。核心結論：技術債形態不是「寫錯」，而是「共用抽象建立後沒有回頭替換掉原地舊寫法」，橫跨 Worker 層、查詢層、前端與模組邊界共六例。**批次 B**（內部慣例、行為不變）：`ScheduledSyncWorkerBase` 就緒等待納入例外保護；蔬果/毛豬 Worker 日界改用 `TaiwanTime`；三支 Worker 的 `SyncKey` 抽常數；前端公開端點抽出共用 `apiClient`（GitHub PR #32）。**批次 A**（動契約與 UI）：病蟲害警報改用 `PagedResult` 分頁契約與共用 `PagerBar`；追溯碼查詢自 `FoodSafetyService` 拆出 `TraceabilityService`（GitHub PR #33）。185 測試全過（不新增案例） | ✅ 完成 |
+| —（不掛週次） | 前端視覺設計 | 四個功能模組全部完成後的第一次全站視覺統一與設計品質提升，分五階推進。**P0/P1**：建立 design token 系統（`base.css` 從 37 行、14 個色變數擴充為間距／字級／行高／字重／圓角／陰影／容器寬／動效八組尺度＋三組色階＋`prefers-reduced-motion`），容器寬與頁面留白統一，抽出 `PageHeader`／`FilterCard`／`StateBlock`／`Btn`／`HintBox` 五個共用元件，MDI 圖示字型改建置期子集化（7447→85 個），CSS bundle 477→126 kB（GitHub PR #35，內部 #057）。**P2**：全站色值與尺度收斂到 token、5 份重複的圖表色盤收成 `chartTheme.ts` 單一來源、拆除相容層舊變數（GitHub PR #36，內部 #058）。**P2.5**：定調「秋田」設計方向（主色秧苗綠、柿橙降第二強調、加入節氣、中英並排），新增 token 第二層 semantic，抽出 `QueryLayout`／`DetailLayout`／`MapLayout`／`EntryLayout` 四個頁面樣板＋`Bilingual`（GitHub PR #38，內部 #059）。**P3**：四模組 28 頁套樣板、**新首頁上線（`/` 不再 redirect）**、病蟲害警報改真 Leaflet 地圖＋三級燈號、休市日改月曆、雨量／旬報／農藥核准用途收進分頁 data grid、語意色改暖色域＋callout 改「色條＋圖示徽章」、抽出全站頁尾 `SiteFooter`、首頁四模組交錯列＋hover 光點動畫、氣象卡片日內溫度量尺、今日菜價 bento，舊色階整組刪除（grep 回傳 0）（GitHub PR 本次，內部 #060）。P0–P2 已 release 進 main（GitHub PR #37），P2.5＋P3 待 release；前端測試 27→50、CSS gzip 收於 26.28 kB | ✅ 完成 |
 
 ---
 
@@ -833,13 +850,16 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 **xUnit + Moq 三種隔離策略**
 Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistributedCache>`）；Service 層只依賴 DB 時用 InMemory（UserWatchlistService → InMemory UserDbContext）；Controller 層測試跨模組組合邏輯時同時 Mock 兩個 Service（WatchlistController）。Extension Method 無法被 Mock 攔截，須 Setup 底層介面方法（GetStringAsync → GetAsync）。
 
+**前端設計系統：token 三層 + 五個頁面樣板（前端視覺設計輪）**
+`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種顏色、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出五個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 5 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 5 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段），最終產物 gzip 26.28 kB。
+
 ---
 
 ## 📁 相關文件
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V35_2.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + 全專案 Code Review 與模組 3 收尾批次結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V35_3.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + 全專案 Code Review + 前端視覺設計輪結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -859,4 +879,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-08-30 ｜ 對應 SA/SD 文件版本 V35.2 ｜ 全專案 Code Review 完成（四模組首次全部完成後的跨模組一致性盤點，六例「共用抽象未回頭統一」修正完畢，GitHub PR #32／#33，後端 185 測試全過）*
+*最後更新：2026-09-04 ｜ 對應 SA/SD 文件版本 V35.3 ｜ 前端視覺設計輪完成（四模組全部完成後的第一次全站視覺統一與設計品質提升：建立 design token 系統與五個頁面樣板、全站色值／尺度收斂、新首頁上線、病蟲害改真地圖、休市日改月曆，GitHub PR #35／#36／#38，前端 50 測試全過）*

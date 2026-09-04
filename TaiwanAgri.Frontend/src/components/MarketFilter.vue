@@ -1,11 +1,11 @@
 <template>
   <div class="market-filter">
-    <div class="tab-group">
+    <div class="segmented">
       <button
         v-for="tab in marketTypeTabs"
         :key="tab.value"
-        class="tab-btn"
-        :class="{ active: store.marketType === tab.value }"
+        class="segmented__btn"
+        :class="{ 'is-active': store.marketType === tab.value }"
         :disabled="store.isLoadingMarkets || store.isLoadingCrops"
         @click="handleTabChange(tab.value)"
       >{{ tab.label }}</button>
@@ -16,7 +16,7 @@
     <div class="field-group">
       <label class="field-label">市場</label>
       <div class="select-wrap">
-        <select v-model="store.selectedMarketCode" :disabled="store.isLoadingMarkets" class="market-select">
+        <select v-model="store.selectedMarketCode" :disabled="store.isLoadingMarkets" class="form-control market-select">
           <option :value="null">全台均價</option>
           <option v-for="market in store.markets" :key="market.marketCode" :value="market.marketCode">
             {{ market.marketName }}
@@ -38,9 +38,11 @@
       </div>
 
       <div class="crop-search-wrap" v-if="!store.isLoadingCrops">
-        <input v-model="cropSearch" class="crop-search" placeholder="輸入關鍵字篩選，例如：菊" maxlength="20" />
+        <input v-model="cropSearch" class="form-control crop-search" placeholder="輸入關鍵字篩選，例如：菊" maxlength="20" />
         <span class="search-count" v-if="cropSearch.trim()">找到 {{ filteredCrops.length }} 項</span>
-        <button class="search-clear" v-if="cropSearch.trim()" @click="cropSearch = ''">✕</button>
+        <button class="search-clear" v-if="cropSearch.trim()" aria-label="清除關鍵字" @click="cropSearch = ''">
+          <span class="mdi mdi-close" />
+        </button>
       </div>
 
       <div class="crop-container" v-if="!store.isLoadingCrops">
@@ -102,63 +104,32 @@ onMounted(() => store.initialize())
 </script>
 
 <style scoped>
+/* 顏色全部改用 semantic 層（style tile §九），欄位外殼改用 base.css 的
+   .field-group／.field-label／.form-control，這裡只留這個元件真正不同的部分。 */
 .market-filter { display: flex; flex-direction: column; gap: var(--space-5); }
 
-/* Tab */
-.tab-group { display: flex; gap: var(--space-2); }
-.tab-btn {
-  padding: var(--space-2) var(--space-5); border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-200);
-  background: var(--neutral-0);
-  color: var(--neutral-500);
-  font-size: var(--text-sm); cursor: pointer;
-  transition: all var(--duration-fast);
-}
-.tab-btn:hover:not(:disabled) {
-  border-color: var(--green-600); color: var(--green-600); background: var(--green-50);
-}
-.tab-btn.active {
-  background: var(--green-100); border-color: var(--green-600);
-  color: var(--green-600); font-weight: var(--weight-medium);
-}
-.tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* 蔬菜／水果／花卉走 base.css 的 .segmented（分段控制器），這裡不再自己寫一份。
 
-/* 欄位 */
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-/* field-label 深一點 */
-.field-label {
-  font-size: var(--text-xs); color: var(--neutral-500);  /* 從 text-muted 改 text-secondary */
-  letter-spacing: 0.06em; text-transform: uppercase;
-  display: flex; align-items: center; gap: var(--space-2);
-  font-weight: var(--weight-bold);  /* 加粗 */
-}
+   這一顆標籤裡塞了計數徽章，所以要橫排；其餘外觀走 base.css 的 .field-label */
+.field-label { display: flex; align-items: center; gap: var(--space-2); }
 
 /* 市場下拉 */
 .select-wrap { display: flex; align-items: center; gap: var(--space-3); }
-.market-select {
-  padding: var(--space-2) var(--space-3); background: var(--neutral-0);
-  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  color: var(--neutral-900); font-size: var(--text-sm);
-  min-width: 200px; cursor: pointer;
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.market-select:focus {
-  outline: none; border-color: var(--green-600);
-  box-shadow: var(--shadow-focus);
-}
+.market-select { min-width: 200px; }
 
-/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
+/* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色。
+   ⚠ 原本用青色 --teal-500，那是舊色盤的次要強調色，不在秋田的十色裡；
+   「已選幾項」是中性計數不是狀態，所以用動作色的淺階，額滿才轉警示色。 */
 .count-badge {
-  background: var(--teal-500);
-  color: var(--neutral-0);
+  background: var(--color-action-soft-2);
+  color: var(--color-action);
   letter-spacing: 0;
   text-transform: none;
-  box-shadow: var(--shadow-sm);
+  font-variant-numeric: tabular-nums;
 }
 .count-badge.full {
-  background: var(--warning-700);
-  color: var(--neutral-0);
-  box-shadow: var(--shadow-sm);
+  background: var(--warning-50);
+  color: var(--warning-700);
 }
 
 /* Crop */
@@ -167,53 +138,58 @@ onMounted(() => store.initialize())
 
 .crop-btn {
   display: inline-flex; align-items: center; gap: var(--space-1);
-  padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  border: 1px solid var(--neutral-200);
-  background: var(--neutral-0);
-  color: var(--neutral-500);
-  font-size: var(--text-sm); cursor: pointer; transition: all var(--duration-fast);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3); border-radius: var(--radius-full);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-dim);
+  font-family: inherit; font-size: var(--text-sm); cursor: pointer;
   white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-work),
+    border-color var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work);
 }
 .crop-btn:hover:not(.disabled) {
-  border-color: var(--green-600); color: var(--green-600); background: var(--green-50);
+  border-color: var(--color-action); color: var(--color-action); background: var(--color-action-soft);
 }
 .crop-btn.selected {
-  background: var(--green-100); border-color: var(--green-600); color: var(--green-600);
+  background: var(--color-action-soft-2); border-color: var(--color-action); color: var(--color-action);
+  font-weight: var(--weight-medium);
 }
+.crop-btn:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
 .crop-btn.disabled { opacity: 0.35; cursor: not-allowed; }
 .check-dot { font-size: var(--text-2xs); font-weight: var(--weight-bold); }
 
-.loading-hint { font-size: var(--text-xs); color: var(--neutral-400); }
+.loading-hint { font-size: var(--text-xs); color: var(--color-text-dim); }
 .limit-hint { font-size: var(--text-2xs); color: var(--warning-700); }
-.error-msg  { font-size: var(--text-sm); color: var(--danger-500); }
+.error-msg  { font-size: var(--text-sm); color: var(--danger-700); }
 
 .crop-container {
   max-height: 200px; overflow-y: auto; overflow-x: hidden;
-  border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
-  padding: var(--space-3); background: var(--neutral-50);
-  scrollbar-width: thin; scrollbar-color: var(--neutral-300) transparent;
+  border: var(--border-width) solid var(--color-border); border-radius: var(--radius-lg);
+  padding: var(--space-3); background: var(--color-bg-sunken);
+  scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent;
 }
 .crop-container::-webkit-scrollbar { width: 5px; }
 .crop-container::-webkit-scrollbar-track { background: transparent; }
-.crop-container::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: var(--radius-full); }
+.crop-container::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: var(--radius-full); }
 
 .crop-search-wrap { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
-.crop-search {
-  flex: 1; padding: var(--space-2) var(--space-3);
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-md); color: var(--neutral-900); font-size: var(--text-sm);
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.crop-search::placeholder { color: var(--neutral-400); }
-.crop-search:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
+.crop-search { flex: 1; }
 
-.search-count { font-size: var(--text-xs); color: var(--teal-500); white-space: nowrap; }
+.search-count { font-size: var(--text-xs); color: var(--color-text-dim); white-space: nowrap; }
 .search-clear {
-  padding: var(--space-1) var(--space-2); background: transparent;
-  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  color: var(--neutral-400); font-size: var(--text-xs); cursor: pointer;
-  transition: all var(--duration-fast);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--control-h-sm); height: var(--control-h-sm);
+  background: transparent;
+  border: var(--border-width) solid var(--color-border); border-radius: var(--radius-md);
+  color: var(--color-text-dim); font-size: var(--text-base); cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work);
 }
-.search-clear:hover { background: var(--neutral-50); color: var(--neutral-900); }
-.no-result { font-size: var(--text-sm); color: var(--neutral-400); padding: var(--space-2) var(--space-1); margin: 0; }
+.search-clear:hover { background: var(--color-bg-sunken); color: var(--color-text); }
+.search-clear:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
+.no-result { font-size: var(--text-sm); color: var(--color-text-dim); padding: var(--space-2) var(--space-1); margin: 0; }
 </style>

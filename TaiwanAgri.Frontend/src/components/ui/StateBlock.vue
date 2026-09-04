@@ -83,8 +83,8 @@ const defaultIcon = computed(() => DEFAULT_ICON[props.state])
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-16) var(--space-8);
-  background: var(--neutral-0);
-  border: var(--border-width) solid var(--neutral-200);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   text-align: center;
   /* 狀態切換多半是瞬間發生的，直接出現會像閃了一下；淡入加一點點上浮讓它
@@ -99,18 +99,18 @@ const defaultIcon = computed(() => DEFAULT_ICON[props.state])
 
 .state-icon {
   font-size: var(--text-3xl);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
 }
 
 .state-text {
   font-size: var(--text-base);
   font-weight: var(--weight-normal);
-  color: var(--neutral-500);
+  color: var(--color-text-dim);
 }
 
 .state-hint {
   font-size: var(--text-sm);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
 }
 
 /* ── 錯誤：整塊換色，不只是把文字改紅 ── */
@@ -122,14 +122,14 @@ const defaultIcon = computed(() => DEFAULT_ICON[props.state])
 .state-block--error .state-text { color: var(--danger-700); }
 
 /* ── 提示（還沒開始查詢）：比空狀態再淡一階，避免看起來像出了問題 ── */
-.state-block--hint { background: var(--neutral-50); }
-.state-block--hint .state-icon { color: var(--green-400); }
+.state-block--hint { background: var(--color-bg-sunken); }
+.state-block--hint .state-icon { color: var(--seed-400); }
 
 .state-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid var(--green-200);
-  border-top-color: var(--green-600);
+  border: 3px solid var(--seed-200);
+  border-top-color: var(--color-action);
   border-radius: var(--radius-full);
   animation: state-spin 0.8s linear infinite;
 }

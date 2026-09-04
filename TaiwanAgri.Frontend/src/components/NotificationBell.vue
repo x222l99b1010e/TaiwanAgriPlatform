@@ -125,16 +125,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
-  color: var(--white-a80);
+  color: var(--color-on-deep-dim);
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition:
+    background var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work);
 }
-.bell-btn:hover { background: var(--white-a12); color: var(--neutral-0); }
+.bell-btn:hover { background: var(--white-a12); color: var(--color-on-deep); }
+.bell-btn:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
 
 .bell-icon { font-size: var(--text-lg); }
 
@@ -145,22 +148,26 @@ onMounted(() => {
   top: 4px; right: 4px;
   min-width: 16px; height: 16px;
   padding: 0 var(--space-1); border-radius: var(--radius-full);
-  background: var(--danger-500); color: var(--neutral-0);
+  background: var(--danger-500); color: var(--color-on-deep);
+  font-family: var(--font-num);
   font-size: var(--text-2xs); font-weight: var(--weight-bold);
   line-height: 16px; text-align: center;
   pointer-events: none;
 }
 
-/* ── Dropdown（白底）── */
+/* ── Dropdown ──
+   這一層是真的浮在頁面上方的浮動層，所以准用陰影（style tile §三 的例外清單）。
+   ⚠ 未讀項目原本用青色（--teal-*），那是舊色盤的次要強調色、不在秋田的十色裡；
+   改用動作色的淺階＋左邊界。 */
 .dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--space-2));
   right: 0;
   width: 340px;
-  background: var(--neutral-0);
-  border: 1px solid var(--neutral-200);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-float);
   overflow: hidden;
   z-index: var(--z-overlay);
 }
@@ -168,64 +175,64 @@ onMounted(() => {
 .dropdown-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: var(--space-4) var(--space-5) var(--space-3);
-  border-bottom: 1px solid var(--neutral-200);
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .dropdown-title {
-  font-size: var(--text-base);              /* 從 14px → 16px */
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--neutral-900);
+  color: var(--color-text);
 }
 
 .btn-mark-all {
-  font-size: var(--text-sm);              /* 從 12px → 13px */
-  color: var(--neutral-500);   /* 從 teal → 深灰 */
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-dim);
   background: none; border: none; cursor: pointer; padding: 0;
   font-weight: var(--weight-medium);
-  transition: color var(--duration-fast);
+  transition: color var(--duration-fast) var(--ease-work);
 }
-.btn-mark-all:hover:not(:disabled) { color: var(--green-600); }
-.btn-mark-all:disabled { color: var(--neutral-400); cursor: not-allowed; }
+.btn-mark-all:hover:not(:disabled) { color: var(--color-action); }
+.btn-mark-all:disabled { color: var(--color-text-dim); opacity: 0.5; cursor: not-allowed; }
 
 /* 捲動區 */
 .dropdown-body { max-height: 400px; overflow-y: auto; }
 .dropdown-body::-webkit-scrollbar { width: 4px; }
 .dropdown-body::-webkit-scrollbar-track { background: transparent; }
-.dropdown-body::-webkit-scrollbar-thumb { background: var(--neutral-300); border-radius: var(--radius-sm); }
+.dropdown-body::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: var(--radius-sm); }
 
 /* 通知項目 */
 .notification-item {
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--neutral-200);
-  cursor: pointer; transition: background var(--duration-fast);
+  border-bottom: var(--border-width) solid var(--color-border);
+  cursor: pointer; transition: background var(--duration-fast) var(--ease-work);
 }
 .notification-item:last-child { border-bottom: none; }
-.notification-item:hover { background: var(--neutral-50); }
+.notification-item:hover { background: var(--color-bg-sunken); }
 
 /* 未讀 */
 .notification-item.unread {
-  background: var(--teal-50);
-  border-left: 3px solid var(--teal-500);
+  background: var(--color-action-soft);
+  border-left: 3px solid var(--color-action);
   padding-left: var(--space-4);
 }
-.notification-item.unread:hover { background: var(--teal-100); }
+.notification-item.unread:hover { background: var(--color-action-soft-2); }
 
 .item-top {
   display: flex; justify-content: space-between;
-  align-items: baseline; margin-bottom: var(--space-1);
+  align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-1);
 }
 
-.rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--teal-500); }
-.item-time { font-size: var(--text-2xs); color: var(--neutral-400); white-space: nowrap; }
-.item-message { font-size: var(--text-sm); color: var(--neutral-500); line-height: var(--leading-normal); }
+.rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-action); }
+.item-time { font-family: var(--font-num); font-size: var(--text-2xs); color: var(--color-text-dim); white-space: nowrap; }
+.item-message { font-size: var(--text-sm); color: var(--color-text); line-height: var(--leading-normal); }
 
 /* 提示文字 */
 .hint {
   text-align: center;
   padding: var(--space-6) 0;
-  font-size: var(--text-base);              /* 從 13px → 14px */
-  color: var(--neutral-500);   /* 從 text-muted(0.40) → 0.50 */
-  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+  color: var(--color-text-dim);
 }
 .end-hint { padding: var(--space-3) 0; font-size: var(--text-xs); }
 </style>
