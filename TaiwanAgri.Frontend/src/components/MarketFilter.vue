@@ -104,7 +104,7 @@ onMounted(() => store.initialize())
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九），欄位外殼改用 base.css 的
+/* 顏色全部改用 semantic 層，欄位外殼改用 base.css 的
    .field-group／.field-label／.form-control，這裡只留這個元件真正不同的部分。 */
 .market-filter { display: flex; flex-direction: column; gap: var(--space-5); }
 

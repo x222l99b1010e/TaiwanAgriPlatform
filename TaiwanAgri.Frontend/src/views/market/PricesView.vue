@@ -6,7 +6,7 @@
       subtitle="蔬菜、水果、花卉在各批發市場的每日交易均價，可同時比較多項作物並疊上同期天災警戒"
     >
       <!-- 作物選擇是一整塊、日期是一列，所以查詢／匯出／清空跟日期擺同一列的尾端
-           （owner 2026-09-03：選完日期查詢鈕就在旁邊比較直覺）。不再用 QueryLayout 的
+           （選完日期，查詢鈕就在旁邊比較直覺）。不再用 QueryLayout 的
            頂部插槽——這一頁的「日期」在條件區的最下面，動作跟著日期走才是「旁邊」。 -->
       <template #filters>
         <div class="filter-stack">
@@ -187,7 +187,7 @@ function handleExportCsv() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層，不再引用待刪的 --neutral- 舊色階（style tile §九）。
+/* 顏色全部改用 semantic 層，不再引用待刪的 --neutral- 舊色階。
    卡片外殼改用 base.css 的 .card／.card--lg，這裡只留這一頁真正不同的部分。 */
 .prices-view { min-width: 960px; }
 

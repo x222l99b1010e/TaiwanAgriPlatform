@@ -61,7 +61,7 @@ namespace TaiwanAgri.Web.Services
 				var body = Encoding.UTF8.GetString(ea.Body.ToArray());
 				_logger.LogInformation("[PriceUpdatedConsumer] 收到事件：{Body}，開始清除 Redis cache", body);
 
-				// TODO(W15): implement cache invalidation
+				// 未排程：Cache Invalidation 需搭配 RabbitMQ 正式承載流量後再做
 				// 骨架階段：清除所有 market:prices 開頭的 key，目前尚未實作
 				_logger.LogWarning("[PriceUpdatedConsumer] Cache invalidation 尚未實作，跳過");
 

@@ -2,7 +2,7 @@
  * src/utils/solarTerms.ts
  * 職責：24 節氣的查表與「今天是哪個節氣、下一個節氣還有幾天」計算。
  *
- * style tile §六定案：節氣只進內容層，不進 token 層——這裡只回傳文字與季節分組，
+ * 設計定案：節氣只進內容層，不進 token 層——這裡只回傳文字與季節分組，
  * 不碰任何顏色 token。日期用查表，不打氣象署 API：節氣是固定的天文事件，
  * 為了一行字多一個外部相依不划算。
  *
@@ -25,7 +25,7 @@ export interface SolarTerm {
   season: Season
 }
 
-// 資料來源：style tile §6.3 的 24 節氣定譯；日期是通用的西曆對照表
+// 資料來源：24 節氣定譯；日期是通用的西曆對照表
 export const SOLAR_TERMS: SolarTerm[] = [
   { index: 1,  zh: '立春', en: 'Start of Spring',      month: 2,  day: 4,  season: 'spring' },
   { index: 2,  zh: '雨水', en: 'Rain Water',            month: 2,  day: 19, season: 'spring' },

@@ -16,10 +16,10 @@ namespace TaiwanAgri.Worker.Pet
 {
 	/// <summary>
 	/// 同步農業部「合法特定寵物業」(LegalSpecificPet) 名單。
-	/// 跟 AnimalRecognitionSyncWorker 相同的雙分支結構（決策25）：SyncState 不存在→回填分支，
+	/// 跟 AnimalRecognitionSyncWorker 相同的雙分支結構：SyncState 不存在→回填分支，
 	/// 打舊制端點一次抓全量歷史資料；SyncState 存在→常態分支，打新制端點逐縣市（22 個代碼）
 	/// 整批重掃。但常態分支的迴圈對象是「縣市代碼」而不是「日期」——這個資料集沒有可用的
-	/// 異動時間欄位可以篩「今天新增了什麼」（決策25），所以無法比照 AnimalRecognition/PetLoseList
+	/// 異動時間欄位可以篩「今天新增了什麼」，所以無法比照 AnimalRecognition/PetLoseList
 	/// 用日期區間縮小範圍，只能每天整批重掃 22 個縣市。也因此落地用 upsert 而非 insert-only：
 	/// 業者的評鑑等級/營業狀態會隨時間變動（今年優等、明年甲等；正常營業後來歇業），
 	/// 只新增不更新會讓資料悄悄過期失真（詳見 LegalSpecificPet.cs 開頭註解）。
@@ -64,7 +64,7 @@ namespace TaiwanAgri.Worker.Pet
 			if (lastSyncState == null)
 			{
 				// ===== 回填分支：只會執行這一次（執行完會建立 SyncState，下次進來就不是 null 了）=====
-				// 舊制端點裸陣列格式，一次拿全量（決策25 實測 5845 筆，文件雖寫 1000 筆上限但實測不符，
+				// 舊制端點裸陣列格式，一次拿全量（實測 5845 筆，文件雖寫 1000 筆上限但實測不符，
 				// 判斷容量沒有正式保證，只適合當一次性回填起點）。資料量偏大，比照 AnimalRecognitionLegacy
 				// 的做法，用獨立 CancellationTokenSource 蓋掉共用 "MoaApi" client 的預設 120 秒逾時。
 				var httpTimeoutSeconds = _configuration.GetValue<int>("LegalSpecificPetSyncWorker:LegacyFetchTimeoutSeconds", 300);
@@ -74,7 +74,7 @@ namespace TaiwanAgri.Worker.Pet
 
 				await UpsertBatchAsync(dbPet, legacyDtos, _timeProvider, _logger, LogPrefix, stoppingToken);
 
-				// 全部成功後才建立 SyncState（回填完成判斷機制，比照決策12／AnimalRecognitionSyncWorker：
+				// 全部成功後才建立 SyncState（回填完成判斷機制，比照 AnimalRecognitionSyncWorker：
 				// 這行程式碼本身就是「回填完成」的證明，上面任一步拋例外就不會執行到這裡，
 				// 下一輪 SyncState 仍是 null，整段回填會重跑一次——upsert 天生不怕重跑）。
 				lastSyncState = new SyncState
@@ -89,7 +89,7 @@ namespace TaiwanAgri.Worker.Pet
 			else
 			{
 				// ===== 常態分支：從第一次 SyncState 建立後，每天都會走這裡 =====
-				// 迴圈對象是「縣市代碼」不是「日期」：這個資料集沒有可用的異動時間欄位（決策25），
+				// 迴圈對象是「縣市代碼」不是「日期」：這個資料集沒有可用的異動時間欄位，
 				// 沒辦法像其他兩支 Worker 那樣篩「今天新增了什麼」，只能每天把 22 個縣市全部重新掃
 				// 一次，靠 upsert 讓評鑑等級/營業狀態的變動蓋上去。
 				foreach (var (code, countyName) in LegalPetCounties.CodeToName)
@@ -107,7 +107,7 @@ namespace TaiwanAgri.Worker.Pet
 						continue;
 					}
 
-					// 已知風險，非本輪處理範圍（決策25）：未登入查詢非會員只回第一頁，
+					// 已知風險，非本輪處理範圍：未登入查詢非會員只回第一頁，
 					// 若單一縣市真實筆數超過 1000 會安靜漏資料、不會噴例外。目前最大新北市 884 筆，
 					// 離門檻還有距離，先不處理分頁（YAGNI，等真的逼近門檻再回頭處理）。
 					await UpsertBatchAsync(dbPet, response.Data, _timeProvider, _logger, LogPrefix, stoppingToken);
@@ -127,7 +127,7 @@ namespace TaiwanAgri.Worker.Pet
 
 		/// <summary>
 		/// 把一批 DTO 轉成 Entity 後 upsert 落地。回填分支（全量無縣市過濾）跟常態分支
-		/// （單一縣市過濾）共用同一套邏輯——DTO 本身就帶 legaltype（決策25：連舊制回填資料
+		/// （單一縣市過濾）共用同一套邏輯——DTO 本身就帶 legaltype（連舊制回填資料
 		/// 也是靠這個欄位分組反查出縣市代碼對照表），不需要呼叫端額外傳入縣市代碼。
 		/// </summary>
 		private static async Task UpsertBatchAsync(
@@ -148,7 +148,7 @@ namespace TaiwanAgri.Worker.Pet
 			// existingEntities 刻意縮小成「這批 ExternalId 命中的既有資料」，不像 PetLoseList
 			// 的 existingKeys 選擇全表掃描——這裡的過濾條件就是等一下要比對的那把鍵本身
 			// （ExternalId IN 這批清單），不是「假設某個間接欄位等於查詢參數」那種未驗證的關聯，
-			// 沒有決策26 討論過的那種正確性風險，可以放心縮小範圍。
+			// 沒有 PetLoseList existingKeys 那種「間接欄位等於查詢參數」的未驗證關聯風險，可以放心縮小範圍。
 			var incomingIds = incoming.Select(x => x.ExternalId).ToList();
 			var existingEntities = dbPet.LegalSpecificPets.Where(x => incomingIds.Contains(x.ExternalId));
 
@@ -195,7 +195,7 @@ namespace TaiwanAgri.Worker.Pet
 			{
 				ExternalId = dto.ID,
 
-				// legaltype 對照表已用真實資料反查驗證（決策25），查不到理論上不該發生，
+				// legaltype 對照表已用真實資料反查驗證，查不到理論上不該發生，
 				// 保底 fallback 直接存原始代碼字串（至少留下線索可查，不會存成空字串）
 				County = LegalPetCounties.CodeToName.TryGetValue(dto.LegalType, out var countyName)
 					? countyName
@@ -203,7 +203,7 @@ namespace TaiwanAgri.Worker.Pet
 
 				BusinessItems = dto.BusItem,
 
-				// animaltype 原始值目前只用真實資料反查過「狗」「貓」兩種單一字面值（決策25 樣本），
+				// animaltype 原始值目前只用真實資料反查過「狗」「貓」兩種單一字面值（樣本觀察），
 				// 「狗、貓皆可」的組合值實際分隔符號未經樣本驗證，用 Contains 而非精確字串比對，
 				// 之後跑真實資料若 LogUnexpectedValue 頻繁出現要回頭核對這個假設
 				AnimalType = dto.AnimalType switch
@@ -222,7 +222,7 @@ namespace TaiwanAgri.Worker.Pet
 				ResponsibleStaffName = dto.BosName,
 				RankYear = dto.RankYear,
 
-				// rank_code：官方文件這張對照表排版清晰無爭議（決策25），A=優等 B=甲等 C=乙等 D=丙等
+				// rank_code：官方文件這張對照表排版清晰無爭議，A=優等 B=甲等 C=乙等 D=丙等
 				RankGrade = dto.RankCode switch
 				{
 					"A" => LegalPetRankGrade.Excellent,
@@ -232,7 +232,7 @@ namespace TaiwanAgri.Worker.Pet
 					_ => EnumMappingHelper.LogUnexpectedValue(dto.ID, nameof(dto.RankCode), dto.RankCode, LegalPetRankGrade.Unknown, logger)
 				},
 
-				// rank_flag_1/2：Y/N 是字面轉譯不是語意詮釋（決策25：不確定「確認/未確認」實際
+				// rank_flag_1/2：Y/N 是字面轉譯不是語意詮釋（不確定「確認/未確認」實際
 				// 對應哪個代碼，但至少 Y→Yes／N→No 的方向不會錯）
 				RankDataConfirmed = dto.RankFlag1 switch
 				{
@@ -249,7 +249,7 @@ namespace TaiwanAgri.Worker.Pet
 
 				RankText = dto.RankText,
 
-				// state_flag：PDF 對照表順序錯位，改用 validdate 交叉比對真實資料反查驗證（決策25，
+				// state_flag：PDF 對照表順序錯位，改用 validdate 交叉比對真實資料反查驗證（
 				// 1000 筆樣本）：N→營業中(高信心) B→廢止(高信心) P→歇業(中信心) S→停業(中信心)
 				StateFlag = dto.StateFlag switch
 				{
@@ -265,7 +265,7 @@ namespace TaiwanAgri.Worker.Pet
 		}
 
 		/// <summary>
-		/// validdate 原始格式為 "2028/3/12 上午 12:00:00"（決策25），含中文上午/下午時段字樣，
+		/// validdate 原始格式為 "2028/3/12 上午 12:00:00"，含中文上午/下午時段字樣，
 		/// DateOnly.ParseExact 對這種格式無法直接處理。明確指定 zh-TW 文化與對應格式字串解析
 		/// （不依賴執行環境的預設文化，避免跟 PetLoseList 的 LostTime 一樣需要顧慮文化設定誤判），
 		/// 再取日期部分（時間固定是 00:00:00，不會遺失資訊）。

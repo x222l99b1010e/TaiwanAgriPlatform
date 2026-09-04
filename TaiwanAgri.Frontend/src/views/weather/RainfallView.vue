@@ -252,7 +252,7 @@ const chartData = computed(() => {
       fill: false,
       spanGaps: true,
       // 預設隱藏：一個縣市常常有十幾個測站，全畫出來是一團互相蓋住的線。
-      // 讓使用者從圖例自己點開要比較的那幾站（owner 2026-09-04）
+      // 讓使用者從圖例自己點開要比較的那幾站
       hidden: true,
     }
   })
@@ -348,7 +348,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；摘要列、分段控制器、卡片外殼
+/* 顏色全部改用 semantic 層；摘要列、分段控制器、卡片外殼
    都已收進 base.css，這裡只留這一頁真正不同的部分。 */
 .rainfall-view { min-width: 960px; }
 
@@ -387,7 +387,7 @@ async function handleQuery() {
 .chart-empty-hint__sub { font-size: var(--text-xs); }
 
 /* 資料收在一個有高度上限的 data grid 裡，內部自己捲、表頭吸頂（.data-table thead 已是
-   sticky），配合下方分頁，整頁就不會被幾百列撐得很長（owner 2026-09-03 要求）。 */
+   sticky），配合下方分頁，整頁就不會被幾百列撐得很長。 */
 .table-wrap {
   max-height: min(58vh, 620px);
   overflow: auto;

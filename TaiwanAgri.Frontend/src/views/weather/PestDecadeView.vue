@@ -272,7 +272,7 @@ const chartData = computed(() => {
     tension: 0.3,
     spanGaps: true,
     // 預設隱藏：一種害蟲橫跨全台多個城市，全畫出來線條互相蓋住。
-    // 讓使用者從圖例點開要比較的城市（owner 2026-09-04）
+    // 讓使用者從圖例點開要比較的城市
     hidden: true,
   }))
 
@@ -352,7 +352,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；欄位、摘要列與卡片外殼已收進 base.css，
+/* 顏色全部改用 semantic 層；欄位、摘要列與卡片外殼已收進 base.css，
    這裡只留這一頁真正不同的部分。 */
 .pest-view { min-width: 960px; }
 
@@ -386,7 +386,7 @@ async function handleQuery() {
 .chart-empty-hint__sub { font-size: var(--text-xs); }
 
 /* 資料收在一個有高度上限的 data grid：內部自己捲、表頭吸頂，配合下方分頁，
-   整頁不會被上百列撐得很長（owner 2026-09-03 要求，跟雨量頁一致）。 */
+   整頁不會被上百列撐得很長（跟雨量頁一致）。 */
 .table-wrap {
   max-height: min(58vh, 620px);
   overflow: auto;

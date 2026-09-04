@@ -10,7 +10,7 @@ namespace TaiwanAgri.Web.Controllers
 	[ApiController]
 	[Authorize]
 	// [Authorize]：這個 Controller 所有端點都需要 JWT，未登入回 401
-	// userId 從 JWT Claims 取，不從 Query 參數傳（和 NotificationController 的 W15 還原一致）
+	// userId 從 JWT Claims 取，不從 Query 參數傳（和 NotificationController 的還原方式一致）
 	public class ProfileController(IUserProfileService userProfileService) : ControllerBase
 	{
 		[HttpGet("farm")]

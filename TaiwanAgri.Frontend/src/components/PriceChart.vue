@@ -276,7 +276,7 @@ function exportChartImage() {
 
 <style scoped>
 /* 這一張是 PricesView 已經包在 .card--lg 裡的內容，所以自己不再畫一層卡片外框——
-   顏色改用 semantic 層，陰影拿掉（style tile §三：卡片只用 1px 邊框＋底色差）。 */
+   顏色改用 semantic 層，陰影拿掉（卡片只用 1px 邊框＋底色差）。 */
 .chart-card {
   border-radius: var(--radius-xl);
   animation: fadeUp var(--duration-slow) var(--ease-work);

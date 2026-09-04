@@ -37,7 +37,7 @@ namespace TaiwanAgri.Modules.Pet.Entities
 		[Column(TypeName = "nvarchar(max)")]
 		public string PhotoUrl { get; set; } = string.Empty;
 
-		/// <summary>前端 Leaflet 點地圖直接取得，不做地址地理編碼（決策22 已驗證 Nominatim 對台灣地址不可行）</summary>
+		/// <summary>前端 Leaflet 點地圖直接取得，不做地址地理編碼（已驗證 Nominatim 對台灣地址不可行）</summary>
 		[Column(TypeName = "decimal(10,6)")]
 		public decimal? Latitude { get; set; }
 

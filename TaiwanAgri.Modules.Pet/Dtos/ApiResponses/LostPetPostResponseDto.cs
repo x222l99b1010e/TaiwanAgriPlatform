@@ -3,9 +3,9 @@ namespace TaiwanAgri.Modules.Pet.Dtos.ApiResponses
 	/// <summary>
 	/// 不含 UserId——公開 API 不外露內部使用者識別碼。
 	/// 「這是不是本人貼文」改由後端在查詢當下算好、以 <see cref="IsOwner"/> 布林值回傳，
-	/// 前端不需要（也拿不到）自己的 UserId 去比對——這是 W23 前端串接時修正的設計缺口：
+	/// 前端不需要（也拿不到）自己的 UserId 去比對——這是前端串接時修正的設計缺口：
 	/// 原註解曾寫「前端自行比對登入身分」，但 DTO 從未帶識別欄位、前端 authStore 也未存 UserId，
-	/// 該行為在舊版資料形狀下無法實現（詳見 DevLog 條目 291）。
+	/// 該行為在舊版資料形狀下無法實現。
 	/// </summary>
 	public class LostPetPostResponseDto
 	{

@@ -28,7 +28,7 @@ describe('getTodaySolarTerm', () => {
     expect(daysUntilNext).toBe(12)
   })
 
-  it('24 個節氣的季節分組跟 style tile §6.2 一致：秋＝立秋至霜降', () => {
+  it('24 個節氣的季節分組正確：秋＝立秋至霜降', () => {
     const { current } = getTodaySolarTerm(new Date(2026, 8, 3))
     expect(current.season).toBe('autumn')
   })

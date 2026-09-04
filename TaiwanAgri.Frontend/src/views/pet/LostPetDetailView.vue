@@ -158,7 +158,7 @@ async function handleDelete() {
 </script>
 
 <style scoped>
-/* 返回列、標題、內文限寬都由 DetailLayout 負責；顏色改用 semantic 層（style tile §九）。 */
+/* 返回列、標題、內文限寬都由 DetailLayout 負責；顏色改用 semantic 層。 */
 
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色（見 MyLostPetsView 對這三行不收進
    base.css 的說明：協尋狀態是業務語意，不是設計系統的一部分） */

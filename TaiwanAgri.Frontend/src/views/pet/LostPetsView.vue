@@ -68,7 +68,7 @@
 
       <template #results>
         <!-- 新增／編輯表單：抽成共用元件 LostPetPostForm，詳情頁與個人管理頁也用同一份
-             （owner 2026-08-09 裁定共用，不是三處各刻一份表單邏輯） -->
+             （共用，不是三處各刻一份表單邏輯） -->
         <LostPetPostForm v-if="isFormOpen" :post="editingPost" @saved="handleFormSaved" @cancel="closeForm" />
 
         <!-- 清單 -->
@@ -311,7 +311,7 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；狀態四選一改用 base.css 的 .segmented，
+/* 顏色全部改用 semantic 層；狀態四選一改用 base.css 的 .segmented，
    欄位外殼走 .field-group／.field-label／.form-control。 */
 
 /* ── 篩選列 ── */
@@ -333,7 +333,7 @@ onMounted(fetchList)
 .sort-dir-btn:hover { border-color: var(--color-action); color: var(--color-action); }
 .sort-dir-btn:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
 
-/* 「我的協尋貼文」原本是純文字連結，太不顯眼（owner 2026-08-09 實機反應：
+/* 「我的協尋貼文」原本是純文字連結，太不顯眼（
    電腦上幾乎看不到）。做成描邊按鈕，跟旁邊的主要動作（實心的「張貼協尋啟事」）
    分出主從。⚠ 邊框從 2px 改回 1px：它跟旁邊的 Btn 排在同一列，2px 會比隔壁粗一圈，
    而且加上邊框後總高比 Btn 多 2px、底部對不齊。形狀也跟著 Btn 改成方角。 */

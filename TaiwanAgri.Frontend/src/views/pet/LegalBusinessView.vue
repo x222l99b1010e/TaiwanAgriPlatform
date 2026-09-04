@@ -502,7 +502,7 @@ onMounted(fetchLegal)
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；分頁切換改用 base.css 的 .segmented，
+/* 顏色全部改用 semantic 層；分頁切換改用 base.css 的 .segmented，
    欄位外殼走 .field-group／.field-label／.form-control。 */
 .tab-switch { margin-bottom: var(--space-5); }
 

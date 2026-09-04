@@ -6,7 +6,7 @@ namespace TaiwanAgri.Tests.Worker
 	public class LegalSpecificPetSyncWorkerTests
 	{
 		// ===== ParseValidDate =====
-		// 這支解析邏輯沒有正式規格，格式字串是照決策25 文件裡的範例字串反推的，
+		// 這支解析邏輯沒有正式規格，格式字串是照官方文件裡的範例字串反推的，
 		// 一旦真實資料出現這裡沒設想到的變體會直接炸掉整輪回填（不像 enum fallback
 		// 只是分類不準），值得釘住現況。
 
