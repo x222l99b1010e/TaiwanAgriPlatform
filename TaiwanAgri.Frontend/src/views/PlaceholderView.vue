@@ -5,7 +5,7 @@
 <style scoped>
 .placeholder {
   padding: var(--space-10);
-  color: var(--neutral-400);
+  color: var(--color-text-dim);
   font-size: var(--text-lg);
 }
 </style>

@@ -77,13 +77,15 @@ describe('Bilingual', () => {
 })
 
 describe('QueryLayout', () => {
-  it('動作按鈕排在查詢條件的上方，不是下方', async () => {
+  it('動作按鈕排在查詢條件列的尾端，不是頂部', async () => {
+    // P3 改版：查詢鈕落在條件的最後一格、跟日期同一列（owner 要求「選完日期
+    // 查詢鈕就在旁邊」），所以 HTML 順序是 filters 在前、actions 在後。
     const html = await render(
       QueryLayout,
       { title: '家禽行情', titleEn: 'Poultry Prices' },
       { actions: '查詢價格', filters: '日期區間' },
     )
-    expect(before(html, '查詢價格', '日期區間')).toBe(true)
+    expect(before(html, '日期區間', '查詢價格')).toBe(true)
   })
 
   it('查詢條件在結果上方，分頁在結果下方', async () => {
@@ -103,9 +105,11 @@ describe('QueryLayout', () => {
     expect(html).not.toContain('query-filters__actions')
   })
 
-  it('初始狀態不是黏住的，所以沒有浮動層陰影', async () => {
+  it('篩選卡不再吸頂，所以不會出現黏住態的標記', async () => {
+    // P3 改版：移除吸頂——高的篩選卡捲動時會蓋住結果（owner 回報），改成一般卡片。
     const html = await render(QueryLayout, { title: '家禽行情' })
     expect(html).not.toContain('is-stuck')
+    expect(html).not.toContain('query-layout__sentinel')
   })
 })
 

@@ -13,19 +13,28 @@
 
   幕的高度用 min-height 而不是固定值：內容比預期長時要能撐開，
   固定高度會讓文字直接溢位到下一段。
+
+  aside 是選填的：四個模組入口頁不需要它（單欄文案就夠），首頁 hero 才會用到
+  ——右欄放今日節氣牌。沒給 aside 時排版跟原本完全一樣（單欄、置底對齊），
+  這裡多接一個插槽不影響既有四個模組入口頁的長相。
 -->
 <template>
   <div class="entry-layout">
-    <header class="entry-layout__band">
+    <header class="entry-layout__band" :class="{ 'entry-layout__band--hero': bandSize === 'hero' }">
       <div class="entry-layout__motif" aria-hidden="true"><slot name="motif" /></div>
 
-      <div class="entry-layout__band-inner">
-        <p v-if="eyebrow" class="entry-layout__eyebrow">{{ eyebrow }}</p>
-        <h1 class="entry-layout__title">
-          <Bilingual :zh="title" :en="titleEn" layout="stacked" tone="deep" />
-        </h1>
-        <p v-if="lead" class="entry-layout__lead">{{ lead }}</p>
-        <div v-if="$slots.stats" class="entry-layout__stats"><slot name="stats" /></div>
+      <div class="entry-layout__band-inner" :class="{ 'has-aside': $slots.aside }">
+        <div class="entry-layout__main">
+          <p v-if="eyebrow" class="entry-layout__eyebrow">{{ eyebrow }}</p>
+          <h1 class="entry-layout__title" :class="{ 'entry-layout__title--display': titleSize === 'display' }">
+            <Bilingual :zh="title" :en="titleEn" layout="stacked" tone="deep" />
+          </h1>
+          <p v-if="lead" class="entry-layout__lead">{{ lead }}</p>
+          <div v-if="$slots.stats" class="entry-layout__stats"><slot name="stats" /></div>
+          <div v-if="$slots.cta" class="entry-layout__cta"><slot name="cta" /></div>
+        </div>
+
+        <div v-if="$slots.aside" class="entry-layout__aside"><slot name="aside" /></div>
       </div>
     </header>
 
@@ -45,6 +54,17 @@ defineProps<{
   eyebrow?: string
   /** 一句話說明這個模組在做什麼 */
   lead?: string
+  /**
+   * 標題字級。'default'（未給時）＝ --text-4xl，四個模組入口頁用這個；
+   * 'display' ＝ --text-display（隨視窗縮放的更大級距），只有首頁 hero 用。
+   */
+  titleSize?: 'default' | 'display'
+  /**
+   * 幕的高度。'default'（未給時）＝約三成視窗，四個模組入口頁用這個；
+   * 'hero' ＝接近整屏，只有首頁用——首頁的幕就是第一屏，要把畫面撐起來
+   * （owner 2026-09-03：首頁那個深色區塊要拉高一些）。
+   */
+  bandSize?: 'default' | 'hero'
 }>()
 </script>
 
@@ -66,6 +86,12 @@ defineProps<{
     radial-gradient(52% 64% at 18% 84%, var(--color-glow-2), transparent);
 }
 
+/* 首頁的幕＝第一屏，拉高到接近整屏把畫面撐起來（owner 2026-09-03）。
+   內容仍靠底對齊，上方留給麥穗母題與光暈，讀起來像一張海報的天空。 */
+.entry-layout__band--hero {
+  min-height: min(84vh, 820px);
+}
+
 .entry-layout__motif {
   position: absolute;
   inset: 0;
@@ -78,6 +104,27 @@ defineProps<{
   width: 100%;
   max-width: var(--container-lg);
   margin-inline: auto;
+}
+
+/* 有 aside 時才變兩欄：主文案在左、節氣牌之類的卡片在右，底部對齊跟單欄版一致 */
+.entry-layout__band-inner.has-aside {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-10);
+}
+
+.entry-layout__main { min-width: 0; flex: 1; }
+.entry-layout__aside { flex-shrink: 0; }
+
+.entry-layout__cta { margin-top: var(--space-8); }
+
+@media (max-width: 900px) {
+  /* 窄螢幕收成單欄：節氣牌這種次要資訊排到主文案下面，不搶頭條 */
+  .entry-layout__band-inner.has-aside {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .entry-layout__eyebrow {
@@ -97,6 +144,10 @@ defineProps<{
   line-height: var(--leading-display);
   /* 襯線壓在深色底上會糊，用字距補償而不是加重字重 */
   letter-spacing: var(--tracking-title-on-deep);
+}
+
+.entry-layout__title--display {
+  font-size: var(--text-display);
 }
 
 .entry-layout__lead {

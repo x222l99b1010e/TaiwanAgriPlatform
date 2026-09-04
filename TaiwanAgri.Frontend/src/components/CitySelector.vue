@@ -1,8 +1,9 @@
 <template>
   <div class="field-group">
-    <label class="field-label">選擇縣市</label>
+    <label class="field-label" :for="selectId">選擇縣市</label>
     <select
-      class="city-select"
+      :id="selectId"
+      class="form-control city-select"
       :value="modelValue"
       @change="emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
@@ -13,11 +14,18 @@
 </template>
 
 <script setup lang="ts">
+import { useId } from 'vue'
+
 // includeAll：地圖／表格類篩選預設要看「全部」時開啟；既有的天氣模組固定要選單一縣市，
 // 不受影響（預設 false，行為與原本一致）
 withDefaults(defineProps<{ modelValue: string; includeAll?: boolean }>(), {
   includeAll: false,
 })
+
+// label 要指向 select 才點得到、螢幕閱讀器也才唸得出這個下拉在問什麼。
+// id 用 useId() 產生而不是寫死字串：同一頁可能出現兩個 CitySelector，
+// 寫死會讓兩個 label 都指向第一個 select。
+const selectId = useId()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const cities = [
@@ -29,30 +37,7 @@ const cities = [
 </script>
 
 <style scoped>
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
-
-.field-label {
-  font-size: var(--text-xs);
-  color: var(--neutral-400);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.city-select {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-md);
-  background: var(--neutral-0);
-  color: var(--neutral-900);
-  font-size: var(--text-base);
-  min-width: 160px;
-  cursor: pointer;
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.city-select:focus {
-  outline: none;
-  border-color: var(--green-600);
-  box-shadow: var(--shadow-focus);
-}
+/* 欄位外殼走 base.css 的 .field-group／.field-label／.form-control，
+   這裡只留這個元件真正不同的部分 */
+.city-select { min-width: 160px; }
 </style>

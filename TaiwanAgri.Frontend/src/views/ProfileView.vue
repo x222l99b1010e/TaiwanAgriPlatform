@@ -2,6 +2,7 @@
   <div class="page profile-view">
     <PageHeader
       title="農場設定"
+      title-en="FARM SETTINGS"
       subtitle="設定所在縣市與顯示名稱，並管理密碼"
     />
 
@@ -19,7 +20,7 @@
       <!-- 農場縣市 -->
       <div class="form-group">
         <label>農場所在縣市</label>
-        <select v-model="farmCity">
+        <select v-model="farmCity" class="form-control">
           <option :value="null">請選擇</option>
           <option v-for="city in cityOptions" :key="city" :value="city">
             {{ city }}
@@ -30,7 +31,7 @@
       <!-- 農場類型 -->
       <div class="form-group">
         <label>農場類型</label>
-        <select v-model="farmType">
+        <select v-model="farmType" class="form-control">
           <option :value="null">請選擇</option>
           <option v-for="type in farmTypeOptions" :key="type" :value="type">
             {{ type }}
@@ -50,7 +51,9 @@
             class="crop-tag"
           >
             {{ crop.cropName }}
-            <button @click="removeCrop(index)">✕</button>
+            <button :aria-label="`移除 ${crop.cropName}`" @click="removeCrop(index)">
+              <span class="mdi mdi-close" />
+            </button>
           </div>
         </div>
 
@@ -61,7 +64,7 @@
             @input="onCropInput"
             @blur="onBlur"
             placeholder="輸入作物名稱搜尋，例如：番茄"
-            class="crop-search-input"
+            class="form-control crop-search-input"
           />
           <div class="autocomplete-dropdown" v-if="showDropdown">
             <div
@@ -191,42 +194,54 @@ async function handleSave() {
 </script>
 
 <style scoped>
+/* 顏色全部改用 semantic 層（style tile §九）；輸入框走 base.css 的 .form-control。 */
+
 /* 單欄表單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
 .section-link,
 .loading,
 .profile-form { max-width: var(--container-sm); }
+
 .loading {
-  color: var(--neutral-500);
+  color: var(--color-text-dim);
   padding: var(--space-8);
   text-align: center;
 }
 
-/* 原本用邊框+一般字重，在部分螢幕/亮度設定下太不顯眼（owner 2026-08-09 實機反應）。
-   改成綠色底色卡片＋粗體放大字＋圖示放進圓底色塊，跟頁面上其他純表單元素拉開視覺層級，
-   一眼就能認出「這是一個可以點的功能入口」而不是說明文字 */
+/* 「我的協尋貼文」是這一頁唯一的頁面入口，要跟表單欄位拉開層級
+   （owner 2026-08-09 實機反應：原本的邊框＋一般字重太不顯眼）。
+   ⚠ 但原本的做法是「2px 綠框＋綠底＋陰影＋放大字」四個手段一起上，
+   一個連結比整頁的主要動作（儲存設定）還搶眼。改成一張正常的卡片＋
+   動作色的圖示圓底＋右側箭頭：形狀本身就在說「這是可以點進去的一列」。 */
 .section-link {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-6);
-  border: 2px solid var(--green-600);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--green-100);
-  color: var(--green-800);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
   text-decoration: none;
-  box-shadow: var(--shadow-md);
-  transition: background var(--duration-fast), box-shadow var(--duration-fast);
+  transition:
+    border-color var(--duration-fast) var(--ease-work),
+    background var(--duration-fast) var(--ease-work);
 }
-.section-link:hover { background: var(--green-200); box-shadow: var(--shadow-md); }
+.section-link:hover { border-color: var(--color-action); background: var(--color-action-soft); }
+.section-link:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
 .section-link .mdi-dog-side {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 2rem; height: 2rem; border-radius: 50%;
-  background: var(--green-600); color: var(--neutral-0); font-size: var(--text-lg); flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: var(--radius-full);
+  background: var(--color-action-soft-2); color: var(--color-action);
+  font-size: var(--text-lg); flex-shrink: 0;
 }
-.section-link .mdi-chevron-right { margin-left: auto; font-size: var(--text-lg); }
+.section-link .mdi-chevron-right {
+  margin-left: auto; font-size: var(--text-lg); color: var(--color-text-dim);
+  transition: transform var(--duration-fast) var(--ease-work);
+}
+.section-link:hover .mdi-chevron-right { transform: translateX(2px); }
 
 .form-group {
   margin-bottom: var(--space-6);
@@ -237,20 +252,11 @@ async function handleSave() {
 
 label {
   font-weight: var(--weight-medium);
-  color: var(--neutral-900);
-  font-size: var(--text-base);
+  color: var(--color-text);
+  font-size: var(--text-sm);
 }
 
-select {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-md);
-  background: var(--neutral-0);
-  color: var(--neutral-900);
-  font-size: var(--text-base);
-}
-
-/* 已選作物標籤 */
+/* ── 已選作物標籤 ── */
 .crop-tags {
   display: flex;
   flex-wrap: wrap;
@@ -261,91 +267,94 @@ select {
 .crop-tag {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  background: var(--green-100);
-  color: var(--green-600);
-  border-radius: var(--radius-xl);
-  font-size: var(--text-base);
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--color-action-soft-2);
+  color: var(--color-action);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
   font-weight: var(--weight-medium);
 }
 
 .crop-tag button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
   background: none;
   border: none;
-  color: var(--green-600);
+  border-radius: var(--radius-full);
+  color: var(--color-action);
   cursor: pointer;
   padding: 0;
-  font-size: var(--text-xs);
+  font-size: var(--text-base);
   line-height: 1;
   opacity: 0.7;
+  transition: opacity var(--duration-fast) var(--ease-work), background var(--duration-fast) var(--ease-work);
 }
 
-.crop-tag button:hover {
-  opacity: 1;
-}
+.crop-tag button:hover { opacity: 1; background: var(--seed-200); }
+.crop-tag button:focus-visible { outline: 2px solid var(--color-action); outline-offset: 1px; }
 
-/* Autocomplete */
-.autocomplete-wrapper {
-  position: relative;
-}
+/* ── Autocomplete ── */
+.autocomplete-wrapper { position: relative; }
+.crop-search-input { width: 100%; box-sizing: border-box; }
 
-.crop-search-input {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-md);
-  background: var(--neutral-0);
-  color: var(--neutral-900);
-  font-size: var(--text-base);
-  box-sizing: border-box;
-}
-
+/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（style tile §三 的例外清單） */
 .autocomplete-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + var(--space-1));
   left: 0;
   right: 0;
-  background: var(--neutral-0);
-  border: 1px solid var(--neutral-200);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-float);
   z-index: var(--z-dropdown);
   max-height: 240px;
   overflow-y: auto;
+  padding: var(--space-1);
 }
 
 .autocomplete-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: var(--text-base);
-  color: var(--neutral-700);
+  font-size: var(--text-sm);
+  color: var(--color-text);
 }
 
-.autocomplete-item:hover {
-  background: var(--green-50);
-}
+.autocomplete-item:hover { background: var(--color-action-soft); }
 
 .crop-code {
+  font-family: var(--font-num);
   font-size: var(--text-xs);
-  color: var(--neutral-500);
+  color: var(--color-text-dim);
 }
 
 /* 儲存按鈕改用共用的 Btn，這裡只留它在表單裡的位置 */
 .save-btn { margin-top: var(--space-2); align-self: flex-start; }
 
-.error {
-  color: var(--danger-500);
-  font-size: var(--text-base);
-  margin-bottom: var(--space-2);
-}
-
+/* 訊息：只有文字顏色不夠，兩則訊息長得幾乎一樣、只差色相；加上左邊界與底色才分得開 */
+.error,
 .success {
-  color: var(--green-500);
-  font-size: var(--text-base);
-  margin-bottom: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+.error {
+  background: var(--danger-50);
+  border-inline-start: 3px solid var(--danger-500);
+  color: var(--danger-700);
+}
+.success {
+  background: var(--color-action-soft);
+  border-inline-start: 3px solid var(--color-action);
+  color: var(--color-action);
 }
 </style>

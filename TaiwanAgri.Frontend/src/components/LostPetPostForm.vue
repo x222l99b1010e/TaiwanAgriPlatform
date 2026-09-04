@@ -16,12 +16,12 @@
     <div class="form-grid">
       <div class="field-group span-2">
         <label class="field-label">標題 *</label>
-        <input v-model="form.title" class="field-input" maxlength="100" placeholder="例如：臺中北屯走失黑色米克斯" />
+        <input v-model="form.title" class="form-control field-input" maxlength="100" placeholder="例如：臺中北屯走失黑色米克斯" />
       </div>
 
       <div class="field-group span-2">
         <label class="field-label">描述 *</label>
-        <textarea v-model="form.description" class="field-textarea" maxlength="2000" rows="3"
+        <textarea v-model="form.description" class="form-control field-textarea" maxlength="2000" rows="3"
           placeholder="特徵、走失時間地點、其他協尋資訊" />
       </div>
 
@@ -32,17 +32,17 @@
 
       <div class="field-group">
         <label class="field-label">電話</label>
-        <input v-model="form.phone" class="field-input" maxlength="50" placeholder="0912345678" />
+        <input v-model="form.phone" class="form-control field-input" maxlength="50" placeholder="0912345678" />
       </div>
 
       <div class="field-group">
         <label class="field-label">Email</label>
-        <input v-model="form.email" class="field-input" maxlength="254" placeholder="you@example.com" />
+        <input v-model="form.email" class="form-control field-input" maxlength="254" placeholder="you@example.com" />
       </div>
 
       <div class="field-group">
         <label class="field-label">照片連結（選填）</label>
-        <input v-model="form.photoUrl" class="field-input" maxlength="1200"
+        <input v-model="form.photoUrl" class="form-control field-input" maxlength="1200"
           placeholder="外部圖床網址，例如 https://i.imgur.com/xxxx.jpg" />
         <p class="field-hint">
           需為 http:// 或 https:// 開頭的完整網址。圖片存放在外部網站、非本站託管，
@@ -53,7 +53,7 @@
       <!-- 只有編輯既有貼文時才能改狀態；新增一律從「協尋中」開始（後端強制，前端表單不提供這個選項） -->
       <div v-if="post != null" class="field-group">
         <label class="field-label">狀態</label>
-        <select v-model="form.status" class="field-select">
+        <select v-model="form.status" class="form-control field-select">
           <option v-for="opt in editableStatusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </div>
@@ -186,37 +186,26 @@ defineExpose({ panelRef })
 </script>
 
 <style scoped>
+/* 顏色全部改用 semantic 層（style tile §九）；輸入框的外觀走 base.css 的 .form-control，
+   這裡只留這個表單自己的排版。 */
 .post-form-panel {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200); border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: var(--space-6) var(--space-8); margin-bottom: var(--space-6);
-  box-shadow: var(--shadow-md);
-  display: flex; flex-direction: column; gap: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-5);
 }
-.form-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-900); }
+.form-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--color-text); }
 
 .form-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4) var(--space-5);
 }
 
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .field-group.span-2 { grid-column: span 2; }
-.field-label {
-  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
-  letter-spacing: 0.05em; text-transform: uppercase;
-}
 
-.field-input, .field-select, .field-textarea {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
-  font-family: inherit; transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.field-textarea { resize: vertical; min-height: 72px; }
-.field-input:focus, .field-select:focus, .field-textarea:focus {
-  outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus);
-}
-.field-select { cursor: pointer; }
-.field-hint { font-size: var(--text-2xs); color: var(--neutral-400); line-height: var(--leading-normal); }
+.field-textarea { min-height: 96px; }
+.field-hint { font-size: var(--text-2xs); color: var(--color-text-dim); line-height: var(--leading-normal); }
 
 .form-actions { display: flex; gap: var(--space-3); }
-.error-msg { font-size: var(--text-sm); color: var(--danger-500); font-weight: var(--weight-medium); }
+.error-msg { font-size: var(--text-sm); color: var(--danger-700); font-weight: var(--weight-medium); }
 </style>

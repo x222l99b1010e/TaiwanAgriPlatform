@@ -2,6 +2,7 @@
   <div class="page watchlist-view">
     <PageHeader
       title="監看清單"
+      title-en="WATCHLIST"
       subtitle="追蹤指定作物與市場的最新成交價，價格更新時可在通知中看到"
     />
 
@@ -12,13 +13,13 @@
       <div class="add-form">
         <!-- MarketType Tab -->
         <div class="field-group">
-          <label class="field-label">作物類別</label>
-          <div class="tab-group">
+          <span class="field-label">作物類別</span>
+          <div class="segmented">
             <button
               v-for="tab in marketTypeTabs"
               :key="tab.value"
-              class="tab-btn"
-              :class="{ active: selectedMarketType === tab.value }"
+              class="segmented__btn"
+              :class="{ 'is-active': selectedMarketType === tab.value }"
               @click="handleTabChange(tab.value)"
             >{{ tab.label }}</button>
           </div>
@@ -32,12 +33,14 @@
               v-model="cropSearchText"
               @input="onCropInput"
               @blur="onBlur"
-              class="field-input"
+              class="form-control field-input"
               placeholder="輸入作物名稱，例如：番茄"
             />
             <div v-if="selectedCrop" class="selected-crop-tag">
               {{ selectedCrop.cropName }}
-              <button @click="clearCrop">✕</button>
+              <button :aria-label="`取消選取 ${selectedCrop.cropName}`" @click="clearCrop">
+                <span class="mdi mdi-close" />
+              </button>
             </div>
             <div class="autocomplete-dropdown" v-if="showCropDropdown">
               <div
@@ -56,7 +59,7 @@
         <!-- 市場選擇 -->
         <div class="field-group">
           <label class="field-label">市場（選填）</label>
-          <select v-model="selectedMarketCode" class="field-select">
+          <select v-model="selectedMarketCode" class="form-control field-select">
             <option :value="null">全台均價</option>
             <option
               v-for="m in markets"
@@ -260,140 +263,126 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* 顏色全部改用 semantic 層（style tile §九）；欄位外殼與分段控制器走 base.css。 */
+
 /* 單欄清單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
 .add-section,
 .list-section { max-width: var(--container-sm); }
-.section-title {
-  font-size: var(--text-base); font-weight: var(--weight-bold);
-  color: var(--neutral-500);
-  letter-spacing: 0.06em; text-transform: uppercase;
-  margin-bottom: var(--space-4);
-}
 
 /* ── 新增區 ── */
 .add-section {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg); padding: var(--space-6); margin-bottom: var(--space-8);
-  box-shadow: var(--shadow-md);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-8);
 }
 
 .add-form { display: flex; align-items: flex-end; gap: var(--space-4); flex-wrap: wrap; }
 
-.field-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.field-input,
+.field-select { min-width: 200px; }
 
-.field-label {
-  font-size: var(--text-xs); color: var(--neutral-400); font-weight: var(--weight-medium);
-  letter-spacing: 0.05em; text-transform: uppercase;
-}
-
-/* Tab */
-.tab-group { display: flex; gap: var(--space-2); }
-.tab-btn {
-  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-200);
-  background: var(--neutral-0); color: var(--neutral-500);
-  font-size: var(--text-sm); cursor: pointer; transition: all var(--duration-fast);
-}
-.tab-btn:hover { border-color: var(--green-600); color: var(--green-600); background: var(--green-50); }
-.tab-btn.active { background: var(--green-100); border-color: var(--green-600); color: var(--green-600); font-weight: var(--weight-medium); }
-
-.field-input {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
-  min-width: 200px;
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.field-input:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
-
-.field-select {
-  padding: var(--space-2) var(--space-4); border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
-  background: var(--neutral-0); color: var(--neutral-900); font-size: var(--text-base);
-  min-width: 200px; cursor: pointer;
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.field-select:focus { outline: none; border-color: var(--green-600); box-shadow: var(--shadow-focus); }
-
-/* Autocomplete */
+/* ── Autocomplete ── */
 .autocomplete-wrapper { position: relative; }
 
 .selected-crop-tag {
   display: inline-flex; align-items: center; gap: var(--space-2);
-  margin-top: var(--space-2); padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  background: var(--green-100); color: var(--green-600);
+  margin-top: var(--space-2);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-action-soft-2); color: var(--color-action);
   font-size: var(--text-sm); font-weight: var(--weight-medium);
 }
 .selected-crop-tag button {
-  background: none; border: none; color: var(--green-600);
-  cursor: pointer; font-size: var(--text-xs); padding: 0; opacity: 0.7;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  background: none; border: none; border-radius: var(--radius-full);
+  color: var(--color-action);
+  cursor: pointer; font-size: var(--text-base); padding: 0; opacity: 0.7;
+  transition: opacity var(--duration-fast) var(--ease-work), background var(--duration-fast) var(--ease-work);
 }
-.selected-crop-tag button:hover { opacity: 1; }
+.selected-crop-tag button:hover { opacity: 1; background: var(--seed-200); }
+.selected-crop-tag button:focus-visible { outline: 2px solid var(--color-action); outline-offset: 1px; }
 
+/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（style tile §三 的例外清單） */
 .autocomplete-dropdown {
-  position: absolute; top: 100%; left: 0; right: 0;
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  position: absolute; top: calc(100% + var(--space-1)); left: 0; right: 0;
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-float);
   z-index: var(--z-dropdown); max-height: 240px; overflow-y: auto;
+  padding: var(--space-1);
 }
 
 .autocomplete-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-3) var(--space-4); cursor: pointer; font-size: var(--text-base); color: var(--neutral-900);
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer; font-size: var(--text-sm); color: var(--color-text);
 }
-.autocomplete-item:hover { background: var(--green-50); }
-.crop-code { font-size: var(--text-xs); color: var(--neutral-400); }
+.autocomplete-item:hover { background: var(--color-action-soft); }
+.crop-code { font-family: var(--font-num); font-size: var(--text-xs); color: var(--color-text-dim); }
 
 /* 新增按鈕改用共用的 Btn，這裡只留它在篩選列裡的位置 */
 .btn-add { align-self: flex-end; }
 
-.error-msg { font-size: var(--text-sm); color: var(--danger-500); margin-top: var(--space-3); }
+.error-msg { font-size: var(--text-sm); color: var(--danger-700); margin-top: var(--space-3); }
 
 /* ── 清單區 ── */
 .list-section {
-  background: var(--neutral-0); border: 1px solid var(--neutral-200);
-  border-radius: var(--radius-lg); padding: var(--space-6);
-  box-shadow: var(--shadow-md);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
 }
 
-.list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
-.hint { font-size: var(--text-base); color: var(--neutral-400); text-align: center; padding: var(--space-8) 0; }
+.list-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+.hint { font-size: var(--text-base); color: var(--color-text-dim); text-align: center; padding: var(--space-8) 0; }
 
 .item-list { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* 這幾列在卡片裡面，所以用比卡片深一階的底色而不是同色＋邊框——
+   卡片裡再畫一圈同色邊框會看不出是兩層 */
 .item-card {
   display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg);
-  border: 1px solid var(--neutral-200); background: var(--neutral-0);
-  cursor: pointer; transition: all var(--duration-fast);
-  box-shadow: var(--shadow-sm);
+  padding: var(--space-4) var(--space-5); border-radius: var(--radius-md);
+  border: var(--border-width) solid transparent;
+  background: var(--color-bg-sunken);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-work),
+    background var(--duration-fast) var(--ease-work);
 }
-.item-card:hover { border-color: var(--green-600); background: var(--green-50); }
-.item-card.selected { border-color: var(--green-600); background: var(--green-100); }
+.item-card:hover { border-color: var(--color-border-strong); }
+.item-card.selected { border-color: var(--color-action); background: var(--color-action-soft); }
 
-.item-card input[type="checkbox"] { accent-color: var(--green-600); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+.item-card input[type="checkbox"] { accent-color: var(--color-action); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
 
-.item-info { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); }
-
+.item-info { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .item-top-row { display: flex; align-items: center; gap: var(--space-2); }
-
-.item-crop { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--neutral-900); }
+.item-crop { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--color-text); }
 
 .market-type-badge {
   font-size: var(--text-2xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full);
-  background: var(--green-100); color: var(--green-600);
-  border: 1px solid var(--green-200); font-weight: var(--weight-medium);
+  background: var(--color-surface); color: var(--color-text-dim);
+  border: var(--border-width) solid var(--color-border); font-weight: var(--weight-medium);
 }
 
-.item-market { font-size: var(--text-xs); color: var(--neutral-400); }
+.item-market { font-size: var(--text-xs); color: var(--color-text-dim); }
 
-/* 價格區 */
+/* 價格區。用 --color-brand（品牌綠本體）不是動作色：這是資料強調，不是可點的東西 */
 .item-price {
   display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1);
   min-width: 80px;
 }
 .price-value {
-  font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--green-600);
+  font-family: var(--font-num);
+  font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--color-brand);
   font-variant-numeric: tabular-nums;
 }
-.price-value.no-data { color: var(--neutral-400); font-weight: var(--weight-normal); }
-.price-date { font-size: var(--text-2xs); color: var(--neutral-400); }
+.price-value.no-data { color: var(--color-text-dim); font-weight: var(--weight-normal); }
+.price-date { font-family: var(--font-num); font-size: var(--text-2xs); color: var(--color-text-dim); }
 </style>

@@ -50,7 +50,7 @@ defineProps<{
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
-  color: var(--neutral-900);
+  color: var(--color-text);
 }
 
 .page-subtitle {
@@ -60,12 +60,14 @@ defineProps<{
   font-size: var(--text-sm);
   font-weight: var(--weight-normal);
   line-height: var(--leading-normal);
-  color: var(--neutral-500);
+  color: var(--color-text-dim);
 }
 
+/* align-items: flex-end 讓「有 label 的控制項（縣市下拉）」與「沒有 label 的按鈕（全台）」
+   底部切齊——先前用 center 對齊時，按鈕會浮在下拉的中間高度、跟它對不齊（owner 回報）。 */
 .page-header-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-3);
   flex-shrink: 0;
 }
