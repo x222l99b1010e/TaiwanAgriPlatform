@@ -1,8 +1,8 @@
 <!--
   src/views/HomeView.vue
-  職責：新首頁。style tile §8.1 定案的固定四屏，`/` 不再 redirect 到市場行情。
+  職責：新首頁。設計定案的固定四屏，`/` 不再 redirect 到市場行情。
 
-  固定四屏、不放任何影片、不做長捲動（owner 2026-09-03：「不要塞太多影片，這樣會失焦」）：
+  固定四屏、不放任何影片、不做長捲動（不放影片，避免失焦）：
   屏 1 深｜hero：一句話 ＋ 中英並排 ＋ CTA；右欄今日節氣牌；底部地平線漸層
   屏 2 淺｜三個今日數字（首頁唯一不能砍的東西——全靜態的首頁是一張海報，
          使用者第二次來會直接跳過；這三個數字本身就是最好的視覺主角）
@@ -14,7 +14,7 @@
   footer，EntryLayout 的 body 目前只支援單一淺底區塊，硬塞第二種底色進去意義不大，
   這裡另外寫一小段。
 
-  ⚠ 三個「今日數字」有一個跟 style tile 原始清單不同：收容動物地圖那格
+  ⚠ 三個「今日數字」有一個跟原始設計清單不同：收容動物地圖那格
   原本要的是「本週新進隻數」，但後端目前只有「收容所摘要」端點（一間收容所一筆
   彙總數字，沒有逐隻的 openDate 可篩本週），沒有「本週新進」這個聚合可以一次查到。
   逐隻抓全部收容所（約 30 間）再前端過濾本週會變成每次開首頁打 30 支 API，划不來。
@@ -77,7 +77,7 @@
         </div>
       </section>
 
-      <!-- 屏 3：四個模組，左右交錯的特寫列（owner 2026-09-03：交錯呈現、旁邊補文字、
+      <!-- 屏 3：四個模組，左右交錯的特寫列（左右交錯呈現、旁邊補文字、
            文字位置做點設計感）。每一列＝一塊深色視覺 ＋ 一段文案，奇偶列左右對調，
            文字用襯線大標＋柿橙 eyebrow＋大號序號，跟一排一模一樣的卡片拉開差異。 -->
       <section class="entry-screen">
@@ -95,7 +95,7 @@
               <span class="showcase-visual__num">{{ String(i + 1).padStart(2, '0') }}</span>
               <span class="mdi showcase-visual__icon" :class="m.icon" />
               <!-- hover 光點：滑鼠移上去時，深色圖塊裡浮起幾顆光點再往上淡出漂走
-                   （owner 2026-09-04 要的「星星／光點散開漂浮」）。純裝飾，aria-hidden。
+                   （星星／光點散開漂浮的效果）。純裝飾，aria-hidden。
                    prefers-reduced-motion 開啟時，base.css 的全域規則會把動畫時長歸零、
                    光點維持不動不出現。 -->
               <span class="showcase-sparks" aria-hidden="true">
@@ -161,7 +161,7 @@ const moduleCards = computed(() =>
 
 // hover 光點的位置/大小/延遲/週期寫成資料，template v-for 出來，CSS 只負責動。
 // 位置刻意集中在圖塊下半（y 偏大），光點往上漂才有「從地面升起」的感覺。
-// owner 2026-09-04 要更明顯強烈：數量、尺寸、亮度都加碼。
+// 刻意做得明顯強烈：數量、尺寸、亮度都加碼。
 const SPARKS = [
   { x: 14, y: 72, size: 7,  delay: 0,    dur: 2.2 },
   { x: 24, y: 84, size: 5,  delay: 0.35, dur: 2.6 },
@@ -270,8 +270,8 @@ onMounted(() => {
 /* 形狀與高度跟 Btn 同一組 token：這顆是首頁的主要動作，跟內頁的「查詢」是同一種東西，
    只是坐在深色底上。全站的分工是「方角＝動作按鈕、藥丸＝切換條件的 chip」，
    所以它不是藥丸——原本的 --radius-full 是 P3 之前留下來的。
-   hover 不給陰影：陰影只留給真的浮在頁面上方的浮動層（style tile §三）。 */
-/* 首頁主 CTA：綠底＋白字（owner 2026-09-04 定：橘色跟整屏綠調不搭、很突兀，維持綠色）。
+   hover 不給陰影：陰影只留給真的浮在頁面上方的浮動層。 */
+/* 首頁主 CTA：綠底＋白字（橘色跟整屏綠調不搭、很突兀，維持綠色）。
    用的是全站按鈕的同一個動作綠（--color-action），跟其他頁的按鈕一致；白字讓它在深色 hero
    上一眼讀得到（白字對這個綠對比約 5.6，比原本的深字清楚很多——原本深字壓在綠上、綠又壓在
    深底上，整顆才會糊掉）。再加一圈綠色光暈把按鈕從深背景浮起來，避免被吃掉。 */
@@ -303,7 +303,7 @@ onMounted(() => {
 .hero-cta:focus-visible { outline: 2px solid var(--color-on-deep); outline-offset: 3px; }
 .hero-cta .mdi { font-size: var(--text-lg); }
 
-/* 節氣牌（owner 2026-09-04）：往左移一點、不貼右緣；並跟深色 hero 拉開層次——
+/* 節氣牌：往左移一點、不貼右緣；並跟深色 hero 拉開層次——
    ①頂部一層極淡的暖白光film＋②一道 1px 頂緣高光，讓卡片像被上方光線照到、浮起來；
    ③邊框改用較亮的 strong 版把輪廓描清楚；④一道柔和落影墊在底下。
    這幾個線索疊起來，卡片就從「跟背景幾乎同色」變成明顯的一層。 */
@@ -428,7 +428,7 @@ onMounted(() => {
     radial-gradient(120% 120% at 78% 18%, var(--color-glow-1), transparent),
     linear-gradient(135deg, var(--color-deep-surface), var(--color-deep));
 }
-/* 深色圖塊在 hover 時整塊透出一圈綠光，把「這一格被選到」講得更明顯（owner 要更強烈）。 */
+/* 深色圖塊在 hover 時整塊透出一圈綠光，把「這一格被選到」講得更明顯。 */
 .showcase-visual { transition: box-shadow var(--duration-base) var(--ease-work); }
 .showcase-row:hover .showcase-visual {
   box-shadow: inset 0 0 70px rgb(79 176 136 / 0.28);
@@ -443,7 +443,7 @@ onMounted(() => {
 }
 .showcase-row:hover .showcase-visual__icon { transform: scale(1.14); }
 
-/* hover 一次性光掃：一道斜向亮線從左掃過整個深色圖塊，呼應 owner「由左邊進入」的想法。
+/* hover 一次性光掃：一道斜向亮線從左掃過整個深色圖塊，呼應「由左邊進入」的動線想法。
    平常在畫面外（translateX -130%），hover 時播一次。 */
 .showcase-visual::after {
   content: '';

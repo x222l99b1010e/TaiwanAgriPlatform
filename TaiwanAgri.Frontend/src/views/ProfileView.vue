@@ -194,7 +194,7 @@ async function handleSave() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；輸入框走 base.css 的 .form-control。 */
+/* 顏色全部改用 semantic 層；輸入框走 base.css 的 .form-control。 */
 
 /* 單欄表單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
 .section-link,
@@ -208,7 +208,7 @@ async function handleSave() {
 }
 
 /* 「我的協尋貼文」是這一頁唯一的頁面入口，要跟表單欄位拉開層級
-   （owner 2026-08-09 實機反應：原本的邊框＋一般字重太不顯眼）。
+   （原本的邊框＋一般字重太不顯眼）。
    ⚠ 但原本的做法是「2px 綠框＋綠底＋陰影＋放大字」四個手段一起上，
    一個連結比整頁的主要動作（儲存設定）還搶眼。改成一張正常的卡片＋
    動作色的圖示圓底＋右側箭頭：形狀本身就在說「這是可以點進去的一列」。 */
@@ -299,7 +299,7 @@ label {
 .autocomplete-wrapper { position: relative; }
 .crop-search-input { width: 100%; box-sizing: border-box; }
 
-/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（style tile §三 的例外清單） */
+/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（浮動層是陰影的唯一例外） */
 .autocomplete-dropdown {
   position: absolute;
   top: calc(100% + var(--space-1));

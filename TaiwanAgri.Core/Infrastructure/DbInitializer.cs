@@ -43,7 +43,7 @@ namespace TaiwanAgri.Core.Infrastructure
 						new() { Name = "天災記錄",   Route = "/market/disasters", Icon = "mdi-weather-lightning-rainy", IsActive = true, SortOrder = 2 },
 						new() { Name = "休市日查詢", Route = "/market/rest-days", Icon = "mdi-calendar-remove",        IsActive = true, SortOrder = 3 },
 						new() { Name = "畜禽行情",   Route = "/market/pork",      Icon = "mdi-pig",                    IsActive = true, SortOrder = 4 },
-						// W25 家禽行情：畜禽行情的家禽半邊，獨立子項目而非併入毛豬頁面（合併展示頁列未來優化，見決策 48）
+						// W25 家禽行情：畜禽行情的家禽半邊，獨立子項目而非併入毛豬頁面（合併展示頁列為未來優化）
 						new() { Name = "家禽行情",   Route = "/market/poultry",   Icon = "mdi-bird",                   IsActive = true, SortOrder = 5 },
 					}
 				},

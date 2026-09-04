@@ -62,7 +62,7 @@ defineProps<{
   /**
    * 幕的高度。'default'（未給時）＝約三成視窗，四個模組入口頁用這個；
    * 'hero' ＝接近整屏，只有首頁用——首頁的幕就是第一屏，要把畫面撐起來
-   * （owner 2026-09-03：首頁那個深色區塊要拉高一些）。
+   * （首頁那個深色區塊要拉高一些）。
    */
   bandSize?: 'default' | 'hero'
 }>()
@@ -86,7 +86,7 @@ defineProps<{
     radial-gradient(52% 64% at 18% 84%, var(--color-glow-2), transparent);
 }
 
-/* 首頁的幕＝第一屏，拉高到接近整屏把畫面撐起來（owner 2026-09-03）。
+/* 首頁的幕＝第一屏，拉高到接近整屏把畫面撐起來。
    內容仍靠底對齊，上方留給麥穗母題與光暈，讀起來像一張海報的天空。 */
 .entry-layout__band--hero {
   min-height: min(84vh, 820px);

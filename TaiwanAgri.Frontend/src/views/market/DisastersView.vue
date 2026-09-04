@@ -173,7 +173,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；欄位與摘要列的外殼已收進 base.css
+/* 顏色全部改用 semantic 層；欄位與摘要列的外殼已收進 base.css
    的 .field-group／.field-label／.form-control／.summary-bar／.stat-*，
    這裡只留這一頁真正不同的部分。 */
 .disasters-view { min-width: 960px; }

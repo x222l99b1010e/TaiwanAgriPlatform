@@ -276,7 +276,7 @@ function handleSearch() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）。
+/* 顏色全部改用 semantic 層。
    查詢欄位是單一的 10 碼追溯碼，撐滿 1400px 的容器只會變成一個一千多像素長的輸入框，
    所以在這裡限寬——限的是欄位不是頁面容器（見 base.css .page 的註解）。 */
 .search-field { flex: 0 1 var(--container-sm); min-width: 240px; }

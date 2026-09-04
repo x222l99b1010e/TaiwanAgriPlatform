@@ -1,6 +1,6 @@
 // src/utils/lostPetPost.ts
 // 職責：LostPetPost（自建遺失啟事）卡片渲染共用的純函式，抽出來給列表頁與詳情頁共用，
-// 避免同一段判斷邏輯在兩個地方各寫一次、日後改一邊忘了改另一邊（PR #049 已踩過的「只寫不讀」教訓的反面）
+// 避免同一段判斷邏輯在兩個地方各寫一次、日後改一邊忘了改另一邊（避免重蹈「只寫不讀」的教訓）
 
 import type { LostPetPostStatusValue } from '@/api/pet'
 

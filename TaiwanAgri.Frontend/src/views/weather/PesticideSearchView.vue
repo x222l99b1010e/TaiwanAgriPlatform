@@ -323,7 +323,7 @@ const selectedForm = ref<Record<string, number>>({})
 // key 用「成分代碼 + 劑型索引」組合，讓不同劑型的展開狀態互相獨立。
 const openLicenses = ref<Record<string, boolean>>({})
 
-// 核准用途分頁（owner 2026-09-04：亞滅培一次顯示 174 列太多，要 data grid + 分頁）。
+// 核准用途分頁（亞滅培一次顯示 174 列太多，要 data grid + 分頁）。
 // 這一頁是「一整包成分物件」、核准用途是巢狀陣列，不是列表型端點——所以做前端分頁
 // （一次全查回、記憶體切片），不改後端契約；用的仍是全站共用的 PagerBar。
 // pageSize 跨成分共用一份、記憶 localStorage；currentPage 每個成分各記一份（key 用成分代碼），
@@ -464,7 +464,7 @@ async function handleSearch() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；欄位、輸入框、卡片外殼已收進 base.css。
+/* 顏色全部改用 semantic 層；欄位、輸入框、卡片外殼已收進 base.css。
    ⚠ 這一頁原本有三處 `font-family: monospace`——瀏覽器預設的等寬字（Windows 上是
    Courier New）跟秋田的三套字沒有任何關係，落在畫面上像是另一個網站貼進來的。
    全部換成 --font-num。 */

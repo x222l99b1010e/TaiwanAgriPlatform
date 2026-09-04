@@ -53,7 +53,7 @@ export const usePetStore = defineStore('pet', () => {
   }
 
   // ─── 動物詳情頁（單筆） ───────────────────────────────────────────────
-  // 不掛週次分支新增：owner 實機測試後指出收容所詳情頁還缺「單一動物」這一層，
+  // 不掛週次分支新增：收容所詳情頁還缺「單一動物」這一層，
   // 補齊「地圖→收容所→動物」三層下鑽的最後一層
 
   const shelterAnimalDetail = ref<ShelterAnimalResponseDto | null>(null)

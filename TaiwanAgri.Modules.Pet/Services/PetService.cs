@@ -72,7 +72,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 		/// <summary>
 		/// 動物詳情頁用，單筆查詢。投影欄位跟 GetShelterAnimalsAsync／GetShelterAnimalsByShelterAsync
 		/// 刻意重複而不是抽共用方法呼叫——EF Core 無法把一般 C# 方法翻譯進 Select 產生的 SQL
-		/// （跟 LostPetPost 那邊 MapToResponseDto 不能進 Select 是同一個限制，DevLog 已有記錄），
+		/// （跟 LostPetPost 那邊 MapToResponseDto 不能進 Select 是同一個限制），
 		/// 三處分別寫 Select 才能讓查詢真的在資料庫端執行，不是各自多餘的重複。
 		/// </summary>
 		public async Task<ShelterAnimalResponseDto?> GetShelterAnimalByIdAsync(int id)
@@ -190,7 +190,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 
 			// 縣市篩選刻意不做：這張表沒有結構化的 County 欄位，只有自由文字 LostPlace，
 			// 字串比對會跟 B3 技術債（nvarchar LIKE 全表掃描）同一類問題，且不保證準確
-			// （owner 2026-08-06 裁示：不划算，不做）。
+			// （評估不划算，不做）。
 			// ThenByDescending 只能接在 IOrderedQueryable 後面，所以 tie-breaker 要寫在每個分支裡，
 			// 不能像篩選條件那樣共用一段接在後面
 			IOrderedQueryable<OfficialLostPetPost> orderedQuery = queryDto.SortBy switch
@@ -265,7 +265,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 
 			// 刻意不做「許可證效期是否過期」的布林篩選，改成可排序：PermitValidDate 是 DateOnly?，
 			// null（查無效期資料）該算過期還是未過期沒有一翻兩瞪眼的答案，排序讓過期的自然排到
-			// 一端、使用者自己看得出來，不用回答這個 null 語意問題（owner 2026-08-06 裁示，選項 3）
+			// 一端、使用者自己看得出來，不用回答這個 null 語意問題
 			IOrderedQueryable<LegalSpecificPet> orderedQuery = queryDto.SortBy switch
 			{
 				LegalSpecificPetSortBy.PermitValidDate => queryDto.SortDescending

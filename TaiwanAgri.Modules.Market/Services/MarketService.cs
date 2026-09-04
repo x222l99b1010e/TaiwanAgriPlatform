@@ -269,7 +269,7 @@ namespace TaiwanAgri.Modules.Market.Services
 				.ToListAsync();
 
 			// DisplayName 在記憶體端補上：PoultryMetrics.DisplayNames 是 C# 字典，
-			// 放進 Select 會讓 EF 無法轉譯（比照 DevLog 條目 289 MapToResponseDto 的教訓）
+			// 放進 Select 會讓 EF 無法轉譯（比照 MapToResponseDto 的教訓）
 			return rows.Select(p => new PoultryResponseDto
 			{
 				TransDate = p.TransDate,

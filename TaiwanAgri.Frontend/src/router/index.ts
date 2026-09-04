@@ -108,7 +108,7 @@ const router = createRouter({
           props: route => ({ shelterId: Number(route.params.shelterId) }),
         },
         // 動物詳情頁刻意放在 shelter-map/animals/ 這個固定字首下、不帶 shelterId
-        // （owner 2026-08-09 選定方案）：跟上面 lost-pets/:id 同一種風格，用 animalId 自己
+        // （選定方案）：跟上面 lost-pets/:id 同一種風格，用 animalId 自己
         // 就能定位資料，不需要在網址裡重複描述牠屬於哪間收容所
         {
           path: 'shelter-map/animals/:animalId',
@@ -128,7 +128,7 @@ const router = createRouter({
     // ✅ 受保護路由：需登入才能訪問
     { path: '/profile',   name: 'profile',   component: ProfileView,   meta: { requiresAuth: true } },
     { path: '/watchlist', name: 'watchlist', component: WatchlistView, meta: { requiresAuth: true } },
-    // 「我的協尋貼文」個人管理頁（不掛週次分支新增，owner 2026-08-09 裁定放在 /profile 底下＋
+    // 「我的協尋貼文」個人管理頁（不掛週次分支新增，放在 /profile 底下＋
     // pet 模組內也放一個連結過去，兩處都要）
     { path: '/profile/lost-pets', name: 'my-lost-pets', component: MyLostPetsView, meta: { requiresAuth: true } },
   ]

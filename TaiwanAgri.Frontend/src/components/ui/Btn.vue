@@ -10,10 +10,10 @@
   --ease-* token；使用者若開了「減少動態」，base.css 的全域規則會一併關掉。
 
   ── P3 這一版跟 P1 初版的三個差別（都不是喜好問題，各有出處）──
-  1. **不再是藥丸**：圓角從 --radius-full 改成 --radius-md（8px）。style tile §三 訂的是
+  1. **不再是藥丸**：圓角從 --radius-full 改成 --radius-md（8px）。規範是
      「圓角全站收在 4–12px，--radius-full 只給頭像與 chip」；一顆 999px 的按鈕擺在
      8px 的輸入框與 10px 的卡片旁邊，是這一頁最不像同一套設計的東西。
-  2. **沒有陰影**：style tile §三「卡片與按鈕不准有 box-shadow，陰影降級成只給浮動層」。
+  2. **沒有陰影**：卡片與按鈕不准有 box-shadow，陰影降級成只給浮動層。
      原本 hover 時 --shadow-md ＋ 上浮 1px 的組合，是把按鈕當成會飄起來的卡片在做。
      改成只用顏色深淺與 1px 深色邊界表示層次——底色是暖米白，深綠色塊本身就夠跳。
   3. **高度用 token 鎖住**：實測原本 md 是 41.4px、同一排的日期輸入框是 37.2px，
@@ -92,7 +92,7 @@ withDefaults(
 
 /* ── primary ──
    深一階的邊框不是裝飾：純色塊直接坐在暖米白上時邊緣會發虛，1px 深色邊界
-   讓它有「切出來」的銳利感，也是 style tile 說的「卡片邊界只用 1px 邊框」的同一條規則 */
+   讓它有「切出來」的銳利感，也是「卡片邊界只用 1px 邊框」的同一條規則 */
 .btn--primary {
   background: var(--color-action);
   border-color: var(--seed-700);

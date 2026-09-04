@@ -75,7 +75,7 @@ const latestDate = computed(() =>
 
 /** 把「今日交易量最大」那一項挑到最前面當特寫卡，其餘維持原順序。
  *  品項不多時整齊排一排會在右邊留一片空格看起來很空，改成 bento：一張大卡＋其餘小卡，
- *  版面就有主次、也把空格吃掉（owner 2026-09-03）。交易量最大＝今天最多人買的菜，
+ *  版面就有主次、也把空格吃掉。交易量最大＝今天最多人買的菜，
  *  拿它當主角比隨便挑第一筆有意義。 */
 const orderedItems = computed(() => {
   const list = store.todayVegPrices
@@ -101,14 +101,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；卡片不給陰影，靠 1px 邊框與底色差。 */
+/* 顏色全部改用 semantic 層；卡片不給陰影，靠 1px 邊框與底色差。 */
 .data-date {
   font-weight: var(--weight-medium);
   color: var(--color-text);
 }
 
 /* bento 版面：四欄固定格線 ＋ 第一張（今日交易量最大）跨 2×2 當主角，其餘小卡用
-   dense 填滿。品項不多時右邊不會再留一整排空格，版面也有了主次（owner 2026-09-03）。 */
+   dense 填滿。品項不多時右邊不會再留一整排空格，版面也有了主次。 */
 .price-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

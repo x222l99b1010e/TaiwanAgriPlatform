@@ -160,7 +160,7 @@ const {
   setPageSize,
 } = usePagination({
   storageKey: 'pestAlerts.pageSize',
-  // 每頁筆數選項（owner 2026-09-04）：預設 10，把「一頁太長」直接砍半。
+  // 每頁筆數選項：預設 10，把「一頁太長」直接砍半。
   // 這一頁是伺服器分頁（getPestAlerts 收 page/pageSize），改每頁筆數會重打 API 拿新一頁。
   pageSizeOptions: [5, 10, 20, 50],
   defaultPageSize: 10,
@@ -204,7 +204,7 @@ watch(selectedCity, () => {
 
 // ── 地圖：縣市燈號 ───────────────────────────────────────────────────────
 // DTO 只有 cities: string[]（這則警報影響哪些縣市），沒有現成的「嚴重度」欄位，
-// 後端也沒有「依縣市統計筆數」的端點（style tile 決策：不改後端）。
+// 後端也沒有「依縣市統計筆數」的端點（設計決策：不改後端）。
 // 燈號的等級用「目前生效中、影響該縣市的警報則數」當代理指標——
 // 這是前端自己定的分級，不是後端給的語意，量級門檻見 LEVELS。
 const TAIWAN_CENTER: L.LatLngTuple = [23.7, 121.0]
@@ -445,7 +445,7 @@ onUnmounted(() => {
 .pest-alerts-view { min-width: 960px; }
 .alert-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-6); }
 
-/* 卡片不給陰影（style tile §三），hover 只換邊框顏色 */
+/* 卡片不給陰影，hover 只換邊框顏色 */
 .alert-card {
   background: var(--color-surface); border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); cursor: pointer;

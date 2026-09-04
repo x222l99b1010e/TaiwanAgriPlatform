@@ -1,12 +1,12 @@
 <!--
   src/views/pet/ShelterDetailView.vue
   職責：收容所詳情頁 /pet/shelter-map/:shelterId（不掛週次分支新增）。
-  地圖 popup 原本用 POPUP_ANIMAL_LIMIT=50 截斷動物清單——調高數字解決不了問題（owner 原話：
+  地圖 popup 原本用 POPUP_ANIMAL_LIMIT=50 截斷動物清單——調高數字解決不了問題（
   「寫 50 隻跟寫總數沒差異，因為都只看得到前 50 隻」），這頁才是真正的解法：用既有 PagerBar
   機制分頁列出該所全部動物，popup 回歸「快速預覽」定位，長清單瀏覽交給這頁。
 
   版面採 datagrid（沿用 LegalBusinessView 的表格＋篩選＋排序＋清除篩選慣例），
-  不用卡片格線：owner 實機測試後指出大所（如 150 隻以上）用卡片格線要捲很多頁才看得完
+  不用卡片格線：大所（如 150 隻以上）用卡片格線要捲很多頁才看得完
   一輪，資料表格才是這種「同結構、多筆數、要橫向比較欄位」清單的正確形狀
   （跟合法寵物業查詢／官方遺失啟事當初選表格是同一個判準）。
 -->
@@ -262,7 +262,7 @@ watch(() => props.shelterId, () => {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；返回連結與欄位外殼已收進 base.css。 */
+/* 顏色全部改用 semantic 層；返回連結與欄位外殼已收進 base.css。 */
 .filter-select { min-width: 130px; }
 
 .sort-control { display: flex; align-items: center; gap: var(--space-2); }
