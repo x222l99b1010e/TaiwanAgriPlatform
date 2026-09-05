@@ -49,9 +49,23 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			// 3. Cache-Aside Step 1：查 Redis
 			//    命中（Hit）→ 直接反序列化回傳，跳過 DB 查詢
+			//    反序列化失敗不能往上拋：PriceResponseDto 改欄位後，舊部署留在 Redis 的 payload
+			//    會讓每個請求都炸掉，而且要等 25 小時 TTL 到期才會自己好。當成 miss 落回 DB
+			//    查詢並覆寫該 key，是唯一能自我修復的處理方式
 			var cached = await _cache.GetStringAsync(cacheKey);
 			if (cached != null)
-				return JsonSerializer.Deserialize<List<PriceResponseDto>>(cached)!;
+			{
+				try
+				{
+					var hit = JsonSerializer.Deserialize<List<PriceResponseDto>>(cached);
+					if (hit != null)
+						return hit;
+				}
+				catch (JsonException)
+				{
+					// 落下去走 DB 查詢，並在 Step 3 覆寫這個 key
+				}
+			}
 
 			// 4. Cache-Aside Step 2：Redis Miss，查 SQL
 			//    三表 JOIN：AgriProductsTrans + CropInfos + MarketInfos
@@ -100,7 +114,12 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			return result;
 		}
-		public async Task<List<DisasterResponseDto>> GetDisastersAsync(
+		/// <summary>
+		/// 天災事件查詢。回傳值第二格是「結果有沒有被上限截斷」——截斷時 AffectedCounties
+		/// 會不完整，呼叫端必須讓使用者知道，否則拿到的是一份看起來完整、實際殘缺的清單
+		/// （比照寵物模組地圖端點當年對截斷加訊號的做法）
+		/// </summary>
+		public async Task<(List<DisasterResponseDto> Items, bool IsTruncated)> GetDisastersAsync(
 			string[] counties,
 			DateOnly startDate,
 			DateOnly endDate)
@@ -129,10 +148,14 @@ namespace TaiwanAgri.Modules.Market.Services
 					d.County,
 					AlertDate = DateOnly.FromDateTime(d.LastUpdateDate)
 				})
-				.Take(limit)
+				.Take(limit + 1)   // 多撈一筆用來判斷有沒有被截斷，回傳前再砍掉
 				.ToListAsync();
 
-			return groupedRaw
+			var isTruncated = groupedRaw.Count > limit;
+			if (isTruncated)
+				groupedRaw = groupedRaw.Take(limit).ToList();
+
+			var items = groupedRaw
 				.GroupBy(d => new { d.DisasterName, d.AlertDate })
 				.Select(g => new DisasterResponseDto
 				{
@@ -146,7 +169,10 @@ namespace TaiwanAgri.Modules.Market.Services
 				})
 				.OrderBy(d => d.AlertDate)
 				.ToList();
+
+			return (items, isTruncated);
 		}
+
 		public async Task<List<CropResponseDto>> GetCropsAsync(string marketType)
 		{
 			//1. MarketType 轉 TcType

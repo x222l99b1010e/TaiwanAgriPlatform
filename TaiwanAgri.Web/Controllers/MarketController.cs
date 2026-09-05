@@ -117,8 +117,14 @@ namespace TaiwanAgri.Web.Controllers
 			if (start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
 			if (end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
 
-			var result = await _marketService.GetDisastersAsync(counties, start.Value, end.Value);
-			return Ok(result);
+			var (items, isTruncated) = await _marketService.GetDisastersAsync(counties, start.Value, end.Value);
+
+			// 結果被上限截斷時要讓呼叫端知道：截斷的清單看起來完整、實際殘缺
+			// （同一天災的 AffectedCounties 會少縣市），沒有訊號就無從察覺
+			if (isTruncated)
+				Response.Headers["X-Result-Truncated"] = "true";
+
+			return Ok(items);
 		}
 
 		[HttpGet("prices")]

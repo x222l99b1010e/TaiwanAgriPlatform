@@ -28,7 +28,11 @@ namespace TaiwanAgri.Modules.Market.Services
 		Task<List<CropResponseDto>> GetCropsAsync(
 			string marketType);
 
-		Task<List<DisasterResponseDto>> GetDisastersAsync(
+		/// <summary>
+		/// 天災事件查詢。第二格 IsTruncated 代表結果是否被上限截斷——
+		/// 截斷時 AffectedCounties 不完整，呼叫端要把這件事讓使用者看到
+		/// </summary>
+		Task<(List<DisasterResponseDto> Items, bool IsTruncated)> GetDisastersAsync(
 			string[] counties,
 			DateOnly startDate,
 			DateOnly endDate);
