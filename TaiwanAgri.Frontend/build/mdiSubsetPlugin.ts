@@ -1,6 +1,11 @@
 // TaiwanAgri.Frontend/build/mdiSubsetPlugin.ts
-// 職責：建置時把 Material Design Icons 的整包 CSS 裁成「本專案實際用得到的圖示」，
+// 職責：建置時把 Material Design Icons 裁成「本專案實際用得到的圖示」，兩件事都要做——
+//       ①CSS 只留用得到的字符規則；②**字型二進位重新編碼成只含這些字符**；
 //       並讓 @font-face 只指向 woff2。
+//
+// 為什麼二進位也要裁：只裁 CSS 的話，使用者下載的仍是含 7,447 個字符的完整字型檔
+// （403 KB，是 dist 裡最大的單一檔案、比省下來的 CSS 還大）。
+// 「CSS 規則 7447→85」是中間指標，使用者真正承受的成本是字型檔的位元組數。
 //
 // 為什麼需要這支外掛：
 //   `main.ts` 用 `import '@mdi/font/css/materialdesignicons.css'` 整包引入，這份 CSS
@@ -26,6 +31,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import subsetFont from 'subset-font'
 import type { Plugin } from 'vite'
 
 /** MDI 的圖示名稱樣式（含 .mdi-spin／.mdi-18px 這類輔助 class，多留無妨） */
@@ -34,7 +40,7 @@ const ICON_NAME = /mdi-[a-z0-9]+(?:-[a-z0-9]+)*/g
 /** 單一圖示的字符規則：`.mdi-xxx::before { content: "\FXXXX"; }`。
  *  刻意比對到 content 與反斜線編碼為止，才不會把 `.mdi-spin:before`（單冒號、
  *  宣告的是 animation）這類輔助規則一起裁掉。 */
-const GLYPH_RULE = /\.mdi-([a-z0-9-]+)::before\s*\{\s*content:\s*"\\[0-9A-Fa-f]+";?\s*\}\n*/g
+const GLYPH_RULE = /\.mdi-([a-z0-9-]+)::before\s*\{\s*content:\s*"\\([0-9A-Fa-f]+)";?\s*\}\n*/g
 
 function readFilesRecursive(dir: string, exts: string[], out: string[] = []): string[] {
   if (!fs.existsSync(dir)) return out
@@ -59,11 +65,17 @@ export function mdiSubset(): Plugin {
   let fromSource = new Set<string>()
   /** 後端種子資料掃出來的名稱（導覽列用，前端看不到） */
   let fromSeed = new Set<string>()
+  /** 只有 build 時才重新編碼字型：dev server 走的是 serve 模式，沒有 emitFile 可用 */
+  let isBuild = false
 
   return {
     name: 'taiwanagri:mdi-subset',
     // 要在 Vite 自己的 CSS 處理之前拿到原始內容
     enforce: 'pre',
+
+    configResolved(config) {
+      isBuild = config.command === 'build'
+    },
 
     buildStart() {
       const frontendRoot = path.resolve(import.meta.dirname, '..')
@@ -89,7 +101,7 @@ export function mdiSubset(): Plugin {
       fromSeed = collectNames(seedFiles)
     },
 
-    transform(code, id) {
+    async transform(code, id) {
       if (!id.includes('materialdesignicons.css')) return null
 
       // ── 1. @font-face 只留 woff2 ──────────────────────────────────────
@@ -104,12 +116,15 @@ export function mdiSubset(): Plugin {
       const keep = new Set([...fromSource, ...fromSeed])
       let total = 0
       const kept = new Set<string>()
+      /** 保留下來的字符碼位，用來重新編碼字型二進位 */
+      const keptCodePoints = new Set<number>()
 
-      out = out.replace(GLYPH_RULE, (rule, name: string) => {
+      out = out.replace(GLYPH_RULE, (rule, name: string, codeHex: string) => {
         total++
         const fullName = `mdi-${name}`
         if (!keep.has(fullName)) return ''
         kept.add(fullName)
+        keptCodePoints.add(parseInt(codeHex, 16))
         return rule
       })
 
@@ -124,8 +139,43 @@ export function mdiSubset(): Plugin {
         )
       }
 
+      // ── 4. 字型二進位重新編碼成只含保留下來的字符 ──────────────────
+      // dev server 沒有 emitFile，直接沿用原字型；差別只在本機載入量，不影響行為。
+      if (!isBuild) {
+        this.environment?.logger?.info?.(
+          `[mdi-subset] 保留 ${kept.size} / ${total} 個圖示（dev 模式不裁字型二進位）`,
+        )
+        return { code: out, map: null }
+      }
+
+      // woff2Url 是相對於這份 CSS 的路徑（含 ?v= 版本查詢字串），去掉查詢再解析成實體路徑
+      const cssDir = path.dirname(id.split('?')[0])
+      const fontPath = path.resolve(cssDir, woff2Url.split('?')[0])
+      if (!fs.existsSync(fontPath)) {
+        throw new Error(
+          `[mdi-subset] 找不到字型檔 ${fontPath}。@font-face 指到的位置與套件實際結構不符，` +
+            '無法重新編碼；直接中止建置，避免安靜地送出完整字型。',
+        )
+      }
+
+      const original = fs.readFileSync(fontPath)
+      const subset = await subsetFont(
+        original,
+        [...keptCodePoints].map(cp => String.fromCodePoint(cp)).join(''),
+        { targetFormat: 'woff2' },
+      )
+
+      const refId = this.emitFile({
+        type: 'asset',
+        name: 'materialdesignicons-subset.woff2',
+        source: subset,
+      })
+      out = out.replace(woff2Url, `__VITE_ASSET__${refId}__`)
+
+      const pct = ((1 - subset.length / original.length) * 100).toFixed(1)
       this.environment?.logger?.info?.(
-        `[mdi-subset] 保留 ${kept.size} / ${total} 個圖示（其中 ${fromSeed.size} 個來自後端導覽列種子），字型格式只留 woff2`,
+        `[mdi-subset] 保留 ${kept.size} / ${total} 個圖示（其中 ${fromSeed.size} 個來自後端導覽列種子）；` +
+          `字型 ${(original.length / 1024).toFixed(1)} kB → ${(subset.length / 1024).toFixed(1)} kB（-${pct}%），只留 woff2`,
       )
 
       return { code: out, map: null }
