@@ -23,6 +23,11 @@
       </div>
 
       <div class="dropdown-body" ref="bodyRef" @scroll="handleScroll">
+        <div v-if="store.errorMessage" class="hint hint--error">
+          <span class="mdi mdi-alert-circle-outline" />
+          {{ store.errorMessage }}
+        </div>
+
         <div v-if="store.isLoading && store.notifications.length === 0" class="hint">
           載入中...
         </div>
@@ -233,6 +238,15 @@ onMounted(() => {
   padding: var(--space-6) 0;
   font-size: var(--text-sm);
   color: var(--color-text-dim);
+}
+
+/* 錯誤訊息用語意色，與其他頁面的錯誤呈現一致；不寫死色值 */
+.hint--error {
+  color: var(--danger-700);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-content: center;
 }
 .end-hint { padding: var(--space-3) 0; font-size: var(--text-xs); }
 </style>

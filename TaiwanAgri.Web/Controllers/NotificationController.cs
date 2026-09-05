@@ -35,6 +35,16 @@ namespace TaiwanAgri.Web.Controllers
 			var unreadCount = await _notificationService.GetUnreadCountAsync(userId);
 			return Ok(unreadCount);
 		}
+		// PATCH /api/Notification/read-all
+		[HttpPatch("read-all")]
+		public async Task<IActionResult> MarkAllAsRead()
+		{
+			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			if (userId == null) return Unauthorized();
+
+			var updated = await _notificationService.MarkAllAsReadAsync(userId);
+			return Ok(new { updated });
+		}
 		// PATCH /api/Notification/{id}/read
 		[HttpPatch("{id}/read")]
 		public async Task<IActionResult> MarkAsRead(int id)

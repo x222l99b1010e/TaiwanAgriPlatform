@@ -14,6 +14,7 @@
     "lint": "run-s lint:check:*",
     "lint:check:oxlint": "oxlint .",
     "lint:check:eslint": "eslint . --cache",
+    "lint:check:cssvars": "node build/checkCssVars.mjs",
     "lint:fix": "run-s lint:fix:*",
     "lint:fix:oxlint": "oxlint . --fix",
     "lint:fix:eslint": "eslint . --fix --cache",
