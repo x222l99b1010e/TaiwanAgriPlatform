@@ -171,7 +171,9 @@ async function handleQuery() {
       marketApi.getDisasters({ startDate: startDate.value, endDate: endDate.value }),
     ])
     prices.value = priceResult
-    rawDisasters.value = disasterResult
+    // 這頁只把天災當價格圖上的背景標記，截斷與否不影響主要用途（價格線本身），
+    // 所以只取 items 不顯示截斷提示；要看完整天災清單請到天災警戒紀錄頁
+    rawDisasters.value = disasterResult.items
   } catch (e) {
     console.error('查詢失敗', e)
     errorMsg.value = '查詢失敗，請稍後再試'
