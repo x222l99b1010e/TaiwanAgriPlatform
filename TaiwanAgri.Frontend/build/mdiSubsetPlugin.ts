@@ -40,7 +40,7 @@ const ICON_NAME = /mdi-[a-z0-9]+(?:-[a-z0-9]+)*/g
 /** 單一圖示的字符規則：`.mdi-xxx::before { content: "\FXXXX"; }`。
  *  刻意比對到 content 與反斜線編碼為止，才不會把 `.mdi-spin:before`（單冒號、
  *  宣告的是 animation）這類輔助規則一起裁掉。 */
-const GLYPH_RULE = /\.mdi-([a-z0-9-]+)::before\s*\{\s*content:\s*"\\([0-9A-Fa-f]+)";?\s*\}\n*/g
+export const GLYPH_RULE = /\.mdi-([a-z0-9-]+)::before\s*\{\s*content:\s*"\\([0-9A-Fa-f]+)";?\s*\}\n*/g
 
 function readFilesRecursive(dir: string, exts: string[], out: string[] = []): string[] {
   if (!fs.existsSync(dir)) return out
