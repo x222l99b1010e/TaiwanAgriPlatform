@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -93,7 +93,9 @@ namespace TaiwanAgri.Tests.Web
 				new Modules.Pet.Dtos.ApiRequests.CreateLostPetPostRequestDto
 				{
 					Title = "走失的黃金獵犬",
-					Phone = null,
+					// 這兩個欄位「未填」的表示法是空字串而不是 null（DTO 刻意用 = string.Empty 當預設），
+					// 空白字串也要算未填，否則打幾個空格就能繞過這條規則
+					Phone = string.Empty,
 					Email = "   "
 				});
 
