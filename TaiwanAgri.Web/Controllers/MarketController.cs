@@ -109,7 +109,7 @@ namespace TaiwanAgri.Web.Controllers
 		public async Task<IActionResult> GetDisasters(
 			[FromQuery] string[] counties,
 			[FromQuery] string startDate,
-			[FromQuery] string endDate)   // ← 移除 alertDate 參數和驗證
+			[FromQuery] string endDate)
 		{
 			var start = DateHelper.ParseIsoDate(startDate);
 			var end = DateHelper.ParseIsoDate(endDate);
@@ -135,12 +135,10 @@ namespace TaiwanAgri.Web.Controllers
 
 			if (cropCodes == null || cropCodes.Length == 0)
 			{
-				// 填入 BadRequest
 				return BadRequest("cropCodes 為必填，至少需傳入一個作物代碼");
 			}
 			else if (cropCodes.Length > _cropCodesMaxCount)
 			{
-				// 填入 BadRequest
 				return BadRequest($"cropCodes 最多只能傳入 {_cropCodesMaxCount} 個");
 			}
 			var start = DateHelper.ParseIsoDate(startDate);

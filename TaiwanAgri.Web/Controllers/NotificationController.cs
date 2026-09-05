@@ -52,38 +52,6 @@ namespace TaiwanAgri.Web.Controllers
 				return NotFound();
 			}
 		}
-		//[HttpGet("list")]
-		//public async Task<IActionResult> GetUserNotifications(
-		//	[FromQuery] string userId,
-		//	[FromQuery] int page = 1)
-		//{
-		//	if (string.IsNullOrEmpty(userId)) return BadRequest("userId 為必填");
-		//	var notifications = await _notificationService.GetUserNotificationsAsync(userId, page);
-		//	return Ok(notifications);
-		//}
-
-		//[HttpGet("unread-count")]
-		//public async Task<IActionResult> GetUnreadCount([FromQuery] string userId)
-		//{
-		//	if (string.IsNullOrEmpty(userId)) return BadRequest("userId 為必填");
-		//	var unreadCount = await _notificationService.GetUnreadCountAsync(userId);
-		//	return Ok(unreadCount);
-		//}
-
-		//[HttpPatch("{id}/read")]
-		//public async Task<IActionResult> MarkAsRead(int id, [FromQuery] string userId)
-		//{
-		//	if (string.IsNullOrEmpty(userId)) return BadRequest("userId 為必填");
-		//	try
-		//	{
-		//		await _notificationService.MarkAsReadAsync(id, userId);
-		//		return NoContent();
-		//	}
-		//	catch (KeyNotFoundException)
-		//	{
-		//		return NotFound();
-		//	}
-		//}
 	}
 }
 
