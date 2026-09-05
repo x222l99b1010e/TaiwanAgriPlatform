@@ -24,7 +24,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			_logger = logger;
 		}
 
-		public async Task<TraceabilityResponseDto> SearchTraceabilityAsync(string traceCode)
+		public async Task<TraceabilityResponseDto> SearchTraceabilityAsync(string traceCode, CancellationToken cancellationToken = default)
 		{
 			// ── 1. 同時發出四支 API 請求 ─────────────────────────────────
 			// 每個 Task 各自打一支 API，四個同時跑

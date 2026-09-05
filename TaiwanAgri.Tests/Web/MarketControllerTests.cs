@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using TaiwanAgri.Modules.Market.Constants;
 using Moq;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 using TaiwanAgri.Modules.Market.Services;
@@ -16,10 +17,9 @@ namespace TaiwanAgri.Tests.Web
 	{
 		private static MarketController CreateController(Mock<IMarketService> service)
 		{
-			var config = new ConfigurationBuilder()
-				.AddInMemoryCollection(new Dictionary<string, string?> { ["MarketQueryLimits:CropCodesMaxCount"] = "5" })
-				.Build();
-			return new MarketController(service.Object, config)
+			// 上限改走強型別選項後，測試不必再組一份假設定，直接給值即可
+			var options = Options.Create(new MarketQueryOptions { CropCodesMaxCount = 5 });
+			return new MarketController(service.Object, options)
 			{
 				ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
 			};

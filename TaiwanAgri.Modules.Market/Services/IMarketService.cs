@@ -7,7 +7,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		Task<List<PorkResponseDto>> GetPorkAsync(
 			string? marketName,
 			DateOnly? startDate,
-			DateOnly? endDate);
+			DateOnly? endDate, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// 家禽行情查詢。metricCodes 為 null 或空陣列時回傳全部 17 個指標；
@@ -16,17 +16,17 @@ namespace TaiwanAgri.Modules.Market.Services
 		Task<List<PoultryResponseDto>> GetPoultryAsync(
 			string[]? metricCodes,
 			DateOnly? startDate,
-			DateOnly? endDate);
+			DateOnly? endDate, CancellationToken cancellationToken = default);
 		Task<List<RestDayResponseDto>> GetRestDaysAsync(
 		string marketCode,
 		DateOnly startDate,
-		DateOnly endDate);
+		DateOnly endDate, CancellationToken cancellationToken = default);
 
 		Task<List<MarketResponseDto>> GetMarketsAsync(
-			string marketType);
+			string marketType, CancellationToken cancellationToken = default);
 
 		Task<List<CropResponseDto>> GetCropsAsync(
-			string marketType);
+			string marketType, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// 天災事件查詢。第二格 IsTruncated 代表結果是否被上限截斷——
@@ -35,16 +35,16 @@ namespace TaiwanAgri.Modules.Market.Services
 		Task<(List<DisasterResponseDto> Items, bool IsTruncated)> GetDisastersAsync(
 			string[] counties,
 			DateOnly startDate,
-			DateOnly endDate);
+			DateOnly endDate, CancellationToken cancellationToken = default);
 
 		Task<List<PriceResponseDto>> GetPricesAsync(
 			string marketType,
 			string[] cropCodes,
 			string? marketCode = null,
 			DateOnly? startDate = null,
-			DateOnly? endDate = null);
+			DateOnly? endDate = null, CancellationToken cancellationToken = default);
 
-		Task<DateOnly?> GetLatestTransDateAsync(string marketCode);
+		Task<DateOnly?> GetLatestTransDateAsync(string marketCode, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// 批次取得多組（作物, 市場）的最新一筆均價。
@@ -56,6 +56,6 @@ namespace TaiwanAgri.Modules.Market.Services
 		/// </para>
 		/// </summary>
 		Task<List<LatestPriceDto>> GetLatestPricesAsync(
-			IEnumerable<(string CropCode, string? MarketCode)> keys);
+			IEnumerable<(string CropCode, string? MarketCode)> keys, CancellationToken cancellationToken = default);
 	}
 }

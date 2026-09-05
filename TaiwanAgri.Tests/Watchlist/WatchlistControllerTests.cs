@@ -34,7 +34,8 @@ namespace TaiwanAgri.Tests.Watchlist
 			// 3. 建立 Controller，注入兩個假 Service
 			var controller = new WatchlistController(
 				mockUserWatchlistService.Object,
-				mockMarketService.Object);
+				mockMarketService.Object,
+				Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()));
 
 			// 4. 設定假的 HttpContext，讓 User.FindFirstValue 能回傳假的 userId
 			//    不設定這個的話，User 是 null，程式會直接炸掉
@@ -110,7 +111,8 @@ namespace TaiwanAgri.Tests.Watchlist
 			// 4. 建立 Controller，注入兩個假 Service
 			var controller = new WatchlistController(
 				mockUserWatchlistService.Object,
-				mockMarketService.Object);
+				mockMarketService.Object,
+				Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()));
 
 			// 5. 設定假的 HttpContext
 			var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "user-001") };

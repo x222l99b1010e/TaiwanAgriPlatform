@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using TaiwanAgri.Core.Infrastructure;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.Pet.Data;
@@ -65,7 +65,7 @@ namespace TaiwanAgri.Web
 
 			app.UseMiddleware<GlobalExceptionMiddleware>();
 			app.UseRouting();
-			app.UseCors("MyPolicy");
+			app.UseCors(Extensions.InfrastructureExtensions.FrontendCorsPolicy);
 			app.UseAuthentication(); // 既然有 Identity，這行通常要加在 Authorization 之前
 			app.UseAuthorization();
 			app.MapControllers();

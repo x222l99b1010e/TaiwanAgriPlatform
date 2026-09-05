@@ -6,20 +6,20 @@ namespace TaiwanAgri.Modules.User.Services
 {
 	public class UserProfileService(UserDbContext context) : IUserProfileService
 	{
-		public async Task<UserFarmProfile?> GetUserFarmProfileAsync(string userId)
+		public async Task<UserFarmProfile?> GetUserFarmProfileAsync(string userId, CancellationToken cancellationToken = default)
 		{
 			// Include(p => p.Crops)：一次查詢同時載入作物清單
 			// FirstOrDefaultAsync：找不到回傳 null，不拋例外
 			return await context.UserFarmProfiles
 				.Include(p => p.Crops)
-				.FirstOrDefaultAsync(p => p.UserId == userId);
+				.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
 		}
 
-		public async Task UpsertUserFarmProfileAsync(string userId, string? farmCity, string? farmType, List<(string CropCode, string CropName)> crops)
+		public async Task UpsertUserFarmProfileAsync(string userId, string? farmCity, string? farmType, List<(string CropCode, string CropName)> crops, CancellationToken cancellationToken = default)
 		{
 			var existing = await context.UserFarmProfiles
 				.Include(p => p.Crops)
-				.FirstOrDefaultAsync(p => p.UserId == userId);
+				.FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
 
 			if (existing == null)
 			{
@@ -70,7 +70,7 @@ namespace TaiwanAgri.Modules.User.Services
 				}
 			}
 			// 一次 SaveChanges 把新增/更新/刪除全部送出去
-			await context.SaveChangesAsync();
+			await context.SaveChangesAsync(cancellationToken);
 			
 		}
 	}

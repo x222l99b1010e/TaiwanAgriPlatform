@@ -14,26 +14,26 @@ namespace TaiwanAgri.Web.Controllers
 			_pestService = pestService;
 		}
 		[HttpGet("alerts")]
-		public async Task<IActionResult> GetPestAlertsByCity([FromQuery] string? cityName = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+		public async Task<IActionResult> GetPestAlertsByCity([FromQuery] string? cityName = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
 		{
-			var pestAlerts = await _pestService.GetPestAlertsByCityAsync(cityName, page, pageSize);
+			var pestAlerts = await _pestService.GetPestAlertsByCityAsync(cityName, page, pageSize, cancellationToken);
 			return Ok(pestAlerts);
 		}
 
 		[HttpGet("decade-density")]
-		public async Task<IActionResult> GetPestDecadeDensityByPestName([FromQuery] string pestName)
+		public async Task<IActionResult> GetPestDecadeDensityByPestName([FromQuery] string pestName, CancellationToken cancellationToken = default)
 		{
 			if (string.IsNullOrWhiteSpace(pestName))
 			{
 				return BadRequest("害蟲名稱為必填!");
 			}
-			var pestDecadeSummaries = await _pestService.GetPestDecadeDensityByPestNameAsync(pestName);
+			var pestDecadeSummaries = await _pestService.GetPestDecadeDensityByPestNameAsync(pestName, cancellationToken);
 			return Ok(pestDecadeSummaries);
 		}
 		[HttpGet("pest-names")]
-		public async Task<IActionResult> GetAllPestName()
+		public async Task<IActionResult> GetAllPestName(CancellationToken cancellationToken = default)
 		{
-			var pestNames = await _pestService.GetAllPestNamesAsync();
+			var pestNames = await _pestService.GetAllPestNamesAsync(cancellationToken);
 			return Ok(pestNames);
 		}
 	}

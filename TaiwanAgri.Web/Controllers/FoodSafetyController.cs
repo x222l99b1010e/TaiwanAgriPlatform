@@ -34,30 +34,30 @@ namespace TaiwanAgri.Web.Controllers
 		}
 
 		[HttpGet("today-veg-prices")]
-		public async Task<IActionResult> GetTodayVegPrices()
+		public async Task<IActionResult> GetTodayVegPrices(CancellationToken cancellationToken = default)
 		{
 			// 取 DB 裡最新的交易日（不是今天，是實際有資料的最近一天）
-			var latestDate = await _marketService.GetLatestTransDateAsync(_todayVegMarketCode);
+			var latestDate = await _marketService.GetLatestTransDateAsync(_todayVegMarketCode, cancellationToken);
 			if (latestDate == null)
 				return Ok(new List<PriceResponseDto>());
 
-			var result = await _marketService.GetPricesAsync("Veg", _todayVegCropCodes, _todayVegMarketCode, latestDate.Value, latestDate.Value);
+			var result = await _marketService.GetPricesAsync("Veg", _todayVegCropCodes, _todayVegMarketCode, latestDate.Value, latestDate.Value, cancellationToken);
 			return Ok(result);
 
 		}
 
 		[HttpGet("traceability")]
-		public async Task<IActionResult> SearchTraceability([FromQuery] string traceCode)
+		public async Task<IActionResult> SearchTraceability([FromQuery] string traceCode, CancellationToken cancellationToken = default)
 		{
 			if (string.IsNullOrWhiteSpace(traceCode))
 				return BadRequest("追溯碼為必填");
 
-			var result = await _traceabilityService.SearchTraceabilityAsync(traceCode.Trim());
+			var result = await _traceabilityService.SearchTraceabilityAsync(traceCode.Trim(), cancellationToken);
 			return Ok(result);
 		}
 
 		[HttpGet("violations")]
-		public async Task<IActionResult> GetViolations([FromQuery] ViolationQueryDto queryDto)
+		public async Task<IActionResult> GetViolations([FromQuery] ViolationQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			if (queryDto.Days <= 0)
 				return BadRequest("天數必須大於 0");
@@ -67,19 +67,19 @@ namespace TaiwanAgri.Web.Controllers
 				return BadRequest("頁碼必須大於 0");
 			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
 				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
-			var result = await _foodSafetyService.GetViolationsAsync(queryDto);
+			var result = await _foodSafetyService.GetViolationsAsync(queryDto, cancellationToken);
 			return Ok(result);
 		}
 
 		[HttpGet("organic-certifications")]
-		public async Task<IActionResult> GetOrganicCertifications([FromQuery] OrganicCertificationQueryDto queryDto)
+		public async Task<IActionResult> GetOrganicCertifications([FromQuery] OrganicCertificationQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			if (queryDto.Page <= 0)
 				return BadRequest("頁碼必須大於 0");
 			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
 				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
 
-			var result = await _foodSafetyService.GetOrganicCertificationsAsync(queryDto);
+			var result = await _foodSafetyService.GetOrganicCertificationsAsync(queryDto, cancellationToken);
 			return Ok(result);
 		}
 	}

@@ -5,7 +5,7 @@ using TaiwanAgri.Modules.Market.Constants;
 using TaiwanAgri.Modules.Market.Data;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 using TaiwanAgri.Core.Helpers;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace TaiwanAgri.Modules.Market.Services
 {
@@ -13,22 +13,22 @@ namespace TaiwanAgri.Modules.Market.Services
 	{
 		private readonly MarketDbContext _context;
 		private readonly IDistributedCache _cache;
-		private readonly IConfiguration _configuration;
+		private readonly MarketQueryOptions _options;
 		private readonly TimeProvider _timeProvider;
-		public MarketService(MarketDbContext context, IDistributedCache cache, IConfiguration configuration, TimeProvider timeProvider)
+		public MarketService(MarketDbContext context, IDistributedCache cache, IOptions<MarketQueryOptions> options, TimeProvider timeProvider)
 		{
 			_context = context;
 			_cache = cache;
-			_configuration = configuration;
+			_options = options.Value;
 			_timeProvider = timeProvider;
 		}
-		public async Task<DateOnly?> GetLatestTransDateAsync(string marketCode)
+		public async Task<DateOnly?> GetLatestTransDateAsync(string marketCode, CancellationToken cancellationToken = default)
 		{
 			var latest = await _context.AgriProductsTrans
 				.Where(t => t.MarketCode == marketCode)
 				.OrderByDescending(t => t.TransDate)
 				.Select(t => (DateOnly?)t.TransDate)
-				.FirstOrDefaultAsync();
+				.FirstOrDefaultAsync(cancellationToken);
 
 			return latest;
 		}
@@ -37,7 +37,7 @@ namespace TaiwanAgri.Modules.Market.Services
 			string[] cropCodes,
 			string? marketCode = null,
 			DateOnly? startDate = null,
-			DateOnly? endDate = null)
+			DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{
 			// 1. 日期解析與預設值（先解析，cache key 才能用實際日期）
 			//    預設查到「今天」＝台灣時區日界（DateTime.Today 是主機本地時區，部署在 UTC 環境會差一天）
@@ -101,7 +101,7 @@ namespace TaiwanAgri.Modules.Market.Services
 					TransQuantity = g.Sum(x => x.t.TransQuantity)
 				})
 				.OrderByDescending(x => x.TransDate)
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			// 7. Cache-Aside Step 3：結果寫進 Redis，TTL 25 小時
 			//    農業部資料每天更新一次（昨天的歷史資料），25 小時確保跨天不提早過期
@@ -122,7 +122,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		public async Task<(List<DisasterResponseDto> Items, bool IsTruncated)> GetDisastersAsync(
 			string[] counties,
 			DateOnly startDate,
-			DateOnly endDate)
+			DateOnly endDate, CancellationToken cancellationToken = default)
 		{
 			DateTime startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
 			DateTime endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
@@ -131,7 +131,7 @@ namespace TaiwanAgri.Modules.Market.Services
 				.Where(d => d.LastUpdateDate >= startDateTime && d.LastUpdateDate <= endDateTime);
 
 			// 為了避免一次撈出超過 10 萬筆資料導致 OutOfMemory，先設定一個合理的上限
-			var limit = _configuration.GetValue<int>("MarketQueryLimits:DisasterRecordLimit", 5000);
+			var limit = _options.DisasterRecordLimit;
 
 			if (counties != null && counties.Any())
 				query = query.Where(d => counties.Contains(d.County));
@@ -149,7 +149,7 @@ namespace TaiwanAgri.Modules.Market.Services
 					AlertDate = DateOnly.FromDateTime(d.LastUpdateDate)
 				})
 				.Take(limit + 1)   // 多撈一筆用來判斷有沒有被截斷，回傳前再砍掉
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			var isTruncated = groupedRaw.Count > limit;
 			if (isTruncated)
@@ -173,7 +173,7 @@ namespace TaiwanAgri.Modules.Market.Services
 			return (items, isTruncated);
 		}
 
-		public async Task<List<CropResponseDto>> GetCropsAsync(string marketType)
+		public async Task<List<CropResponseDto>> GetCropsAsync(string marketType, CancellationToken cancellationToken = default)
 		{
 			//1. MarketType 轉 TcType
 			var tcType = MarketTypeMapping.ToTcType(marketType);
@@ -187,7 +187,7 @@ namespace TaiwanAgri.Modules.Market.Services
 				.Where(a => a.TcType == tcType)
 				.Select(a => a.CropCode)
 				.Distinct()
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			// Step 2：再用 validCropCodes 清單過濾 CropInfos
 			//         翻譯為：SELECT CropCode, CropName FROM CropInfos WHERE CropName != '' AND CropCode IN (...)
@@ -199,10 +199,10 @@ namespace TaiwanAgri.Modules.Market.Services
 					CropName = c.CropName
 				})
 				.Distinct()
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 		}
 
-		public async Task<List<MarketResponseDto>> GetMarketsAsync(string marketType)
+		public async Task<List<MarketResponseDto>> GetMarketsAsync(string marketType, CancellationToken cancellationToken = default)
 		{
 			return await _context.MarketInfos
 				.Where(m => m.MarketType == marketType)
@@ -214,10 +214,10 @@ namespace TaiwanAgri.Modules.Market.Services
 					MarketCode = m.MarketCode,
 					MarketName = m.MarketName
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 		}
 
-		public async Task<List<RestDayResponseDto>> GetRestDaysAsync(string marketCode, DateOnly startDate, DateOnly endDate)
+		public async Task<List<RestDayResponseDto>> GetRestDaysAsync(string marketCode, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default)
 		{
 			// ── Step 1：SQL 階段 ──────────────────────────────────────────
 			// MarketRestDays 用民國年/月/日三欄儲存，
@@ -226,10 +226,11 @@ namespace TaiwanAgri.Modules.Market.Services
 			var rocYearStart = startDate.Year - 1911;
 			var rocYearEnd = endDate.Year - 1911;
 			var records = await _context.MarketRestDays
+				.AsNoTracking()
 				.Where(r => r.MarketCode == marketCode
 						 && r.Year >= rocYearStart
 						 && r.Year <= rocYearEnd)
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			// ── Step 2：記憶體階段 ────────────────────────────────────────
 			// 民國年三欄 → 西元 DateOnly → 篩日期範圍 → 組 DTO
@@ -242,7 +243,7 @@ namespace TaiwanAgri.Modules.Market.Services
 				.ToList();
 		}
 
-		public async Task<List<PorkResponseDto>> GetPorkAsync(string? marketName = null, DateOnly? startDate = null, DateOnly? endDate = null)
+		public async Task<List<PorkResponseDto>> GetPorkAsync(string? marketName = null, DateOnly? startDate = null, DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
 			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
@@ -259,7 +260,7 @@ namespace TaiwanAgri.Modules.Market.Services
 					ExcludeFreezerCount = pm.ExcludeFreezerCount
 				})
 				.OrderByDescending(pm => pm.TransDate)
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			return porkList;
 		}
@@ -267,7 +268,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		public async Task<List<PoultryResponseDto>> GetPoultryAsync(
 			string[]? metricCodes = null,
 			DateOnly? startDate = null,
-			DateOnly? endDate = null)
+			DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{
 			// 預設區間比照 GetPorkAsync：未指定就給最近一年
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
@@ -292,7 +293,7 @@ namespace TaiwanAgri.Modules.Market.Services
 					p.PriceStatus,
 					p.RawValue
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			// DisplayName 在記憶體端補上：PoultryMetrics.DisplayNames 是 C# 字典，
 			// 放進 Select 會讓 EF 無法轉譯（比照 MapToResponseDto 的教訓）
@@ -310,7 +311,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		}
 
 		public async Task<List<LatestPriceDto>> GetLatestPricesAsync(
-			IEnumerable<(string CropCode, string? MarketCode)> keys)
+			IEnumerable<(string CropCode, string? MarketCode)> keys, CancellationToken cancellationToken = default)
 		{
 			var keyList = keys.Distinct().ToList();
 			if (keyList.Count == 0)
@@ -329,10 +330,10 @@ namespace TaiwanAgri.Modules.Market.Services
 			var result = new List<LatestPriceDto>();
 
 			if (scopedKeys.Count > 0)
-				result.AddRange(await GetLatestPricesForMarketsAsync(scopedKeys));
+				result.AddRange(await GetLatestPricesForMarketsAsync(scopedKeys, cancellationToken));
 
 			if (crossMarketCrops.Count > 0)
-				result.AddRange(await GetLatestCrossMarketPricesAsync(crossMarketCrops));
+				result.AddRange(await GetLatestCrossMarketPricesAsync(crossMarketCrops, cancellationToken));
 
 			return result;
 		}
@@ -342,7 +343,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		/// GroupBy 後每組取最新一筆，一次查詢取代逐組查詢，最後再濾掉呼叫端沒要求的配對。
 		/// </summary>
 		private async Task<List<LatestPriceDto>> GetLatestPricesForMarketsAsync(
-			List<(string CropCode, string? MarketCode)> scopedKeys)
+			List<(string CropCode, string? MarketCode)> scopedKeys, CancellationToken cancellationToken)
 		{
 			var cropCodes = scopedKeys.Select(k => k.CropCode).Distinct().ToList();
 			var marketCodes = scopedKeys.Select(k => k.MarketCode!).Distinct().ToList();
@@ -360,7 +361,7 @@ namespace TaiwanAgri.Modules.Market.Services
 						AvgPrice = t.AvgPrice
 					})
 					.First())
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			var requested = scopedKeys.ToHashSet();
 			return latest
@@ -377,13 +378,14 @@ namespace TaiwanAgri.Modules.Market.Services
 		/// 不能寫成單一查詢裡的巢狀 g.Max（EF 無法翻譯），也不該逐作物查一次（那是 N+1）。
 		/// </para>
 		/// </summary>
-		private async Task<List<LatestPriceDto>> GetLatestCrossMarketPricesAsync(List<string> cropCodes)
+		private async Task<List<LatestPriceDto>> GetLatestCrossMarketPricesAsync(
+			List<string> cropCodes, CancellationToken cancellationToken)
 		{
 			var latestDates = await _context.AgriProductsTrans
 				.Where(t => cropCodes.Contains(t.CropCode))
 				.GroupBy(t => t.CropCode)
 				.Select(g => new { CropCode = g.Key, LatestDate = g.Max(t => t.TransDate) })
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			if (latestDates.Count == 0)
 				return new List<LatestPriceDto>();
@@ -392,7 +394,7 @@ namespace TaiwanAgri.Modules.Market.Services
 			var rows = await _context.AgriProductsTrans
 				.Where(t => cropCodes.Contains(t.CropCode) && t.TransDate >= earliestBound)
 				.Select(t => new { t.CropCode, t.TransDate, t.AvgPrice })
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			var latestByCrop = latestDates.ToDictionary(x => x.CropCode, x => x.LatestDate);
 

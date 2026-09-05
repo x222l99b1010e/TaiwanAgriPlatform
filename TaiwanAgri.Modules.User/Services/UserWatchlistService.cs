@@ -8,11 +8,13 @@ namespace TaiwanAgri.Modules.User.Services
 {
 	public class UserWatchlistService(UserDbContext context) : IUserWatchlistService
 	{
-		public async Task<IEnumerable<WatchlistItemDto>> GetUserWatchlistItemsAsync(string userId)
+		public async Task<IEnumerable<WatchlistItemDto>> GetUserWatchlistItemsAsync(string userId, CancellationToken cancellationToken = default)
 		{
+			// 唯讀查詢：撈出來只是為了轉 DTO，不需要 Change Tracker 追蹤
 			var watchlistItem = await context.UserWatchlists
+				.AsNoTracking()
 				.Where(u => u.UserId == userId)
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 			return watchlistItem.Select(w => new WatchlistItemDto
 			{
 				Id = w.Id,
@@ -24,12 +26,12 @@ namespace TaiwanAgri.Modules.User.Services
 			});
 		}
 
-		public async Task<bool> AddWatchlistItemAsync(string userId, AddWatchlistRequestDto request)
+		public async Task<bool> AddWatchlistItemAsync(string userId, AddWatchlistRequestDto request, CancellationToken cancellationToken = default)
 		{
 			var exists = await context.UserWatchlists
 				.AnyAsync(w => w.UserId == userId
 							&& w.CropCode == request.CropCode
-							&& w.MarketCode == request.MarketCode);
+							&& w.MarketCode == request.MarketCode, cancellationToken);
 
 			if (exists) return false;  // 告訴 Controller：重複了
 
@@ -43,18 +45,18 @@ namespace TaiwanAgri.Modules.User.Services
 				MarketType = request.MarketType
 			};
 			context.UserWatchlists.Add(watchlistItem);
-			await context.SaveChangesAsync();
+			await context.SaveChangesAsync(cancellationToken);
 			return true;  // 新增成功
 		}
 
-		public async Task RemoveWatchlistItemsAsync(string userId, IEnumerable<int> ids)
+		public async Task RemoveWatchlistItemsAsync(string userId, IEnumerable<int> ids, CancellationToken cancellationToken = default)
 		{
 			// 數量上限防禦在 Controller 層驗證後回 400，
 			// 這裡不做靜默截斷（原 Take(50) 無排序，刪哪 50 筆不確定）
 			var targetWatchListItems = context.UserWatchlists
 				.Where(w => w.UserId == userId && ids.Contains(w.Id));
 			context.UserWatchlists.RemoveRange(targetWatchListItems);
-			await context.SaveChangesAsync();
+			await context.SaveChangesAsync(cancellationToken);
 		}
 	}
 }

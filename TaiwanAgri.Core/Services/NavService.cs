@@ -17,7 +17,7 @@ namespace TaiwanAgri.Core.Services
 			_context = coreDbContext;
 			_logger = logger;
 		}
-		public async Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleName)
+		public async Task<List<NavModuleDto>> GetNavModulesAsync(bool isAuthenticated, string? roleName, CancellationToken cancellationToken = default)
 		{
 			// 第一段：決定要查哪個 RoleId（各種異常情境統一回退 Guest，不靜默消失）
 			var targetRoleId = await ResolveRoleIdOrGuestAsync(isAuthenticated, roleName);
@@ -27,12 +27,12 @@ namespace TaiwanAgri.Core.Services
 				//這行非常重要，已經篩選出有權限的 RoleId，後續只處理這個 RoleId 的模組權限
 				.Where(rmp => rmp.RoleId == targetRoleId && rmp.CanView)
 				.Select(rmp => rmp.ModuleId)
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 			// 2. 查出有權限的頂層模組（NavModules WHERE ParentId == null（只取頂層）），並依 SortOrder 排序
 			var navModules = await _context.NavModules
 				.Where(nm => nm.ParentId == null && nm.IsActive && permittedModuleIds.Contains(nm.Id))
 				.OrderBy(nm => nm.SortOrder) // 在資料庫端先排序
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 			// 3. 抽出頂層 ID，撈出對應且有權限的子模組
 			// ❌ 在 DB 查詢裡用 .Any() 比對 in-memory list，EF Core 翻譯較複雜
 			//navModules.Any(nm => nm.Id == cnm.ParentId)
@@ -41,7 +41,7 @@ namespace TaiwanAgri.Core.Services
 			var childNavModules = await _context.NavModules
 			   .Where(cnm => cnm.ParentId != null && cnm.IsActive && topLevelIds.Contains(cnm.ParentId!.Value) && permittedModuleIds.Contains(cnm.Id))
 			   .OrderBy(cnm => cnm.SortOrder) // 子模組也在資料庫端先排序
-			   .ToListAsync();
+			   .ToListAsync(cancellationToken);
 
 			//第三段：組裝回傳
 			//→ 從 childNavModules 找出 ParentId == 這個模組的 Id 的子功能

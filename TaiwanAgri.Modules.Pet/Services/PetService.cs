@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Dtos;
 using TaiwanAgri.Modules.Pet.Data;
 using TaiwanAgri.Modules.Pet.Dtos.ApiRequests;
@@ -12,6 +13,41 @@ namespace TaiwanAgri.Modules.Pet.Services
 	public class PetService(PetDbContext context, TimeProvider timeProvider) : IPetService
 	{
 		/// <summary>
+		/// ShelterAnimal → 回應 DTO 的投影，兩支查詢共用。
+		/// <para>
+		/// 型別是 Expression 而不是一般方法，這一點是關鍵：EF Core 無法把編譯過的 C# 方法
+		/// 翻譯成 SQL（那是 LostPetPost 那邊 MapToResponseDto 不能進 Select 的原因），
+		/// 但 Expression 本身就是查詢樹，可以直接交給 Select 並在資料庫端執行。
+		/// 「共用」與「查詢在 DB 端執行」兩件事不衝突，不需要為此各寫一份 21 欄的投影。
+		/// </para>
+		/// </summary>
+		private static readonly Expression<Func<ShelterAnimal, ShelterAnimalResponseDto>> ToResponseDto =
+			x => new ShelterAnimalResponseDto
+			{
+				Id = x.Id,
+				AnimalSubId = x.AnimalSubId,
+				ShelterPkId = x.ShelterPkId,
+				ShelterName = x.Shelter.Name,
+				ShelterAddress = x.Shelter.Address,
+				County = x.Shelter.County,
+				Latitude = x.Shelter.Latitude,
+				Longitude = x.Shelter.Longitude,
+				Kind = x.Kind.ToString(),
+				Sex = x.Sex.ToString(),
+				BodyType = x.BodyType.ToString(),
+				Age = x.Age.ToString(),
+				Sterilization = x.Sterilization.ToString(),
+				Bacterin = x.Bacterin.ToString(),
+				Variety = x.Variety,
+				Colour = x.Colour,
+				FoundPlace = x.FoundPlace,
+				Remark = x.Remark,
+				OpenDate = x.OpenDate,
+				CreatedTime = x.CreatedTime,
+				AlbumFile = x.AlbumFile
+			};
+
+		/// <summary>
 		/// 地圖用聚合查詢：一間收容所一筆摘要，取代原本逐隻動物的不分頁清單。
 		/// <para>
 		/// 上萬筆動物其實只落在約 30 個收容所座標上（同一間收容所的所有動物共用該收容所的經緯度）——
@@ -22,7 +58,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 		/// 不需要分頁，也不需要 3000 那種防禦性上限與截斷標頭。
 		/// </para>
 		/// </summary>
-		public async Task<List<ShelterAnimalSummaryDto>> GetShelterAnimalSummaryAsync(ShelterAnimalQueryDto queryDto)
+		public async Task<List<ShelterAnimalSummaryDto>> GetShelterAnimalSummaryAsync(ShelterAnimalQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			var query = context.ShelterAnimals.AsQueryable();
 
@@ -35,12 +71,13 @@ namespace TaiwanAgri.Modules.Pet.Services
 			var counts = await query
 				.GroupBy(x => new { x.ShelterPkId, x.Kind })
 				.Select(g => new { g.Key.ShelterPkId, g.Key.Kind, Count = g.Count() })
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			var shelterIds = counts.Select(x => x.ShelterPkId).Distinct().ToList();
 			var shelters = await context.Shelters
+				.AsNoTracking()
 				.Where(x => shelterIds.Contains(x.ShelterPkId))
-				.ToDictionaryAsync(x => x.ShelterPkId);
+				.ToDictionaryAsync(x => x.ShelterPkId, cancellationToken);
 
 			return counts
 				.GroupBy(x => x.ShelterPkId)
@@ -70,41 +107,15 @@ namespace TaiwanAgri.Modules.Pet.Services
 		}
 
 		/// <summary>
-		/// 動物詳情頁用，單筆查詢。投影欄位跟 GetShelterAnimalsAsync／GetShelterAnimalsByShelterAsync
-		/// 刻意重複而不是抽共用方法呼叫——EF Core 無法把一般 C# 方法翻譯進 Select 產生的 SQL
-		/// （跟 LostPetPost 那邊 MapToResponseDto 不能進 Select 是同一個限制），
-		/// 三處分別寫 Select 才能讓查詢真的在資料庫端執行，不是各自多餘的重複。
+		/// 動物詳情頁用，單筆查詢。投影共用 ToResponseDto。
 		/// </summary>
-		public async Task<ShelterAnimalResponseDto?> GetShelterAnimalByIdAsync(int id)
+		public async Task<ShelterAnimalResponseDto?> GetShelterAnimalByIdAsync(int id, CancellationToken cancellationToken = default)
 		{
 			return await context.ShelterAnimals
 				.Include(x => x.Shelter)
 				.Where(x => x.Id == id)
-				.Select(x => new ShelterAnimalResponseDto
-				{
-					Id = x.Id,
-					AnimalSubId = x.AnimalSubId,
-					ShelterPkId = x.ShelterPkId,
-					ShelterName = x.Shelter.Name,
-					ShelterAddress = x.Shelter.Address,
-					County = x.Shelter.County,
-					Latitude = x.Shelter.Latitude,
-					Longitude = x.Shelter.Longitude,
-					Kind = x.Kind.ToString(),
-					Sex = x.Sex.ToString(),
-					BodyType = x.BodyType.ToString(),
-					Age = x.Age.ToString(),
-					Sterilization = x.Sterilization.ToString(),
-					Bacterin = x.Bacterin.ToString(),
-					Variety = x.Variety,
-					Colour = x.Colour,
-					FoundPlace = x.FoundPlace,
-					Remark = x.Remark,
-					OpenDate = x.OpenDate,
-					CreatedTime = x.CreatedTime,
-					AlbumFile = x.AlbumFile
-				})
-				.FirstOrDefaultAsync();
+				.Select(ToResponseDto)
+				.FirstOrDefaultAsync(cancellationToken);
 		}
 
 		/// <summary>
@@ -113,7 +124,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 		/// 這裡刻意要分頁——兩者的使用情境不同：地圖要完整清單餵 MarkerCluster，這裡是給人看的列表，
 		/// 不分頁的話一間 150 隻的大所又會重演 popup 曾經撞到的「清單太長」問題，只是換到獨立頁面重演一次）。
 		/// </summary>
-		public async Task<PagedResult<ShelterAnimalResponseDto>> GetShelterAnimalsByShelterAsync(int shelterId, ShelterAnimalsByShelterQueryDto queryDto)
+		public async Task<PagedResult<ShelterAnimalResponseDto>> GetShelterAnimalsByShelterAsync(int shelterId, ShelterAnimalsByShelterQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			var query = context.ShelterAnimals.Include(x => x.Shelter).Where(x => x.ShelterPkId == shelterId);
 
@@ -123,10 +134,12 @@ namespace TaiwanAgri.Modules.Pet.Services
 			if (queryDto.Sex.HasValue)
 				query = query.Where(x => x.Sex == queryDto.Sex.Value);
 
-			var totalCount = await query.CountAsync();
+			var totalCount = await query.CountAsync(cancellationToken);
 
-			// ThenBy(Id) 當 tie-breaker：CreatedTime 是 DateOnly，同一天拾獲的動物很常見，
-			// 沒有次要排序鍵的話同一天的相對順序不保證穩定（分頁時可能同一筆在兩頁都出現或都不出現）
+			// 次要排序鍵（tie-breaker）：CreatedTime 是 DateOnly，同一天拾獲的動物很常見，
+			// 沒有它的話同一天的相對順序不保證穩定（分頁時可能同一筆在兩頁都出現或都不出現）。
+			// 全模組統一用 ThenByDescending(Id)＝同分時新的在前，方向不隨主排序改變——
+			// tie-breaker 只需要「穩定」，跟著主排序翻方向沒有意義，反而讓四支查詢各有一套
 			IOrderedQueryable<ShelterAnimal> orderedQuery = queryDto.SortBy switch
 			{
 				ShelterAnimalSortBy.AnimalSubId => queryDto.SortDescending
@@ -140,36 +153,13 @@ namespace TaiwanAgri.Modules.Pet.Services
 			var items = await orderedQuery
 				.Skip((queryDto.Page - 1) * queryDto.PageSize)
 				.Take(queryDto.PageSize)
-				.Select(x => new ShelterAnimalResponseDto
-				{
-					Id = x.Id,
-					AnimalSubId = x.AnimalSubId,
-					ShelterPkId = x.ShelterPkId,
-					ShelterName = x.Shelter.Name,
-					ShelterAddress = x.Shelter.Address,
-					County = x.Shelter.County,
-					Latitude = x.Shelter.Latitude,
-					Longitude = x.Shelter.Longitude,
-					Kind = x.Kind.ToString(),
-					Sex = x.Sex.ToString(),
-					BodyType = x.BodyType.ToString(),
-					Age = x.Age.ToString(),
-					Sterilization = x.Sterilization.ToString(),
-					Bacterin = x.Bacterin.ToString(),
-					Variety = x.Variety,
-					Colour = x.Colour,
-					FoundPlace = x.FoundPlace,
-					Remark = x.Remark,
-					OpenDate = x.OpenDate,
-					CreatedTime = x.CreatedTime,
-					AlbumFile = x.AlbumFile
-				})
-				.ToListAsync();
+				.Select(ToResponseDto)
+				.ToListAsync(cancellationToken);
 
 			return PagedResult<ShelterAnimalResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
-		public async Task<PagedResult<OfficialLostPetPostResponseDto>> GetOfficialLostPetPostsAsync(OfficialLostPetPostQueryDto queryDto)
+		public async Task<PagedResult<OfficialLostPetPostResponseDto>> GetOfficialLostPetPostsAsync(OfficialLostPetPostQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			var query = context.OfficialLostPetPosts.AsQueryable();
 
@@ -179,7 +169,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 			if (queryDto.Sex.HasValue)
 				query = query.Where(x => x.Sex == queryDto.Sex.Value);
 
-			var totalCount = await query.CountAsync();
+			var totalCount = await query.CountAsync(cancellationToken);
 
 			// 縣市篩選刻意不做：這張表沒有結構化的 County 欄位，只有自由文字 LostPlace，
 			// 字串比對會跟 B3 技術債（nvarchar LIKE 全表掃描）同一類問題，且不保證準確
@@ -221,12 +211,12 @@ namespace TaiwanAgri.Modules.Pet.Services
 					EMail = x.EMail,
 					PictureUrl = x.PictureUrl
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			return PagedResult<OfficialLostPetPostResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
-		public async Task<PagedResult<LegalSpecificPetResponseDto>> GetLegalSpecificPetsAsync(LegalSpecificPetQueryDto queryDto)
+		public async Task<PagedResult<LegalSpecificPetResponseDto>> GetLegalSpecificPetsAsync(LegalSpecificPetQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			var query = context.LegalSpecificPets.AsQueryable();
 
@@ -247,7 +237,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 			if (!string.IsNullOrWhiteSpace(queryDto.BusinessItem))
 				query = query.Where(x => x.BusinessItems.Contains(queryDto.BusinessItem));
 
-			var totalCount = await query.CountAsync();
+			var totalCount = await query.CountAsync(cancellationToken);
 
 			// 刻意不做「許可證效期是否過期」的布林篩選，改成可排序：PermitValidDate 是 DateOnly?，
 			// null（查無效期資料）該算過期還是未過期沒有一翻兩瞪眼的答案，排序讓過期的自然排到
@@ -255,14 +245,14 @@ namespace TaiwanAgri.Modules.Pet.Services
 			IOrderedQueryable<LegalSpecificPet> orderedQuery = queryDto.SortBy switch
 			{
 				LegalSpecificPetSortBy.PermitValidDate => queryDto.SortDescending
-					? query.OrderByDescending(x => x.PermitValidDate).ThenBy(x => x.Id)
-					: query.OrderBy(x => x.PermitValidDate).ThenBy(x => x.Id),
+					? query.OrderByDescending(x => x.PermitValidDate).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.PermitValidDate).ThenByDescending(x => x.Id),
 				LegalSpecificPetSortBy.RankGrade => queryDto.SortDescending
-					? query.OrderByDescending(x => x.RankGrade).ThenBy(x => x.Id)
-					: query.OrderBy(x => x.RankGrade).ThenBy(x => x.Id),
+					? query.OrderByDescending(x => x.RankGrade).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.RankGrade).ThenByDescending(x => x.Id),
 				_ => queryDto.SortDescending
-					? query.OrderByDescending(x => x.Name).ThenBy(x => x.Id)
-					: query.OrderBy(x => x.Name).ThenBy(x => x.Id),
+					? query.OrderByDescending(x => x.Name).ThenByDescending(x => x.Id)
+					: query.OrderBy(x => x.Name).ThenByDescending(x => x.Id),
 			};
 
 			var items = await orderedQuery
@@ -286,12 +276,12 @@ namespace TaiwanAgri.Modules.Pet.Services
 					RankText = x.RankText,
 					StateFlag = x.StateFlag.ToString()
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			return PagedResult<LegalSpecificPetResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
-		public async Task<PagedResult<LostPetPostResponseDto>> GetLostPetPostsAsync(LostPetPostQueryDto queryDto, string? currentUserId)
+		public async Task<PagedResult<LostPetPostResponseDto>> GetLostPetPostsAsync(LostPetPostQueryDto queryDto, string? currentUserId, CancellationToken cancellationToken = default)
 		{
 			var query = context.LostPetPosts.AsQueryable();
 
@@ -308,7 +298,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 			if (queryDto.OnlyMine)
 				query = query.Where(x => x.UserId == currentUserId);
 
-			var totalCount = await query.CountAsync();
+			var totalCount = await query.CountAsync(cancellationToken);
 
 			// 這張表沒有動物種類這種可分類欄位（自建貼文只有 Title/Description 自由文字，
 			// 決策：不新增結構化分類），可篩選的維度就是 Status／County，能加的是排序
@@ -325,20 +315,23 @@ namespace TaiwanAgri.Modules.Pet.Services
 			// 先撈實體再於記憶體內轉 DTO——MapToResponseDto 是一般 C# 方法，EF Core 無法把它翻譯成 SQL，
 			// 直接寫在 Select 裡會在執行期丟例外，必須先 ToListAsync() 讓查詢在 DB 端執行完畢
 			var entities = await orderedQuery
+				.AsNoTracking()
 				.Skip((queryDto.Page - 1) * queryDto.PageSize)
 				.Take(queryDto.PageSize)
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			return PagedResult<LostPetPostResponseDto>.Create(entities.Select(x => MapToResponseDto(x, currentUserId)).ToList(), totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
-		public async Task<LostPetPostResponseDto?> GetLostPetPostByIdAsync(int id, string? currentUserId)
+		public async Task<LostPetPostResponseDto?> GetLostPetPostByIdAsync(int id, string? currentUserId, CancellationToken cancellationToken = default)
 		{
-			var entity = await context.LostPetPosts.FirstOrDefaultAsync(x => x.Id == id);
+			// 唯讀：只用來轉 DTO。下面的 Update／Delete 刻意不加 AsNoTracking——
+			// 那兩支要靠 Change Tracker 才產生得出 UPDATE／DELETE
+			var entity = await context.LostPetPosts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 			return entity is null ? null : MapToResponseDto(entity, currentUserId);
 		}
 
-		public async Task<LostPetPostResponseDto> CreateLostPetPostAsync(string userId, CreateLostPetPostRequestDto request)
+		public async Task<LostPetPostResponseDto> CreateLostPetPostAsync(string userId, CreateLostPetPostRequestDto request, CancellationToken cancellationToken = default)
 		{
 			var now = timeProvider.GetUtcNow().UtcDateTime;
 
@@ -359,15 +352,15 @@ namespace TaiwanAgri.Modules.Pet.Services
 			};
 
 			context.LostPetPosts.Add(entity);
-			await context.SaveChangesAsync();
+			await context.SaveChangesAsync(cancellationToken);
 
 			// 剛建立的貼文，建立者對自己一定是 owner
 			return MapToResponseDto(entity, userId);
 		}
 
-		public async Task<bool> UpdateLostPetPostAsync(int id, string userId, UpdateLostPetPostRequestDto request)
+		public async Task<bool> UpdateLostPetPostAsync(int id, string userId, UpdateLostPetPostRequestDto request, CancellationToken cancellationToken = default)
 		{
-			var entity = await context.LostPetPosts.FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+			var entity = await context.LostPetPosts.FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, cancellationToken);
 			if (entity is null) return false;
 
 			entity.Title = request.Title;
@@ -381,17 +374,17 @@ namespace TaiwanAgri.Modules.Pet.Services
 			entity.Status = request.Status;
 			entity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
 
-			await context.SaveChangesAsync();
+			await context.SaveChangesAsync(cancellationToken);
 			return true;
 		}
 
-		public async Task<bool> DeleteLostPetPostAsync(int id, string userId)
+		public async Task<bool> DeleteLostPetPostAsync(int id, string userId, CancellationToken cancellationToken = default)
 		{
-			var entity = await context.LostPetPosts.FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+			var entity = await context.LostPetPosts.FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, cancellationToken);
 			if (entity is null) return false;
 
 			context.LostPetPosts.Remove(entity);
-			await context.SaveChangesAsync();
+			await context.SaveChangesAsync(cancellationToken);
 			return true;
 		}
 

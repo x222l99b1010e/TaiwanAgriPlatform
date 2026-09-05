@@ -4,6 +4,6 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 {
 	public interface ITraceabilityService
 	{
-		Task<TraceabilityResponseDto> SearchTraceabilityAsync(string traceCode);
+		Task<TraceabilityResponseDto> SearchTraceabilityAsync(string traceCode, CancellationToken cancellationToken = default);
 	}
 }
