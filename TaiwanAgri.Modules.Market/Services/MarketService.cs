@@ -284,17 +284,43 @@ namespace TaiwanAgri.Modules.Market.Services
 		}
 
 		public async Task<List<LatestPriceDto>> GetLatestPricesAsync(
-			IEnumerable<(string CropCode, string MarketCode)> keys)
+			IEnumerable<(string CropCode, string? MarketCode)> keys)
 		{
 			var keyList = keys.Distinct().ToList();
 			if (keyList.Count == 0)
 				return new List<LatestPriceDto>();
 
-			var cropCodes = keyList.Select(k => k.CropCode).Distinct().ToList();
-			var marketCodes = keyList.Select(k => k.MarketCode).Distinct().ToList();
+			// 指定市場與不指定市場是兩種查詢，分開處理後再合併。
+			// 不分開的話，未指定市場那些鍵的 MarketCode 是 null，而 SQL 的 IN 永遠不匹配 NULL，
+			// 結果是那些監看項目查不到任何價格，且沒有任何錯誤訊號
+			var scopedKeys = keyList.Where(k => k.MarketCode != null).ToList();
+			var crossMarketCrops = keyList
+				.Where(k => k.MarketCode == null)
+				.Select(k => k.CropCode)
+				.Distinct()
+				.ToList();
 
-			// SQL 端先用兩個 IN 縮小範圍（可能多撈到交叉組合，最後再精準過濾），
-			// GroupBy + 每組取最新一筆，一次查詢取代逐組查詢
+			var result = new List<LatestPriceDto>();
+
+			if (scopedKeys.Count > 0)
+				result.AddRange(await GetLatestPricesForMarketsAsync(scopedKeys));
+
+			if (crossMarketCrops.Count > 0)
+				result.AddRange(await GetLatestCrossMarketPricesAsync(crossMarketCrops));
+
+			return result;
+		}
+
+		/// <summary>
+		/// 指定市場的最新價：SQL 端先用兩個 IN 縮小範圍（可能多撈到交叉組合），
+		/// GroupBy 後每組取最新一筆，一次查詢取代逐組查詢，最後再濾掉呼叫端沒要求的配對。
+		/// </summary>
+		private async Task<List<LatestPriceDto>> GetLatestPricesForMarketsAsync(
+			List<(string CropCode, string? MarketCode)> scopedKeys)
+		{
+			var cropCodes = scopedKeys.Select(k => k.CropCode).Distinct().ToList();
+			var marketCodes = scopedKeys.Select(k => k.MarketCode!).Distinct().ToList();
+
 			var latest = await _context.AgriProductsTrans
 				.Where(t => cropCodes.Contains(t.CropCode) && marketCodes.Contains(t.MarketCode))
 				.GroupBy(t => new { t.CropCode, t.MarketCode })
@@ -310,10 +336,50 @@ namespace TaiwanAgri.Modules.Market.Services
 					.First())
 				.ToListAsync();
 
-			// 移除 IN 交叉組合多撈到、但呼叫端沒要求的配對
-			var requested = keyList.ToHashSet();
+			var requested = scopedKeys.ToHashSet();
 			return latest
 				.Where(x => requested.Contains((x.CropCode, x.MarketCode)))
+				.ToList();
+		}
+
+		/// <summary>
+		/// 不指定市場的最新價＝該作物最新交易日的跨市場均價，與 GetPricesAsync
+		/// 在 marketCode 為 null 時的聚合語意一致。
+		/// <para>
+		/// 固定兩次查詢、不隨作物數成長：先取每個作物的最新交易日，再以其中最早的那個日期
+		/// 當下界撈回這段區間的資料，在記憶體端依各作物自己的最新日過濾後平均。
+		/// 不能寫成單一查詢裡的巢狀 g.Max（EF 無法翻譯），也不該逐作物查一次（那是 N+1）。
+		/// </para>
+		/// </summary>
+		private async Task<List<LatestPriceDto>> GetLatestCrossMarketPricesAsync(List<string> cropCodes)
+		{
+			var latestDates = await _context.AgriProductsTrans
+				.Where(t => cropCodes.Contains(t.CropCode))
+				.GroupBy(t => t.CropCode)
+				.Select(g => new { CropCode = g.Key, LatestDate = g.Max(t => t.TransDate) })
+				.ToListAsync();
+
+			if (latestDates.Count == 0)
+				return new List<LatestPriceDto>();
+
+			var earliestBound = latestDates.Min(x => x.LatestDate);
+			var rows = await _context.AgriProductsTrans
+				.Where(t => cropCodes.Contains(t.CropCode) && t.TransDate >= earliestBound)
+				.Select(t => new { t.CropCode, t.TransDate, t.AvgPrice })
+				.ToListAsync();
+
+			var latestByCrop = latestDates.ToDictionary(x => x.CropCode, x => x.LatestDate);
+
+			return rows
+				.Where(r => latestByCrop[r.CropCode] == r.TransDate)
+				.GroupBy(r => r.CropCode)
+				.Select(g => new LatestPriceDto
+				{
+					CropCode = g.Key,
+					MarketCode = null,
+					TransDate = latestByCrop[g.Key],
+					AvgPrice = g.Average(r => r.AvgPrice)
+				})
 				.ToList();
 		}
 

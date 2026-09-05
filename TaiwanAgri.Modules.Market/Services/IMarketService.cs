@@ -31,7 +31,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		Task<List<DisasterResponseDto>> GetDisastersAsync(
 			string[] counties,
 			DateOnly startDate,
-			DateOnly endDate);   // ← 移除 alertDate
+			DateOnly endDate);
 
 		Task<List<PriceResponseDto>> GetPricesAsync(
 			string marketType,
@@ -44,9 +44,14 @@ namespace TaiwanAgri.Modules.Market.Services
 
 		/// <summary>
 		/// 批次取得多組（作物, 市場）的最新一筆均價。
-		/// 一次 SQL 完成，取代逐筆呼叫 GetPricesAsync 的 N+1 查詢
+		/// 一次 SQL 完成，取代逐筆呼叫 GetPricesAsync 的 N+1 查詢。
+		/// <para>
+		/// MarketCode 為 null 代表「不限市場」，回傳該作物最新交易日的跨市場均價
+		/// （與 GetPricesAsync 在 marketCode 為 null 時的語意一致）。監看清單允許不指定市場，
+		/// 這種項目若不特別處理會因為 SQL 的 IN 永遠不匹配 NULL 而查不到任何價格。
+		/// </para>
 		/// </summary>
 		Task<List<LatestPriceDto>> GetLatestPricesAsync(
-			IEnumerable<(string CropCode, string MarketCode)> keys);
+			IEnumerable<(string CropCode, string? MarketCode)> keys);
 	}
 }
