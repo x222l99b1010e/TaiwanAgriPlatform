@@ -861,7 +861,7 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistributedCache>`）；Service 層只依賴 DB 時用 InMemory（UserWatchlistService → InMemory UserDbContext）；Controller 層測試跨模組組合邏輯時同時 Mock 兩個 Service（WatchlistController）。Extension Method 無法被 Mock 攔截，須 Setup 底層介面方法（GetStringAsync → GetAsync）。
 
 **前端設計系統：token 三層 + 五個頁面樣板（前端視覺設計輪）**
-`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種顏色、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出五個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 5 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 5 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段），最終產物 gzip 26.28 kB。
+`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種顏色、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出五個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 5 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 5 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段）。**第二輪 code review 再把路由改成動態載入之後，首屏實際只需要 46.1 kB CSS（gzip 12.99 kB）**——其餘各頁的樣式跟著各自的 chunk 走，進到那一頁才下載。
 
 **新慣例確立時要回頭套用，否則它只是「那一次的寫法」**
 兩輪 code review 的共同頭號結論。第一輪的說法是「共用抽象建立後沒回頭替換舊寫法」，
