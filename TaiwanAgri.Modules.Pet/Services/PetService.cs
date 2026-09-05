@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Core.Dtos;
 using TaiwanAgri.Modules.Pet.Data;
 using TaiwanAgri.Modules.Pet.Dtos.ApiRequests;
@@ -166,14 +166,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 				})
 				.ToListAsync();
 
-			return new PagedResult<ShelterAnimalResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<ShelterAnimalResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
 		public async Task<PagedResult<OfficialLostPetPostResponseDto>> GetOfficialLostPetPostsAsync(OfficialLostPetPostQueryDto queryDto)
@@ -230,14 +223,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 				})
 				.ToListAsync();
 
-			return new PagedResult<OfficialLostPetPostResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<OfficialLostPetPostResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
 		public async Task<PagedResult<LegalSpecificPetResponseDto>> GetLegalSpecificPetsAsync(LegalSpecificPetQueryDto queryDto)
@@ -302,14 +288,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 				})
 				.ToListAsync();
 
-			return new PagedResult<LegalSpecificPetResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<LegalSpecificPetResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
 		public async Task<PagedResult<LostPetPostResponseDto>> GetLostPetPostsAsync(LostPetPostQueryDto queryDto, string? currentUserId)
@@ -350,14 +329,7 @@ namespace TaiwanAgri.Modules.Pet.Services
 				.Take(queryDto.PageSize)
 				.ToListAsync();
 
-			return new PagedResult<LostPetPostResponseDto>
-			{
-				Items = entities.Select(x => MapToResponseDto(x, currentUserId)).ToList(),
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<LostPetPostResponseDto>.Create(entities.Select(x => MapToResponseDto(x, currentUserId)).ToList(), totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
 		public async Task<LostPetPostResponseDto?> GetLostPetPostByIdAsync(int id, string? currentUserId)

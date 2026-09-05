@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TaiwanAgri.Modules.Pet.Dtos.ApiRequests;
@@ -37,11 +37,6 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("shelters/{shelterId:int}/animals")]
 		public async Task<IActionResult> GetShelterAnimalsByShelter(int shelterId, [FromQuery] ShelterAnimalsByShelterQueryDto queryDto)
 		{
-			if (queryDto.Page <= 0)
-				return BadRequest("頁碼必須大於 0");
-			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
-				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
-
 			var result = await petService.GetShelterAnimalsByShelterAsync(shelterId, queryDto);
 			return Ok(result);
 		}
@@ -49,11 +44,6 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("official-lost-posts")]
 		public async Task<IActionResult> GetOfficialLostPetPosts([FromQuery] OfficialLostPetPostQueryDto queryDto)
 		{
-			if (queryDto.Page <= 0)
-				return BadRequest("頁碼必須大於 0");
-			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
-				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
-
 			var result = await petService.GetOfficialLostPetPostsAsync(queryDto);
 			return Ok(result);
 		}
@@ -61,11 +51,6 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("legal-specific-pets")]
 		public async Task<IActionResult> GetLegalSpecificPets([FromQuery] LegalSpecificPetQueryDto queryDto)
 		{
-			if (queryDto.Page <= 0)
-				return BadRequest("頁碼必須大於 0");
-			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
-				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
-
 			var result = await petService.GetLegalSpecificPetsAsync(queryDto);
 			return Ok(result);
 		}
@@ -75,11 +60,6 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("lost-pet-posts")]
 		public async Task<IActionResult> GetLostPetPosts([FromQuery] LostPetPostQueryDto queryDto)
 		{
-			if (queryDto.Page <= 0)
-				return BadRequest("頁碼必須大於 0");
-			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
-				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
-
 			var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
 			// OnlyMine 不登入就查不到「自己」，明確回 401 比默默回空清單清楚——

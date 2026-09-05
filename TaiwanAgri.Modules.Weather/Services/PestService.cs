@@ -40,14 +40,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 				})
 				.ToListAsync();
 
-			return new PagedResult<PestAlertResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = page,
-				PageSize = pageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
-			};
+			return PagedResult<PestAlertResponseDto>.Create(items, totalCount, page, pageSize);
 		}
 
 		public async Task<List<PestDecadeSummaryResponseDto>> GetPestDecadeDensityByPestNameAsync(string pestName)

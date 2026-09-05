@@ -60,14 +60,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 				})
 				.ToListAsync();
 
-			return new PagedResult<OrganicCertificationResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<OrganicCertificationResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
 		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(ViolationQueryDto queryDto)
@@ -103,14 +96,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 				})
 				.ToListAsync();
 
-			return new PagedResult<ViolationResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<ViolationResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 	}
 }
