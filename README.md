@@ -467,29 +467,24 @@ REDIS_PASSWORD=
 MOA_API_KEY=你的api_key
 ```
 
-同時在 `TaiwanAgri.Worker/appsettings.Development.json` 與 `TaiwanAgri.Web/appsettings.Development.json` 確認連線字串與 JWT 設定：
+應用程式設定則從版控裡的兩份範本複製：
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True",
-    "Redis": "localhost:6379"
-  },
-  "Jwt": {
-    "SecretKey": "至少32字元的隨機字串",
-    "Issuer": "TaiwanAgriPlatform",
-    "Audience": "TaiwanAgriPlatformUsers",
-    "ExpiresInDays": "7"
-  },
-  "RabbitMQ": {
-    "HostName": "localhost"
-  },
-  "MoaApiConfig": {
-    "BaseUrl": "https://data.moa.gov.tw/",
-    "ApiKey": ""
-  }
-}
+```bash
+cp TaiwanAgri.Web/appsettings.example.json TaiwanAgri.Web/appsettings.Development.json
 ```
+
+```bash
+cp TaiwanAgri.Worker/appsettings.example.json TaiwanAgri.Worker/appsettings.Development.json
+```
+
+`appsettings.json` 與 `appsettings.*.json` 都不進版控，`appsettings.example.json` 是唯一的例外——
+它是「設定該長什麼樣」的唯一有版控來源，每個 key 的用途與預設值都寫在檔案裡的註解（.NET 的
+JSON 設定讀取器允許註解，複製後可以原樣保留）。含密碼的值也可以改放 User Secrets，兩個專案都已設定 `UserSecretsId`。
+
+必填的三項：`ConnectionStrings:DefaultConnection`（密碼同 `.env` 的 `SA_PASSWORD`）、
+`ConnectionStrings:Redis`、`Jwt:SecretKey`（至少 32 字元）。本機開發的 CORS 不必設定——
+Vite dev server 用 proxy 把 `/api` 轉成同源請求，不經過 CORS，啟動時只會收到一則警告。
+**正式部署則必須設定，見下方「正式部署設定」。**
 
 ### Step 3：啟動基礎設施服務
 
@@ -582,6 +577,43 @@ npm test
 ```
 
 後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather / Pet / Worker 八個面向；前端 6 個測試檔共 50 個案例，涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`calendar`（休市月曆）與 `solarTerms`（二十四節氣）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+
+---
+
+## 🌍 正式部署設定
+
+本機開發與正式部署的差別集中在 CORS。開發時前端是 Vite dev server 用 proxy 把 `/api` 轉給後端，
+瀏覽器看到的是同源請求，完全不經過 CORS；正式部署若讓前端直接呼叫後端，就換成跨來源請求，
+沒有設定允許來源的話**所有 API 呼叫都會被瀏覽器擋掉，而伺服器端不會留下任何錯誤紀錄**。
+
+因此設定要二擇一，`TaiwanAgri.Web` 的 `Cors` 區段：
+
+```json
+{
+  "Cors": {
+    "AllowedOrigins": [ "https://your-frontend.example" ]
+  }
+}
+```
+
+若前端與 API 之間仍隔著同源 proxy（Nginx、IIS 反向代理等），確實不需要 CORS，就明確宣告：
+
+```json
+{
+  "Cors": {
+    "SameOriginOnly": true
+  }
+}
+```
+
+兩個都留白時，**`Development` 以外的環境會在啟動時直接失敗**並說明原因。之所以要 `SameOriginOnly`
+這個旗標而不是預設放行：「忘了填」與「刻意走同源 proxy」在設定檔裡長得一模一樣，程式無從分辨；
+把後者變成要寫下來的宣告之後，剩下的空白就只有「忘了填」一種解釋，這時候讓啟動失敗才是對的。
+`Development` 不套用這個檢查（本機走 proxy 是常態），只會記一則啟動警告。
+
+其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值）、
+`ConnectionStrings` 指向正式資料庫與 Redis、`ASPNETCORE_ENVIRONMENT` 設為 `Production`
+（Swagger UI 只在 `Development` 掛載，正式環境不會暴露 API 文件）。
 
 ---
 
