@@ -17,34 +17,44 @@ namespace TaiwanAgri.Web.Controllers
 		}
 		// GET /api/Notification/list?page=1
 		[HttpGet("list")]
-		public async Task<IActionResult> GetUserNotifications([FromQuery] int page = 1)
+		public async Task<IActionResult> GetUserNotifications([FromQuery] int page = 1, CancellationToken cancellationToken = default)
 		{
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId == null) return Unauthorized();
 
-			var notifications = await _notificationService.GetUserNotificationsAsync(userId, page);
+			var notifications = await _notificationService.GetUserNotificationsAsync(userId, page, cancellationToken);
 			return Ok(notifications);
 		}
 		// GET /api/Notification/unread-count
 		[HttpGet("unread-count")]
-		public async Task<IActionResult> GetUnreadCount()
+		public async Task<IActionResult> GetUnreadCount(CancellationToken cancellationToken = default)
 		{
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId == null) return Unauthorized();
 
-			var unreadCount = await _notificationService.GetUnreadCountAsync(userId);
+			var unreadCount = await _notificationService.GetUnreadCountAsync(userId, cancellationToken);
 			return Ok(unreadCount);
+		}
+		// PATCH /api/Notification/read-all
+		[HttpPatch("read-all")]
+		public async Task<IActionResult> MarkAllAsRead(CancellationToken cancellationToken = default)
+		{
+			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+			if (userId == null) return Unauthorized();
+
+			var updated = await _notificationService.MarkAllAsReadAsync(userId, cancellationToken);
+			return Ok(new { updated });
 		}
 		// PATCH /api/Notification/{id}/read
 		[HttpPatch("{id}/read")]
-		public async Task<IActionResult> MarkAsRead(int id)
+		public async Task<IActionResult> MarkAsRead(int id, CancellationToken cancellationToken = default)
 		{
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId == null) return Unauthorized();
 
 			try
 			{
-				await _notificationService.MarkAsReadAsync(id, userId);
+				await _notificationService.MarkAsReadAsync(id, userId, cancellationToken);
 				return NoContent();
 			}
 			catch (KeyNotFoundException)
@@ -52,38 +62,6 @@ namespace TaiwanAgri.Web.Controllers
 				return NotFound();
 			}
 		}
-		//[HttpGet("list")]
-		//public async Task<IActionResult> GetUserNotifications(
-		//	[FromQuery] string userId,
-		//	[FromQuery] int page = 1)
-		//{
-		//	if (string.IsNullOrEmpty(userId)) return BadRequest("userId 為必填");
-		//	var notifications = await _notificationService.GetUserNotificationsAsync(userId, page);
-		//	return Ok(notifications);
-		//}
-
-		//[HttpGet("unread-count")]
-		//public async Task<IActionResult> GetUnreadCount([FromQuery] string userId)
-		//{
-		//	if (string.IsNullOrEmpty(userId)) return BadRequest("userId 為必填");
-		//	var unreadCount = await _notificationService.GetUnreadCountAsync(userId);
-		//	return Ok(unreadCount);
-		//}
-
-		//[HttpPatch("{id}/read")]
-		//public async Task<IActionResult> MarkAsRead(int id, [FromQuery] string userId)
-		//{
-		//	if (string.IsNullOrEmpty(userId)) return BadRequest("userId 為必填");
-		//	try
-		//	{
-		//		await _notificationService.MarkAsReadAsync(id, userId);
-		//		return NoContent();
-		//	}
-		//	catch (KeyNotFoundException)
-		//	{
-		//		return NotFound();
-		//	}
-		//}
 	}
 }
 

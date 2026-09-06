@@ -7,7 +7,7 @@ namespace TaiwanAgri.Modules.Weather.Entities
 		[Key]
 		public int Id { get; set; }
 		[Required,MaxLength(50)]
-		public string PestName { get; set; }
+		public string PestName { get; set; } = string.Empty;
 		[Required]
 		public int Year { get; set; }
 		[Required]
@@ -15,9 +15,9 @@ namespace TaiwanAgri.Modules.Weather.Entities
 		[Required]
 		public int TenDays { get; set; }
 		[Required, MaxLength(10)]
-		public string City { get; set; }
+		public string City { get; set; } = string.Empty;
 		[Required, MaxLength(10)]
-		public string Town { get; set; }
+		public string Town { get; set; } = string.Empty;
 		public decimal? Average { get; set; }
 		public decimal? ProportionIsland { get; set; }
 		public DateTime CreatedAt { get; set; }

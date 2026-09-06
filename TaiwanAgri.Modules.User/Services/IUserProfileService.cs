@@ -9,7 +9,7 @@ namespace TaiwanAgri.Modules.User.Services
 		/// </summary>
 		/// <param name="userId"></param>
 		/// <returns></returns>
-		Task<UserFarmProfile?> GetUserFarmProfileAsync(string userId);
+		Task<UserFarmProfile?> GetUserFarmProfileAsync(string userId, CancellationToken cancellationToken = default);
 		/// <summary>
 		/// 以 Upsert 語意更新農場設定檔：
 		/// 若該 userId 已有設定檔則更新欄位；若無則新增一筆。
@@ -27,6 +27,6 @@ namespace TaiwanAgri.Modules.User.Services
 				string userId,
 				string? farmCity,
 				string? farmType,
-				List<(string CropCode, string CropName)> crops);
+				List<(string CropCode, string CropName)> crops, CancellationToken cancellationToken = default);
 	}
 }

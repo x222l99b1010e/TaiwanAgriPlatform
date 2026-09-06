@@ -4,39 +4,40 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
-import HomeView         from '@/views/HomeView.vue'
-import MarketView      from '@/views/MarketView.vue'
-import PricesView      from '@/views/market/PricesView.vue'
-import DisastersView   from '@/views/market/DisastersView.vue'
-import RestDaysView    from '@/views/market/RestDaysView.vue'
-import PorkView        from '@/views/market/PorkView.vue'
-import PoultryView     from '@/views/market/PoultryView.vue'
-
-import WeatherView     from '@/views/WeatherView.vue'
-import StationView     from '@/views/weather/StationView.vue'
-import RainfallView    from '@/views/weather/RainfallView.vue'
-import PestAlertsView  from '@/views/weather/PestAlertsView.vue'
-import PestDecadeView  from '@/views/weather/PestDecadeView.vue'
-import PesticideSearchView from '@/views/weather/PesticideSearchView.vue'
-
-import LoginView       from '@/views/auth/LoginView.vue'
-import ProfileView     from '@/views/ProfileView.vue'
-import WatchlistView   from '@/views/WatchlistView.vue'
-
-import FoodSafetyView    from '@/views/FoodSafetyView.vue'
-import TodayVegView      from '@/views/food-safety/TodayVegView.vue'
-import TraceabilityView  from '@/views/food-safety/TraceabilityView.vue'
-import ViolationWallView from '@/views/food-safety/ViolationWallView.vue'
-import OrganicCertView from '@/views/food-safety/OrganicCertView.vue'
-
-import PetView            from '@/views/PetView.vue'
-import ShelterMapView     from '@/views/pet/ShelterMapView.vue'
-import ShelterDetailView  from '@/views/pet/ShelterDetailView.vue'
-import AnimalDetailView   from '@/views/pet/AnimalDetailView.vue'
-import LostPetsView       from '@/views/pet/LostPetsView.vue'
-import LostPetDetailView  from '@/views/pet/LostPetDetailView.vue'
-import LegalBusinessView  from '@/views/pet/LegalBusinessView.vue'
-import MyLostPetsView     from '@/views/pet/MyLostPetsView.vue'
+// ── View 動態載入 ─────────────────────────────────────────────────────────
+// 每個 View 用 () => import(...) 而非頂層 import：Vite 會把它們各自切成獨立 chunk，
+// 進到那條路由才下載。靜態 import 會讓 Leaflet、MarkerCluster、Chart.js 這些只有特定
+// 頁面用得到的函式庫全部打進首屏那一包——改動前實測單一 chunk 701 kB，
+// 只想看首頁的人也得先下載整個地圖與圖表函式庫。
+const HomeView = () => import('@/views/HomeView.vue')
+const MarketView = () => import('@/views/MarketView.vue')
+const PricesView = () => import('@/views/market/PricesView.vue')
+const DisastersView = () => import('@/views/market/DisastersView.vue')
+const RestDaysView = () => import('@/views/market/RestDaysView.vue')
+const PorkView = () => import('@/views/market/PorkView.vue')
+const PoultryView = () => import('@/views/market/PoultryView.vue')
+const WeatherView = () => import('@/views/WeatherView.vue')
+const StationView = () => import('@/views/weather/StationView.vue')
+const RainfallView = () => import('@/views/weather/RainfallView.vue')
+const PestAlertsView = () => import('@/views/weather/PestAlertsView.vue')
+const PestDecadeView = () => import('@/views/weather/PestDecadeView.vue')
+const PesticideSearchView = () => import('@/views/weather/PesticideSearchView.vue')
+const LoginView = () => import('@/views/auth/LoginView.vue')
+const ProfileView = () => import('@/views/ProfileView.vue')
+const WatchlistView = () => import('@/views/WatchlistView.vue')
+const FoodSafetyView = () => import('@/views/FoodSafetyView.vue')
+const TodayVegView = () => import('@/views/food-safety/TodayVegView.vue')
+const TraceabilityView = () => import('@/views/food-safety/TraceabilityView.vue')
+const ViolationWallView = () => import('@/views/food-safety/ViolationWallView.vue')
+const OrganicCertView = () => import('@/views/food-safety/OrganicCertView.vue')
+const PetView = () => import('@/views/PetView.vue')
+const ShelterMapView = () => import('@/views/pet/ShelterMapView.vue')
+const ShelterDetailView = () => import('@/views/pet/ShelterDetailView.vue')
+const AnimalDetailView = () => import('@/views/pet/AnimalDetailView.vue')
+const LostPetsView = () => import('@/views/pet/LostPetsView.vue')
+const LostPetDetailView = () => import('@/views/pet/LostPetDetailView.vue')
+const LegalBusinessView = () => import('@/views/pet/LegalBusinessView.vue')
+const MyLostPetsView = () => import('@/views/pet/MyLostPetsView.vue')
 
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({

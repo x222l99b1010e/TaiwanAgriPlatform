@@ -205,27 +205,40 @@ export const weatherApi = {
   },
 }
 
-// ─── 通知 API（獨立，等 JWT 後會加 Authorization header）───
+// ─── 通知 API（一律走 authClient，身分由 JWT 帶，不從網址帶 userId）───
+
+/** 通知列表的一頁。hasMore 由後端明確回答，前端不從筆數反推 */
+export interface UserNotificationPageDto {
+  items: UserNotificationDto[]
+  hasMore: boolean
+}
 
 export const notificationApi = {
-  /** GET /api/Notification/list?userId=...&page=1 */
-  getList(page = 1): Promise<UserNotificationDto[]> {
+  /** GET /api/Notification/list?page=1 */
+  getList(page = 1): Promise<UserNotificationPageDto> {
     return authClient
-      .get<UserNotificationDto[]>('/api/Notification/list', { params: { page } })
+      .get<UserNotificationPageDto>('/api/Notification/list', { params: { page } })
       .then(res => res.data)
   },
 
-  /** GET /api/Notification/unread-count?userId=... */
+  /** GET /api/Notification/unread-count */
   getUnreadCount(): Promise<UnreadCountDto> {
-      return authClient
-        .get<UnreadCountDto>('/api/Notification/unread-count')
-        .then(res => res.data)
-    },
+    return authClient
+      .get<UnreadCountDto>('/api/Notification/unread-count')
+      .then(res => res.data)
+  },
 
-  /** PATCH /api/Notification/{id}/read?userId=... */
+  /** PATCH /api/Notification/{id}/read */
   markAsRead(id: number): Promise<void> {
     return authClient
       .patch(`/api/Notification/${id}/read`)
       .then(() => undefined)
+  },
+
+  /** PATCH /api/Notification/read-all —— 一次請求，不是逐筆送 */
+  markAllAsRead(): Promise<number> {
+    return authClient
+      .patch<{ updated: number }>('/api/Notification/read-all')
+      .then(res => res.data.updated)
   },
 }

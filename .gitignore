@@ -1,6 +1,9 @@
 # Visual Studio
 .vs/
 *.csproj.user
+# Visual Studio 的機器本地檔（*.user 慣例）：內容是本機還原狀態的時間戳，
+# 對其他人 clone 下來沒有意義，且會因每個人的操作而互相覆蓋
+*.user
 *.suo
 *.userosscache
 *.sln.docstates
@@ -26,6 +29,7 @@ project.lock.json
 secrets.json
 appsettings.json
 appsettings.*.json
+!appsettings.example.json
 
 # Environment variables / Secrets
 .env

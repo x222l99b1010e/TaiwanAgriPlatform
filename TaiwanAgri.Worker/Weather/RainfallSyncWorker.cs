@@ -119,32 +119,9 @@ namespace TaiwanAgri.Worker.Weather
 				.GroupBy(d => d.StationId)
 				.Select(g => g.First()); // 每個站取一筆就夠，座標不會變
 
-			// [DEBUG HISTORY] 以下為初版測試寫法，保留作為實作思路對照，非遺留廢碼
-			//這裡每個站台都打一次 DB 查詢。如果有 500 個站台，就是 500 次查詢。現在先這樣跑沒問題，
-			//之後如果發現這段很慢，可以改成一次把所有站台撈出來再比對——但這是優化，不是現在的優先項。
-			//foreach (var dto in stationUpdates)
-			//{
-			//	var station = await db.RainfallStations
-			//		.FirstOrDefaultAsync(s => s.StationId == dto.StationId, stoppingToken);
-			//	if (station != null)
-			//	{
-			//		station.Latitude = ParseDecimal(dto.Latitude);
-			//		station.Longitude = ParseDecimal(dto.Longitude);
-			//		station.Elevation = ParseInt(dto.Elevation);
-			//		station.UpdatedAt = DateTime.UtcNow;
-			//	}
-			//}
-
-			//======================================================
-			// 批撈：一次 DB 查詢，取代 N 次
-			// 先把這批 DTO 裡有哪些 StationId 收集起來
-
-			//EF Core 的 Change Tracker 會追蹤你從 db.RainfallStations 拿出來的物件。
-			//你用 ToDictionaryAsync 把這些物件存進字典，字典裡的物件仍然被 Change Tracker 追蹤著。
-			//所以你在 foreach 裡直接改 station.Latitude，EF Core 知道這個物件被修改了，
-			//最後 SaveChangesAsync 時會自動產生對應的 UPDATE SQL。
-			//原理和之前 RainfallStationSyncWorker 的 Upsert 完全一樣，只是這次改的是座標欄位。
-			//DB 查詢從 500 次變成 1 次
+			// 一次撈出這批要更新的站台存成字典，在記憶體比對——不是逐站查 DB。
+			// EF 的 Change Tracker 會追蹤撈出來的實體，字典裡的物件仍在追蹤中，
+			// 所以下面直接改屬性、SaveChangesAsync 就會產生對應的 UPDATE。
 			var stationIdsToUpdate = stationUpdates
 				.Select(d => d.StationId)
 				.ToHashSet();

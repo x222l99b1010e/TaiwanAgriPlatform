@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using TaiwanAgri.Modules.Pet.Entities.Enums;
 
@@ -26,7 +26,7 @@ namespace TaiwanAgri.Modules.Pet.Entities
 		[MaxLength(20)]
 		public string County { get; set; } = string.Empty;
 
-		/// <summary>可空，但需與 Email 至少填一個——此規則在 Controller/DTO 驗證，不在 Entity 層強制</summary>
+		/// <summary>未填時是空字串（不是 null）；需與 Email 至少填一個，此規則在 Controller 驗證，不在 Entity 層強制</summary>
 		[MaxLength(50)]
 		public string Phone { get; set; } = string.Empty;
 

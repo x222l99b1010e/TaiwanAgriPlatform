@@ -23,7 +23,7 @@ namespace TaiwanAgri.Web.Controllers
 		public async Task<IActionResult> GetRainfallByCity(
 			[FromQuery] string cityName,
 			[FromQuery] string? startDate,
-			[FromQuery] string? endDate)
+			[FromQuery] string? endDate, CancellationToken cancellationToken = default)
 		{
 			if (string.IsNullOrWhiteSpace(cityName))
 			{
@@ -43,20 +43,20 @@ namespace TaiwanAgri.Web.Controllers
 				return BadRequest("endDate 格式錯誤，請使用 yyyy-MM-dd");
 			}
 
-			var result = await _weatherService.GetRainfallByCityAsync(cityName, start, end);
+			var result = await _weatherService.GetRainfallByCityAsync(cityName, start, end, cancellationToken);
 
 			return Ok(result);
 		}
 		[HttpGet("stations")]
 		public async Task<IActionResult> GetStationsByCity(
-			[FromQuery] string cityName)
+			[FromQuery] string cityName, CancellationToken cancellationToken = default)
 		{
 			if (string.IsNullOrWhiteSpace(cityName))
 			{
 				return BadRequest("城市名稱為必填!");
 			}
 
-			var result = await _weatherService.GetStationsByCityAsync(cityName);
+			var result = await _weatherService.GetStationsByCityAsync(cityName, cancellationToken);
 			return Ok(result);
 		}
 

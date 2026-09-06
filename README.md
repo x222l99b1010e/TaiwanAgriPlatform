@@ -300,10 +300,11 @@ TaiwanAgriPlatform/
 │   ├── src/
 │   │   ├── api/
 │   │   │   ├── auth.ts               # /api/auth/login、/api/auth/register
+│   │   │   ├── httpBase.ts           # 兩支 client 的共用底座（timeout、401 統一處理、儲存鍵常數）
 │   │   │   ├── authClient.ts         # axios instance（自動注入 Bearer token）
 │   │   │   ├── cropApi.ts            # 三市場合併作物清單（profile 用）
 │   │   │   ├── foodSafety.ts         # 食安四支端點封裝
-│   │   │   ├── market.ts             # 模組 4+畜禽 六支端點封裝
+│   │   │   ├── market.ts             # 模組 4+畜禽 八支端點封裝
 │   │   │   ├── nav.ts                # GET /api/nav/modules
 │   │   │   ├── pet.ts                # 寵物模組型別定義 + 10 支端點封裝
 │   │   │   ├── profile.ts            # GET/PUT /api/profile/farm
@@ -337,7 +338,12 @@ TaiwanAgriPlatform/
 │   │   │   ├── SiteFooter.vue        # 全站頁尾（P3 抽共用，掛在 App.vue 走 sticky footer）
 │   │   │   ├── MonthCalendar.vue     # 休市日月曆（P3，取代原按月分組清單）
 │   │   │   ├── SeasonMotif.vue       # 節氣母題（首頁節氣牌，只進內容層不進 token）
-│   │   │   ├── ui/
+│   │   │   ├── ui/                  # 五個共用元件（P0/P1 抽出）＋中英並排
+│   │   │   │   ├── PageHeader.vue    # 頁首區塊（標題／英文副標／說明）
+│   │   │   │   ├── FilterCard.vue    # 查詢條件卡
+│   │   │   │   ├── StateBlock.vue    # 載入／空結果／錯誤三種狀態的統一呈現
+│   │   │   │   ├── Btn.vue           # 語意性動作按鈕（查詢／重試／送出／匯出）
+│   │   │   │   ├── HintBox.vue       # 提示框（info／success／warning 三階語意色）
 │   │   │   │   └── Bilingual.vue     # 中英並排排版（四個模組英文定譯全站唯一）
 │   │   │   └── layouts/              # 四個頁面樣板（P2.5 抽出，P3 套到 28 頁）
 │   │   │       ├── QueryLayout.vue   # 查詢頁樣板（篩選卡 + 結果區 + 分頁）
@@ -357,7 +363,8 @@ TaiwanAgriPlatform/
 │   │   │   │   ├── PricesView.vue    # 作物行情查詢
 │   │   │   │   ├── DisastersView.vue # 天災警戒紀錄
 │   │   │   │   ├── RestDaysView.vue  # 休市日查詢（月曆呈現）
-│   │   │   │   └── PorkView.vue      # 毛豬行情（多線折線圖 + 指標切換）
+│   │   │   │   ├── PorkView.vue      # 毛豬行情（多線折線圖 + 指標切換）
+│   │   │   │   └── PoultryView.vue   # 家禽行情（17 指標分組勾選 + 非常態明細表）
 │   │   │   ├── weather/
 │   │   │   │   ├── StationView.vue   # 農場氣象（卡片格）
 │   │   │   │   ├── RainfallView.vue  # 雨量趨勢（折線圖 + 明細表格）
@@ -377,8 +384,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── WeatherView.vue       # 氣象模組容器（RouterView）
 │   │   │   ├── PetView.vue           # 寵物模組容器（RouterView）
 │   │   │   ├── ProfileView.vue       # 農場設定（Autocomplete 作物搜尋）
-│   │   │   ├── WatchlistView.vue     # 監看清單（MarketType Tab + 均價顯示）
-│   │   │   └── PlaceholderView.vue   # 🚧 未開發模組佔位頁
+│   │   │   └── WatchlistView.vue     # 監看清單（MarketType Tab + 均價顯示）
 │   │   ├── App.vue                   # 兩層 Shell：TopNav + RouterView
 │   │   ├── router/index.ts           # 路由守衛（requiresAuth + redirect-after-login）
 │   │   ├── main.ts
@@ -391,7 +397,7 @@ TaiwanAgriPlatform/
 │   │       └── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 185 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 230 個測試案例）
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
@@ -399,7 +405,9 @@ TaiwanAgriPlatform/
     ├── FoodSafety/                    # FoodSafetyService 查詢 + 追溯搜尋
     ├── Weather/                       # PesticideService 成分分組 / 劑型對照 / 已廢止與到期判定（W24）
     ├── Pet/                           # PetService 篩選排序 + IsOwner + 越權防禦 + JSON enum 契約 + TimeProvider 時間戳
-    └── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）
+    ├── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）
+    └── Web/                           # Controller 層驗證與分頁契約（PagedQueryDto 界限、PagedResult 計算、
+                                       #   PetController 授權判斷、MarketController 白名單與截斷標頭）
 ```
 
 ---
@@ -422,8 +430,8 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板單元測試（`npm test`，6 檔 50 案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，230 個案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板單元測試（`npm test`，7 檔 55 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
 ---
@@ -459,29 +467,24 @@ REDIS_PASSWORD=
 MOA_API_KEY=你的api_key
 ```
 
-同時在 `TaiwanAgri.Worker/appsettings.Development.json` 與 `TaiwanAgri.Web/appsettings.Development.json` 確認連線字串與 JWT 設定：
+應用程式設定則從版控裡的兩份範本複製：
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=TaiwanAgriPlatform;User Id=sa;Password=你的密碼;TrustServerCertificate=True",
-    "Redis": "localhost:6379"
-  },
-  "Jwt": {
-    "SecretKey": "至少32字元的隨機字串",
-    "Issuer": "TaiwanAgriPlatform",
-    "Audience": "TaiwanAgriPlatformUsers",
-    "ExpiresInDays": "7"
-  },
-  "RabbitMQ": {
-    "HostName": "localhost"
-  },
-  "MoaApiConfig": {
-    "BaseUrl": "https://data.moa.gov.tw/",
-    "ApiKey": ""
-  }
-}
+```bash
+cp TaiwanAgri.Web/appsettings.example.json TaiwanAgri.Web/appsettings.Development.json
 ```
+
+```bash
+cp TaiwanAgri.Worker/appsettings.example.json TaiwanAgri.Worker/appsettings.Development.json
+```
+
+`appsettings.json` 與 `appsettings.*.json` 都不進版控，`appsettings.example.json` 是唯一的例外——
+它是「設定該長什麼樣」的唯一有版控來源，每個 key 的用途與預設值都寫在檔案裡的註解（.NET 的
+JSON 設定讀取器允許註解，複製後可以原樣保留）。含密碼的值也可以改放 User Secrets，兩個專案都已設定 `UserSecretsId`。
+
+必填的三項：`ConnectionStrings:DefaultConnection`（密碼同 `.env` 的 `SA_PASSWORD`）、
+`ConnectionStrings:Redis`、`Jwt:SecretKey`（至少 32 字元）。本機開發的 CORS 不必設定——
+Vite dev server 用 proxy 把 `/api` 轉成同源請求，不經過 CORS，啟動時只會收到一則警告。
+**正式部署則必須設定，見下方「正式部署設定」。**
 
 ### Step 3：啟動基礎設施服務
 
@@ -564,16 +567,53 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 185 個測試案例）
+# 後端（xUnit + Moq，共 230 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 50 個測試案例）
+# 前端（Vitest，共 55 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather / Pet / Worker 八個面向；前端 6 個測試檔共 50 個案例，涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`calendar`（休市月曆）與 `solarTerms`（二十四節氣）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather / Pet / Worker / Web（Controller 層驗證、分頁界限與 CORS 啟動檢查）九個面向；前端 7 個測試檔共 55 個案例，涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）與 `mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+
+---
+
+## 🌍 正式部署設定
+
+本機開發與正式部署的差別集中在 CORS。開發時前端是 Vite dev server 用 proxy 把 `/api` 轉給後端，
+瀏覽器看到的是同源請求，完全不經過 CORS；正式部署若讓前端直接呼叫後端，就換成跨來源請求，
+沒有設定允許來源的話**所有 API 呼叫都會被瀏覽器擋掉，而伺服器端不會留下任何錯誤紀錄**。
+
+因此設定要二擇一，`TaiwanAgri.Web` 的 `Cors` 區段：
+
+```json
+{
+  "Cors": {
+    "AllowedOrigins": [ "https://your-frontend.example" ]
+  }
+}
+```
+
+若前端與 API 之間仍隔著同源 proxy（Nginx、IIS 反向代理等），確實不需要 CORS，就明確宣告：
+
+```json
+{
+  "Cors": {
+    "SameOriginOnly": true
+  }
+}
+```
+
+兩個都留白時，**`Development` 以外的環境會在啟動時直接失敗**並說明原因。之所以要 `SameOriginOnly`
+這個旗標而不是預設放行：「忘了填」與「刻意走同源 proxy」在設定檔裡長得一模一樣，程式無從分辨；
+把後者變成要寫下來的宣告之後，剩下的空白就只有「忘了填」一種解釋，這時候讓啟動失敗才是對的。
+`Development` 不套用這個檢查（本機走 proxy 是常態），只會記一則啟動警告。
+
+其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值）、
+`ConnectionStrings` 指向正式資料庫與 Redis、`ASPNETCORE_ENVIRONMENT` 設為 `Production`
+（Swagger UI 只在 `Development` 掛載，正式環境不會暴露 API 文件）。
 
 ---
 
@@ -634,7 +674,7 @@ npm test
 | GET | `/api/market/crops?marketType=Veg` | 作物清單 | 不需要 |
 | GET | `/api/market/markets?marketType=Veg` | 市場清單 | 不需要 |
 | GET | `/api/market/prices` | 作物歷史價格走勢（GroupBy 聚合 + Cache-Aside） | 不需要 |
-| GET | `/api/market/disasters` | 天災警戒事件清單（GroupBy 去重） | 不需要 |
+| GET | `/api/market/disasters` | 天災警戒事件清單（GroupBy 去重；結果達筆數上限時回應帶 `X-Result-Truncated` 標頭） | 不需要 |
 | GET | `/api/market/rest-days` | 市場休市日清單 | 不需要 |
 | GET | `/api/market/pork` | 毛豬行情（依日期區間 + 市場篩選） | 不需要 |
 | GET | `/api/market/poultry` | 家禽行情（依日期區間 + 指標篩選，長表一列一資料點） | 不需要 |
@@ -682,6 +722,7 @@ npm test
 | GET | `/api/Notification/list?page=1` | 使用者通知列表 | **需要 JWT** |
 | GET | `/api/Notification/unread-count` | 未讀通知數 | **需要 JWT** |
 | PATCH | `/api/Notification/{id}/read` | 標記單筆已讀 | **需要 JWT** |
+| PATCH | `/api/Notification/read-all` | 一次標記全部已讀（取代前端逐筆送 N 個請求） | **需要 JWT** |
 
 ### 模組 3 — 毛小孩守護地圖
 
@@ -760,7 +801,8 @@ npm test
 | W24 | 模組 2（農藥查詢） | GET /api/Weather/pesticides：中英文成分名查詢（可併用，英文名字元白名單防護）；即時打農業部 PesticideDataQueryType，不落地；三層回應（成分 → 劑型 → 用途/許可證），使用範圍依 (成分,含量,劑型) 去重後並行抓取；PesticideForms 劑型代碼對照表（5246 張許可證實測校正）；PesticideSearchView.vue 前端畫面；NavModules 補入口。84→151 測試（GitHub PR #26／#27） | ✅ 完成 |
 | W25 | 模組 4（家禽行情） | 四支來源 API（白肉雞/雞蛋、紅羽土雞、黑羽土雞、肉鵝/番鴨/鴨蛋）串接完成畜禽面板的家禽半邊。`PoultryTrans` 長表設計取代寬表；價格拆成 7 態 `PriceStatus` + `RawValue`（全歷史窮舉 8 種非數值字串後定案）；四組獨立 `SyncState`（四支歷史起點不一致：2010/10/07 與 2014/04/01）；逐年切塊抓取讓回填與日常增量共用同一段程式碼。Worker 實跑回填 88,236 列，七態分布與探勘預估逐一吻合。`PoultryView.vue` 17 指標分組勾選 + 斷線呈現 + 完整度徽章 + 非常態明細表。151→185 測試 | ✅ 完成 |
 | —（不掛週次） | 全專案 Code Review | 四個功能模組首次全部完成後的跨模組一致性盤點（後端 294 個 `.cs` 檔／26,264 行＋前端全案）。核心結論：技術債形態不是「寫錯」，而是「共用抽象建立後沒有回頭替換掉原地舊寫法」，橫跨 Worker 層、查詢層、前端與模組邊界共六例。**批次 B**（內部慣例、行為不變）：`ScheduledSyncWorkerBase` 就緒等待納入例外保護；蔬果/毛豬 Worker 日界改用 `TaiwanTime`；三支 Worker 的 `SyncKey` 抽常數；前端公開端點抽出共用 `apiClient`（GitHub PR #32）。**批次 A**（動契約與 UI）：病蟲害警報改用 `PagedResult` 分頁契約與共用 `PagerBar`；追溯碼查詢自 `FoodSafetyService` 拆出 `TraceabilityService`（GitHub PR #33）。185 測試全過（不新增案例） | ✅ 完成 |
-| —（不掛週次） | 前端視覺設計 | 四個功能模組全部完成後的第一次全站視覺統一與設計品質提升，分五階推進。**P0/P1**：建立 design token 系統（`base.css` 從 37 行、14 個色變數擴充為間距／字級／行高／字重／圓角／陰影／容器寬／動效八組尺度＋三組色階＋`prefers-reduced-motion`），容器寬與頁面留白統一，抽出 `PageHeader`／`FilterCard`／`StateBlock`／`Btn`／`HintBox` 五個共用元件，MDI 圖示字型改建置期子集化（7447→85 個），CSS bundle 477→126 kB（GitHub PR #35，內部 #057）。**P2**：全站色值與尺度收斂到 token、5 份重複的圖表色盤收成 `chartTheme.ts` 單一來源、拆除相容層舊變數（GitHub PR #36，內部 #058）。**P2.5**：定調「秋田」設計方向（主色秧苗綠、柿橙降第二強調、加入節氣、中英並排），新增 token 第二層 semantic，抽出 `QueryLayout`／`DetailLayout`／`MapLayout`／`EntryLayout` 四個頁面樣板＋`Bilingual`（GitHub PR #38，內部 #059）。**P3**：四模組 28 頁套樣板、**新首頁上線（`/` 不再 redirect）**、病蟲害警報改真 Leaflet 地圖＋三級燈號、休市日改月曆、雨量／旬報／農藥核准用途收進分頁 data grid、語意色改暖色域＋callout 改「色條＋圖示徽章」、抽出全站頁尾 `SiteFooter`、首頁四模組交錯列＋hover 光點動畫、氣象卡片日內溫度量尺、今日菜價 bento，舊色階整組刪除（grep 回傳 0）（GitHub PR 本次，內部 #060）。P0–P2 已 release 進 main（GitHub PR #37），P2.5＋P3 待 release；前端測試 27→50、CSS gzip 收於 26.28 kB | ✅ 完成 |
+| —（不掛週次） | 前端視覺設計 | 四個功能模組全部完成後的第一次全站視覺統一與設計品質提升，分五階推進。**P0/P1**：建立 design token 系統（`base.css` 從 37 行、14 個色變數擴充為間距／字級／行高／字重／圓角／陰影／容器寬／動效八組尺度＋三組色階＋`prefers-reduced-motion`），容器寬與頁面留白統一，抽出 `PageHeader`／`FilterCard`／`StateBlock`／`Btn`／`HintBox` 五個共用元件，MDI 的 CSS 字符規則改建置期裁切（7447→85 條），CSS bundle 477→126 kB（GitHub PR #35，內部 #057）。**P2**：全站色值與尺度收斂到 token、5 份重複的圖表色盤收成 `chartTheme.ts` 單一來源、拆除相容層舊變數（GitHub PR #36，內部 #058）。**P2.5**：定調「秋田」設計方向（主色秧苗綠、柿橙降第二強調、加入節氣、中英並排），新增 token 第二層 semantic，抽出 `QueryLayout`／`DetailLayout`／`MapLayout`／`EntryLayout` 四個頁面樣板＋`Bilingual`（GitHub PR #38，內部 #059）。**P3**：四模組 28 頁套樣板、**新首頁上線（`/` 不再 redirect）**、病蟲害警報改真 Leaflet 地圖＋三級燈號、休市日改月曆、雨量／旬報／農藥核准用途收進分頁 data grid、語意色改暖色域＋callout 改「色條＋圖示徽章」、抽出全站頁尾 `SiteFooter`、首頁四模組交錯列＋hover 光點動畫、氣象卡片日內溫度量尺、今日菜價 bento，舊色階整組刪除（grep 回傳 0）（GitHub PR #39，內部 #060）。P0–P2 由 release PR #37、P2.5＋P3 由 release PR #40 進 main，整輪已全部同步；前端測試 27→50、CSS gzip 收於 26.28 kB | ✅ 完成 |
+| —（不掛週次） | 全專案 Code Review 第二輪 | 前端視覺設計輪與註解衛生批次收工後的第二次跨模組盤點，**首次把「先跑 build 與 lint 記基線」列為第一步**（第一輪的教訓），而這一步抓到兩個純讀檔看不到的問題。核心結論比第一輪更精確：技術債的形態是**慣例按時間順序長出來、新慣例從不回頭套用到舊程式碼**（`CancellationToken` 39 個介面方法只有 1 個有、`AsNoTracking` 全案 1 處、「截斷要給訊號」只存在寵物模組）。**修正**：CancellationToken 補到 42/42、`AsNoTracking` 1→6 處、建置警告 24→0、分頁界限與 `PagedResult` 收斂成共用抽象（原本分別重複 6 處與 7 處）、天災截斷加訊號並在前端顯示、Redis 反序列化失敗改為降級而非癱瘓 25 小時、農藥查詢第二層並行直接設限、前端 HTTP 層補 timeout 與 401 統一處理、通知不再靜默失敗。**修掉一個使用者可見的 bug**：監看清單未指定市場的項目永遠顯示不出價格（SQL 的 IN 不匹配 NULL）。**效能**：路由改動態載入＋字型二進位真正子集化，首屏載入 1254.9→378.5 kB（−69.8%；量的是瀏覽器進站即下載的全部檔案——entry chunk、`index.html` 以 `modulepreload` 指名的 chunk、entry CSS 與圖示字型）。**修掉 `Cors:AllowedOrigins` 從未設定的部署地雷**：`WithOrigins([])` 會拒絕所有跨來源請求，開發時因 Vite proxy 同源而察覺不到，改為非 `Development` 環境缺設定即啟動失敗，並補上進版控的 `appsettings.example.json`。**相依套件漏洞 10→0**（`npm audit`）。**測試 185→230**，Controller 層覆蓋 1/10→3/10。CI 的 lint 改唯讀（原本 `--fix` 會讓違規被吃掉還顯示綠燈），並新增「未定義 CSS 變數」檢查 | ✅ 完成 |
 
 ---
 
@@ -851,7 +893,28 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistributedCache>`）；Service 層只依賴 DB 時用 InMemory（UserWatchlistService → InMemory UserDbContext）；Controller 層測試跨模組組合邏輯時同時 Mock 兩個 Service（WatchlistController）。Extension Method 無法被 Mock 攔截，須 Setup 底層介面方法（GetStringAsync → GetAsync）。
 
 **前端設計系統：token 三層 + 五個頁面樣板（前端視覺設計輪）**
-`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種顏色、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出五個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 5 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 5 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段），最終產物 gzip 26.28 kB。
+`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種顏色、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出五個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 5 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 5 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段）。**第二輪 code review 再把路由改成動態載入之後，首屏實際只需要 46.2 kB CSS（gzip 12.99 kB）**——其餘各頁的樣式跟著各自的 chunk 走，進到那一頁才下載。
+
+**新慣例確立時要回頭套用，否則它只是「那一次的寫法」**
+兩輪 code review 的共同頭號結論。第一輪的說法是「共用抽象建立後沒回頭替換舊寫法」，
+第二輪量化後形態更精確：慣例按時間順序長出來，最新寫的模組總是比較好，於是這種債
+**偽裝成「專案有在進步」**、不會被當成問題。判準是：如果一條慣例只存在於最新寫的程式碼裡，
+它就不是慣例。做法是抽共用抽象或立新慣例的當下就 grep 舊寫法有幾處、把數字寫進 PR 描述，
+一次套完；套不完就逐處記成待辦，不能寫「其餘同理」。
+
+**自動化檢查不得在通過的同時掩蓋問題**
+CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit code 0，而修正不會被 commit，
+結果是違規留在 repo 而 CI 顯示綠燈。修改模式另開 `lint:fix` 給本機用。
+新檢查上線前要先對現況跑一次、逐筆查證命中：本專案曾寫過一份「未定義 CSS 變數」掃描配方，
+實跑會噴 9 個假陽性（漏了「元件自己 scoped style 的宣告」與「JS 端 `:style` 綁定注入」
+兩種合法定義來源），照原樣掛上 CI 會對乾淨的程式碼亮紅燈——**假紅燈會訓練出「紅了先忽略」
+的習慣，等於廢掉這個檢查**。修正成三來源聯集後才掛進 lint 鏈。
+
+**宣稱做了優化，要附最終產物的量測值**
+`mdiSubsetPlugin` 原本只裁 CSS 字符規則（7447→85 條）而沒動字型二進位，README 據此寫成
+「字型改建置期子集化」——實測 `node_modules` 與 `dist` 的 woff2 都是 403,216 bytes、
+位元組完全相同，使用者仍在下載含 7,447 個字符的字型檔。「7447→85」是真的，但那是**中間指標**，
+使用者真正承受的成本是字型檔的位元組數。補上二進位重編碼後為 403 kB → 6.3 kB。
 
 ---
 
@@ -879,4 +942,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-09-04 ｜ 對應 SA/SD 文件版本 V35.3 ｜ 前端視覺設計輪完成（四模組全部完成後的第一次全站視覺統一與設計品質提升：建立 design token 系統與五個頁面樣板、全站色值／尺度收斂、新首頁上線、病蟲害改真地圖、休市日改月曆，GitHub PR #35／#36／#38，前端 50 測試全過）*
+*最後更新：2026-09-06 ｜ 對應 SA/SD 文件版本 V35.3 ｜ 全專案 Code Review 第二輪完成（跨模組一致性回填、分頁界限與 `PagedResult` 收斂、首屏載入 1254.9→378.5 kB、CORS 部署地雷修正、相依套件漏洞歸零；後端 230 測試、前端 55 測試全過）*

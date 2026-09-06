@@ -41,6 +41,13 @@
         />
 
         <div v-else>
+          <!-- 結果被後端上限截斷時要講出來：截斷的清單看起來完整，
+               但同一天災的受影響縣市會不完整，使用者無從察覺 -->
+          <HintBox v-if="isTruncated" tone="warning" title="結果已達筆數上限">
+            這次查詢的資料量超過單次上限，以下只顯示其中一部分，
+            且部分天災的「受影響縣市」可能不完整。請縮短日期區間或指定縣市後再查一次。
+          </HintBox>
+
           <!-- 摘要列 -->
           <div class="summary-bar">
             <div class="stat-card">
@@ -102,6 +109,7 @@ import { marketApi } from '@/api/market'
 import type { DisasterResponseDto } from '@/api/market'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 import Btn from '@/components/ui/Btn.vue'
 
 const today = new Date().toISOString().split('T')[0]!
@@ -114,6 +122,8 @@ const rawData = ref<DisasterResponseDto[]>([])
 const isLoading = ref(false)
 const hasQueried = ref(false)
 const errorMsg = ref('')
+/** 結果是否被後端的筆數上限截斷（截斷時受影響縣市會不完整） */
+const isTruncated = ref(false)
 
 const counties = [
   '臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市',
@@ -158,12 +168,15 @@ async function handleQuery() {
   isLoading.value = true
   hasQueried.value = true
   rawData.value = []
+  isTruncated.value = false
   try {
-    rawData.value = await marketApi.getDisasters({
+    const res = await marketApi.getDisasters({
       startDate: startDate.value,
       endDate: endDate.value,
       counties: selectedCounty.value ? [selectedCounty.value] : undefined,
     })
+    rawData.value = res.items
+    isTruncated.value = res.isTruncated
   } catch {
     errorMsg.value = '查詢失敗，請稍後再試'
   } finally {

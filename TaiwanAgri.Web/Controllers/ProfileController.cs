@@ -14,7 +14,7 @@ namespace TaiwanAgri.Web.Controllers
 	public class ProfileController(IUserProfileService userProfileService) : ControllerBase
 	{
 		[HttpGet("farm")]
-		public async Task<IActionResult> GetFarmProfile()
+		public async Task<IActionResult> GetFarmProfile(CancellationToken cancellationToken = default)
 		{
 			// User.FindFirstValue：從 JWT Claims 裡找 NameIdentifier（就是 UserId）
 			// JWT 驗證通過但 Claim 不存在是異常情況，回 401
@@ -22,7 +22,7 @@ namespace TaiwanAgri.Web.Controllers
 			if (userId is null) return Unauthorized();
 			
 
-			var profile = await userProfileService.GetUserFarmProfileAsync(userId);
+			var profile = await userProfileService.GetUserFarmProfileAsync(userId, cancellationToken);
 
 			if (profile is null)
 			{
@@ -47,7 +47,7 @@ namespace TaiwanAgri.Web.Controllers
 		}
 
 		[HttpPut("farm")]
-		public async Task<IActionResult> UpsertFarmProfile([FromBody] UpsertFarmProfileRequestDto request)
+		public async Task<IActionResult> UpsertFarmProfile([FromBody] UpsertFarmProfileRequestDto request, CancellationToken cancellationToken = default)
 		{
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId is null) return Unauthorized();

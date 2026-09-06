@@ -54,7 +54,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 						foreach (var item in match)
 						{
 							var exists = await db.UserNotifications
-								.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id);
+								.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id, cancellationToken);
 							if (exists)
 							{
 								_logger.LogInformation("[PestRuleEngine] 規則 {RuleId} 已存在相同的通知，跳過", rule.Id);
@@ -96,7 +96,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 								foreach (var item in matchedAlerts)
 								{
 									var exists = await db.UserNotifications
-										.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id);
+										.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id, cancellationToken);
 									if (exists)
 									{
 										_logger.LogInformation("[PestRuleEngine] 規則 {RuleId} 已存在相同的通知，跳過", rule.Id);
