@@ -648,7 +648,7 @@ npm test
 >
 > **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35_3.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35_4.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -922,7 +922,7 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V35_3.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + 全專案 Code Review + 前端視覺設計輪結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V35_4.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + 全專案 Code Review 兩輪 + 前端視覺設計輪結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -942,4 +942,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-09-06 ｜ 對應 SA/SD 文件版本 V35.3 ｜ 全專案 Code Review 第二輪完成（跨模組一致性回填、分頁界限與 `PagedResult` 收斂、首屏載入 1254.9→378.5 kB、CORS 部署地雷修正、相依套件漏洞歸零；後端 230 測試、前端 55 測試全過）*
+*最後更新：2026-09-07 ｜ 對應 SA/SD 文件版本 V35.4 ｜ 全專案 Code Review 第二輪完成（跨模組一致性回填、分頁界限與 `PagedResult` 收斂、首屏載入 1254.9→378.5 kB、CORS 部署地雷修正、相依套件漏洞歸零；後端 230 測試、前端 55 測試全過）*
