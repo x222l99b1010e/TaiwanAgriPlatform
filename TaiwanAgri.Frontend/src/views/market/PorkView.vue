@@ -258,7 +258,7 @@ const chartData = computed(() => {
     pointBorderWidth: 1,
     tension: 0.3,
     spanGaps: true,
-    // 預設隱藏：讓使用者從圖例自己點要比較的市場（owner 2026-09-04）
+    // 預設隱藏：讓使用者從圖例自己點要比較的市場
     hidden: true,
   }))
 
@@ -358,7 +358,7 @@ function exportChartImage() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；篩選欄位、摘要列、分段控制器與卡片
+/* 顏色全部改用 semantic 層；篩選欄位、摘要列、分段控制器與卡片
    外殼都已收進 base.css，這裡只留這一頁真正不同的部分。 */
 .pork-view { min-width: 960px; }
 

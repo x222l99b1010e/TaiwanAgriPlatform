@@ -24,7 +24,7 @@ namespace TaiwanAgri.Modules.Weather.Data
 			modelBuilder.Entity<WeatherObservation>(entity =>
 			{
 				entity.ToTable("WeatherObservations", schema:"weather");
-				// 文件 6.4 節要求的複合索引：依縣市 + 時間查詢
+				// 複合索引：依「縣市 + 時間」查詢
 				entity.HasIndex(e => new { e.CityCode, e.ObservedAt })
 					  .HasDatabaseName("IX_WeatherObservations_CityCode_ObservedAt");
 

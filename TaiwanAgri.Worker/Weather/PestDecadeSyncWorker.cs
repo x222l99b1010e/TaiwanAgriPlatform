@@ -102,14 +102,22 @@ namespace TaiwanAgri.Worker.Weather
 
 		}
 
-		private PestDecadeSummary MapToEntity(PestDecadeSummaryDto dto)
+		/// <summary>
+		/// 外部 DTO → entity。無法解析或缺必要欄位時回傳 null，由呼叫端過濾掉
+		/// （回傳型別標成可空才與這個行為一致）。
+		/// PestName／City／Town 三者都是 entity 的 NOT NULL 欄位，缺任一都必須在這裡擋下來——
+		/// 放行的話會等到 SaveChanges 才以資料庫例外爆開，整批一起失敗
+		/// </summary>
+		private PestDecadeSummary? MapToEntity(PestDecadeSummaryDto dto)
 		{
 			if (!int.TryParse(dto.Year, out var year)) return null;
 			if (!int.TryParse(dto.Month, out var month)) return null;
 			if (!int.TryParse(dto.Decade, out var tenDays)) return null;
-			if (string.IsNullOrWhiteSpace(dto.City) || string.IsNullOrWhiteSpace(dto.Town))
+			if (string.IsNullOrWhiteSpace(dto.PestName)
+				|| string.IsNullOrWhiteSpace(dto.City)
+				|| string.IsNullOrWhiteSpace(dto.Town))
 			{
-				_logger.LogWarning("[PestDecadeSync] 略過缺少縣市/鄉鎮欄位的資料：PestName={PestName}, Year={Year}, Month={Month}, TenDays={TenDays}, City={City}, Town={Town}",
+				_logger.LogWarning("[PestDecadeSync] 略過缺少害蟲名稱/縣市/鄉鎮欄位的資料：PestName={PestName}, Year={Year}, Month={Month}, TenDays={TenDays}, City={City}, Town={Town}",
 					dto.PestName, dto.Year, dto.Month, dto.Decade, dto.City, dto.Town);
 				return null;
 			}
@@ -117,9 +125,9 @@ namespace TaiwanAgri.Worker.Weather
 			return new PestDecadeSummary
 			{
 				PestName = dto.PestName,
-				Year = ParseInt(dto.Year),
-				Month = ParseInt(dto.Month),
-				TenDays = ParseInt(dto.Decade),
+				Year = year,
+				Month = month,
+				TenDays = tenDays,
 				City = dto.City,
 				Town = dto.Town,
 				Average = ParseDecimal(dto.Average),

@@ -22,7 +22,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			_timeProvider = timeProvider;
 		}
 
-		public async Task<PagedResult<OrganicCertificationResponseDto>> GetOrganicCertificationsAsync(OrganicCertificationQueryDto queryDto)
+		public async Task<PagedResult<OrganicCertificationResponseDto>> GetOrganicCertificationsAsync(OrganicCertificationQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			var query = _context.OrganicCertifications.AsQueryable();
 
@@ -35,7 +35,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			if (!string.IsNullOrWhiteSpace(queryDto.ProductKeyword))
 				query = query.Where(x => x.Products.Contains(queryDto.ProductKeyword) || x.ContainCrops.Contains(queryDto.ProductKeyword));
 			
-			var totalCount = await query.CountAsync();
+			var totalCount = await query.CountAsync(cancellationToken);
 
 			var items = await query
 				.OrderByDescending(x => x.Id) //依照 Id 排序，確保分頁結果一致
@@ -58,19 +58,12 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 					LegacyCertNumber = x.OldCertOrganicSn,
 					HasAmbiguousProductMapping = x.IsMultiCertSource
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
-			return new PagedResult<OrganicCertificationResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<OrganicCertificationResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 
-		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(ViolationQueryDto queryDto)
+		public async Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(ViolationQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
 			// 「近 N 天」以台灣時區日界計算（UtcNow 慢 8 小時，日界前後會差一天）
 			var fromDate = TaiwanTime.Today(_timeProvider).AddDays(-queryDto.Days);
@@ -84,7 +77,7 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 				violationsQuery = violationsQuery.Where(v => v.InspectResult == queryDto.InspectResult);
 			}
 
-			var totalCount = await violationsQuery.CountAsync();
+			var totalCount = await violationsQuery.CountAsync(cancellationToken);
 			var items = await violationsQuery
 				// 同日多筆時以 Id 決勝，確保翻頁時同一筆不會重複出現或消失
 				.OrderByDescending(v => v.SamplingDate)
@@ -101,16 +94,9 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 					InspectResult = v.InspectResult,
 					Note = v.Note
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
-			return new PagedResult<ViolationResponseDto>
-			{
-				Items = items,
-				TotalCount = totalCount,
-				Page = queryDto.Page,
-				PageSize = queryDto.PageSize,
-				TotalPages = (int)Math.Ceiling((double)totalCount / queryDto.PageSize)
-			};
+			return PagedResult<ViolationResponseDto>.Create(items, totalCount, queryDto.Page, queryDto.PageSize);
 		}
 	}
 }

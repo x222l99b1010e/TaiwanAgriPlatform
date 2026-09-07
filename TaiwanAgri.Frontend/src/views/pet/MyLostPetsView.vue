@@ -1,7 +1,7 @@
 <!--
   src/views/pet/MyLostPetsView.vue
   職責：「我發布的遺失啟事」個人管理頁 /profile/lost-pets（不掛週次分支新增）。
-  owner 2026-08-09 指出的缺口：公開列表頁一旦貼文數量變多，使用者很難翻找到自己發過的那幾篇；
+  要解決的缺口：公開列表頁一旦貼文數量變多，使用者很難翻找到自己發過的那幾篇；
   這頁用後端新增的 OnlyMine 篩選，只查自己的貼文，不用在幾千篇公開清單裡大海撈針。
 
   編輯／刪除刻意不做在這頁的卡片上——那個動作已經在詳情頁做好了（LostPetPostForm 原地編輯），
@@ -193,7 +193,7 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；返回連結、欄位外殼、分段控制器
+/* 顏色全部改用 semantic 層；返回連結、欄位外殼、分段控制器
    都已收進 base.css，這裡只留這一頁真正不同的部分。 */
 .filter-select { min-width: 130px; }
 

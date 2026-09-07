@@ -1,7 +1,7 @@
 <!--
   src/components/LeafletCoordinatePicker.vue
   職責：內嵌在表單裡的小地圖，點擊地圖取得座標（不做地址→座標的地理編碼，
-  這是模組 3 的既有設計前提：Nominatim 對台灣地址實測不可行，見 DevLog 條目 281）
+  這是模組 3 的既有設計前提：Nominatim 對台灣地址實測不可行）
 
   用法（雙 v-model，父層各自綁 latitude/longitude）：
     <LeafletCoordinatePicker v-model:latitude="form.latitude" v-model:longitude="form.longitude" />
@@ -117,7 +117,7 @@ watch(
 )
 
 // 全域副作用（Leaflet 地圖實例）不會隨 Vue 元件卸載自動清除，元件卸載時必須手動 destroy，
-// 否則切換路由再切回來會疊出第二個地圖實例、記憶體也會持續累積（既有慣例，見 SA/SD §11.2）
+// 否則切換路由再切回來會疊出第二個地圖實例、記憶體也會持續累積（既有慣例）
 onUnmounted(() => {
   map?.remove()
   map = null

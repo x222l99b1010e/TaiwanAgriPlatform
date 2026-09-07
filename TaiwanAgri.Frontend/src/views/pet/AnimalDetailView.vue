@@ -1,7 +1,7 @@
 <!--
   src/views/pet/AnimalDetailView.vue
-  職責：單一收容動物的詳情頁 /pet/shelter-map/animals/:animalId（不掛週次分支新增，owner 實機
-  測試後指出「地圖→收容所→動物」這條下鑽路徑少了最後一層：收容所詳情頁列出全部動物，
+  職責：單一收容動物的詳情頁 /pet/shelter-map/animals/:animalId（不掛週次分支新增。
+  「地圖→收容所→動物」這條下鑽路徑少了最後一層：收容所詳情頁列出全部動物，
   但清單裡每一隻都還沒有自己的可分享網址）。
 
   唯讀頁面，不像 LostPetPost 有編輯／刪除——這批資料來自農業部同步 Worker，不是使用者
@@ -107,7 +107,7 @@ watch(() => props.animalId, fetchDetail)
 
 <style scoped>
 /* 返回列、標題、限寬都由 DetailLayout 負責，這裡只留這一頁的內容樣式；
-   顏色全部改用 semantic 層（style tile §九）。 */
+   顏色全部改用 semantic 層。 */
 .detail-header { display: flex; gap: var(--space-2); }
 /* 標籤外殼已收進 base.css 的 .badge，這裡只留語意色 */
 .kind-badge { background: var(--color-action-soft-2); color: var(--color-action); }

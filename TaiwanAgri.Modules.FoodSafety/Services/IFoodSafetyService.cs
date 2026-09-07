@@ -6,8 +6,8 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 {
 	public interface IFoodSafetyService
 	{
-		Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(ViolationQueryDto queryDto);
+		Task<PagedResult<ViolationResponseDto>> GetViolationsAsync(ViolationQueryDto queryDto, CancellationToken cancellationToken = default);
 
-		Task<PagedResult<OrganicCertificationResponseDto>> GetOrganicCertificationsAsync(OrganicCertificationQueryDto queryDto);
+		Task<PagedResult<OrganicCertificationResponseDto>> GetOrganicCertificationsAsync(OrganicCertificationQueryDto queryDto, CancellationToken cancellationToken = default);
 	}
 }

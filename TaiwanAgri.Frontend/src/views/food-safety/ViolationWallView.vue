@@ -258,7 +258,7 @@ function isUrl(value: string): boolean {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；「近 90 天／近 365 天」與抽檢結果
+/* 顏色全部改用 semantic 層；「近 90 天／近 365 天」與抽檢結果
    四選一都改用 base.css 的 .segmented，欄位標籤走 .field-group／.field-label。
    分頁列整條換成共用的 PagerBar，那一整段樣式（.pagination-*／.page-btn／
    .jump-*／.page-size-*）在這裡全部刪掉。 */

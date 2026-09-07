@@ -112,7 +112,7 @@
               <span class="cert-label products-label">
                 品項範圍
                 <!-- 橙色邊框只是視覺線索，一般人不會把「橙框」聯想成「待核對」；
-                     這裡補一句明講的小旗標，把邊框的含意直接寫出來（owner 2026-09-04） -->
+                     這裡補一句明講的小旗標，把邊框的含意直接寫出來 -->
                 <span v-if="item.hasAmbiguousProductMapping" class="ambiguous-flag">
                   <span class="mdi mdi-alert-outline" />多證號合併・請核對
                 </span>
@@ -266,7 +266,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）。
+/* 顏色全部改用 semantic 層。
    側邊篩選欄整個拿掉、分頁列整條換成共用的 PagerBar，所以原本 300 行的樣式
    （.filter-sidebar／.pagination-*／.page-btn／.jump-*）在這裡全部消失，
    只剩下這一頁真正獨有的：卡片本身。 */
@@ -304,8 +304,8 @@ onMounted(() => {
 /* 品項可能為多證號合併時的提示。
    ⚠ 不能用 `border: 2px` 加粗——比其餘卡片多 1px 會讓整張卡片位移半像素、在網格裡
    跟鄰居對不齊（這是原本從 2px 改回 1px 的原因）。改用 inset box-shadow 畫一道 4px 的
-   橙色左邊條：它不佔盒模型、不影響對齊，但比 1px 邊框顯眼得多（owner 2026-09-04
-   回報 1px 橙框「細心才看得到」）。邊框本身也換成更實的柿橙填色。 */
+   橙色左邊條：它不佔盒模型、不影響對齊，但比 1px 邊框顯眼得多（1px 橙框
+   「細心才看得到」）。邊框本身也換成更實的柿橙填色。 */
 .cert-card.ambiguous {
   border-color: var(--color-accent-2-fill);
   box-shadow: inset 4px 0 0 var(--color-accent-2-fill);

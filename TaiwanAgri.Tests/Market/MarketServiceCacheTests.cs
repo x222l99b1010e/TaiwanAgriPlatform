@@ -70,10 +70,8 @@ namespace TaiwanAgri.Tests.Market
 				.Options;
 			var dbContext = new MarketDbContext(options);
 
-			// 5. 建立假 IConfiguration
-			//    GetPricesAsync 裡面沒有用到 IConfiguration
+			// 建立查詢上限選項（GetPricesAsync 用不到，但建構式需要）
 			//    所以給一個空的 Mock 就好，不需要 Setup 任何規則
-			var mockConfig = new Mock<IConfiguration>();
 
 			// 6. 建立被測對象
 			//    注意：注入的是 mockCache.Object，不是 mockCache 本身
@@ -86,7 +84,7 @@ namespace TaiwanAgri.Tests.Market
 			var service = new MarketService(
 				dbContext,
 				mockCache.Object,
-				mockConfig.Object,
+				Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()),
 				TimeProvider.System);
 
 			// ══════════════════════════════════════════════
@@ -196,10 +194,8 @@ namespace TaiwanAgri.Tests.Market
 
 			await dbContext.SaveChangesAsync();
 
-			// 3. 建立假 IConfiguration
-			//    GetPricesAsync 裡面沒有用到 IConfiguration
+			// 建立查詢上限選項（GetPricesAsync 用不到，但建構式需要）
 			//    所以給一個空的 Mock 就好，不需要 Setup 任何規則
-			var mockConfig = new Mock<IConfiguration>();
 
 			// 4. 建立被測對象
 			//    mockCache.Object → 假 Redis（會回傳 null，觸發 Cache Miss）
@@ -207,7 +203,7 @@ namespace TaiwanAgri.Tests.Market
 			var service = new MarketService(
 				dbContext,
 				mockCache.Object,
-				mockConfig.Object,
+				Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()),
 				TimeProvider.System);
 
 			// ══════════════════════════════════════════════

@@ -15,7 +15,7 @@ namespace TaiwanAgri.Worker.Pet
 	/// <summary>
 	/// 同步農業部「寵物遺失啟事」(PetLoseList) 官方資料。
 	/// 設計比 AnimalRecognitionSyncWorker 單純：只有新制端點、單一迴圈，沒有回填/增量雙分支
-	/// （決策25：找到舊制端點但只多拿約 20 個月資料，評估後否決，不值得多寫一套解析邏輯）。
+	/// （找到舊制端點但只多拿約 20 個月資料，評估後否決，不值得多寫一套解析邏輯）。
 	/// </summary>
 	public class PetLoseListSyncWorker : ScheduledSyncWorkerBase
 	{
@@ -23,7 +23,7 @@ namespace TaiwanAgri.Worker.Pet
 		private const string SyncKey = "Pet_PetLoseList";
 
 		// 固定起始日：2018/01/01 之前的走失資料對「現在還在找的走失寵物」地圖沒有實用價值，
-		// 但保留較長歷史可以累積更完整的資料與照片，取捨後選這個起點（決策26）。
+		// 但保留較長歷史可以累積更完整的資料與照片，取捨後選這個起點。
 		// 2018~今天約 3131 天，屬一次性背景回填，遠低於「回到 1999/2000 年」那種
 		// 近 10000 天、需要認真設計斷點續跑的量級。
 		private static readonly DateOnly FixedStartDate = new(2018, 1, 1);
@@ -72,7 +72,7 @@ namespace TaiwanAgri.Worker.Pet
 				// 第一次執行（全新環境，或這支 Worker 從沒有成功跑完一輪）。
 				// 比照 AgriProductsTransSyncWorker 的固定起始日模式：直接建立一筆 SyncState、立刻存檔，
 				// 接下來跟平常同一套迴圈邏輯走下去——不像 AnimalRecognitionSyncWorker 那樣需要
-				// 另外呼叫一次舊制 API 做「回填分支」，因為決策25 已否決 PetLoseList 使用舊制端點。
+				// 另外呼叫一次舊制 API 做「回填分支」，因為 PetLoseList 不採用舊制端點（評估後否決）。
 				// LastSyncedDate 刻意存「起始日的前一天」，因為下面 startDate = LastSyncedDate.AddDays(1)，
 				// 這樣建立後第一輪迴圈的第一天就會正好等於 FixedStartDate。
 				lastSyncState = new SyncState
@@ -97,11 +97,11 @@ namespace TaiwanAgri.Worker.Pet
 			// 併發實測有效（獨立 session 下 3-5 個同時打，總時間仍約 30 秒 ≒ 單次時間），
 			// 證明這 30 秒是每個請求各自獨立的伺服器端處理延遲，不是對單一 IP 的節流，
 			// 所以分批平行可以近似等比例縮短總時間（N 併發 ≒ 總時間除以 N）——前提是關掉
-			// cookie（見 MoaApiClientExtensions.cs 的 UseCookies=false，決策26：同一個 session
+			// cookie（見 MoaApiClientExtensions.cs 的 UseCookies=false：同一個 session
 			// 的平行請求會被伺服器排隊序列化，關 cookie 才是真平行）。
 			// 這個值同時決定「併發數」與「checkpoint 粒度」（見下方迴圈說明），調大跑得快、
-			// 但失敗時要重跑的天數也變多。預設 5 是唯一有實測驗證過的併發數（決策26：3-5 個
-			// 獨立 session 平行都測過，結果乾淨）；owner 開發時可能暫時調高做實驗，
+			// 但失敗時要重跑的天數也變多。預設 5 是唯一有實測驗證過的併發數（3-5 個
+			// 獨立 session 平行都測過，結果乾淨）；開發時可能暫時調高做實驗，
 			// 但更高的併發數沒有實測驗證過，屬已知風險而非確認安全，正式使用建議維持 5。
 			var batchSize = _configuration.GetValue<int>("PetLoseListSyncWorker:BatchSizeInDays", 5);
 
@@ -124,7 +124,7 @@ namespace TaiwanAgri.Worker.Pet
 
 				// 同一批的日期平行送出。用 LostTime 精確篩選單一天，可以繞過農業部 API
 				// 對未登入使用者「查詢只回第一頁 1000 筆」的限制
-				// （決策25 已實測驗證：不需要 api_key 也能用這個參數拿到近期資料）。
+				// （已實測驗證：不需要 api_key 也能用這個參數拿到近期資料）。
 				//
 				// 刻意不在這裡包 try/catch：任何一天失敗（網路失敗、API 回應格式跑掉等），
 				// Task.WhenAll 會把例外往外拋，中斷整個 SyncAsync。
@@ -146,7 +146,7 @@ namespace TaiwanAgri.Worker.Pet
 				// （那天剛好沒有任何走失啟事），一樣要往下走到推進 LastSyncedDate。
 				//
 				// DistinctBy 用 KeyNo（官方序號，全域唯一）去重：理論上不同日期的資料不會撞號，
-				// 但比照專案既有慣例（決策23 踩過的坑：InsertNewByKeyAsync 只過濾「DB 已存在的鍵」，
+				// 但比照專案既有慣例（曾踩過的坑：InsertNewByKeyAsync 只過濾「DB 已存在的鍵」，
 				// 不處理本批次內部的重複），落地前一律自己先去重，不依賴外部資料一定乾淨。
 				var incoming = responses
 					.Where(r => r?.RS == "OK" && r.Data != null && r.Data.Count > 0)
@@ -225,7 +225,7 @@ namespace TaiwanAgri.Worker.Pet
 					_ => EnumMappingHelper.LogUnexpectedValue(dto.KeyNo, nameof(dto.PetCategory), dto.PetCategory, AnimalKind.Other, logger)
 				},
 
-				// Gender 原始值只有「公」／「母」兩種（決策25 樣本顯示 0 筆空值），
+				// Gender 原始值只有「公」／「母」兩種（樣本顯示 0 筆空值），
 				// 不像 ShelterAnimal.AnimalSex 需要煩惱第三態 "N"，但 switch 仍保留 fallback 分支保險。
 				Sex = dto.Gender switch
 				{

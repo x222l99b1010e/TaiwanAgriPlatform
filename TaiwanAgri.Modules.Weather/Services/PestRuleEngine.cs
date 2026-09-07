@@ -19,8 +19,8 @@ namespace TaiwanAgri.Modules.Weather.Services
 			_scopeFactory = scopeFactory;
 		}
 
-		//PestRuleEngine N+1 Query（P2）：文件 §12.7 有記錄規則引擎設計，效能優化屬 W19-20 測試 Sprint 的工作，
-		//v22 在 §12.7 或 §11.1 W19-20 行補一個 TODO 標記即可。
+		// 已知效能債：規則引擎逐條規則各查一次 DB（N+1）。目前規則數量與觸發頻率下尚未構成瓶頸，
+		// 未排程優化，待實際負載出現效能問題再處理。
 
 		public async Task EvaluateAsync(CancellationToken cancellationToken)
 		{
@@ -54,7 +54,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 						foreach (var item in match)
 						{
 							var exists = await db.UserNotifications
-								.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id);
+								.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id, cancellationToken);
 							if (exists)
 							{
 								_logger.LogInformation("[PestRuleEngine] 規則 {RuleId} 已存在相同的通知，跳過", rule.Id);
@@ -96,7 +96,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 								foreach (var item in matchedAlerts)
 								{
 									var exists = await db.UserNotifications
-										.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id);
+										.AnyAsync(n => n.PestRuleConfigId == rule.Id && n.SourceRecordId == item.Id, cancellationToken);
 									if (exists)
 									{
 										_logger.LogInformation("[PestRuleEngine] 規則 {RuleId} 已存在相同的通知，跳過", rule.Id);

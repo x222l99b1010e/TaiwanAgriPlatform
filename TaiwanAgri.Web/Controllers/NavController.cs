@@ -18,7 +18,7 @@ namespace TaiwanAgri.Web.Controllers
 		}
 		[HttpGet("modules")]
 		[AllowAnonymous]
-		public async Task<IActionResult> GetModules()
+		public async Task<IActionResult> GetModules(CancellationToken cancellationToken = default)
 		{
 			// 1. 取得 isAuthenticated
 			var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
@@ -27,7 +27,7 @@ namespace TaiwanAgri.Web.Controllers
 			//var roleId = new Claim(ClaimTypes.Role, "Admin");
 			var roleName = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
 			// 3. 呼叫 Service
-			var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleName);
+			var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleName, cancellationToken);
 
 			//throw new Exception("測試 GlobalExceptionMiddleware");  // 測試 GlobalExceptionMiddleware
 

@@ -32,7 +32,7 @@ namespace TaiwanAgri.Web.Services
 				?? throw new InvalidOperationException("Jwt:Audience 未設定");
 		}
 
-		public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
+		public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
 		{
 			// 第一步：查使用者是否存在
 			var user = await _userManager.FindByEmailAsync(request.Email);
@@ -60,7 +60,7 @@ namespace TaiwanAgri.Web.Services
 			};
 		}
 
-		public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request)
+		public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken = default)
 		{
 			// 第一步：建立新使用者
 			var user = new ApplicationUser

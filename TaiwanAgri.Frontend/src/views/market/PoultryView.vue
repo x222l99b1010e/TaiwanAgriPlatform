@@ -442,8 +442,8 @@ function exportChartImage() {
 
 <style scoped>
 /* ⚠ 這一頁的顏色已經全部改用 semantic 層（--color- 與 --seed- 開頭），不再引用
-   待刪的 --neutral- 與 --green- 開頭舊色階——套 QueryLayout 順手做，
-   判準見 style tile §九：全部頁面改完後，這兩組舊色階全站 grep 要回傳 0。 */
+   已移除的 --neutral- 與 --green- 開頭舊色階——套 QueryLayout 時一併收斂，
+   全站已無殘留，這兩組色階 grep 回傳 0。 */
 .poultry-view { min-width: 960px; }
 /* 篩選區 */
 .filter-row { display: flex; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
@@ -482,7 +482,7 @@ function exportChartImage() {
 
 
 /* 摘要列與卡片外殼已收進 base.css 的 .summary-bar／.stat-*／.card，
-   卡片一律不給陰影（style tile §三），這裡只留這一頁真正不同的部分。 */
+   卡片一律不給陰影，這裡只留這一頁真正不同的部分。 */
 
 /* 圖表卡片 */
 .chart-card { margin-bottom: var(--space-6); }

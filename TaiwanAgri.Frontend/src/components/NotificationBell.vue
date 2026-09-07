@@ -23,6 +23,11 @@
       </div>
 
       <div class="dropdown-body" ref="bodyRef" @scroll="handleScroll">
+        <div v-if="store.errorMessage" class="hint hint--error">
+          <span class="mdi mdi-alert-circle-outline" />
+          {{ store.errorMessage }}
+        </div>
+
         <div v-if="store.isLoading && store.notifications.length === 0" class="hint">
           載入中...
         </div>
@@ -156,7 +161,7 @@ onMounted(() => {
 }
 
 /* ── Dropdown ──
-   這一層是真的浮在頁面上方的浮動層，所以准用陰影（style tile §三 的例外清單）。
+   這一層是真的浮在頁面上方的浮動層，所以准用陰影（浮動層是陰影的唯一例外）。
    ⚠ 未讀項目原本用青色（--teal-*），那是舊色盤的次要強調色、不在秋田的十色裡；
    改用動作色的淺階＋左邊界。 */
 .dropdown {
@@ -233,6 +238,15 @@ onMounted(() => {
   padding: var(--space-6) 0;
   font-size: var(--text-sm);
   color: var(--color-text-dim);
+}
+
+/* 錯誤訊息用語意色，與其他頁面的錯誤呈現一致；不寫死色值 */
+.hint--error {
+  color: var(--danger-700);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-content: center;
 }
 .end-hint { padding: var(--space-3) 0; font-size: var(--text-xs); }
 </style>

@@ -1,4 +1,4 @@
-namespace TaiwanAgri.Modules.Market.Dtos.ApiResponses
+﻿namespace TaiwanAgri.Modules.Market.Dtos.ApiResponses
 {
 	/// <summary>
 	/// 單一（作物, 市場）組合的最新一筆均價。
@@ -8,7 +8,8 @@ namespace TaiwanAgri.Modules.Market.Dtos.ApiResponses
 	public class LatestPriceDto
 	{
 		public string CropCode { get; set; } = string.Empty;
-		public string MarketCode { get; set; } = string.Empty;
+		/// <summary>null 代表這筆是「不限市場」的跨市場均價，對應監看項目未指定市場的情形</summary>
+		public string? MarketCode { get; set; }
 		public DateOnly TransDate { get; set; }
 		public decimal AvgPrice { get; set; }
 	}

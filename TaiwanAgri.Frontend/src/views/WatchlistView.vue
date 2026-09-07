@@ -263,7 +263,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；欄位外殼與分段控制器走 base.css。 */
+/* 顏色全部改用 semantic 層；欄位外殼與分段控制器走 base.css。 */
 
 /* 單欄清單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
 .add-section,
@@ -306,7 +306,7 @@ onMounted(async () => {
 .selected-crop-tag button:hover { opacity: 1; background: var(--seed-200); }
 .selected-crop-tag button:focus-visible { outline: 2px solid var(--color-action); outline-offset: 1px; }
 
-/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（style tile §三 的例外清單） */
+/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（浮動層是陰影的唯一例外） */
 .autocomplete-dropdown {
   position: absolute; top: calc(100% + var(--space-1)); left: 0; right: 0;
   background: var(--color-surface);

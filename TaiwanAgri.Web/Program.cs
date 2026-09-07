@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using TaiwanAgri.Core.Infrastructure;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.Pet.Data;
@@ -21,12 +21,19 @@ namespace TaiwanAgri.Web
 			builder.Services.AddMarketModule(builder.Configuration);
 			builder.Services.AddWeatherModule(builder.Configuration);
 			builder.Services.AddCoreModule(builder.Configuration);
-			builder.Services.AddInfrastructure(builder.Configuration);
+			builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 			builder.Services.AddUserModule(builder.Configuration);
 			builder.Services.AddFoodSafetyModule(builder.Configuration);
 			builder.Services.AddPetModule(builder.Configuration);
 
 			var app = builder.Build();
+
+			// CORS 來源沒設定時，Development 只警告不中斷（本機經 Vite proxy 存取是同源）。
+			// 其他環境已經在 AddInfrastructure 讓啟動失敗，走不到這裡
+			if (Extensions.InfrastructureExtensions.IsCorsOriginsMissing(app.Configuration))
+			{
+				app.Logger.LogWarning(Extensions.InfrastructureExtensions.CorsOriginsMissingWarning);
+			}
 
 			// Seed 初始資料（角色、核心資料）
 			using (var scope = app.Services.CreateScope())
@@ -65,7 +72,7 @@ namespace TaiwanAgri.Web
 
 			app.UseMiddleware<GlobalExceptionMiddleware>();
 			app.UseRouting();
-			app.UseCors("MyPolicy");
+			app.UseCors(Extensions.InfrastructureExtensions.FrontendCorsPolicy);
 			app.UseAuthentication(); // 既然有 Identity，這行通常要加在 Authorization 之前
 			app.UseAuthorization();
 			app.MapControllers();

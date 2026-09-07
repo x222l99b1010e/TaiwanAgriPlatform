@@ -12,7 +12,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 		{
 			_context = context;
 		}
-		public async Task<List<RainfallResponseDto>> GetRainfallByCityAsync(string cityName, DateOnly? startDate = null, DateOnly? endDate = null)
+		public async Task<List<RainfallResponseDto>> GetRainfallByCityAsync(string cityName, DateOnly? startDate = null, DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{
 			DateOnly finalStart = startDate ?? DateOnly.FromDateTime(DateTime.Now.AddDays(-14));
 			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Now);
@@ -35,7 +35,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 					Hour12 = x.obs.Hour12,
 					Hour24 = x.obs.Hour24
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			return result;
 		}
@@ -50,7 +50,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 		/// <param name="cityName"></param>
 		/// <returns></returns>
 
-		public async Task<List<WeatherStationResponseDto>> GetStationsByCityAsync(string cityName)
+		public async Task<List<WeatherStationResponseDto>> GetStationsByCityAsync(string cityName, CancellationToken cancellationToken = default)
 		{
 			// Step 1：在 DB 端計算每個站的最新觀測時間
 			// 這一段完全在 SQL Server 執行，只回傳 N 筆（N = 站台數量，通常幾十筆）
@@ -62,7 +62,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 					StationId = g.Key,
 					LatestAt = g.Max(w => w.ObservedAt)
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			// Step 2：用 (StationId, ObservedAt) 這對組合撈完整資料
 			// 這樣只撈每個站最新的那一筆，而不是全部幾千筆
@@ -90,7 +90,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 					SunshineHours = s.SunshineHours,
 					Pressure = s.Pressure
 				})
-				.ToListAsync();
+				.ToListAsync(cancellationToken);
 
 			// 安全防護：確保每個站只回傳最新的一筆
 			// 理論上 Step 2 的 IN 條件已能正確篩選，

@@ -12,7 +12,7 @@ namespace TaiwanAgri.Modules.Weather.Dtos.ExternalResponses
 
 		/// <summary>
 		/// 「還有下一頁」＝結果已被截斷在第一頁 500 筆。
-		/// 未帶 api_key 時拿不到第二頁（決策 1：api_key 的作用僅為分頁權限），
+		/// 未帶 api_key 時拿不到第二頁（api_key 的作用僅為分頁權限），
 		/// 而這支 API 沒有總筆數欄位，所以這個布林值是「結果不完整」的唯一訊號。
 		/// </summary>
 		[JsonPropertyName("Next")] public bool Next { get; set; }
@@ -20,7 +20,7 @@ namespace TaiwanAgri.Modules.Weather.Dtos.ExternalResponses
 
 	/// <summary>
 	/// 一筆＝一張農藥許可證。刻意忠實承接 API 原始形狀（民國日期、右側補空白、代碼未翻譯），
-	/// 型別轉換與語意化留給 Service 層做，不綁在反序列化上（§12.34.2 SRP 原則）。
+	/// 型別轉換與語意化留給 Service 層做，不綁在反序列化上（SRP 原則）。
 	/// </summary>
 	public class PesticideLicenseDto
 	{

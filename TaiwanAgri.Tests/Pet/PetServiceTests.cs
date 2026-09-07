@@ -152,7 +152,7 @@ namespace TaiwanAgri.Tests.Pet
 			// 目標：驗證收容所詳情頁的下鑽端點——①只回傳指定 ShelterPkId 的動物，不含其他收容所；
 			// ②真的做 Skip/Take 分頁（不是把地圖端點的不分頁清單原封不動搬過來）；③排序穩定可預期。
 			// 排序條件明確指定 AnimalSubId 升冪（而非依賴預設排序），讓這個測試只驗證「分頁機制」
-			// 本身，不會因為日後改動預設排序（見下一個測試：owner 實機測試後改預設依拾獲時間新到舊）
+			// 本身，不會因為日後改動預設排序（見下一個測試：預設改依拾獲時間新到舊）
 			// 而連帶失敗——兩個測試的關注點分開，各自穩定
 
 			var options = new DbContextOptionsBuilder<PetDbContext>()
@@ -229,7 +229,7 @@ namespace TaiwanAgri.Tests.Pet
 		public async Task GetShelterAnimalsByShelterAsync_FilterByKindAndSexAndSortByAnimalSubId_ReturnsOnlyMatchingInOrder()
 		{
 			// ── Arrange ──────────────────────────────────────────
-			// 目標：收容所詳情頁改版加的 Kind/Sex 篩選＋排序（owner 實機測試後要求比照
+			// 目標：收容所詳情頁改版加的 Kind/Sex 篩選＋排序（比照
 			// LegalBusinessView 改成 datagrid），驗證篩選可疊加、排序切換方向正確
 
 			var options = new DbContextOptionsBuilder<PetDbContext>()
@@ -289,7 +289,7 @@ namespace TaiwanAgri.Tests.Pet
 		public async Task GetLegalSpecificPetsAsync_FilterByAnimalTypeRankGradeStateFlagAndBusinessItem_ReturnsOnlyMatching()
 		{
 			// ── Arrange ──────────────────────────────────────────
-			// 目標：驗證 W23 前端串接時補上的四個篩選條件（動物類型／評鑑等級／營業狀態／業務項目）
+			// 目標：驗證前端串接時補上的四個篩選條件（動物類型／評鑑等級／營業狀態／業務項目）
 			// 各自獨立運作、且可以疊加（複合條件）——BusinessItem 用 Contains 比對代碼組合字串
 
 			var options = new DbContextOptionsBuilder<PetDbContext>()
@@ -339,7 +339,7 @@ namespace TaiwanAgri.Tests.Pet
 		public async Task GetLegalSpecificPetsAsync_SortByPermitValidDateDescending_OrdersNewestExpiryFirst()
 		{
 			// ── Arrange ──────────────────────────────────────────
-			// 目標：驗證排序取代「是否過期」布林篩選的設計（owner 2026-08-06 裁示，選項 3）
+			// 目標：驗證排序取代「是否過期」布林篩選的設計
 			// 確實可用——依效期排序，不需要另外處理 PermitValidDate 為 null 的語意問題
 
 			var options = new DbContextOptionsBuilder<PetDbContext>()
@@ -608,7 +608,7 @@ namespace TaiwanAgri.Tests.Pet
 		public async Task GetLostPetPostsAsync_IsOwnerFlag_TrueForOwnerFalseForOthersAndGuests()
 		{
 			// ── Arrange ──────────────────────────────────────────
-			// 目標：釘住 W23 前端串接時修正的設計缺口——同一筆資料，帶自己的 userId 查
+			// 目標：釘住前端串接時修正的設計缺口——同一筆資料，帶自己的 userId 查
 			// IsOwner 要是 true，帶別人的 userId 或完全不帶（訪客）都要是 false。
 			// DTO 不外露 UserId，前端只能靠這個算好的布林值決定要不要顯示編輯／刪除按鈕
 

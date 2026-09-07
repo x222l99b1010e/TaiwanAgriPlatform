@@ -133,7 +133,7 @@ namespace TaiwanAgri.Core.Helpers
 		/// 分隔符不一致——ExpireDate 用短橫線（120-02-19）、RevocationDate 用斜線（079/05/03）——
 		/// 且 RevocationDate 的「無值」不是空字串或 null，而是含空白的 "   /  /  "。
 		/// ParseRocDate 只吃 '.' 且格式不符就拋 FormatException，外部資料每筆都套用會直接中斷整批。
-		/// 這裡採「單筆無法解析就當作沒有這個日期」的欄位級容忍策略（比照 §12.35.4）。
+		/// 這裡採「單筆無法解析就當作沒有這個日期」的欄位級容忍策略。
 		/// </summary>
 		public static DateOnly? ParseRocSeparatedDate(string? input)
 		{

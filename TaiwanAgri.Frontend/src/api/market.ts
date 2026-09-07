@@ -128,9 +128,11 @@ export const marketApi = {
     startDate: string
     endDate: string
     counties?: string[]
-  }): Promise<DisasterResponseDto[]> => {
+  }): Promise<{ items: DisasterResponseDto[]; isTruncated: boolean }> => {
     const res = await apiClient.get<DisasterResponseDto[]>('/api/market/disasters', { params })
-    return res.data
+    // 後端在結果被上限截斷時加這個標頭。截斷的清單看起來完整、實際上同一天災的
+    // 受影響縣市會少幾個——不把它傳下去顯示，等於後端白加了這個訊號
+    return { items: res.data, isTruncated: res.headers['x-result-truncated'] === 'true' }
   },
 
   /** GET /api/market/restdays?marketCode=101&startDate=...&endDate=... */

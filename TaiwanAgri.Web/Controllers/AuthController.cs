@@ -16,11 +16,11 @@ namespace TaiwanAgri.Web.Controllers
 		}
 
 		[HttpPost("login")]
-		public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
+		public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken = default)
 		{
 			try
 			{
-				var result = await _authService.LoginAsync(request);
+				var result = await _authService.LoginAsync(request, cancellationToken);
 				return Ok(result);
 			}
 			catch (UnauthorizedAccessException ex)
@@ -30,11 +30,11 @@ namespace TaiwanAgri.Web.Controllers
 		}
 
 		[HttpPost("register")]
-		public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
+		public async Task<IActionResult> Register([FromBody] RegisterRequestDto request, CancellationToken cancellationToken = default)
 		{
 			try
 			{
-				var result = await _authService.RegisterAsync(request);
+				var result = await _authService.RegisterAsync(request, cancellationToken);
 				return Ok(result);
 			}
 			catch (InvalidOperationException ex)

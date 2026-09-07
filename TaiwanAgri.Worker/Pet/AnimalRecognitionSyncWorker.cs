@@ -62,7 +62,7 @@ namespace TaiwanAgri.Worker.Pet
 					.DistinctBy(x => new { x.ShelterPkId, x.AnimalSubId })
 					.ToList();
 
-				// 3. 動物資料落地前，先確保這批資料涉及的收容所都已存在（決策21 防禦機制）
+				// 3. 動物資料落地前，先確保這批資料涉及的收容所都已存在（防禦機制）
 				//    吃 legacyDtos（原始 DTO），不是 incoming——ShelterName/Address/Tel 只在 DTO 上還在
 				await EnsureSheltersExistAsync(dbPet, legacyDtos, _logger, LogPrefix, stoppingToken);
 
@@ -80,7 +80,7 @@ namespace TaiwanAgri.Worker.Pet
 					stoppingToken);
 
 				// 5. 全部成功後，才建立 SyncState（回填完成判斷機制）
-				// 全部寫入成功「之後」才建立 SyncState——這是決策 12 的核心：
+				// 全部寫入成功「之後」才建立 SyncState——核心設計是：
 				// 這行程式碼本身就是「回填完成」的證明。如果上面任何一步拋出例外，
 				// 這行永遠不會執行到，SyncState 就不會被建立，下一輪（明天）又會是 null，
 				// 整段回填會重跑一次（DbSyncHelper 靠複合鍵去重，重跑不會產生重複資料，
@@ -109,7 +109,7 @@ namespace TaiwanAgri.Worker.Pet
 
 					// 1. 組 URL：$top=1000（避免踩到未登入預設分頁上限）+ animal_createtime 篩單日
 					//    日期格式用斜線 yyyy/MM/dd，跟 animal_createtime 欄位本身格式一致
-					//    （決策 7 已實測驗證：篩 2024/07/01 拿到 2 筆，跟舊制全量資料核對一致）
+					//    （已實測驗證：篩 2024/07/01 拿到 2 筆，跟舊制全量資料核對一致）
 					var url = $"{MoaApiEndpoints.AnimalRecognition}?$top=1000&animal_createtime={currentDate:yyyy/MM/dd}";
 
 					// 2. 打新制 API，反序列化成 ShelterAnimalApiResponse（RS/Data/Next 包裝）
@@ -126,7 +126,7 @@ namespace TaiwanAgri.Worker.Pet
 					}
 					else
 					{
-						// 3. 動物資料落地前，先確保這批資料涉及的收容所都已存在（決策21 防禦機制）
+						// 3. 動物資料落地前，先確保這批資料涉及的收容所都已存在（防禦機制）
 						//    吃 response.Data（原始 DTO），不是 incoming——ShelterName/Address/Tel 只在 DTO 上還在
 						await EnsureSheltersExistAsync(dbPet, response.Data, _logger, LogPrefix, stoppingToken);
 
@@ -173,7 +173,7 @@ namespace TaiwanAgri.Worker.Pet
 				{
 					"M" => AnimalSex.Male,
 					"F" => AnimalSex.Female,
-					// 決策19 樣本太薄弱暫緩，之後單日增量分別出現 8 筆（07/27）與 6 筆（07/28）
+					// 原本樣本太薄弱暫緩，之後單日增量分別出現 8 筆（07/27）與 6 筆（07/28）
 					// 真實資料，證據量已足：這是明確的「未知」語意，不該落到 Other（其他值）
 					"N" => AnimalSex.Unknown,
 					_ => EnumMappingHelper.LogUnexpectedValue(dto.AnimalSubId, nameof(dto.AnimalSex), dto.AnimalSex, AnimalSex.Other, logger)
@@ -217,9 +217,9 @@ namespace TaiwanAgri.Worker.Pet
 		}
 
 		/// <summary>
-		/// 收容所清單會隨時間浮動（決策22），若這批動物資料的 ShelterPkId 不在 Shelters 表裡，
-		/// 先自動建立一筆座標留空的 placeholder 記錄，避免動物資料落地時觸發 FK 崩潰（決策21）。
-		/// 範圍界線：只補「這筆收容所存不存在」，不做地理編碼（YAGNI，決策21）。
+		/// 收容所清單會隨時間浮動，若這批動物資料的 ShelterPkId 不在 Shelters 表裡，
+		/// 先自動建立一筆座標留空的 placeholder 記錄，避免動物資料落地時觸發 FK 崩潰。
+		/// 範圍界線：只補「這筆收容所存不存在」，不做地理編碼（YAGNI）。
 		/// </summary>
 		internal static async Task EnsureSheltersExistAsync(
 			PetDbContext dbPet,
@@ -252,7 +252,7 @@ namespace TaiwanAgri.Worker.Pet
 
 			// 4. 建立座標留空的 placeholder Shelter：
 			//    Name/Address/Tel 有真實資料就用真實資料；County 目前無任何可解讀來源
-			//    （animal_area_pkid 是代碼、無對照表，決策12已排除），一律待補。
+			//    （animal_area_pkid 是代碼、無對照表），一律待補。
 			var newShelters = missingDtos.Select(dto => new Shelter
 			{
 				ShelterPkId = dto.AnimalShelterPkId,

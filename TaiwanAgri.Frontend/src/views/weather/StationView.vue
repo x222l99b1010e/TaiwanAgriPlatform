@@ -145,7 +145,7 @@ async function handleQuery() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；卡片不給陰影，靠 1px 邊框與底色差。
+/* 顏色全部改用 semantic 層；卡片不給陰影，靠 1px 邊框與底色差。
    原本四個指標的圖示各是紅／藍／綠／青四種色相，一張卡片上就用掉四個顏色——
    圖示是標籤不是資料，一律降成次要文字色，強調留給數字本身。 */
 .station-view { min-width: 960px; }
@@ -185,7 +185,7 @@ async function handleQuery() {
   padding: 2px var(--space-2);
 }
 
-/* 主數字＋色籤同一列：--text-3xl 是 style tile 給「主視覺數字」那一階 */
+/* 主數字＋色籤同一列：--text-3xl 是給「主視覺數字」那一階 */
 .temp-hero { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .temp-main { display: flex; align-items: baseline; gap: var(--space-1); }
 .temp-value {

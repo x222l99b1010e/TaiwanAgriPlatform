@@ -19,7 +19,7 @@ namespace TaiwanAgri.Core.Constants
 		// 農藥「使用範圍」（適用作物／病蟲害／稀釋倍數／安全採收期）走農業部舊制 FromM 通道，
 		// 網址由 PesticideDataQuery 回應的 ScopeOfUse 欄位直接提供（含 ltyp／lno 參數），
 		// 因此這裡不放常數、也不要自己組網址——只保留這行說明避免日後有人以為漏掉了。
-		// 刻意不納入的兩支候選端點（2026-08-22 探勘結論，詳見文件資料夾 W24 探勘脈絡）：
+		// 刻意不納入的兩支候選端點（2026-08-22 探勘結論）：
 		//   PesticideManualType──停留在 2014 年前的靜態快照，無任何狀態欄位（已禁用的農藥仍列為現行），
 		//                        且與許可證主檔對同一產品的劑型記載互相矛盾。
 		//   PesticideType──────沒有任何可用的查詢參數（13 種參數名實測全部無效），永遠只能拿到
@@ -57,7 +57,7 @@ namespace TaiwanAgri.Core.Constants
 		// 模組 3：寵物
 		public const string AnimalRecognition = "api/v1/AnimalRecognition/";
 		// AnimalRecognition 新制存在但有 $top 上限鎖死 1000、Page=2 被擋的限制，
-		// 一次性回填改走舊制 TransService 通道拿全量資料（見 DECISIONS.md 關鍵決策 12）
+		// 一次性回填改走舊制 TransService 通道拿全量資料
 		public const string AnimalRecognitionLegacy = "Service/OpenData/TransService.aspx?UnitId=QcbUEzN6E6DL";
 		public const string PetLoseList = "api/v1/PetLoseList/";
 		public const string LegalSpecificPet = "api/v1/LegalSpecificPet/";

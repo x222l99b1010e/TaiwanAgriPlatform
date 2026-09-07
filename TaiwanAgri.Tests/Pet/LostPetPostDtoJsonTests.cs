@@ -6,7 +6,7 @@ namespace TaiwanAgri.Tests.Pet
 {
 	/// <summary>
 	/// 測 DTO 與 JSON 之間的反序列化契約，不涉及 Service／DbContext。
-	/// W23 前端串接時發現：UpdateLostPetPostRequestDto.Status 是 enum 型別，專案未全域註冊
+	/// 前端串接時發現：UpdateLostPetPostRequestDto.Status 是 enum 型別，專案未全域註冊
 	/// JsonStringEnumConverter，若無單獨標註，System.Text.Json 反序列化 [FromBody] 請求時
 	/// enum 屬性預設只吃數字（0/1/2），前端照專案既有慣例送字串會直接丟例外、回 400。
 	/// 這裡釘住「補上 [JsonConverter(typeof(JsonStringEnumConverter))] 之後，字串可以正常反序列化」，

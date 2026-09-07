@@ -1,6 +1,6 @@
 <!--
   src/components/SeasonMotif.vue
-  職責：深色區背景的線稿母題，隨節氣季節分組換圖（style tile §6.2 之③／§七）。
+  職責：深色區背景的線稿母題，隨節氣季節分組換圖。
 
   四組母題只換幾何（SVG 的 path/shape），顏色一律 var(--color-motif)，
   不動任何 token——這是「節氣只進內容層與母題層，不進 token 層」定案的具體落地。
@@ -69,7 +69,7 @@ defineProps<{ season: Season }>()
 const STALK_X     = [40, 190, 330, 480, 620, 750]
 const STALK_Y     = [230, 180, 260, 200, 240, 190]
 const STALK_SCALE = [0.9, 1.1, 0.85, 1.15, 0.95, 1.05]
-// 每株 5 排穀粒，由下往上：ry 遞減＝越往上越小（style tile §6.2 之③的畫法要求）
+// 每株 5 排穀粒，由下往上：ry 遞減＝越往上越小（越上越小）
 const GRAIN_Y = [0, -16, -30, -42, -52]
 
 const WINTER_ROWS = computed(() => {

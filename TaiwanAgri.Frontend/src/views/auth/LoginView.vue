@@ -199,7 +199,7 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；欄位外殼走 base.css 的
+/* 顏色全部改用 semantic 層；欄位外殼走 base.css 的
    .field-group／.field-label／.form-control／.field-error，分段控制器走 .segmented。
 
    ⚠ 原本是 `min-height: 100vh`，但這一頁活在 TopNav（56px）與菜價橫幅（40px）
@@ -214,8 +214,8 @@ async function handleSubmit() {
   padding: var(--space-8) var(--space-6);
 }
 
-/* 卡片不給陰影（style tile §三）。頁面底改用比卡片深一階的 --color-bg-sunken，
-   靠明度差把卡片浮起來——這正是決策 59.六說的「平坦的成因是底色與卡片一樣亮」。 */
+/* 卡片不給陰影。頁面底改用比卡片深一階的 --color-bg-sunken，
+   靠明度差把卡片浮起來——這正是「平坦的成因是底色與卡片一樣亮」的解法。 */
 .login-card {
   width: 100%;
   max-width: 420px;

@@ -1,7 +1,7 @@
 <!--
   src/components/LostPetPostForm.vue
   職責：LostPetPost 新增／編輯表單，從 LostPetsView 抽出來給列表頁、詳情頁、個人管理頁三處共用
-  （owner 2026-08-09 裁定：詳情頁要能原地編輯，不要求使用者跳轉回列表頁；抽共用元件才不會
+  （詳情頁要能原地編輯，不要求使用者跳轉回列表頁；抽共用元件才不會
   變成三處各維護一份表單邏輯、改一個欄位要記得改三次）。
 
   模式判斷用 `post` prop 是否為 null：null＝新增，帶入既有 LostPetPostResponseDict＝編輯——
@@ -186,7 +186,7 @@ defineExpose({ panelRef })
 </script>
 
 <style scoped>
-/* 顏色全部改用 semantic 層（style tile §九）；輸入框的外觀走 base.css 的 .form-control，
+/* 顏色全部改用 semantic 層；輸入框的外觀走 base.css 的 .form-control，
    這裡只留這個表單自己的排版。 */
 .post-form-panel {
   background: var(--color-surface);

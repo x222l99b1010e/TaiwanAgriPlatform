@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TaiwanAgri.Core.Constants;
@@ -26,6 +26,15 @@ namespace TaiwanAgri.Modules.Weather.Services
 		/// 不驗證等於把發送目標的控制權交給外部資料源。
 		/// </summary>
 		private const string AllowedDetailHost = "data.moa.gov.tw";
+
+		/// <summary>
+		/// 第二層對外部 API 的最大同時請求數。
+		/// 上限本來是靠第一層「Next=true 就中止」間接壓住的——但那是另一個條件，
+		/// 上游改動分頁行為時這個防護會無聲失效。並行數該由這裡直接決定。
+		/// 6 是比照 AgriProductsTransSyncWorker 對同一個來源站台用的量級（那支用 3），
+		/// 查詢是使用者等待中的請求、可以稍微積極一點，但不能無上限
+		/// </summary>
+		private const int MaxDetailConcurrency = 6;
 
 		private readonly HttpClient _httpClient;
 		private readonly ILogger<PesticideService> _logger;
@@ -89,7 +98,19 @@ namespace TaiwanAgri.Modules.Weather.Services
 
 			if (pending.Count > 0)
 			{
-				await Task.WhenAll(pending.Select(f => FillUsagesAsync(f, cancellationToken)));
+				using var gate = new SemaphoreSlim(MaxDetailConcurrency);
+				await Task.WhenAll(pending.Select(async f =>
+				{
+					await gate.WaitAsync(cancellationToken);
+					try
+					{
+						await FillUsagesAsync(f, cancellationToken);
+					}
+					finally
+					{
+						gate.Release();
+					}
+				}));
 			}
 
 			return new PesticideSearchOutcome

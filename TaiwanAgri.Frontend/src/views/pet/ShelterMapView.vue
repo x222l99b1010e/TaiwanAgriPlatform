@@ -221,7 +221,7 @@ onUnmounted(() => {
 
 <style scoped>
 /* 欄位外殼走 base.css 的 .field-group／.field-label／.form-control，
-   顏色全部改用 semantic 層（style tile §九）。 */
+   顏色全部改用 semantic 層。 */
 .kind-select { min-width: 140px; }
 
 /* 這一段是「目前篩出幾筆」的說明，限寬才不會在寬螢幕上拉成一整條長行 */

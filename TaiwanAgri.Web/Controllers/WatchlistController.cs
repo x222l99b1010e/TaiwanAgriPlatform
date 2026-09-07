@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using TaiwanAgri.Modules.Market.Constants;
 using System.Security.Claims;
 using TaiwanAgri.Modules.Market.Services;
 using TaiwanAgri.Modules.User.Services;
@@ -12,15 +14,18 @@ namespace TaiwanAgri.Web.Controllers
 	[Route("api/[controller]")]
 	[Authorize]
 	[ApiController]
-	public class WatchlistController(IUserWatchlistService userWatchlistService, IMarketService marketService) : ControllerBase
+	public class WatchlistController(
+		IUserWatchlistService userWatchlistService,
+		IMarketService marketService,
+		IOptions<MarketQueryOptions> options) : ControllerBase
 	{
 		[HttpGet]
-		public async Task<IActionResult> GetWatchlistItems()
+		public async Task<IActionResult> GetWatchlistItems(CancellationToken cancellationToken = default)
 		{
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId is null) return Unauthorized();
 
-			var watchlistItems = (await userWatchlistService.GetUserWatchlistItemsAsync(userId)).ToList();
+			var watchlistItems = (await userWatchlistService.GetUserWatchlistItemsAsync(userId, cancellationToken)).ToList();
 			if (watchlistItems.Count == 0)
 				return Ok(Enumerable.Empty<WatchlistEnrichedItemDto>());
 
@@ -50,28 +55,30 @@ namespace TaiwanAgri.Web.Controllers
 			return Ok(result);
 		}
 		[HttpPost]
-		public async Task<IActionResult> AddWatchlistItem([FromBody] AddWatchlistRequestDto request)
+		public async Task<IActionResult> AddWatchlistItem([FromBody] AddWatchlistRequestDto request, CancellationToken cancellationToken = default)
 		{
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId is null) return Unauthorized();
 
-			var success = await userWatchlistService.AddWatchlistItemAsync(userId, request);
+			var success = await userWatchlistService.AddWatchlistItemAsync(userId, request, cancellationToken);
 			if (!success) return Conflict("此作物與市場組合已在監看清單中");
 
 			return NoContent();
 		}
 		[HttpDelete]
-		public async Task<IActionResult> RemoveWatchlistItems([FromQuery] IEnumerable<int> ids)
+		public async Task<IActionResult> RemoveWatchlistItems([FromQuery] IEnumerable<int> ids, CancellationToken cancellationToken = default)
 		{
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId is null) return Unauthorized();
 
 			var idList = ids.ToList();
-			// 上限防禦：明確回 400，而不是在 Service 層靜默截斷
-			if (idList.Count > 50)
-				return BadRequest("一次最多刪除 50 筆");
+			// 上限防禦：明確回 400，而不是在 Service 層靜默截斷。
+			// 上限走設定而不是寫死——同一個專案裡的同類上限應該用同一種方式管理
+			var max = options.Value.WatchlistDeleteMaxCount;
+			if (idList.Count > max)
+				return BadRequest($"一次最多刪除 {max} 筆");
 
-			await userWatchlistService.RemoveWatchlistItemsAsync(userId, idList);
+			await userWatchlistService.RemoveWatchlistItemsAsync(userId, idList, cancellationToken);
 			return NoContent();
 		}
 	}

@@ -1,8 +1,9 @@
+﻿using TaiwanAgri.Core.Dtos;
 using TaiwanAgri.Modules.Pet.Entities.Enums;
 
 namespace TaiwanAgri.Modules.Pet.Dtos.Queries
 {
-	public class LegalSpecificPetQueryDto
+	public class LegalSpecificPetQueryDto : PagedQueryDto
 	{
 		public string? County { get; set; }
 		public LegalPetAnimalType? AnimalType { get; set; }
@@ -14,8 +15,5 @@ namespace TaiwanAgri.Modules.Pet.Dtos.Queries
 
 		public LegalSpecificPetSortBy SortBy { get; set; } = LegalSpecificPetSortBy.Name;
 		public bool SortDescending { get; set; } = false;
-
-		public int Page { get; set; } = 1;
-		public int PageSize { get; set; } = 20;
 	}
 }
