@@ -109,17 +109,17 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    農業部 Open Data API                      │
-│              data.moa.gov.tw  (60 支 REST API)              │
+│                    農業部 Open Data API                     │
+│              data.moa.gov.tw（60 支 REST API）              │
 └──────────────────────┬──────────────────────────────────────┘
                        │ HTTP / IHttpClientFactory
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  TaiwanAgri.Worker                          │
+│                      TaiwanAgri.Worker                      │
 │    .NET Worker Service + Serilog                            │
-│    17 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼     │
-│    依模組分資料夾（Weather / Market / FoodSafety / Pet）      │
-│    落地共用 DbSyncHelper（InsertNewByKey / UpsertByKey）     │
+│    17 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼   │
+│    依模組分資料夾（Weather / Market / FoodSafety / Pet）    │
+│    落地共用 DbSyncHelper（InsertNewByKey / UpsertByKey）    │
 └──────────┬────────────────────────┬─────────────────────────┘
            │ EF Core                │ RabbitMQ
            │ (多 DbContext)         │
@@ -127,9 +127,9 @@
      │ WeatherDbContext │           │
      │ MarketDbContext  │           ▼
      │ CoreDbContext    │   ┌────────────────────────────────┐
-     │ (NavModules,     │   │         RabbitMQ               │
+     │ (NavModules,     │   │            RabbitMQ            │
      │  RoleModule-     │   │   Exchange: agri.events        │
-     │  Permissions,    │   │   RoutingKey: agri.market.*     │
+     │  Permissions,    │   │   RoutingKey: agri.market.*    │
      │  SyncStates)     │   └──────────────┬─────────────────┘
      │ UserDbContext    │                  │ Subscribe
      │ FoodSafetyDb-    │                  │
@@ -137,18 +137,21 @@
      │ PetDbContext     │                  │
      └─────┬────────────┘                  ▼
            │                ┌──────────────────────────────────────┐
-     ┌─────┴──────┐         │          TaiwanAgri.Web              │
+     ┌─────┴──────┐         │            TaiwanAgri.Web            │
      │ SQL Server │         │   ASP.NET Core Web API               │
      │   2022     │         │   ApplicationDbContext               │
-     └────────────┘         │   (繼承 IdentityDbContext)            │
-                            │   GlobalExceptionMiddleware           │
-                            │   MarketController  (8 支端點)        │
-                            │   FoodSafetyController (4 支端點)     │
-                            │   PetController     (10 支端點)       │
-                            │   NavController [AllowAnonymous]      │
-                            │   AuthController   (login/register)   │
-                            │   ProfileController [Authorize]       │
-                            │   WatchlistController [Authorize]     │
+     └────────────┘         │   （繼承 IdentityDbContext）         │
+                            │   GlobalExceptionMiddleware          │
+                            │   MarketController         8 支端點  │
+                            │   PetController           10 支端點  │
+                            │   FoodSafetyController     4 支端點  │
+                            │   NotificationController   4 支端點  │
+                            │   WeatherController        3 支端點  │
+                            │   PestController           3 支端點  │
+                            │   WatchlistController      3 支端點  │
+                            │   AuthController           2 支端點  │
+                            │   ProfileController        2 支端點  │
+                            │   NavController            1 支端點  │
                             └──────────┬───────────────────────────┘
                                        │ Cache-Aside
                                        ▼
@@ -274,12 +277,12 @@ TaiwanAgriPlatform/
 │   │   ├── FoodSafetyController.cs   # 今日菜價 / 追溯 / 違規牆 / 有機驗證（4 支端點）
 │   │   ├── MarketController.cs       # 8 支端點（含 /pork、/poultry、/poultry/metrics）
 │   │   ├── NavController.cs          # [AllowAnonymous] GET /api/nav/modules
-│   │   ├── NotificationController.cs # [Authorize] 通知列表 / 未讀數 / 標記已讀
+│   │   ├── NotificationController.cs # [Authorize] 通知列表 / 未讀數 / 標記單筆已讀 / 全部已讀（4 支端點）
 │   │   ├── PetController.cs          # 寵物模組 10 支端點（GET 公開，CRUD [Authorize]）
 │   │   ├── PestController.cs         # 病蟲害警報 / 旬密度 / 害蟲清單
 │   │   ├── ProfileController.cs      # [Authorize] GET + PUT /api/profile/farm
 │   │   ├── WatchlistController.cs    # [Authorize] GET / POST / DELETE /api/watchlist
-│   │   └── WeatherController.cs      # 氣象站 / 雨量
+│   │   └── WeatherController.cs      # 氣象站 / 雨量 / 農藥查詢（3 支端點）
 │   ├── Extensions/                   # Modular Monolith 各模組 Extension Methods
 │   │   ├── CoreModuleExtensions.cs
 │   │   ├── FoodSafetyModuleExtensions.cs
@@ -301,7 +304,9 @@ TaiwanAgriPlatform/
 │   │   ├── api/
 │   │   │   ├── auth.ts               # /api/auth/login、/api/auth/register
 │   │   │   ├── httpBase.ts           # 兩支 client 的共用底座（timeout、401 統一處理、儲存鍵常數）
-│   │   │   ├── authClient.ts         # axios instance（自動注入 Bearer token）
+│   │   │   ├── authClient.ts         # axios instance（有 token 才注入 Bearer header）
+│   │   │   ├── apiClient.ts          # axios instance（不帶 JWT，公開端點用）
+│   │   │   ├── pagination.ts         # 後端分頁契約共用型別（對應 Core 的 PagedResult<T>）
 │   │   │   ├── cropApi.ts            # 三市場合併作物清單（profile 用）
 │   │   │   ├── foodSafety.ts         # 食安四支端點封裝
 │   │   │   ├── market.ts             # 模組 4+畜禽 八支端點封裝
@@ -309,7 +314,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── pet.ts                # 寵物模組型別定義 + 10 支端點封裝
 │   │   │   ├── profile.ts            # GET/PUT /api/profile/farm
 │   │   │   ├── watchlist.ts          # GET/POST/DELETE /api/watchlist
-│   │   │   └── weather.ts            # 氣象 / 雨量 / 病蟲害 / 通知 封裝
+│   │   │   └── weather.ts            # 氣象 / 雨量 / 病蟲害 / 農藥 / 通知 封裝
 │   │   ├── stores/
 │   │   │   ├── authStore.ts          # Pinia：JWT + 使用者資訊（localStorage 持久化）
 │   │   │   ├── foodSafety.ts         # Pinia：食安狀態（todayVeg TTL / violations / organicCert）
@@ -394,7 +399,11 @@ TaiwanAgriPlatform/
 │   │       ├── exportCsv.ts          # CSV 匯出（UTF-8 BOM）
 │   │       ├── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
 │   │       ├── calendar.ts           # 休市日月曆計算（vitest 覆蓋）
-│   │       └── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
+│   │       ├── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
+│   │       ├── lostPetPost.ts        # 遺失啟事狀態對照與卡片渲染純函式（列表頁與詳情頁共用）
+│   │       └── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup 與詳情頁共用）
+│   ├── build/
+│   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
 └── TaiwanAgri.Tests/                 # xUnit + Moq（後端 244 個測試案例）
@@ -403,7 +412,8 @@ TaiwanAgriPlatform/
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
     ├── Watchlist/                     # Controller Pattern C 組合（Mock Services）
     ├── FoodSafety/                    # FoodSafetyService 查詢 + 追溯搜尋
-    ├── Weather/                       # PesticideService 成分分組 / 劑型對照 / 已廢止與到期判定（W24）
+    ├── Weather/                       # PesticideService 成分分組 / 劑型對照 / 已廢止與到期判定；
+    │                                  #   NotificationService 分頁邊界 / 越權防護 / 導覽屬性投影
     ├── Pet/                           # PetService 篩選排序 + IsOwner + 越權防禦 + JSON enum 契約 + TimeProvider 時間戳
     ├── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）
     └── Web/                           # Controller 層驗證與分頁契約（PagedQueryDto 界限、PagedResult 計算、
@@ -719,7 +729,7 @@ npm test
 | GET | `/api/Pest/pest-names` | 所有害蟲名稱清單 | 不需要 |
 | GET | `/api/Pest/decade-density?pestName=東方果實蠅` | 旬密度歷史資料 | 不需要 |
 | GET | `/api/Weather/pesticides?keyword=亞滅培` | 農藥查詢（中英文名擇一或併用，含 includeRevoked 參數） | 不需要 |
-| GET | `/api/Notification/list?page=1` | 使用者通知列表 | **需要 JWT** |
+| GET | `/api/Notification/list?page=1` | 使用者通知列表（每頁 20 筆，回傳 `{ items, hasMore }`；`hasMore` 由後端多撈一筆判定，不是「這頁滿了沒」） | **需要 JWT** |
 | GET | `/api/Notification/unread-count` | 未讀通知數 | **需要 JWT** |
 | PATCH | `/api/Notification/{id}/read` | 標記單筆已讀 | **需要 JWT** |
 | PATCH | `/api/Notification/read-all` | 一次標記全部已讀（取代前端逐筆送 N 個請求） | **需要 JWT** |
