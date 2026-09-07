@@ -397,7 +397,7 @@ TaiwanAgriPlatform/
 │   │       └── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 230 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 244 個測試案例）
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
@@ -430,7 +430,7 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，230 個案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，244 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板單元測試（`npm test`，7 檔 55 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
@@ -567,7 +567,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 230 個測試案例）
+# 後端（xUnit + Moq，共 244 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -576,7 +576,7 @@ cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather / Pet / Worker / Web（Controller 層驗證、分頁界限與 CORS 啟動檢查）九個面向；前端 7 個測試檔共 55 個案例，涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）與 `mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Helpers / Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User / Watchlist / FoodSafety / Weather（含通知服務的分頁邊界、越權防護與導覽屬性投影 14 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限與 CORS 啟動檢查）九個面向；前端 7 個測試檔共 55 個案例，涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）與 `mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -803,6 +803,7 @@ npm test
 | —（不掛週次） | 全專案 Code Review | 四個功能模組首次全部完成後的跨模組一致性盤點（後端 294 個 `.cs` 檔／26,264 行＋前端全案）。核心結論：技術債形態不是「寫錯」，而是「共用抽象建立後沒有回頭替換掉原地舊寫法」，橫跨 Worker 層、查詢層、前端與模組邊界共六例。**批次 B**（內部慣例、行為不變）：`ScheduledSyncWorkerBase` 就緒等待納入例外保護；蔬果/毛豬 Worker 日界改用 `TaiwanTime`；三支 Worker 的 `SyncKey` 抽常數；前端公開端點抽出共用 `apiClient`（GitHub PR #32）。**批次 A**（動契約與 UI）：病蟲害警報改用 `PagedResult` 分頁契約與共用 `PagerBar`；追溯碼查詢自 `FoodSafetyService` 拆出 `TraceabilityService`（GitHub PR #33）。185 測試全過（不新增案例） | ✅ 完成 |
 | —（不掛週次） | 前端視覺設計 | 四個功能模組全部完成後的第一次全站視覺統一與設計品質提升，分五階推進。**P0/P1**：建立 design token 系統（`base.css` 從 37 行、14 個色變數擴充為間距／字級／行高／字重／圓角／陰影／容器寬／動效八組尺度＋三組色階＋`prefers-reduced-motion`），容器寬與頁面留白統一，抽出 `PageHeader`／`FilterCard`／`StateBlock`／`Btn`／`HintBox` 五個共用元件，MDI 的 CSS 字符規則改建置期裁切（7447→85 條），CSS bundle 477→126 kB（GitHub PR #35，內部 #057）。**P2**：全站色值與尺度收斂到 token、5 份重複的圖表色盤收成 `chartTheme.ts` 單一來源、拆除相容層舊變數（GitHub PR #36，內部 #058）。**P2.5**：定調「秋田」設計方向（主色秧苗綠、柿橙降第二強調、加入節氣、中英並排），新增 token 第二層 semantic，抽出 `QueryLayout`／`DetailLayout`／`MapLayout`／`EntryLayout` 四個頁面樣板＋`Bilingual`（GitHub PR #38，內部 #059）。**P3**：四模組 28 頁套樣板、**新首頁上線（`/` 不再 redirect）**、病蟲害警報改真 Leaflet 地圖＋三級燈號、休市日改月曆、雨量／旬報／農藥核准用途收進分頁 data grid、語意色改暖色域＋callout 改「色條＋圖示徽章」、抽出全站頁尾 `SiteFooter`、首頁四模組交錯列＋hover 光點動畫、氣象卡片日內溫度量尺、今日菜價 bento，舊色階整組刪除（grep 回傳 0）（GitHub PR #39，內部 #060）。P0–P2 由 release PR #37、P2.5＋P3 由 release PR #40 進 main，整輪已全部同步；前端測試 27→50、CSS gzip 收於 26.28 kB | ✅ 完成 |
 | —（不掛週次） | 全專案 Code Review 第二輪 | 前端視覺設計輪與註解衛生批次收工後的第二次跨模組盤點，**首次把「先跑 build 與 lint 記基線」列為第一步**（第一輪的教訓），而這一步抓到兩個純讀檔看不到的問題。核心結論比第一輪更精確：技術債的形態是**慣例按時間順序長出來、新慣例從不回頭套用到舊程式碼**（`CancellationToken` 39 個介面方法只有 1 個有、`AsNoTracking` 全案 1 處、「截斷要給訊號」只存在寵物模組）。**修正**：CancellationToken 補到 42/42、`AsNoTracking` 1→6 處、建置警告 24→0、分頁界限與 `PagedResult` 收斂成共用抽象（原本分別重複 6 處與 7 處）、天災截斷加訊號並在前端顯示、Redis 反序列化失敗改為降級而非癱瘓 25 小時、農藥查詢第二層並行直接設限、前端 HTTP 層補 timeout 與 401 統一處理、通知不再靜默失敗。**修掉一個使用者可見的 bug**：監看清單未指定市場的項目永遠顯示不出價格（SQL 的 IN 不匹配 NULL）。**效能**：路由改動態載入＋字型二進位真正子集化，首屏載入 1254.9→378.5 kB（−69.8%；量的是瀏覽器進站即下載的全部檔案——entry chunk、`index.html` 以 `modulepreload` 指名的 chunk、entry CSS 與圖示字型）。**修掉 `Cors:AllowedOrigins` 從未設定的部署地雷**：`WithOrigins([])` 會拒絕所有跨來源請求，開發時因 Vite proxy 同源而察覺不到，改為非 `Development` 環境缺設定即啟動失敗，並補上進版控的 `appsettings.example.json`。**相依套件漏洞 10→0**（`npm audit`）。**測試 185→230**，Controller 層覆蓋 1/10→3/10。CI 的 lint 改唯讀（原本 `--fix` 會讓違規被吃掉還顯示綠燈），並新增「未定義 CSS 變數」檢查 | ✅ 完成 |
+| —（不掛週次） | `NotificationService` 補測試 | Service 層七支零測試中的第一支。第二輪 code review 改過它的分頁契約（改為 `{ items, hasMore }`）並新增 `MarkAllAsReadAsync`，改完沒有測試守著。四支方法各有測試，其中**邊界條件另立專門測試而非順帶覆蓋**：分頁的關鍵情境是「總筆數恰為每頁筆數的倍數、且要最後一頁」——舊做法（前端看這頁滿了沒）在此會謊報還有下一頁，新做法（後端多撈一筆當探針）才答得對；`MarkAsReadAsync` 的「找不到」分成「通知不存在」與「通知屬於他人」兩種，只有後者能偵測到 `UserId` 查詢條件被移除（越權寫入），且斷言除了例外還要求該筆維持未讀。導覽屬性 `RuleName` 在 EF InMemory 上的行為以最小測試實測確認（必要關聯採 INNER JOIN，指向不存在規則的通知整筆消失、不報錯），據此決定測試資料的準備方式。零筆早退以 `SavedChanges` 事件斷言守住。**驗收方式：將實作改壞六次逐一實跑，確認每次只有預期中的那一條測試變紅。** 230→244 測試、建置 0 警告、實作零改動（GitHub PR #46） | ✅ 完成 |
 
 ---
 
@@ -942,4 +943,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-09-07 ｜ 對應 SA/SD 文件版本 V35.4 ｜ 全專案 Code Review 第二輪完成（跨模組一致性回填、分頁界限與 `PagedResult` 收斂、首屏載入 1254.9→378.5 kB、CORS 部署地雷修正、相依套件漏洞歸零；後端 230 測試、前端 55 測試全過）*
+*最後更新：2026-09-08 ｜ 對應 SA/SD 文件版本 V35.4 ｜ `NotificationService` 服務層測試補齊（分頁邊界、越權防護、導覽屬性投影，後端 230→244；前一輪為全專案 Code Review 第二輪：跨模組一致性回填、分頁界限與 `PagedResult` 收斂、首屏載入 1254.9→378.5 kB、CORS 部署地雷修正、相依套件漏洞歸零）｜ 後端 244 測試、前端 55 測試全過*
