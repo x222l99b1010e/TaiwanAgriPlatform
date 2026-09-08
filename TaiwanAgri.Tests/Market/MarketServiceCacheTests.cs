@@ -14,7 +14,7 @@ namespace TaiwanAgri.Tests.Market
 	public class MarketServiceCacheTests
 	{
 		[Fact]
-		public async Task GetPricesAsync_CacheHit_ReturnsCachedData()
+		public async Task 快取命中時直接回傳快取內容且不寫入快取()
 		{
 			// ══════════════════════════════════════════════
 			// Arrange：準備舞台
@@ -132,7 +132,7 @@ namespace TaiwanAgri.Tests.Market
 		}
 
 		[Fact]
-		public async Task GetPricesAsync_CacheMiss_QueriesDbAndCachesResult()
+		public async Task 快取未命中時查資料庫並把結果寫回快取()
 		{
 			// ══════════════════════════════════════════════
 			// Arrange：準備舞台

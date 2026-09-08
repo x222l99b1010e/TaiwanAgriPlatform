@@ -43,7 +43,7 @@ namespace TaiwanAgri.Tests.Helpers
 		// ── Happy Path ────────────────────────────────────────────────────
 
 		[Fact]
-		public void ConvertRocRestDay_NormalDate_ReturnsCorrectDateOnly()
+		public void 民國年月日轉換為西元日期()
 		{
 			// 民國 107 年 7 月 15 日 → 西元 2018/7/15
 			var result = DateHelper.ConvertRocRestDay(107, 7, 15);
@@ -53,7 +53,7 @@ namespace TaiwanAgri.Tests.Helpers
 		}
 
 		[Fact]
-		public void ConvertRocRestDay_LeapYearFeb29_ReturnsCorrectDateOnly()
+		public void 閏年二月二十九日是合法日期()
 		{
 			// 民國 109 年 = 西元 2020 年（閏年），2/29 合法
 			var result = DateHelper.ConvertRocRestDay(109, 2, 29);
@@ -65,7 +65,7 @@ namespace TaiwanAgri.Tests.Helpers
 		// ── Null Path（非法日期應回傳 null，不拋例外）─────────────────────
 
 		[Fact]
-		public void ConvertRocRestDay_Feb30_ReturnsNull()
+		public void 二月三十日回傳null而不拋例外()
 		{
 			// 2 月沒有 30 日，任何年份都不合法
 			var result = DateHelper.ConvertRocRestDay(107, 2, 30);
@@ -74,7 +74,7 @@ namespace TaiwanAgri.Tests.Helpers
 		}
 
 		[Fact]
-		public void ConvertRocRestDay_NonLeapYearFeb29_ReturnsNull()
+		public void 平年二月二十九日回傳null()
 		{
 			// 民國 94 年 = 西元 2005 年（非閏年），2/29 不存在
 			var result = DateHelper.ConvertRocRestDay(94, 2, 29);
@@ -83,7 +83,7 @@ namespace TaiwanAgri.Tests.Helpers
 		}
 
 		[Fact]
-		public void ConvertRocRestDay_InvalidMonth13_ReturnsNull()
+		public void 月份十三超出範圍時回傳null()
 		{
 			// 月份 13 超出範圍
 			var result = DateHelper.ConvertRocRestDay(107, 13, 1);
@@ -92,7 +92,7 @@ namespace TaiwanAgri.Tests.Helpers
 		}
 
 		[Fact]
-		public void ConvertRocRestDay_InvalidMonth0_ReturnsNull()
+		public void 月份零超出範圍時回傳null()
 		{
 			// 月份 0 超出範圍
 			var result = DateHelper.ConvertRocRestDay(107, 0, 1);

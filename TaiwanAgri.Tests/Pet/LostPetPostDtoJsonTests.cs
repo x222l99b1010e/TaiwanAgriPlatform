@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using TaiwanAgri.Modules.Pet.Dtos.ApiRequests;
 using TaiwanAgri.Modules.Pet.Entities.Enums;
 
@@ -15,7 +15,7 @@ namespace TaiwanAgri.Tests.Pet
 	public class LostPetPostDtoJsonTests
 	{
 		[Fact]
-		public void UpdateLostPetPostRequestDto_DeserializesStatusFromStringName()
+		public void 狀態以字串名稱反序列化而非數字()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 模擬前端實際會送出的 request body：Status 是可讀字串，不是數字
@@ -48,7 +48,7 @@ namespace TaiwanAgri.Tests.Pet
 		[InlineData("Searching", LostPetPostStatus.Searching)]
 		[InlineData("Found", LostPetPostStatus.Found)]
 		[InlineData("Withdrawn", LostPetPostStatus.Withdrawn)]
-		public void UpdateLostPetPostRequestDto_DeserializesEachStatusValue(string statusName, LostPetPostStatus expected)
+		public void 每一個狀態值都能正確反序列化(string statusName, LostPetPostStatus expected)
 		{
 			var json = $$"""{"title":"t","description":"d","status":"{{statusName}}"}""";
 			var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };

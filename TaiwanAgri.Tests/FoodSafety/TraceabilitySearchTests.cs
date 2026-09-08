@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -66,7 +66,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		[InlineData("12345", "10000")]
 		[InlineData("1234", "0000")]                   // 恰好 4 位：全歸零
 		[InlineData("123", "123")]                     // 不足 4 位：原樣回傳
-		public void NormalizeTracenoStart_ZeroesLastFourDigits(string traceCode, string expected)
+		public void 追溯號起點正規化要把末四碼歸零(string traceCode, string expected)
 		{
 			Assert.Equal(expected, TraceabilityService.NormalizeTracenoStart(traceCode));
 		}
@@ -74,7 +74,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		// ── 區間包含比對 ────────────────────────────────────────────────────
 
 		[Fact]
-		public async Task SearchTraceability_EggBatchContainsCode_ReturnsThatBatch()
+		public async Task 雞蛋批次涵蓋該追溯碼時回傳該批次()
 		{
 			// Arrange：兩個批次，traceCode 只落在第二個批次的區間內
 			var handler = new RouteHandler();
@@ -104,7 +104,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task SearchTraceability_CodeOutsideAllBatches_ReturnsNullEgg()
+		public async Task 追溯碼落在所有批次之外時雞蛋結果為null()
 		{
 			// Arrange：批次區間都在 traceCode 之前
 			var handler = new RouteHandler();
@@ -129,7 +129,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		// ── SafeFetch 容錯隔離 ──────────────────────────────────────────────
 
 		[Fact]
-		public async Task SearchTraceability_OneSourceFails_OthersStillReturned()
+		public async Task 單一來源失敗時其餘來源仍要回傳()
 		{
 			// Arrange：農產品 API 回 500，其餘正常
 			var handler = new RouteHandler();
@@ -156,7 +156,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task SearchTraceability_AgriProduct_FiltersByExactTraceCode()
+		public async Task 農產品以追溯碼完全相等比對()
 		{
 			// Arrange：API 回傳兩筆，只有一筆的 TraceCode 精確等於查詢碼
 			var handler = new RouteHandler();
