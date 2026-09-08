@@ -1,13 +1,21 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.Market.Constants;
 using TaiwanAgri.Modules.Market.Services;
+using TaiwanAgri.Web.Extensions;
 
 namespace TaiwanAgri.Web.Controllers
 {
+	/// <summary>
+	/// 行情查詢。整個控制器免登入（資料本身公開），因此套上速率限制——
+	/// 掛在類別上而不是逐支端點：新增端點時忘了加的那一支不會有任何訊號，
+	/// 它只是安靜地沒有防護
+	/// </summary>
 	[Route("api/[controller]")]
 	[ApiController]
+	[EnableRateLimiting(RateLimitingExtensions.PublicQueryPolicy)]
 	public class MarketController : ControllerBase
 	{
 		private const string InvalidMarketTypeMessage = "marketType 必須為 Veg、Fruit 或 Flower";
@@ -18,6 +26,16 @@ namespace TaiwanAgri.Web.Controllers
 			_marketService = marketService;
 			_options = options.Value;
 		}
+
+		/// <summary>
+		/// 日期區間的界限檢查，通過回傳 null。五支端點共用，
+		/// 逐支重抄一次的話漏掉其中一支不會有任何訊號——沒有界限的端點看起來就跟正常端點一樣
+		/// </summary>
+		private BadRequestObjectResult? ValidateDateRange(DateOnly? start, DateOnly? end)
+			=> DateHelper.ValidateRange(start, end, _options.MaxQueryRangeDays) is { } error
+				? BadRequest(error)
+				: null;
+
 		[HttpGet("pork")]
 		public async Task<IActionResult> GetPork(
 			[FromQuery] string? marketName = null,
@@ -28,6 +46,8 @@ namespace TaiwanAgri.Web.Controllers
 			var end = DateHelper.ParseIsoDate(endDate);
 			if (startDate != null && start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
 			if (endDate != null && end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
+			if (ValidateDateRange(start, end) is { } rangeError) return rangeError;
+
 			var result = await _marketService.GetPorkAsync(marketName, start, end, cancellationToken);
 			return Ok(result);
 		}
@@ -50,6 +70,8 @@ namespace TaiwanAgri.Web.Controllers
 			var end = DateHelper.ParseIsoDate(endDate);
 			if (startDate != null && start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
 			if (endDate != null && end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
+
+			if (ValidateDateRange(start, end) is { } rangeError) return rangeError;
 
 			var result = await _marketService.GetPoultryAsync(metricCodes, start, end, cancellationToken);
 			return Ok(result);
@@ -82,6 +104,8 @@ namespace TaiwanAgri.Web.Controllers
 
 			if (start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
 			if (end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
+
+			if (ValidateDateRange(start, end) is { } rangeError) return rangeError;
 
 			var result = await _marketService.GetRestDaysAsync(marketCode, start.Value, end.Value, cancellationToken);
 			return Ok(result);
@@ -118,6 +142,8 @@ namespace TaiwanAgri.Web.Controllers
 			if (start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
 			if (end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
 
+			if (ValidateDateRange(start, end) is { } rangeError) return rangeError;
+
 			var (items, isTruncated) = await _marketService.GetDisastersAsync(counties, start.Value, end.Value, cancellationToken);
 
 			// 結果被上限截斷時要讓呼叫端知道：截斷的清單看起來完整、實際殘缺
@@ -153,6 +179,8 @@ namespace TaiwanAgri.Web.Controllers
 
 			if (startDate != null && start == null) return BadRequest("開始日期 格式錯誤，請使用 yyyy-MM-dd");
 			if (endDate != null && end == null) return BadRequest("結束日期 格式錯誤，請使用 yyyy-MM-dd");
+
+			if (ValidateDateRange(start, end) is { } rangeError) return rangeError;
 
 			var result = await _marketService.GetPricesAsync(marketType, cropCodes, marketCode, start, end, cancellationToken);
 			return Ok(result);

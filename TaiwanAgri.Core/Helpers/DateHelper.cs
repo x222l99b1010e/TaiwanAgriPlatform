@@ -171,5 +171,37 @@ namespace TaiwanAgri.Core.Helpers
 			try { return new DateOnly(rocYear + 1911, month, day); }
 			catch { return null; }
 		}
+
+		/// <summary>
+		/// 查詢區間的預設天數上限。三年——行情資料自 2014 年起約十二年，
+		/// 三年擋得掉「一個請求掃完整張表」，又留得下前端預設的一年區間再往外拉的空間。
+		/// 呼叫端可以傳入自己的上限覆寫這個值
+		/// </summary>
+		public const int DefaultMaxRangeDays = 1096;
+
+		/// <summary>
+		/// 驗證日期區間，通過回傳 null、不通過回傳可直接當作 400 內容的訊息。
+		/// <para>
+		/// 兩件事：起日不得晚於迄日、區間長度不得超過上限。任一端為 null 代表沒有指定，
+		/// 兩端都要有值才構成一個可以檢查的區間。
+		/// </para>
+		/// <para>
+		/// 上限的用途不是業務規則而是防止單一請求掃全表——沒有它的話，
+		/// 一組 1900 到 2100 的參數就是一次全表掃描，而且這種請求在存取紀錄裡
+		/// 跟正常查詢長得一模一樣。這也是為什麼檢查要在後端：前端的日期選擇器
+		/// 擋得住手動操作，擋不住直接打 API
+		/// </para>
+		/// </summary>
+		public static string? ValidateRange(DateOnly? start, DateOnly? end, int maxRangeDays = DefaultMaxRangeDays)
+		{
+			if (start == null || end == null) return null;
+			if (start > end) return "開始日期不得晚於結束日期";
+
+			// 兩端都含在區間內，所以同一天的區間長度算 1 天
+			var days = end.Value.DayNumber - start.Value.DayNumber + 1;
+			return days > maxRangeDays
+				? $"查詢區間不得超過 {maxRangeDays} 天，目前為 {days} 天"
+				: null;
+		}
 	}
 }
