@@ -473,9 +473,10 @@ cd TaiwanAgriPlatform
 
 ```env
 SA_PASSWORD=你的密碼
-REDIS_PASSWORD=
-MOA_API_KEY=你的api_key
 ```
+
+> `.env` 只有這一個值。`docker-compose.yml` 用它設定 SQL Server 的 sa 密碼，
+> 其餘連線字串與金鑰都走 `appsettings.Development.json`。
 
 應用程式設定則從版控裡的兩份範本複製：
 
