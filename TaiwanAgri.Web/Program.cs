@@ -25,6 +25,7 @@ namespace TaiwanAgri.Web
 			builder.Services.AddUserModule(builder.Configuration);
 			builder.Services.AddFoodSafetyModule(builder.Configuration);
 			builder.Services.AddPetModule(builder.Configuration);
+			builder.Services.AddPublicQueryRateLimiting(builder.Configuration);
 
 			var app = builder.Build();
 
@@ -75,6 +76,9 @@ namespace TaiwanAgri.Web
 			app.UseCors(Extensions.InfrastructureExtensions.FrontendCorsPolicy);
 			app.UseAuthentication(); // 既然有 Identity，這行通常要加在 Authorization 之前
 			app.UseAuthorization();
+			// 放在 Authorization 之後：被限流擋下的請求已經確認過身分，
+			// 日後若要改成「登入者額度較高」，分割鍵拿得到使用者
+			app.UseRateLimiter();
 			app.MapControllers();
 
 			app.Run();
