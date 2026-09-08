@@ -15,7 +15,7 @@ namespace TaiwanAgri.Tests.Helpers
 		[InlineData("107.07.15", 2018, 7, 15)]
 		// 前後有空白仍應解析成功
 		[InlineData(" 103/01/01 ", 2014, 1, 1)]
-		public void ParseRocSeparatedDate_合法輸入_回傳正確西元日期(string input, int year, int month, int day)
+		public void 分隔符不固定的民國日期解析為西元日期(string input, int year, int month, int day)
 		{
 			var result = DateHelper.ParseRocSeparatedDate(input);
 
@@ -34,7 +34,7 @@ namespace TaiwanAgri.Tests.Helpers
 		[InlineData("000-01-01")]   // 民國 0 年不存在
 		[InlineData("107-02-30")]   // 2 月沒有 30 日
 		[InlineData("107-13-01")]   // 月份超出範圍
-		public void ParseRocSeparatedDate_無法解析的輸入_回傳null且不拋例外(string? input)
+		public void 分隔符不固定的無效輸入回傳null而不拋例外(string? input)
 		{
 			// 外部資料每筆都要套用，單筆解析失敗不能中斷整批（欄位級容忍）
 			Assert.Null(DateHelper.ParseRocSeparatedDate(input));

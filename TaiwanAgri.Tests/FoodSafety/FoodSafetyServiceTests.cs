@@ -297,7 +297,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task GetViolationsAsync_近N天邊界_以台灣時區日界計算()
+		public async Task 違規查詢的近N天邊界以台灣時區日界計算()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// UTC 2026-07-10 18:00 = 台灣 2026-07-11 02:00（已跨日）：
