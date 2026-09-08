@@ -13,7 +13,7 @@ namespace TaiwanAgri.Tests.Watchlist
 	public class WatchlistControllerTests
 	{
 		[Fact]
-		public async Task GetWatchlistItems_EmptyList_ReturnsEmptyResult()
+		public async Task 監看清單為空時回傳空結果()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：監看清單是空的，應該直接回傳空清單，不呼叫 MarketService
@@ -68,7 +68,7 @@ namespace TaiwanAgri.Tests.Watchlist
 		}
 
 		[Fact]
-		public async Task GetWatchlistItems_WithOneItem_ReturnsEnrichedDto()
+		public async Task 監看項目要補上最新價格再回傳()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：監看清單有一筆，應該去查價格並組合出完整的 WatchlistEnrichedItemDto

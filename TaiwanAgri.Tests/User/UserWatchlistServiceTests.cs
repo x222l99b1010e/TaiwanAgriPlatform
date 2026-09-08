@@ -9,7 +9,7 @@ namespace TaiwanAgri.Tests.User
 	public class UserWatchlistServiceTests
 	{
 		[Fact]
-		public async Task AddWatchlistItemAsync_DuplicateItem_ReturnsFalse()
+		public async Task 重複加入同一項目時回傳失敗()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：模擬「DB 裡已有一筆監看項目，再新增同一筆」的情境
@@ -71,7 +71,7 @@ namespace TaiwanAgri.Tests.User
 		}
 
 		[Fact]
-		public async Task AddWatchlistItemAsync_NewItem_ReturnsTrue()
+		public async Task 加入新項目時回傳成功()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：模擬「DB 是空的，新增一筆全新的監看項目」的情境

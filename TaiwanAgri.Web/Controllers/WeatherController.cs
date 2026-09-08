@@ -43,6 +43,13 @@ namespace TaiwanAgri.Web.Controllers
 				return BadRequest("endDate 格式錯誤，請使用 yyyy-MM-dd");
 			}
 
+			// 雨量觀測每十分鐘一筆，密度比行情資料高一個數量級，
+			// 所以區間無上限時單一請求能撈到的量也更大
+			if (DateHelper.ValidateRange(start, end) is { } rangeError)
+			{
+				return BadRequest(rangeError);
+			}
+
 			var result = await _weatherService.GetRainfallByCityAsync(cityName, start, end, cancellationToken);
 
 			return Ok(result);

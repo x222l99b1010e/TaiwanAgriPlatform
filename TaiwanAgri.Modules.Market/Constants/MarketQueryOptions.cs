@@ -1,3 +1,5 @@
+using TaiwanAgri.Core.Helpers;
+
 namespace TaiwanAgri.Modules.Market.Constants
 {
 	/// <summary>
@@ -20,5 +22,11 @@ namespace TaiwanAgri.Modules.Market.Constants
 
 		/// <summary>監看清單單次最多刪幾筆</summary>
 		public int WatchlistDeleteMaxCount { get; set; } = 50;
+
+		/// <summary>
+		/// 行情查詢的日期區間上限（天）。預設沿用 DateHelper 的跨模組預設值，
+		/// 需要為行情端點單獨放寬或收緊時才在設定檔覆寫
+		/// </summary>
+		public int MaxQueryRangeDays { get; set; } = DateHelper.DefaultMaxRangeDays;
 	}
 }

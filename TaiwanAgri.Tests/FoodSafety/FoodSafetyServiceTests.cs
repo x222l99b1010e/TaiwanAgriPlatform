@@ -11,7 +11,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 	public class FoodSafetyServiceTests
 	{
 		[Fact]
-		public async Task GetOrganicCertificationsAsync_NoFilters_ReturnsAllPaged()
+		public async Task 有機驗證不帶篩選條件時回傳全部並分頁()
 		{
 			// ── Arrange ──────────────────────────────────────────
 
@@ -122,7 +122,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task GetOrganicCertificationsAsync_FilterByOperatorName_ReturnsMatchedOnly()
+		public async Task 有機驗證依業者名稱篩選只回傳符合的()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var options = new DbContextOptionsBuilder<FoodSafetyDbContext>()
@@ -153,7 +153,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task GetOrganicCertificationsAsync_MultipleFilters_AppliesAndLogic()
+		public async Task 有機驗證的多個篩選條件之間是且的關係()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var options = new DbContextOptionsBuilder<FoodSafetyDbContext>()
@@ -193,7 +193,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task GetOrganicCertificationsAsync_ProductKeyword_MatchesProductsOrProductScope()
+		public async Task 產品關鍵字要同時比對品項與驗證範圍()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var options = new DbContextOptionsBuilder<FoodSafetyDbContext>()
@@ -253,7 +253,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task GetViolationsAsync_EmptyOrWhitespaceInspectResult_IgnoresFilter()
+		public async Task 檢驗結果為空白時忽略該篩選條件()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var dbContext = CreateViolationDb("TestDb_EmptyInspectResult_GetViolations");
@@ -272,7 +272,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task GetViolationsAsync_InspectResultFilter_ReturnsMatchedOnly()
+		public async Task 依檢驗結果篩選只回傳符合的()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var dbContext = CreateViolationDb("TestDb_FilterInspectResult_GetViolations");
@@ -297,7 +297,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 		}
 
 		[Fact]
-		public async Task GetViolationsAsync_近N天邊界_以台灣時區日界計算()
+		public async Task 違規查詢的近N天邊界以台灣時區日界計算()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// UTC 2026-07-10 18:00 = 台灣 2026-07-11 02:00（已跨日）：

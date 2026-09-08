@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TaiwanAgri.Modules.Pet.Data;
 using TaiwanAgri.Modules.Pet.Dtos.ApiRequests;
 using TaiwanAgri.Modules.Pet.Dtos.Queries;
@@ -19,7 +19,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalSummaryAsync_FilterByCounty_ReturnsOnlyThatCountyWithPerKindBreakdown()
+		public async Task 收容統計依縣市篩選並附各物種細分()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：驗證縣市篩選能透過 Shelter 導覽屬性正確運作（ShelterAnimal 本身沒有 County 欄位），
@@ -61,7 +61,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalSummaryAsync_FilterByKind_ExcludesSheltersWithNoMatchingAnimals()
+		public async Task 收容統計依物種篩選時排除沒有該物種的收容所()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：篩選種類時聚合數字要跟著變（地圖篩選列的硬需求）；篩選後某收容所完全沒有
@@ -97,7 +97,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalByIdAsync_ExistingId_ReturnsMappedDtoWithShelterInfo()
+		public async Task 查詢存在的收容動物要一併帶出收容所資訊()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：動物詳情頁用的單筆查詢——驗證 Include(Shelter) 帶出的展示欄位（名稱/地址/縣市/座標）
@@ -129,7 +129,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalByIdAsync_UnknownId_ReturnsNull()
+		public async Task 查詢不存在的收容動物回傳null()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var options = new DbContextOptionsBuilder<PetDbContext>()
@@ -146,7 +146,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalsByShelterAsync_FiltersByShelterAndPaginates_ReturnsOnlyThatShelterInIdOrder()
+		public async Task 依收容所篩選並分頁且維持編號順序()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：驗證收容所詳情頁的下鑽端點——①只回傳指定 ShelterPkId 的動物，不含其他收容所；
@@ -195,7 +195,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalsByShelterAsync_NoSortSpecified_DefaultsToCreatedTimeDescending()
+		public async Task 收容動物未指定排序時預設依建檔時間由新到舊()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：釘住「沒帶排序參數時＝依拾獲時間新到舊」這個預設行為，跟其他分頁端點的
@@ -226,7 +226,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalsByShelterAsync_FilterByKindAndSexAndSortByAnimalSubId_ReturnsOnlyMatchingInOrder()
+		public async Task 收容動物同時依物種與性別篩選並依動物編號排序()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：收容所詳情頁改版加的 Kind/Sex 篩選＋排序（比照
@@ -265,7 +265,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetShelterAnimalsByShelterAsync_UnknownShelterId_ReturnsEmptyPageNotError()
+		public async Task 收容所編號不存在時回空分頁而不是錯誤()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：分享連結指向的收容所可能已無在養動物（或 id 打錯），端點不應丟例外或回 404，
@@ -286,7 +286,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetLegalSpecificPetsAsync_FilterByAnimalTypeRankGradeStateFlagAndBusinessItem_ReturnsOnlyMatching()
+		public async Task 特定寵物業者四個篩選條件要同時生效()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：驗證前端串接時補上的四個篩選條件（動物類型／評鑑等級／營業狀態／業務項目）
@@ -336,7 +336,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetLegalSpecificPetsAsync_SortByPermitValidDateDescending_OrdersNewestExpiryFirst()
+		public async Task 特定寵物業者依許可證有效日期由新到舊排序()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：驗證排序取代「是否過期」布林篩選的設計
@@ -369,7 +369,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetOfficialLostPetPostsAsync_FilterByCategoryAndSex_ReturnsOnlyMatching()
+		public async Task 官方走失啟事依類別與性別篩選()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var options = new DbContextOptionsBuilder<PetDbContext>()
@@ -399,7 +399,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetOfficialLostPetPostsAsync_NoSortSpecified_DefaultsToLostTimeDescending()
+		public async Task 官方走失啟事未指定排序時依走失時間由新到舊()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：釘住「沒帶排序參數時行為不變」——這是既有呼叫端（若有）不該被這次改動影響的保證
@@ -426,7 +426,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetLostPetPostsAsync_SortByUpdatedAtAscending_OrdersOldestUpdateFirst()
+		public async Task 使用者走失啟事可依更新時間由舊到新排序()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：驗證 LostPetPost 新增的排序選項（依更新時間，這張表沒有動物種類可篩選，
@@ -457,7 +457,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetLostPetPostsAsync_OnlyMineTrue_ReturnsOnlyCallersOwnPosts()
+		public async Task 只看自己時僅回傳呼叫者自己的啟事()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：個人管理頁用的 OnlyMine 篩選——只回傳 currentUserId 自己的貼文，
@@ -486,7 +486,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetLostPetPostsAsync_OnlyMineTrueWithoutUserId_ReturnsEmpty()
+		public async Task 只看自己但沒有使用者身分時回傳空清單()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：Controller 已經會用 401 擋掉「OnlyMine 但沒登入」這個情境，這裡驗證
@@ -510,7 +510,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task UpdateLostPetPostAsync_WrongUser_ReturnsFalseAndDoesNotModify()
+		public async Task 非本人更新啟事要失敗且不得改動資料()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：驗證「不是自己的貼文」無法被 Update——這是防越權的核心邏輯，
@@ -550,7 +550,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task DeleteLostPetPostAsync_WrongUser_ReturnsFalseAndDoesNotDelete()
+		public async Task 非本人刪除啟事要失敗且不得刪除資料()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var options = new DbContextOptionsBuilder<PetDbContext>()
@@ -573,7 +573,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task CreateLostPetPostAsync_SetsDefaultStatusSearchingAndTimestampsFromTimeProvider()
+		public async Task 新建啟事預設為尋找中且時間戳取自TimeProvider()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：新建貼文一律從 Searching 開始（使用者不能一開始就送出 Found/Withdrawn），
@@ -605,7 +605,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task GetLostPetPostsAsync_IsOwnerFlag_TrueForOwnerFalseForOthersAndGuests()
+		public async Task 本人旗標對自己為真對他人與訪客為假()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			// 目標：釘住前端串接時修正的設計缺口——同一筆資料，帶自己的 userId 查
@@ -644,7 +644,7 @@ namespace TaiwanAgri.Tests.Pet
 		}
 
 		[Fact]
-		public async Task UpdateLostPetPostAsync_OwnPost_UpdatesFieldsAndBumpsUpdatedAt()
+		public async Task 本人更新自己的啟事要改欄位並推進更新時間()
 		{
 			// ── Arrange ──────────────────────────────────────────
 			var options = new DbContextOptionsBuilder<PetDbContext>()
