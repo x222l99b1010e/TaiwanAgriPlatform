@@ -14,6 +14,10 @@ namespace TaiwanAgri.Web.Extensions
 
 			services.AddScoped<IWeatherService, WeatherService>();
 			services.AddScoped<IPestService, PestService>();
+			// 通知與規則是同一條線上的兩支服務，註冊在同一個模組擴充方法裡：
+			// 讀通知的 INotificationService 原本註冊在 CoreModuleExtensions，
+			// 那讓「核心」那支檔案得為了一行 using 進 Weather 模組的命名空間
+			services.AddScoped<INotificationService, NotificationService>();
 			services.AddScoped<INotificationRuleService, NotificationRuleService>();
 			// 規則引擎在 Worker 專案也註冊了一次，因為兩者是各自獨立的組合根
 			// （Worker 不參考 Web，連 DbContext 都各註冊各的）。Web 需要它是為了「立即檢查」端點：

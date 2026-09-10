@@ -54,6 +54,20 @@ namespace TaiwanAgri.Tests.Web
 		}
 
 		/// <summary>
+		/// 讀通知的服務原本註冊在 CoreModuleExtensions，那讓「核心」那支檔案得為了一行
+		/// 而 using 進 Weather 模組的命名空間。搬到 Weather 之後由這條釘住位置——
+		/// 這個容器只組了 Weather 一個模組，搬回 Core 的話它會解析不到而變紅。
+		/// </summary>
+		[Fact]
+		public void 通知服務要能從氣象模組的註冊解析出來()
+		{
+			using var provider = BuildProvider();
+			using var scope = provider.CreateScope();
+
+			Assert.NotNull(scope.ServiceProvider.GetRequiredService<INotificationService>());
+		}
+
+		/// <summary>
 		/// 規則引擎原本只註冊在 Worker 那個組合根。「立即檢查」端點在 Web 這一側，
 		/// 少了這一行的話，規則服務會在解析時就失敗
 		/// </summary>
