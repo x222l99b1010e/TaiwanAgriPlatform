@@ -56,6 +56,13 @@
           已顯示全部通知
         </div>
       </div>
+
+      <!-- 通知是規則產生的，所以「怎麼會有／怎麼沒有通知」的答案都在規則頁。
+           沒有這個入口的話，看到「目前沒有通知」的人不會知道下一步該做什麼 -->
+      <RouterLink to="/profile/notification-rules" class="dropdown-footer" @click="isOpen = false">
+        <span class="mdi mdi-bell-cog-outline" />
+        <span>管理通知規則</span>
+      </RouterLink>
     </div>
   </div>
 </template>
@@ -231,6 +238,24 @@ onMounted(() => {
 .rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-action); }
 .item-time { font-family: var(--font-num); font-size: var(--text-2xs); color: var(--color-text-dim); white-space: nowrap; }
 .item-message { font-size: var(--text-sm); color: var(--color-text); line-height: var(--leading-normal); }
+
+/* 底部入口：跟 header 用同一條分隔線的相反方向，讓 dropdown 有明確的上下邊界 */
+.dropdown-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-sunken);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-dim);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-work);
+}
+.dropdown-footer:hover { color: var(--color-action); }
+.dropdown-footer:focus-visible { outline: 2px solid var(--color-action); outline-offset: -2px; }
 
 /* 提示文字 */
 .hint {
