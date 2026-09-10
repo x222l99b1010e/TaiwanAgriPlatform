@@ -4,6 +4,7 @@
 import type {
   NotificationComparison,
   NotificationMetricName,
+  NotificationRuleRequest,
   NotificationRuleType,
   NotificationSourceTable,
   RuleEvaluationDto,
@@ -106,6 +107,76 @@ export function ruleConditionSummary(rule: {
   }
 
   return parts.join('｜')
+}
+
+/**
+ * 數字輸入框的狀態型別。
+ *
+ * `<input type="number">` 搭 `v-model` 時 Vue 會**自動**套用 `.number`（不必自己寫修飾詞），
+ * 所以有值時綁回來的是 `number`、清空時是空字串——`number | ''` 這兩個成員就是全部的執行期狀態。
+ * ⚠ 不要為了好寫而宣告成 `string` 或 `number`：任一種都會讓 `vue-tsc` 看著一個假的型別放行，
+ * 而錯誤要等使用者按下送出才在瀏覽器裡炸出來（實例：宣告成 `string` 時 `.trim()` 編譯得過、執行必炸）。
+ */
+export type NumberInput = number | ''
+
+/** 規則表單的完整狀態。放在這裡而不是元件內，驗證與組請求才能當純函式測。 */
+export interface RuleFormState {
+  ruleName: string
+  ruleType: NotificationRuleType
+  filterCity: string
+  filterPlantName: string
+  filterDateFrom: string
+  metricName: NotificationMetricName
+  comparison: NotificationComparison
+  thresholdInput: NumberInput
+  expiryDaysInput: NumberInput
+  isActive: boolean
+}
+
+/**
+ * 送出前的檢查只管使用者體驗，不算防護——真正的界限在後端，繞過畫面直接打 API 一樣會被擋。
+ * 這裡先擋是為了讓「門檻沒填」「小數點太多位」當場講出來，而不是送一趟才知道。
+ * 回空字串代表通過。
+ */
+export function validateRuleForm(form: RuleFormState): string {
+  if (form.ruleName.trim() === '') return '規則名稱必填'
+
+  if (form.ruleType !== 'Numeric') return ''
+
+  if (form.thresholdInput === '') return '數值門檻規則必須填門檻值'
+
+  const threshold = form.thresholdInput
+  // 輸入框擋得住字母，但擋不住 `1e999`——那個 parseFloat 出來是 Infinity，不是 NaN
+  if (!Number.isFinite(threshold)) return '門檻值必須是數字'
+  if (threshold < RULE_LIMITS.thresholdMin || threshold > RULE_LIMITS.thresholdMax) {
+    return `門檻值必須介於 ${RULE_LIMITS.thresholdMin} 與 ${RULE_LIMITS.thresholdMax} 之間`
+  }
+  if (!hasAllowedThresholdPrecision(threshold)) {
+    return `門檻值只收到小數點後 ${RULE_LIMITS.thresholdDecimals} 位`
+  }
+  return ''
+}
+
+/**
+ * 表單狀態組成送出的請求。
+ * 另一個型態專用的欄位一律送 null——後端本來就會清空，前端先送對的形狀可以少一次「這欄怎麼有值」的疑惑。
+ * 保留天數留空時送 null，代表沿用後端依型態決定的預設值，而不是 0。
+ */
+export function buildRuleRequest(form: RuleFormState): NotificationRuleRequest {
+  const numeric = form.ruleType === 'Numeric'
+  return {
+    ruleName: form.ruleName.trim(),
+    ruleType: form.ruleType,
+    sourceTable: SOURCE_TABLE_BY_RULE_TYPE[form.ruleType],
+    isActive: form.isActive,
+    expiryDays: form.expiryDaysInput === '' ? null : form.expiryDaysInput,
+    filterCity: form.filterCity === '' ? null : form.filterCity,
+    filterPlantName: numeric ? null : form.filterPlantName.trim() || null,
+    filterDateFrom: numeric ? null : form.filterDateFrom || null,
+    metricName: numeric ? form.metricName : null,
+    comparison: numeric ? form.comparison : null,
+    threshold: numeric && form.thresholdInput !== '' ? form.thresholdInput : null,
+  }
 }
 
 export type EvaluationTone = 'info' | 'success' | 'warning'

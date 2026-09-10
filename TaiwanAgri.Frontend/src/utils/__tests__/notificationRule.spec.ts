@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildRuleRequest,
   describeEvaluationOutcome,
   hasAllowedThresholdPrecision,
   ruleConditionSummary,
+  validateRuleForm,
 } from '../notificationRule'
+import type { RuleFormState } from '../notificationRule'
 import type { RuleEvaluationDto } from '@/api/notificationRule'
 
 const NOW = new Date('2026-09-10T12:00:00Z')
@@ -121,5 +124,117 @@ describe('ruleConditionSummary', () => {
       threshold: null,
     })
     expect(summary).toBe('不限縣市｜不限作物')
+  })
+})
+
+/**
+ * 這一組守的是「表單狀態的型別要跟執行期一致」。
+ *
+ * `<input type="number">` 搭 `v-model` 時 Vue 會自動套用 `.number`，所以使用者一打字，
+ * 門檻與保留天數在狀態裡就是 `number` 而不是字串。前一版把它們宣告成 `string` 並呼叫
+ * `.trim()`，型別檢查因為宣告本身在說謊而放行，按下「建立規則」才在瀏覽器裡拋
+ * `TypeError: trim is not a function`——**畫面完全建不出規則**。
+ *
+ * 這裡一律用數字餵進去，就是在重現瀏覽器真正給的形狀。
+ */
+function numericForm(overrides: Partial<RuleFormState> = {}): RuleFormState {
+  return {
+    ruleName: '果園高溫警戒',
+    ruleType: 'Numeric',
+    filterCity: '臺中市',
+    filterPlantName: '',
+    filterDateFrom: '',
+    metricName: 'Temperature',
+    comparison: 'GreaterThan',
+    thresholdInput: 32,
+    expiryDaysInput: 7,
+    isActive: true,
+    ...overrides,
+  }
+}
+
+describe('validateRuleForm', () => {
+  it('門檻是數字（輸入框真正給的形狀）時通過，不因為型別而爆炸', () => {
+    expect(validateRuleForm(numericForm())).toBe('')
+  })
+
+  it('小數門檻照樣通過', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: 32.5 }))).toBe('')
+  })
+
+  it('規則名稱只有空白算沒填', () => {
+    expect(validateRuleForm(numericForm({ ruleName: '   ' }))).toBe('規則名稱必填')
+  })
+
+  it('數值型沒填門檻要擋下來', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: '' }))).toContain('必須填門檻值')
+  })
+
+  it('事件型不必填門檻', () => {
+    const form = numericForm({ ruleType: 'Event', thresholdInput: '' })
+    expect(validateRuleForm(form)).toBe('')
+  })
+
+  it('小數點超過一位要擋下來', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: 32.55 }))).toContain('小數點後 1 位')
+  })
+
+  it('超出上下限要擋下來', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: 1000 }))).toContain('必須介於')
+  })
+
+  it('Infinity 要擋下來——輸入框擋得住字母，擋不住 1e999', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: Infinity }))).toBe('門檻值必須是數字')
+  })
+})
+
+describe('buildRuleRequest', () => {
+  it('數值型：門檻與保留天數送出去仍是數字，另一型態的欄位一律 null', () => {
+    const payload = buildRuleRequest(numericForm())
+    expect(payload).toMatchObject({
+      ruleType: 'Numeric',
+      sourceTable: 'WeatherObservation',
+      threshold: 32,
+      expiryDays: 7,
+      metricName: 'Temperature',
+      comparison: 'GreaterThan',
+      filterCity: '臺中市',
+      filterPlantName: null,
+      filterDateFrom: null,
+    })
+  })
+
+  it('保留天數留空送 null 而不是 0——0 會讓通知一產生就過期', () => {
+    expect(buildRuleRequest(numericForm({ expiryDaysInput: '' })).expiryDays).toBeNull()
+  })
+
+  it('縣市留空送 null，代表不限縣市', () => {
+    expect(buildRuleRequest(numericForm({ filterCity: '' })).filterCity).toBeNull()
+  })
+
+  it('事件型：來源自動配成植物疫情，數值型那組欄位一律 null', () => {
+    const payload = buildRuleRequest(
+      numericForm({
+        ruleType: 'Event',
+        filterPlantName: ' 檸檬 ',
+        filterDateFrom: '2026-06-12',
+        thresholdInput: 32,
+        expiryDaysInput: 30,
+      }),
+    )
+    expect(payload).toMatchObject({
+      ruleType: 'Event',
+      sourceTable: 'PlantEpidemic',
+      threshold: null,
+      metricName: null,
+      comparison: null,
+      filterPlantName: '檸檬',
+      filterDateFrom: '2026-06-12',
+      expiryDays: 30,
+    })
+  })
+
+  it('規則名稱前後空白要修掉再送', () => {
+    expect(buildRuleRequest(numericForm({ ruleName: '  果園  ' })).ruleName).toBe('果園')
   })
 })

@@ -166,7 +166,9 @@ const store = useFoodSafetyStore()
 // ─── 篩選狀態 ───────────────────────────────────────────────
 const daysMode = ref<'preset' | 'custom'>('preset')
 const selectedDays = ref(90)
-const customDaysInput = ref<number | null>(null)
+// `<input type="number">` 綁 v-model 時，有值綁回來的是 number、清空是空字串，
+// 所以型別要寫成 `number | ''`——宣告成 `number | null` 會讓型別檢查看著一個假型別放行
+const customDaysInput = ref<number | ''>('')
 
 const selectedResult = ref<string | undefined>(undefined)
 const resultOptions: { label: string; value: string | undefined }[] = [
@@ -217,7 +219,7 @@ function resolveDays(): number {
 function selectPresetDays(d: number) {
   daysMode.value = 'preset'
   selectedDays.value = d
-  customDaysInput.value = null
+  customDaysInput.value = ''
   // 點預設按鈕視為一次明確的查詢動作
   triggerSearch()
 }

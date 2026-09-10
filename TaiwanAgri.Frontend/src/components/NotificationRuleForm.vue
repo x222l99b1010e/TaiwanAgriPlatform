@@ -160,17 +160,12 @@ import {
   METRIC_OPTIONS,
   RULE_LIMITS,
   RULE_TYPE_OPTIONS,
-  SOURCE_TABLE_BY_RULE_TYPE,
-  hasAllowedThresholdPrecision,
+  buildRuleRequest,
   metricUnit,
+  validateRuleForm,
 } from '@/utils/notificationRule'
-import type {
-  NotificationComparison,
-  NotificationMetricName,
-  NotificationRuleDto,
-  NotificationRuleRequest,
-  NotificationRuleType,
-} from '@/api/notificationRule'
+import type { RuleFormState } from '@/utils/notificationRule'
+import type { NotificationRuleDto } from '@/api/notificationRule'
 
 const props = defineProps<{
   /** null＝新增模式；帶入現有規則＝編輯模式，欄位用它的值預填 */
@@ -184,24 +179,10 @@ const formId = useId()
 const panelRef = ref<HTMLElement | null>(null)
 const formError = ref('')
 
-interface FormState {
-  ruleName: string
-  ruleType: NotificationRuleType
-  filterCity: string
-  filterPlantName: string
-  filterDateFrom: string
-  metricName: NotificationMetricName
-  comparison: NotificationComparison
-  /** 數字輸入框留成字串：v-model.number 在清空時會給空字串，宣告成 number 是騙自己 */
-  thresholdInput: string
-  expiryDaysInput: string
-  isActive: boolean
-}
-
 /** 事件型的起始日預設「今天往前 90 天」，使用者可以自己改 */
 const defaultDateFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
 
-function toFormState(rule: NotificationRuleDto | null): FormState {
+function toFormState(rule: NotificationRuleDto | null): RuleFormState {
   if (rule === null) {
     return {
       ruleName: '',
@@ -216,6 +197,7 @@ function toFormState(rule: NotificationRuleDto | null): FormState {
       isActive: true,
     }
   }
+  // 編輯模式：後端回來的是數字，直接放進去；null 對應到輸入框的「空的」＝空字串
   return {
     ruleName: rule.ruleName,
     ruleType: rule.ruleType,
@@ -224,15 +206,15 @@ function toFormState(rule: NotificationRuleDto | null): FormState {
     filterDateFrom: rule.filterDateFrom ?? '',
     metricName: rule.metricName ?? 'Temperature',
     comparison: rule.comparison ?? 'GreaterThan',
-    thresholdInput: rule.threshold === null ? '' : String(rule.threshold),
-    expiryDaysInput: String(rule.expiryDays),
+    thresholdInput: rule.threshold ?? '',
+    expiryDaysInput: rule.expiryDays,
     isActive: rule.isActive,
   }
 }
 
 // 呼叫端的慣例是「開表單時掛一個新實例、關閉時整個卸載」，所以直接用當下的 prop 初始化，
 // 不需要 watch 同步 prop 的變化
-const form = reactive<FormState>(toFormState(props.rule))
+const form = reactive<RuleFormState>(toFormState(props.rule))
 
 const isNumeric = computed(() => form.ruleType === 'Numeric')
 const currentUnit = computed(() => metricUnit(form.metricName))
@@ -250,8 +232,7 @@ watch(
   () => form.ruleType,
   ruleType => {
     const max = RULE_LIMITS.expiryDaysByRuleType[ruleType].max
-    const current = Number(form.expiryDaysInput)
-    if (form.expiryDaysInput !== '' && Number.isFinite(current) && current > max) {
+    if (form.expiryDaysInput !== '' && form.expiryDaysInput > max) {
       form.expiryDaysInput = ''
     }
   },
@@ -261,48 +242,14 @@ onMounted(() => {
   nextTick(() => panelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 })
 
-/**
- * 送出前的檢查只管使用者體驗，不算防護——真正的界限在後端，繞過畫面直接打 API 一樣會被擋。
- * 這裡先擋是為了讓「門檻沒填」「小數點太多位」當場講出來，而不是送一趟才知道。
- */
-function validate(): string {
-  if (form.ruleName.trim() === '') return '規則名稱必填'
-
-  if (!isNumeric.value) return ''
-
-  if (form.thresholdInput.trim() === '') return '數值門檻規則必須填門檻值'
-
-  const threshold = Number(form.thresholdInput)
-  if (!Number.isFinite(threshold)) return '門檻值必須是數字'
-  if (threshold < RULE_LIMITS.thresholdMin || threshold > RULE_LIMITS.thresholdMax) {
-    return `門檻值必須介於 ${RULE_LIMITS.thresholdMin} 與 ${RULE_LIMITS.thresholdMax} 之間`
-  }
-  if (!hasAllowedThresholdPrecision(threshold)) {
-    return `門檻值只收到小數點後 ${RULE_LIMITS.thresholdDecimals} 位`
-  }
-  return ''
-}
-
 async function handleSubmit() {
-  formError.value = validate()
+  // 驗證與組請求都是純函式（在 utils/notificationRule.ts），元件只負責把狀態交出去、
+  // 把結果放回畫面——這兩段留在元件裡就只能靠掛載元件才測得到，而那正是這個表單漏測的原因
+  formError.value = validateRuleForm(form)
   store.saveError = null
   if (formError.value !== '') return
 
-  const numeric = isNumeric.value
-  const payload: NotificationRuleRequest = {
-    ruleName: form.ruleName.trim(),
-    ruleType: form.ruleType,
-    // 來源由型態推出來，不讓使用者選：兩者是一對一的，配錯只會建出一條永遠不觸發的規則
-    sourceTable: SOURCE_TABLE_BY_RULE_TYPE[form.ruleType],
-    isActive: form.isActive,
-    expiryDays: form.expiryDaysInput.trim() === '' ? null : Number(form.expiryDaysInput),
-    filterCity: form.filterCity === '' ? null : form.filterCity,
-    filterPlantName: numeric ? null : form.filterPlantName.trim() || null,
-    filterDateFrom: numeric ? null : form.filterDateFrom || null,
-    metricName: numeric ? form.metricName : null,
-    comparison: numeric ? form.comparison : null,
-    threshold: numeric ? Number(form.thresholdInput) : null,
-  }
+  const payload = buildRuleRequest(form)
 
   const success =
     props.rule === null
