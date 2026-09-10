@@ -47,13 +47,19 @@ export function createHttpClient(options: { withAuth: boolean }): AxiosInstance 
   // 「載入失敗」而不會把人帶去重新登入，使用者不知道自己其實只是登入過期了。
   // 路由守衛只看 token 存在與否、不看有效性，所以要在這裡把過期的 token 清掉，
   // 守衛下一次才擋得住。
+  //
+  // ⚠ 只有「原本有 token」的 401 才導頁。沒有 token 的 401 講的是「本來就沒登入」，
+  // 不是「登入過期」——那種情況下導頁等於讓一個背景請求綁架訪客正在看的頁面：
+  // 他打開首頁、某個元件順手打了一支要登入的 API，人就被送到登入頁了。
+  // 呼叫端本來就會 catch 這個 rejection 並顯示自己的訊息，不需要這一層代為決定。
   client.interceptors.response.use(
     response => response,
     (error: unknown) => {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
+        const hadToken = localStorage.getItem(TOKEN_STORAGE_KEY) !== null
         localStorage.removeItem(TOKEN_STORAGE_KEY)
         localStorage.removeItem(USER_STORAGE_KEY)
-        onUnauthorized?.()
+        if (hadToken) onUnauthorized?.()
       }
       return Promise.reject(error)
     },
