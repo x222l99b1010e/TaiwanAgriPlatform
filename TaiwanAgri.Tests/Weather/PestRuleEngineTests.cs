@@ -34,7 +34,8 @@ namespace TaiwanAgri.Tests.Weather
 
 			var engine = new PestRuleEngine(
 				NullLogger<PestRuleEngine>.Instance,
-				provider.GetRequiredService<IServiceScopeFactory>());
+				provider.GetRequiredService<IServiceScopeFactory>(),
+				TimeProvider.System);
 
 			return (engine, () => new WeatherDbContext(
 				new DbContextOptionsBuilder<WeatherDbContext>().UseInMemoryDatabase(databaseName).Options));
