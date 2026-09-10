@@ -62,15 +62,20 @@ export interface NotificationRuleRequest {
 
 /**
  * 一次評估的結果。
- * latestObservedAt 與 hasFreshObservation 兩個欄位存在的理由是「沒有新通知」有兩種成因：
- * 條件沒命中，或是同步 Worker 沒在跑、最新觀測已經是好幾天前的。
- * 少了它們，兩種情況在畫面上長得一模一樣，使用者只能猜是不是壞了。
+ * 除了則數之外還帶四個欄位，是因為「沒有新通知」有三種成因，而使用者需要分得出來：
+ * 條件沒命中、同步 Worker 沒在跑（最新觀測已經是好幾天前的）、
+ * 以及上次檢查之後根本沒有新的觀測落地（掃描範圍是空的，門檻怎麼改都是 0 則）。
+ * 少了它們，三種情況在畫面上長得一模一樣，使用者只能猜是不是壞了。
  */
 export interface RuleEvaluationDto {
   rulesEvaluated: number
   notificationsCreated: number
   latestObservedAt: string | null
   hasFreshObservation: boolean
+  /** 實際跑過比對的數值型規則數；缺門檻或來源不合法而被跳過的不算 */
+  numericRulesEvaluated: number
+  /** 上述規則裡，這一輪真的有新觀測可以比對的（水位還沒追到最新落地時刻）規則數 */
+  numericRulesWithNewObservations: number
 }
 
 export const notificationRuleApi = {

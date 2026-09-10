@@ -120,7 +120,9 @@ namespace TaiwanAgri.Modules.Weather.Services
 				RulesEvaluated = outcome.RulesEvaluated,
 				NotificationsCreated = outcome.NotificationsCreated,
 				LatestObservedAt = outcome.LatestObservedAt,
-				HasFreshObservation = outcome.HasFreshObservation
+				HasFreshObservation = outcome.HasFreshObservation,
+				NumericRulesEvaluated = outcome.NumericRulesEvaluated,
+				NumericRulesWithNewObservations = outcome.NumericRulesWithNewObservations
 			};
 		}
 

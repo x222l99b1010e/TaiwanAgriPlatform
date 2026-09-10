@@ -41,6 +41,8 @@ describe('規則 store 的 evaluateNow', () => {
       notificationsCreated: 3,
       latestObservedAt: '2026-09-10T15:00:00',
       hasFreshObservation: true,
+      numericRulesEvaluated: 1,
+      numericRulesWithNewObservations: 1,
     })
     vi.mocked(notificationApi.getUnreadCount).mockResolvedValue({ count: 3 })
   })
@@ -72,6 +74,8 @@ describe('規則 store 的 evaluateNow', () => {
       notificationsCreated: 0,
       latestObservedAt: '2026-09-10T15:00:00',
       hasFreshObservation: true,
+      numericRulesEvaluated: 1,
+      numericRulesWithNewObservations: 1,
     })
     vi.mocked(notificationApi.getUnreadCount).mockResolvedValue({ count: 1 })
 

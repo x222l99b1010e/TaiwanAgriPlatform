@@ -4,6 +4,7 @@ import {
   describeEvaluationOutcome,
   hasAllowedThresholdPrecision,
   ruleConditionSummary,
+  ruleTimingHint,
   validateRuleForm,
 } from '../notificationRule'
 import type { RuleFormState } from '../notificationRule'
@@ -17,14 +18,16 @@ function outcome(overrides: Partial<RuleEvaluationDto> = {}): RuleEvaluationDto 
     notificationsCreated: 0,
     latestObservedAt: '2026-09-10T11:30:00Z',
     hasFreshObservation: true,
+    numericRulesEvaluated: 1,
+    numericRulesWithNewObservations: 1,
     ...overrides,
   }
 }
 
 describe('describeEvaluationOutcome', () => {
-  // 這一組守的是「沒有新通知」的三種成因不可以講成同一句話：
-  // 使用者分不出「條件沒命中」與「資料太舊」時，會一直調門檻，
-  // 而真正的原因是同步 Worker 沒在跑，調到天亮也不會有通知
+  // 這一組守的是「沒有新通知」的四種成因不可以講成同一句話：
+  // 使用者分不出「條件沒命中」與「資料太舊／沒有新資料」時，會一直調門檻，
+  // 而真正的原因是同步 Worker 沒在跑、或掃描範圍本來就是空的，調到天亮也不會有通知
   it('有新通知時說產生了幾則並指向鈴鐺', () => {
     const result = describeEvaluationOutcome(outcome({ notificationsCreated: 3 }), NOW)
     expect(result.tone).toBe('success')
@@ -57,15 +60,75 @@ describe('describeEvaluationOutcome', () => {
     expect(result.message).not.toContain('天前')
   })
 
-  it('三種空結果的訊息互不相同', () => {
+  /**
+   * 第四種空結果：規則沒問題、資料也夠新，但上次檢查之後沒有新的觀測落地。
+   * 這一種最容易被誤讀成「條件沒命中」——實測時就是這樣誤讀的：
+   * 改完條件按「立即檢查」得到 0 則，看起來像功能壞了，而正確的解讀是掃描範圍是空的。
+   */
+  it('數值型規則都沒有新觀測可比時要說是沒有新資料，不是條件沒命中', () => {
+    const result = describeEvaluationOutcome(
+      outcome({ rulesEvaluated: 1, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
+      NOW,
+    )
+    expect(result.message).toContain('還沒有新的氣象觀測落地')
+    expect(result.message).not.toContain('沒有一條符合條件')
+  })
+
+  it('同時有事件型規則時，要把那幾條的結果分開講', () => {
+    const result = describeEvaluationOutcome(
+      outcome({ rulesEvaluated: 3, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
+      NOW,
+    )
+    expect(result.message).toContain('另外 2 條')
+  })
+
+  it('只要有一條數值型規則有新觀測，就回到「沒有一條符合條件」', () => {
+    // 邊界：有新資料、只是沒命中，這時說「沒有新資料」會變成假訊息
+    const result = describeEvaluationOutcome(
+      outcome({ numericRulesEvaluated: 2, numericRulesWithNewObservations: 1 }),
+      NOW,
+    )
+    expect(result.message).toContain('沒有一條符合條件')
+  })
+
+  it('四種空結果的訊息互不相同', () => {
     // 少了這條，把其中兩種寫成同一句話不會有任何測試變紅——
     // 而那正是這支函式唯一要解決的問題
     const messages = [
       describeEvaluationOutcome(outcome(), NOW).message,
       describeEvaluationOutcome(outcome({ hasFreshObservation: false }), NOW).message,
       describeEvaluationOutcome(outcome({ rulesEvaluated: 0 }), NOW).message,
+      describeEvaluationOutcome(
+        outcome({ rulesEvaluated: 1, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
+        NOW,
+      ).message,
     ]
-    expect(new Set(messages).size).toBe(3)
+    expect(new Set(messages).size).toBe(4)
+  })
+})
+
+describe('ruleTimingHint', () => {
+  /**
+   * 這一組守的是「兩種型態對改條件的反應相反」這件事不可以被寫成同一句話。
+   * 數值型有水位（只看新落地的觀測），事件型沒有（每次重掃全部警報）——
+   * 共用一句話的版本正是實測時擋不住誤解的那一版。
+   */
+  it('數值型編輯時要說清楚改條件不會回頭重算，並給出可行的替代做法', () => {
+    const hint = ruleTimingHint('Numeric', true)
+    expect(hint).toContain('之後才落地')
+    expect(hint).toContain('新增一條規則')
+  })
+
+  it('事件型編輯時要說改完立刻檢查就會有結果，不能照抄數值型那句', () => {
+    const hint = ruleTimingHint('Event', true)
+    expect(hint).toContain('立即檢查')
+    expect(hint).not.toContain('新增一條規則')
+    expect(hint).not.toBe(ruleTimingHint('Numeric', true))
+  })
+
+  it('新增與編輯講的不是同一件事', () => {
+    expect(ruleTimingHint('Numeric', false)).not.toBe(ruleTimingHint('Numeric', true))
+    expect(ruleTimingHint('Event', false)).not.toBe(ruleTimingHint('Event', true))
   })
 })
 

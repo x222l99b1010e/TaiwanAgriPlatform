@@ -16,8 +16,16 @@ namespace TaiwanAgri.Modules.Weather.Services
 	/// false 代表數值型規則這一輪不可能產生通知，不論門檻設多少。
 	/// 由引擎回答而不是讓呼叫端自己拿 LatestObservedAt 去算——門檻天數只寫在這裡，
 	/// 呼叫端要自己算就得再抄一份，而兩份遲早會不一樣</param>
+	/// <param name="NumericRulesEvaluated">實際跑過比對的數值型規則數。
+	/// 缺門檻、來源不合法而被跳過的不算在內</param>
+	/// <param name="NumericRulesWithNewObservations">上述規則裡，這一輪真的有新觀測可比對的規則數
+	/// （水位還沒追到本輪掃描上界）。
+	/// 兩個數字一起回答的是第四種空結果：規則沒問題、資料也夠新，但上次檢查之後根本沒有新的觀測落地，
+	/// 所以掃描範圍是空的、門檻怎麼改都是 0 則。少了它，這種情況會被講成「沒有一條符合條件」，
+	/// 而使用者會照那句話去調門檻——調到天亮也不會有通知</param>
 	public sealed record RuleEvaluationOutcome(
-		int RulesEvaluated, int NotificationsCreated, DateTime? LatestObservedAt, bool HasFreshObservation);
+		int RulesEvaluated, int NotificationsCreated, DateTime? LatestObservedAt, bool HasFreshObservation,
+		int NumericRulesEvaluated, int NumericRulesWithNewObservations);
 
 	public class PestRuleEngine
 	{
@@ -88,12 +96,20 @@ namespace TaiwanAgri.Modules.Weather.Services
 				.MaxAsync(w => (DateTime?)w.ObservedAt, cancellationToken);
 
 			var created = 0;
+			var numericEvaluated = 0;
+			var numericWithNewObservations = 0;
 			foreach (var rule in activeRules)
 			{
 				switch (rule.RuleType)
 				{
 					case NotificationRule.Types.Numeric:
-						created += await EvaluateNumericAsync(db, rule, now, scanUpTo, cancellationToken);
+						var numeric = await EvaluateNumericAsync(db, rule, now, scanUpTo, cancellationToken);
+						created += numeric.Created;
+						if (numeric.Evaluated)
+						{
+							numericEvaluated++;
+							if (numeric.HadNewObservations) numericWithNewObservations++;
+						}
 						break;
 					case NotificationRule.Types.Event:
 						created += await EvaluateEventAsync(db, rule, now, cancellationToken);
@@ -109,15 +125,24 @@ namespace TaiwanAgri.Modules.Weather.Services
 			// 觀測表為空時 latestObservedAt 是 null，比較運算的結果是 false——
 			// 「沒有資料」與「資料太舊」對呼叫端來說是同一件事：這一輪不可能有數值型通知
 			return new RuleEvaluationOutcome(
-				activeRules.Count, created, latestObservedAt, latestObservedAt >= now - FreshnessWindow);
+				activeRules.Count, created, latestObservedAt, latestObservedAt >= now - FreshnessWindow,
+				numericEvaluated, numericWithNewObservations);
 		}
+
+		/// <summary>
+		/// 一條數值型規則的評估結果。
+		/// <paramref name="Evaluated"/> 與 <paramref name="HadNewObservations"/> 分開兩個布林，
+		/// 是因為「被跳過」與「跑了但沒有新資料」對呼叫端來說要說不同的話：
+		/// 前者是規則本身有問題（缺門檻、來源不合法），後者是規則沒問題、只是還沒有東西可比。
+		/// </summary>
+		private readonly record struct NumericRuleResult(int Created, bool Evaluated, bool HadNewObservations);
 
 		/// <summary>
 		/// 數值型：比對自動氣象站觀測。
 		/// 原本的來源是病蟲害旬報，但該來源的旬平均值上游未提供值（實測我方 136 筆與上游單頁 500 筆
 		/// 全部為 null），任何門檻都不可能成立，因此改接氣象觀測。
 		/// </summary>
-		private async Task<int> EvaluateNumericAsync(
+		private async Task<NumericRuleResult> EvaluateNumericAsync(
 			WeatherDbContext db, PestRuleConfig rule, DateTime now, DateTime? scanUpTo, CancellationToken cancellationToken)
 		{
 			// 深度防禦：API 已擋掉不合法的 SourceTable，這裡再擋一次繞過 API 直接寫進資料庫的路徑。
@@ -126,18 +151,22 @@ namespace TaiwanAgri.Modules.Weather.Services
 			{
 				_logger.LogWarning("[PestRuleEngine] 規則 {RuleId} 的 SourceTable 為 {SourceTable}，數值型只支援 WeatherObservation，跳過",
 					rule.Id, rule.SourceTable);
-				return 0;
+				return new NumericRuleResult(0, false, false);
 			}
 			if (rule.Threshold == null || scanUpTo == null)
 			{
 				_logger.LogWarning("[PestRuleEngine] 規則 {RuleId} 的 Threshold 為 null 或氣象觀測表為空，跳過", rule.Id);
-				return 0;
+				return new NumericRuleResult(0, false, false);
 			}
 
 			// 水位：只看上次評估之後才落地的觀測。第一次評估（水位為 null）退到最後一批，
 			// 這樣建完規則立刻評估就有東西可看，又不會把整張表的歷史一次全變成通知
 			var watermark = rule.LastEvaluatedAt ?? scanUpTo.Value - FirstRunLookback;
 			var freshnessCutoff = now - FreshnessWindow;
+
+			// 水位已經追到本輪的掃描上界時，掃描區間（watermark, scanUpTo] 在定義上就是空的，
+			// 不必再查一次資料庫。呼叫端要靠這個布林把「條件沒命中」與「根本沒有資料可比」分開講
+			var hadNewObservations = watermark < scanUpTo.Value;
 
 			var query = db.WeatherObservations
 				.AsNoTracking()
@@ -165,7 +194,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 			{
 				_logger.LogWarning("[PestRuleEngine] 規則 {RuleId} 的 MetricName/Comparison 組合不合法（{Metric}/{Comparison}），跳過",
 					rule.Id, rule.MetricName, rule.Comparison);
-				return 0;
+				return new NumericRuleResult(0, false, false);
 			}
 
 			var matched = await filtered.ToListAsync(cancellationToken);
@@ -192,7 +221,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 			rule.LastEvaluatedAt = scanUpTo.Value;
 			_logger.LogInformation("[PestRuleEngine] 規則 {RuleId}（數值型）比對 {Matched} 筆、新增 {Created} 則通知",
 				rule.Id, matched.Count, created);
-			return created;
+			return new NumericRuleResult(created, true, hadNewObservations);
 		}
 
 		/// <summary>事件型：比對植物疫情警報。</summary>

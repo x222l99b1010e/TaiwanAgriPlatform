@@ -23,8 +23,11 @@ import { useNotificationStore } from '@/stores/notification'
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (!axios.isAxiosError(error)) return fallback
 
+  // 429 要講清楚「這一次根本沒送出去」。只說「請稍後再試」的話，它跟「檢查完了但沒有新通知」
+  // 在畫面上都是一句灰字，使用者會以為條件沒命中而跑去調門檻——實際上檢查根本沒有跑
   if (error.response?.status === 429) {
-    return '操作過於頻繁，請稍等一下再試。'
+    // 次數與時間窗是後端的設定值，這裡不覆述——寫死一個數字只會在設定調整後變成假的
+    return '按太快了，這一次沒有送出檢查。等幾秒再按一次。'
   }
 
   const data = error.response?.data

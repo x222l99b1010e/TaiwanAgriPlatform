@@ -865,6 +865,80 @@ namespace TaiwanAgri.Tests.Weather
 		}
 
 		/// <summary>
+		/// 第三種「沒有新通知」：規則沒問題、資料也夠新，但上次檢查之後根本沒有新的觀測落地。
+		/// 這一種在畫面上最容易被誤讀成「條件沒命中」，於是使用者去調門檻——
+		/// 而掃描範圍是空的，門檻怎麼調都是 0 則。這裡把水位直接設成表裡最新的落地時刻，
+		/// 就是使用者連按兩次檢查、或改完條件立刻檢查時的狀態
+		/// </summary>
+		[Fact]
+		public async Task 水位已追到掃描上界時要回報這一輪沒有新觀測可比對()
+		{
+			var (engine, openDb) = CreateEngine(nameof(水位已追到掃描上界時要回報這一輪沒有新觀測可比對));
+			var now = DateTime.UtcNow;
+			var latestSyncedAt = now.AddMinutes(-5);
+			await using (var db = openDb())
+			{
+				// 門檻低到必然命中，所以「0 則」只可能來自掃描範圍是空的
+				db.PestRuleConfigs.Add(NumericRule(10m, lastEvaluatedAt: latestSyncedAt));
+				db.WeatherObservations.Add(Observation(35m, now.AddMinutes(-5), latestSyncedAt));
+				await db.SaveChangesAsync();
+			}
+
+			var outcome = await engine.EvaluateAsync(null, CancellationToken.None);
+
+			Assert.Equal(0, outcome.NotificationsCreated);
+			Assert.Equal(1, outcome.NumericRulesEvaluated);
+			Assert.Equal(0, outcome.NumericRulesWithNewObservations);
+			Assert.True(outcome.HasFreshObservation);   // 資料是新的，不是「太舊」那一種空結果
+		}
+
+		/// <summary>
+		/// 反向：水位落在最新落地時刻之前時，這一輪確實有新觀測可比對。
+		/// 少了這一條，一個永遠回報「沒有新觀測」的實作也會讓上一條通過
+		/// </summary>
+		[Fact]
+		public async Task 水位落在掃描上界之前時要回報有新觀測可比對()
+		{
+			var (engine, openDb) = CreateEngine(nameof(水位落在掃描上界之前時要回報有新觀測可比對));
+			var now = DateTime.UtcNow;
+			await using (var db = openDb())
+			{
+				db.PestRuleConfigs.Add(NumericRule(30m, lastEvaluatedAt: now.AddHours(-2)));
+				db.WeatherObservations.Add(Observation(35m, now.AddMinutes(-5), now.AddMinutes(-5)));
+				await db.SaveChangesAsync();
+			}
+
+			var outcome = await engine.EvaluateAsync(null, CancellationToken.None);
+
+			Assert.Equal(1, outcome.NumericRulesEvaluated);
+			Assert.Equal(1, outcome.NumericRulesWithNewObservations);
+		}
+
+		/// <summary>
+		/// 被跳過的規則不算進「跑過比對的數值型規則數」。
+		/// 兩者混在一起的話，一條缺門檻的規則會讓畫面說「還沒有新的觀測進來」，
+		/// 而真正的原因是那條規則根本沒被評估——那是規則本身要修的問題，不是等資料就會好
+		/// </summary>
+		[Fact]
+		public async Task 缺門檻而被跳過的數值型規則不算進評估數()
+		{
+			var (engine, openDb) = CreateEngine(nameof(缺門檻而被跳過的數值型規則不算進評估數));
+			var now = DateTime.UtcNow;
+			await using (var db = openDb())
+			{
+				db.PestRuleConfigs.Add(NumericRule(null));
+				db.WeatherObservations.Add(Observation(35m, now.AddMinutes(-5), now.AddMinutes(-5)));
+				await db.SaveChangesAsync();
+			}
+
+			var outcome = await engine.EvaluateAsync(null, CancellationToken.None);
+
+			Assert.Equal(1, outcome.RulesEvaluated);        // 規則總數照算
+			Assert.Equal(0, outcome.NumericRulesEvaluated); // 但它沒有跑到比對
+			Assert.Equal(0, outcome.NumericRulesWithNewObservations);
+		}
+
+		/// <summary>
 		/// 沒有任何規則時不拋例外。這是新使用者的第一天，也是排程在空資料庫上的第一次執行
 		/// </summary>
 		[Fact]

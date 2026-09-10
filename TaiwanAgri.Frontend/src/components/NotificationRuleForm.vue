@@ -43,6 +43,14 @@
         <p class="field-hint">{{ ruleTypeHint }}</p>
       </div>
 
+      <!--
+        「改了之後會發生什麼事」放在欄位上方，不是送出鈕旁邊：使用者是在動手改條件之前
+        需要知道這件事，寫在最後等於等他改完、按完、看到 0 則之後才告訴他。
+        兩種型態的答案相反（數值型只看新落地的觀測，事件型每次重掃全部警報），
+        所以這句話由型態決定，不是共用一句。
+      -->
+      <HintBox class="span-full">{{ ruleTimingHint(form.ruleType, rule !== null) }}</HintBox>
+
       <!-- 縣市：兩種型態共用。比對時台／臺兩種寫法都會試，所以選哪一種寫法都比對得到 -->
       <CitySelector v-model="form.filterCity" include-all label="縣市" all-label="不限縣市" />
 
@@ -132,10 +140,9 @@
       </div>
     </div>
 
-    <!-- 編輯時的必要說明：沒有這句話，使用者改完門檻卻沒看到既有通知跟著變，會以為壞掉了 -->
-    <HintBox v-if="rule !== null">
-      修改後的條件將套用於之後新增的觀測資料，已產生的通知不受影響。
-    </HintBox>
+    <!-- 編輯時的必要說明：沒有這句話，使用者改完條件卻看到既有通知原封不動，會以為壞掉了。
+         「之後會不會有新通知」那半邊已經在上方的 HintBox 講完，這裡只講已經產生的那些 -->
+    <p v-if="rule !== null" class="form-note">已經產生的通知不會因為改條件而變動或消失。</p>
 
     <p v-if="formError" class="error-msg">{{ formError }}</p>
     <p v-if="store.saveError" class="error-msg">{{ store.saveError }}</p>
@@ -162,6 +169,7 @@ import {
   RULE_TYPE_OPTIONS,
   buildRuleRequest,
   metricUnit,
+  ruleTimingHint,
   validateRuleForm,
 } from '@/utils/notificationRule'
 import type { RuleFormState } from '@/utils/notificationRule'
@@ -220,9 +228,11 @@ const isNumeric = computed(() => form.ruleType === 'Numeric')
 const currentUnit = computed(() => metricUnit(form.metricName))
 const expiryLimits = computed(() => RULE_LIMITS.expiryDaysByRuleType[form.ruleType])
 
+// 這句話只講「比的是什麼」，時間語意交給上方的 HintBox——
+// 同一件事寫兩處的話，日後只會有一處被改到
 const ruleTypeHint = computed(() =>
   isNumeric.value
-    ? '比對自動氣象站的即時觀測，命中就通知。只看上次檢查之後才進來的觀測，不會把歷史一次灌出來。'
+    ? '比對自動氣象站的即時觀測（氣溫、24 小時雨量），命中就通知。'
     : '比對農業部發布的植物疫情警報，符合縣市與作物就通知。',
 )
 
@@ -289,6 +299,9 @@ async function handleSubmit() {
 
 .field-group.span-2 { grid-column: span 2; }
 
+/* 提示框要橫跨整列：它講的是整張表單的行為，不是某一欄的補充 */
+.span-full { grid-column: 1 / -1; }
+
 /* 三欄在窄螢幕會把日期與數字輸入框壓到讀不出來，降成單欄 */
 @media (max-width: 720px) {
   .form-grid { grid-template-columns: 1fr; }
@@ -309,6 +322,12 @@ async function handleSubmit() {
   font-size: var(--text-sm);
   color: var(--color-text);
   cursor: pointer;
+}
+
+.form-note {
+  font-size: var(--text-2xs);
+  color: var(--color-text-dim);
+  line-height: var(--leading-normal);
 }
 
 .form-actions { display: flex; gap: var(--space-3); }
