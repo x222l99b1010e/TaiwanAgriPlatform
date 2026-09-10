@@ -25,7 +25,7 @@ namespace TaiwanAgri.Web
 			builder.Services.AddUserModule(builder.Configuration);
 			builder.Services.AddFoodSafetyModule(builder.Configuration);
 			builder.Services.AddPetModule(builder.Configuration);
-			builder.Services.AddPublicQueryRateLimiting(builder.Configuration);
+			builder.Services.AddApiRateLimiting(builder.Configuration);
 
 			var app = builder.Build();
 

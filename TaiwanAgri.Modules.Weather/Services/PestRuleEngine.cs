@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TaiwanAgri.Modules.Weather.Constants;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Entities;
 
@@ -10,8 +11,13 @@ namespace TaiwanAgri.Modules.Weather.Services
 	/// <param name="RulesEvaluated">實際被評估的規則數</param>
 	/// <param name="NotificationsCreated">新產生的通知數</param>
 	/// <param name="LatestObservedAt">氣象觀測表裡最新一筆的觀測時刻；null 代表表裡沒有資料。
-	/// 呼叫端拿它與現在時刻相減，就能分辨「條件沒命中」與「資料不夠新」這兩種空結果</param>
-	public sealed record RuleEvaluationOutcome(int RulesEvaluated, int NotificationsCreated, DateTime? LatestObservedAt);
+	/// 呼叫端拿它組出「最新觀測是 N 天前」這句話</param>
+	/// <param name="HasFreshObservation">最新的觀測有沒有落在新鮮度門檻之內。
+	/// false 代表數值型規則這一輪不可能產生通知，不論門檻設多少。
+	/// 由引擎回答而不是讓呼叫端自己拿 LatestObservedAt 去算——門檻天數只寫在這裡，
+	/// 呼叫端要自己算就得再抄一份，而兩份遲早會不一樣</param>
+	public sealed record RuleEvaluationOutcome(
+		int RulesEvaluated, int NotificationsCreated, DateTime? LatestObservedAt, bool HasFreshObservation);
 
 	public class PestRuleEngine
 	{
@@ -34,11 +40,13 @@ namespace TaiwanAgri.Modules.Weather.Services
 
 		private readonly ILogger<PestRuleEngine> _logger;
 		private readonly IServiceScopeFactory _scopeFactory;
+		private readonly TimeProvider _timeProvider;
 
-		public PestRuleEngine(ILogger<PestRuleEngine> logger, IServiceScopeFactory scopeFactory)
+		public PestRuleEngine(ILogger<PestRuleEngine> logger, IServiceScopeFactory scopeFactory, TimeProvider timeProvider)
 		{
 			_logger = logger;
 			_scopeFactory = scopeFactory;
+			_timeProvider = timeProvider;
 		}
 
 		// 已知效能債：規則引擎逐條規則各查一次 DB（N+1）。目前規則數量與觸發頻率下尚未構成瓶頸，
@@ -54,7 +62,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 		{
 			using var scope = _scopeFactory.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
-			var now = DateTime.UtcNow;
+			var now = _timeProvider.GetUtcNow().UtcDateTime;
 
 			// 刪除已過期的通知。這裡先載進記憶體再 RemoveRange，看起來可以換成 ExecuteDelete
 			// 直接下一句 DELETE，但測試用的 InMemory 提供者不支援 ExecuteDelete——
@@ -84,10 +92,10 @@ namespace TaiwanAgri.Modules.Weather.Services
 			{
 				switch (rule.RuleType)
 				{
-					case "Numeric":
+					case NotificationRule.Types.Numeric:
 						created += await EvaluateNumericAsync(db, rule, now, scanUpTo, cancellationToken);
 						break;
-					case "Event":
+					case NotificationRule.Types.Event:
 						created += await EvaluateEventAsync(db, rule, now, cancellationToken);
 						break;
 					default:
@@ -97,7 +105,11 @@ namespace TaiwanAgri.Modules.Weather.Services
 			}
 
 			await db.SaveChangesAsync(cancellationToken);
-			return new RuleEvaluationOutcome(activeRules.Count, created, latestObservedAt);
+
+			// 觀測表為空時 latestObservedAt 是 null，比較運算的結果是 false——
+			// 「沒有資料」與「資料太舊」對呼叫端來說是同一件事：這一輪不可能有數值型通知
+			return new RuleEvaluationOutcome(
+				activeRules.Count, created, latestObservedAt, latestObservedAt >= now - FreshnessWindow);
 		}
 
 		/// <summary>
@@ -110,7 +122,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 		{
 			// 深度防禦：API 已擋掉不合法的 SourceTable，這裡再擋一次繞過 API 直接寫進資料庫的路徑。
 			// 舊資料可能留著 "PestDecade"，那個來源已判定不適用
-			if (rule.SourceTable != "WeatherObservation")
+			if (rule.SourceTable != NotificationRule.SourceTables.WeatherObservation)
 			{
 				_logger.LogWarning("[PestRuleEngine] 規則 {RuleId} 的 SourceTable 為 {SourceTable}，數值型只支援 WeatherObservation，跳過",
 					rule.Id, rule.SourceTable);
@@ -139,10 +151,14 @@ namespace TaiwanAgri.Modules.Weather.Services
 			var threshold = rule.Threshold.Value;
 			var filtered = (rule.MetricName, rule.Comparison) switch
 			{
-				("Temperature", "GreaterThan") => query.Where(w => w.Temperature > threshold),
-				("Temperature", "LessThan") => query.Where(w => w.Temperature < threshold),
-				("Rainfall24h", "GreaterThan") => query.Where(w => w.Rainfall24h > threshold),
-				("Rainfall24h", "LessThan") => query.Where(w => w.Rainfall24h < threshold),
+				(NotificationRule.Metrics.Temperature, NotificationRule.Comparisons.GreaterThan)
+					=> query.Where(w => w.Temperature > threshold),
+				(NotificationRule.Metrics.Temperature, NotificationRule.Comparisons.LessThan)
+					=> query.Where(w => w.Temperature < threshold),
+				(NotificationRule.Metrics.Rainfall24h, NotificationRule.Comparisons.GreaterThan)
+					=> query.Where(w => w.Rainfall24h > threshold),
+				(NotificationRule.Metrics.Rainfall24h, NotificationRule.Comparisons.LessThan)
+					=> query.Where(w => w.Rainfall24h < threshold),
 				_ => null
 			};
 			if (filtered == null)
@@ -159,7 +175,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 				if (await NotificationExistsAsync(db, rule.Id, item.Id, cancellationToken))
 					continue;
 
-				var value = rule.MetricName == "Temperature" ? item.Temperature : item.Rainfall24h;
+				var value = rule.MetricName == NotificationRule.Metrics.Temperature ? item.Temperature : item.Rainfall24h;
 				db.UserNotifications.Add(new UserNotification
 				{
 					UserId = rule.UserId,
@@ -183,7 +199,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 		private async Task<int> EvaluateEventAsync(
 			WeatherDbContext db, PestRuleConfig rule, DateTime now, CancellationToken cancellationToken)
 		{
-			if (rule.SourceTable != "PlantEpidemic")
+			if (rule.SourceTable != NotificationRule.SourceTables.PlantEpidemic)
 			{
 				// "TreePest" 會落在這裡：該來源沒有時間戳也沒有唯一識別欄位，探勘後判定不適用，
 				// 規則建立時已不開放。這個分支是給資料庫裡可能留著的歷史列用的
@@ -271,9 +287,10 @@ namespace TaiwanAgri.Modules.Weather.Services
 		/// </summary>
 		private static string BuildNumericMessage(PestRuleConfig rule, WeatherObservation item, decimal? value)
 		{
-			var metricLabel = rule.MetricName == "Temperature" ? "氣溫" : "24 小時雨量";
-			var unit = rule.MetricName == "Temperature" ? "°C" : "mm";
-			var direction = rule.Comparison == "LessThan" ? "低於" : "超過";
+			var isTemperature = rule.MetricName == NotificationRule.Metrics.Temperature;
+			var metricLabel = isTemperature ? "氣溫" : "24 小時雨量";
+			var unit = isTemperature ? "°C" : "mm";
+			var direction = rule.Comparison == NotificationRule.Comparisons.LessThan ? "低於" : "超過";
 			var place = string.IsNullOrWhiteSpace(item.TownName) ? item.CityName : $"{item.CityName}{item.TownName}";
 			return $"{place}｜{item.ObservedAt:yyyy-MM-dd HH:mm}｜{metricLabel} {value}{unit}，{direction}門檻 {rule.Threshold}{unit}";
 		}
