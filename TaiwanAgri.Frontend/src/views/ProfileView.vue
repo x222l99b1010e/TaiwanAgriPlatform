@@ -6,11 +6,17 @@
       subtitle="設定所在縣市與顯示名稱，並管理密碼"
     />
 
-    <!-- 個人管理相關的其他頁面入口（不掛週次分支新增：我的協尋貼文）放在這裡，
+    <!-- 個人管理相關的其他頁面入口放在這裡，
          日後若有更多「我的 xxx」功能，這個區塊可以繼續往下加，不需要另外設計導覽結構 -->
     <RouterLink to="/profile/lost-pets" class="section-link">
       <span class="mdi mdi-dog-side" />
       <span>我的協尋貼文</span>
+      <span class="mdi mdi-chevron-right" />
+    </RouterLink>
+
+    <RouterLink to="/profile/notification-rules" class="section-link">
+      <span class="mdi mdi-bell-cog-outline" />
+      <span>通知規則</span>
       <span class="mdi mdi-chevron-right" />
     </RouterLink>
 
@@ -231,7 +237,9 @@ async function handleSave() {
 }
 .section-link:hover { border-color: var(--color-action); background: var(--color-action-soft); }
 .section-link:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
-.section-link .mdi-dog-side {
+/* 選第一個圖示而不是指名某個 mdi class：指名的話每加一列入口就要多寫一條
+   一模一樣的規則，而漏寫的那一列不會報錯，只是圖示沒有圓底、跟旁邊長得不一樣 */
+.section-link > .mdi:first-child {
   display: inline-flex; align-items: center; justify-content: center;
   width: 36px; height: 36px; border-radius: var(--radius-full);
   background: var(--color-action-soft-2); color: var(--color-action);

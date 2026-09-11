@@ -31,6 +31,12 @@ namespace TaiwanAgri.Modules.Weather.Data
 				// StationId 本身也常單獨查詢
 				entity.HasIndex(e => e.StationId)
 					  .HasDatabaseName("IX_WeatherObservations_StationId");
+
+				// 數值型通知規則每次評估都以「落地時刻大於水位」開頭掃這張表，而它是每小時寫入
+				// 約 876 筆、保留 30 天的滾動視窗（穩定狀態約六十萬列）。沒有這個索引，每條規則
+				// 每輪評估都要全表掃描
+				entity.HasIndex(e => e.SyncedAt)
+					  .HasDatabaseName("IX_WeatherObservations_SyncedAt");
 			});
 			// PestAlert 設定
 			modelBuilder.Entity<PestAlert>(entity =>
@@ -104,12 +110,23 @@ namespace TaiwanAgri.Modules.Weather.Data
 				.HasDatabaseName("IX_PestRuleConfigs_RuleName");
 				entity.HasIndex(p => new { p.UserId,p.IsActive })
 				.HasDatabaseName("IX_PestRuleConfigs_UserId_IsActive");
+				// 門檻收到小數點後一位：氣溫 32.5、雨量 100.0 都是使用者會填的真實值。
+				// 精度 4 位容得下 -999.9～999.9，涵蓋高山測站的負溫與數百 mm 的日雨量
+				entity.Property(p => p.Threshold)
+					  .HasPrecision(4, 1);
 			});
 
 			modelBuilder.Entity<UserNotification>(entity => {
 				entity.ToTable("UserNotifications", schema: "weather");
 				entity.HasIndex(u => new { u.UserId, u.IsRead })
 				.HasDatabaseName("IX_UserNotifications_UserId_IsRead");
+				// 刪除規則時連帶刪除它產生的通知，維持「每筆通知都對應到一條存在的規則」這個不變式。
+				// 這裡的設定與 EF 對必要關聯的預設行為相同，寫出來是因為刪除行為原本只能靠查資料庫
+				// 或翻初始 Migration 才看得出來，而它決定了使用者刪規則時會不會連帶失去歷史通知
+				entity.HasOne(u => u.PestRuleConfig)
+					  .WithMany()
+					  .HasForeignKey(u => u.PestRuleConfigId)
+					  .OnDelete(DeleteBehavior.Cascade);
 			});
 		}
 	}

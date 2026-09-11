@@ -1,0 +1,303 @@
+import { describe, it, expect } from 'vitest'
+import {
+  buildRuleRequest,
+  describeEvaluationOutcome,
+  hasAllowedThresholdPrecision,
+  ruleConditionSummary,
+  ruleTimingHint,
+  validateRuleForm,
+} from '../notificationRule'
+import type { RuleFormState } from '../notificationRule'
+import type { RuleEvaluationDto } from '@/api/notificationRule'
+
+const NOW = new Date('2026-09-10T12:00:00Z')
+
+function outcome(overrides: Partial<RuleEvaluationDto> = {}): RuleEvaluationDto {
+  return {
+    rulesEvaluated: 2,
+    notificationsCreated: 0,
+    latestObservedAt: '2026-09-10T11:30:00Z',
+    hasFreshObservation: true,
+    numericRulesEvaluated: 1,
+    numericRulesWithNewObservations: 1,
+    ...overrides,
+  }
+}
+
+describe('describeEvaluationOutcome', () => {
+  // 這一組守的是「沒有新通知」的四種成因不可以講成同一句話：
+  // 使用者分不出「條件沒命中」與「資料太舊／沒有新資料」時，會一直調門檻，
+  // 而真正的原因是同步 Worker 沒在跑、或掃描範圍本來就是空的，調到天亮也不會有通知
+  it('有新通知時說產生了幾則並指向鈴鐺', () => {
+    const result = describeEvaluationOutcome(outcome({ notificationsCreated: 3 }), NOW)
+    expect(result.tone).toBe('success')
+    expect(result.message).toContain('3 則')
+    expect(result.message).toContain('鈴鐺')
+  })
+
+  it('條件沒命中時要說明是評估過了但沒有一條符合', () => {
+    const result = describeEvaluationOutcome(outcome(), NOW)
+    expect(result.tone).toBe('info')
+    expect(result.message).toContain('沒有一條符合條件')
+  })
+
+  it('資料太舊時要說出最新觀測是幾天前', () => {
+    const result = describeEvaluationOutcome(
+      outcome({ hasFreshObservation: false, latestObservedAt: '2026-08-22T12:00:00Z' }),
+      NOW,
+    )
+    expect(result.tone).toBe('warning')
+    expect(result.message).toContain('19 天前')
+  })
+
+  it('完全沒有觀測資料時不說「幾天前」，那個數字算不出來', () => {
+    const result = describeEvaluationOutcome(
+      outcome({ hasFreshObservation: false, latestObservedAt: null }),
+      NOW,
+    )
+    expect(result.tone).toBe('warning')
+    expect(result.message).toContain('尚未同步')
+    expect(result.message).not.toContain('天前')
+  })
+
+  /**
+   * 第四種空結果：規則沒問題、資料也夠新，但上次檢查之後沒有新的觀測落地。
+   * 這一種最容易被誤讀成「條件沒命中」——實測時就是這樣誤讀的：
+   * 改完條件按「立即檢查」得到 0 則，看起來像功能壞了，而正確的解讀是掃描範圍是空的。
+   */
+  it('數值型規則都沒有新觀測可比時要說是沒有新資料，不是條件沒命中', () => {
+    const result = describeEvaluationOutcome(
+      outcome({ rulesEvaluated: 1, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
+      NOW,
+    )
+    expect(result.message).toContain('還沒有新的氣象觀測落地')
+    expect(result.message).not.toContain('沒有一條符合條件')
+  })
+
+  it('同時有事件型規則時，要把那幾條的結果分開講', () => {
+    const result = describeEvaluationOutcome(
+      outcome({ rulesEvaluated: 3, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
+      NOW,
+    )
+    expect(result.message).toContain('另外 2 條')
+  })
+
+  it('只要有一條數值型規則有新觀測，就回到「沒有一條符合條件」', () => {
+    // 邊界：有新資料、只是沒命中，這時說「沒有新資料」會變成假訊息
+    const result = describeEvaluationOutcome(
+      outcome({ numericRulesEvaluated: 2, numericRulesWithNewObservations: 1 }),
+      NOW,
+    )
+    expect(result.message).toContain('沒有一條符合條件')
+  })
+
+  it('四種空結果的訊息互不相同', () => {
+    // 少了這條，把其中兩種寫成同一句話不會有任何測試變紅——
+    // 而那正是這支函式唯一要解決的問題
+    const messages = [
+      describeEvaluationOutcome(outcome(), NOW).message,
+      describeEvaluationOutcome(outcome({ hasFreshObservation: false }), NOW).message,
+      describeEvaluationOutcome(outcome({ rulesEvaluated: 0 }), NOW).message,
+      describeEvaluationOutcome(
+        outcome({ rulesEvaluated: 1, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
+        NOW,
+      ).message,
+    ]
+    expect(new Set(messages).size).toBe(4)
+  })
+})
+
+describe('ruleTimingHint', () => {
+  /**
+   * 這一組守的是「兩種型態對改條件的反應相反」這件事不可以被寫成同一句話。
+   * 數值型有水位（只看新落地的觀測），事件型沒有（每次重掃全部警報）——
+   * 共用一句話的版本正是實測時擋不住誤解的那一版。
+   */
+  it('數值型編輯時要說清楚改條件不會回頭重算，並給出可行的替代做法', () => {
+    const hint = ruleTimingHint('Numeric', true)
+    expect(hint).toContain('之後才落地')
+    expect(hint).toContain('新增一條規則')
+  })
+
+  it('事件型編輯時要說改完立刻檢查就會有結果，不能照抄數值型那句', () => {
+    const hint = ruleTimingHint('Event', true)
+    expect(hint).toContain('立即檢查')
+    expect(hint).not.toContain('新增一條規則')
+    expect(hint).not.toBe(ruleTimingHint('Numeric', true))
+  })
+
+  it('新增與編輯講的不是同一件事', () => {
+    expect(ruleTimingHint('Numeric', false)).not.toBe(ruleTimingHint('Numeric', true))
+    expect(ruleTimingHint('Event', false)).not.toBe(ruleTimingHint('Event', true))
+  })
+})
+
+describe('hasAllowedThresholdPrecision', () => {
+  it.each([32, 32.5, -12.3, 0, 999.9])('%s 是合法的一位小數', value => {
+    expect(hasAllowedThresholdPrecision(value)).toBe(true)
+  })
+
+  it.each([32.55, 0.01, -12.345])('%s 超過一位小數', value => {
+    expect(hasAllowedThresholdPrecision(value)).toBe(false)
+  })
+
+  it('浮點數乘十的尾數不會被誤判成超過一位小數', () => {
+    // 32.5 * 10 在 IEEE 754 下不一定是剛好 325，直接比整數會誤判成不合法
+    expect(hasAllowedThresholdPrecision(32.5)).toBe(true)
+    expect(hasAllowedThresholdPrecision(8.1)).toBe(true)
+  })
+})
+
+describe('ruleConditionSummary', () => {
+  it('數值型摘要要帶得出縣市、項目、方向、門檻與單位', () => {
+    const summary = ruleConditionSummary({
+      ruleType: 'Numeric',
+      filterCity: '臺中市',
+      filterPlantName: null,
+      filterDateFrom: null,
+      metricName: 'Temperature',
+      comparison: 'GreaterThan',
+      threshold: 32,
+    })
+    expect(summary).toBe('臺中市｜氣溫 超過 32°C')
+  })
+
+  it('事件型摘要要帶得出作物與起始日', () => {
+    const summary = ruleConditionSummary({
+      ruleType: 'Event',
+      filterCity: '臺南市',
+      filterPlantName: '檸檬',
+      filterDateFrom: '2026-06-12',
+      metricName: null,
+      comparison: null,
+      threshold: null,
+    })
+    expect(summary).toBe('臺南市｜作物含「檸檬」｜2026-06-12 之後發布')
+  })
+
+  it('沒填的條件要顯示成「不限」而不是消失', () => {
+    // 空字串或整段不見的話，使用者看不出這條規則是「不限縣市」還是「顯示壞了」
+    const summary = ruleConditionSummary({
+      ruleType: 'Event',
+      filterCity: null,
+      filterPlantName: null,
+      filterDateFrom: null,
+      metricName: null,
+      comparison: null,
+      threshold: null,
+    })
+    expect(summary).toBe('不限縣市｜不限作物')
+  })
+})
+
+/**
+ * 這一組守的是「表單狀態的型別要跟執行期一致」。
+ *
+ * `<input type="number">` 搭 `v-model` 時 Vue 會自動套用 `.number`，所以使用者一打字，
+ * 門檻與保留天數在狀態裡就是 `number` 而不是字串。前一版把它們宣告成 `string` 並呼叫
+ * `.trim()`，型別檢查因為宣告本身在說謊而放行，按下「建立規則」才在瀏覽器裡拋
+ * `TypeError: trim is not a function`——**畫面完全建不出規則**。
+ *
+ * 這裡一律用數字餵進去，就是在重現瀏覽器真正給的形狀。
+ */
+function numericForm(overrides: Partial<RuleFormState> = {}): RuleFormState {
+  return {
+    ruleName: '果園高溫警戒',
+    ruleType: 'Numeric',
+    filterCity: '臺中市',
+    filterPlantName: '',
+    filterDateFrom: '',
+    metricName: 'Temperature',
+    comparison: 'GreaterThan',
+    thresholdInput: 32,
+    expiryDaysInput: 7,
+    isActive: true,
+    ...overrides,
+  }
+}
+
+describe('validateRuleForm', () => {
+  it('門檻是數字（輸入框真正給的形狀）時通過，不因為型別而爆炸', () => {
+    expect(validateRuleForm(numericForm())).toBe('')
+  })
+
+  it('小數門檻照樣通過', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: 32.5 }))).toBe('')
+  })
+
+  it('規則名稱只有空白算沒填', () => {
+    expect(validateRuleForm(numericForm({ ruleName: '   ' }))).toBe('規則名稱必填')
+  })
+
+  it('數值型沒填門檻要擋下來', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: '' }))).toContain('必須填門檻值')
+  })
+
+  it('事件型不必填門檻', () => {
+    const form = numericForm({ ruleType: 'Event', thresholdInput: '' })
+    expect(validateRuleForm(form)).toBe('')
+  })
+
+  it('小數點超過一位要擋下來', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: 32.55 }))).toContain('小數點後 1 位')
+  })
+
+  it('超出上下限要擋下來', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: 1000 }))).toContain('必須介於')
+  })
+
+  it('Infinity 要擋下來——輸入框擋得住字母，擋不住 1e999', () => {
+    expect(validateRuleForm(numericForm({ thresholdInput: Infinity }))).toBe('門檻值必須是數字')
+  })
+})
+
+describe('buildRuleRequest', () => {
+  it('數值型：門檻與保留天數送出去仍是數字，另一型態的欄位一律 null', () => {
+    const payload = buildRuleRequest(numericForm())
+    expect(payload).toMatchObject({
+      ruleType: 'Numeric',
+      sourceTable: 'WeatherObservation',
+      threshold: 32,
+      expiryDays: 7,
+      metricName: 'Temperature',
+      comparison: 'GreaterThan',
+      filterCity: '臺中市',
+      filterPlantName: null,
+      filterDateFrom: null,
+    })
+  })
+
+  it('保留天數留空送 null 而不是 0——0 會讓通知一產生就過期', () => {
+    expect(buildRuleRequest(numericForm({ expiryDaysInput: '' })).expiryDays).toBeNull()
+  })
+
+  it('縣市留空送 null，代表不限縣市', () => {
+    expect(buildRuleRequest(numericForm({ filterCity: '' })).filterCity).toBeNull()
+  })
+
+  it('事件型：來源自動配成植物疫情，數值型那組欄位一律 null', () => {
+    const payload = buildRuleRequest(
+      numericForm({
+        ruleType: 'Event',
+        filterPlantName: ' 檸檬 ',
+        filterDateFrom: '2026-06-12',
+        thresholdInput: 32,
+        expiryDaysInput: 30,
+      }),
+    )
+    expect(payload).toMatchObject({
+      ruleType: 'Event',
+      sourceTable: 'PlantEpidemic',
+      threshold: null,
+      metricName: null,
+      comparison: null,
+      filterPlantName: '檸檬',
+      filterDateFrom: '2026-06-12',
+      expiryDays: 30,
+    })
+  })
+
+  it('規則名稱前後空白要修掉再送', () => {
+    expect(buildRuleRequest(numericForm({ ruleName: '  果園  ' })).ruleName).toBe('果園')
+  })
+})

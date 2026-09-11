@@ -43,7 +43,8 @@
 - 雨量趨勢圖（Chart.js 折線圖，支援 3h/6h/12h/24h 指標切換）
 - 病蟲害警報牆（依縣市過濾，可展開查看內文與防治處方）
 - 旬密度查詢（害蟲旬別密度折線圖，支援城市多線切換）
-- 智慧病蟲害提示：規則引擎偵測閾值與事件型規則，主動推送通知
+- 通知規則管理（W26）：使用者自訂通知規則的建立／查詢／修改／刪除，每人上限 7 條。數值門檻型比對自動氣象站觀測（氣溫、24 小時雨量），事件型比對植物疫情警報；規則頁另有「立即檢查」可手動觸發一次評估（限流，且只評估自己的規則）
+- 智慧病蟲害提示：規則引擎每天評估一次啟用中的規則，命中就產生通知。數值門檻型只比對「上次評估之後才落地」的觀測（評估水位），同一條規則對同一筆來源資料只通知一次
 - 通知鈴鐺：未讀紅點 + Dropdown 無限捲動 + 一鍵全部已讀
 - 農藥查詢（W24）：輸入成分俗名／英文名查詢許可證狀態、適用作物與安全採收期，即時打農業部 API 不落地
 
@@ -197,10 +198,14 @@ TaiwanAgriPlatform/
 │       │   └── CoreDbContext.cs      # SyncStates + NavModules + RoleModulePermissions
 │       └── DbInitializer.cs          # Seed NavModules（4 頂層 + 18 子功能）+ RoleModulePermissions
 │
-├── TaiwanAgri.Modules.Weather/       # 模組 2：氣象 + 病蟲害 + 農藥查詢
+├── TaiwanAgri.Modules.Weather/       # 模組 2：氣象 + 病蟲害 + 農藥查詢 + 通知規則
 │   ├── Constants/
-│   │   └── PesticideForms.cs         # 農藥劑型代碼 ↔ 中文名對照（W24，5246 張許可證實測校正）
-│   └── (WeatherDbContext / Services / Entities / Dtos；PesticideService 即時查詢不落地)
+│   │   ├── PesticideForms.cs         # 農藥劑型代碼 ↔ 中文名對照（W24，5246 張許可證實測校正）
+│   │   └── NotificationRule.cs       # 規則型態／來源／觀測項目／比較方向的合法值（W26 單一真相來源）
+│   ├── Services/
+│   │   ├── PestRuleEngine.cs         # 規則評估：數值門檻比氣象觀測（帶評估水位與新鮮度上限），事件型比植物疫情警報
+│   │   └── NotificationRuleService.cs # 規則 CRUD（每人 7 條上限，越權一律回 404）
+│   └── (WeatherDbContext / Entities / Dtos；PesticideService 即時查詢不落地)
 │
 ├── TaiwanAgri.Modules.Market/        # 模組 4 + 1：行情分析
 │   ├── Constants/
@@ -314,13 +319,15 @@ TaiwanAgriPlatform/
 │   │   │   ├── pet.ts                # 寵物模組型別定義 + 10 支端點封裝
 │   │   │   ├── profile.ts            # GET/PUT /api/profile/farm
 │   │   │   ├── watchlist.ts          # GET/POST/DELETE /api/watchlist
-│   │   │   └── weather.ts            # 氣象 / 雨量 / 病蟲害 / 農藥 / 通知 封裝
+│   │   │   ├── weather.ts            # 氣象 / 雨量 / 病蟲害 / 農藥 / 通知 封裝
+│   │   │   └── notificationRule.ts   # 通知規則 CRUD + 立即檢查（與 weather.ts 分開：那支讀通知，這支管產生通知的規則）
 │   │   ├── stores/
 │   │   │   ├── authStore.ts          # Pinia：JWT + 使用者資訊（localStorage 持久化）
 │   │   │   ├── foodSafety.ts         # Pinia：食安狀態（todayVeg TTL / violations / organicCert）
 │   │   │   ├── market.ts             # Pinia：市場行情全域狀態
 │   │   │   ├── nav.ts                # Pinia：nav store + loadModules
 │   │   │   ├── notification.ts       # Pinia：未讀數 + 通知列表 + 無限捲動
+│   │   │   ├── notificationRule.ts   # Pinia：規則清單 + CRUD + 立即檢查結果
 │   │   │   ├── pet.ts                # Pinia：寵物模組全域狀態
 │   │   │   ├── profile.ts            # Pinia：農場設定
 │   │   │   └── watchlist.ts          # Pinia：監看清單
@@ -331,6 +338,7 @@ TaiwanAgriPlatform/
 │   │   ├── components/
 │   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺
 │   │   │   ├── NotificationBell.vue  # 鈴鐺 + 未讀紅點 + Dropdown 無限捲動
+│   │   │   ├── NotificationRuleForm.vue # 通知規則新增／編輯表單（型態切換換掉一半欄位）
 │   │   │   ├── CitySelector.vue      # 縣市下拉（補 includeAll，寵物模組共用）
 │   │   │   ├── MarketFilter.vue      # 市場類型 Tab + 市場下拉 + 作物 Chip 多選
 │   │   │   ├── DateRangePicker.vue   # 日期區間選擇 + 快捷按鈕
@@ -374,7 +382,8 @@ TaiwanAgriPlatform/
 │   │   │   │   ├── StationView.vue   # 農場氣象（卡片格）
 │   │   │   │   ├── RainfallView.vue  # 雨量趨勢（折線圖 + 明細表格）
 │   │   │   │   ├── PestAlertsView.vue # 病蟲害警報牆（真地圖 + 三級燈號 + 可展開）
-│   │   │   │   ├── PestDecadeView.vue # 旬密度趨勢（折線圖 + 全選切換）
+│   │   │   │   ├── PestDecadeView.vue # 旬密度趨勢（上游未提供密度數值，僅呈現期別與地區分布）
+│   │   │   │   ├── NotificationRulesView.vue # 通知規則管理（路由掛 /profile 底下，檔案跟著功能領域放）
 │   │   │   │   └── PesticideSearchView.vue # 農藥查詢（三層巢狀：成分 → 劑型 → 用途/許可證）
 │   │   │   ├── pet/
 │   │   │   │   ├── ShelterMapView.vue    # 收容動物地圖（Leaflet + MarkerCluster + 聚合端點一所一標記）
@@ -401,12 +410,13 @@ TaiwanAgriPlatform/
 │   │       ├── calendar.ts           # 休市日月曆計算（vitest 覆蓋）
 │   │       ├── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
 │   │       ├── lostPetPost.ts        # 遺失啟事狀態對照與卡片渲染純函式（列表頁與詳情頁共用）
+│   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 36 個 vitest 案例）
 │   │       └── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup 與詳情頁共用）
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 326 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 423 個測試案例）
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
@@ -440,8 +450,8 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，326 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件單元測試（`npm test`，8 檔 81 案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，423 個案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store 單元測試（`npm test`，10 檔 120 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
 ---
@@ -578,16 +588,16 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 326 個測試案例）
+# 後端（xUnit + Moq，共 423 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 81 個測試案例）
+# 前端（Vitest，共 120 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知服務的分頁邊界與越權防護 14 個、規則引擎的跳過分支 13 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 8 個測試檔共 81 個案例，涵蓋 `useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）與 `mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 10 個測試檔共 120 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）與 `stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個——本專案唯一一支 store 測試，其餘皆為純函式測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -670,13 +680,15 @@ npm test
 **PetDbContext**（`TaiwanAgri.Modules.Pet`，schema: pet）：
 `Shelters`（收容所主檔，PK 為 MOA 真實 ID）| `ShelterAnimals`（收容動物，實體 FK → Shelters，`OnDelete: Restrict`）| `OfficialLostPetPosts` | `LegalSpecificPets` | `LostPetPosts`（使用者自建）
 
-> **跨 DbContext FK 說明**：`RoleModulePermissions.RoleId` 指向 `AspNetRoles.Id`（GUID），以 `nvarchar(450)` 邏輯 FK 處理，無物理 FOREIGN KEY CONSTRAINT。`UserFarmCrop.CropName` 為跨 DbContext 快照欄位，寫入時從 MarketDbContext 複製，不做即時 JOIN。`LostPetPost.UserId` 同樣是跨 DbContext 邏輯 FK（指向 `AspNetUsers`，無導覽屬性）。
+> **跨 DbContext FK 說明**：`RoleModulePermissions.RoleId` 指向 `AspNetRoles.Id`（GUID），以 `nvarchar(450)` 邏輯 FK 處理，無物理 FOREIGN KEY CONSTRAINT。`UserFarmCrop.CropName` 為跨 DbContext 快照欄位，寫入時從 MarketDbContext 複製，不做即時 JOIN。`LostPetPost.UserId` 同樣是跨 DbContext 邏輯 FK（指向 `AspNetUsers`，無導覽屬性）。**`UserWatchlists.UserId` 於 W26 一併改為邏輯 FK**——原本指向 `UserFarmProfiles.UserId`，於是沒填過農場設定的帳號一新增監看就違反外鍵，而註冊流程並不會建立農場檔案；查證原始設計文件確認那個指向不是設計決策，只是「`UserDbContext` 裡唯一以使用者為鍵的表就是它」。
+>
+> **`UserNotifications` → `PestRuleConfigs` 的連帶刪除由資料庫維護**：`PestRuleConfigId` 是不可為 null 的實體外鍵、刪除行為為 `CASCADE`，所以「每筆通知必定對應到一條存在的規則」這個不變式不靠應用程式維護，刪規則會連帶刪掉它的通知。通知訊息則在觸發當下組好存成字串，不依賴來源資料列仍然存在——氣象觀測是 30 天滾動刪除，來源列日後必然不在了。
 >
 > **enum 儲存慣例**：`PetDbContext` 的所有 enum 屬性皆設 `HasConversion<string>()`，資料庫存可讀字串而非數字——好處是新增列舉成員不需要 Migration，也讓直接查 DB 時看得懂。
 >
 > **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V35_6.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V36.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -751,6 +763,12 @@ npm test
 | GET | `/api/Notification/unread-count` | 未讀通知數 | **需要 JWT** |
 | PATCH | `/api/Notification/{id}/read` | 標記單筆已讀 | **需要 JWT** |
 | PATCH | `/api/Notification/read-all` | 一次標記全部已讀（取代前端逐筆送 N 個請求） | **需要 JWT** |
+| GET | `/api/NotificationRule?page=1&pageSize=20` | 自己的通知規則清單（含每條已產生的通知則數） | **需要 JWT** |
+| GET | `/api/NotificationRule/{id}` | 單條規則（非本人回 404） | **需要 JWT** |
+| POST | `/api/NotificationRule` | 建立規則（已達 7 條上限回 400，訊息可直接顯示） | **需要 JWT** |
+| PUT | `/api/NotificationRule/{id}` | 修改規則（回 204；另一型態專用的欄位由後端清成 null） | **需要 JWT** |
+| DELETE | `/api/NotificationRule/{id}` | 刪除規則（該規則產生的通知由資料庫外鍵連帶刪除） | **需要 JWT** |
+| POST | `/api/NotificationRule/evaluate` | 立即評估自己的規則（限流，超過回 429） | **需要 JWT** |
 
 ### 模組 3 — 毛小孩守護地圖
 
@@ -833,6 +851,7 @@ npm test
 | —（不掛週次） | 全專案 Code Review 第二輪 | 前端視覺設計輪與註解衛生批次收工後的第二次跨模組盤點，**首次把「先跑 build 與 lint 記基線」列為第一步**（第一輪的教訓），而這一步抓到兩個純讀檔看不到的問題。核心結論比第一輪更精確：技術債的形態是**慣例按時間順序長出來、新慣例從不回頭套用到舊程式碼**（`CancellationToken` 39 個介面方法只有 1 個有、`AsNoTracking` 全案 1 處、「截斷要給訊號」只存在寵物模組）。**修正**：CancellationToken 補到 42/42、`AsNoTracking` 1→6 處、建置警告 24→0、分頁界限與 `PagedResult` 收斂成共用抽象（原本分別重複 6 處與 7 處）、天災截斷加訊號並在前端顯示、Redis 反序列化失敗改為降級而非癱瘓 25 小時、農藥查詢第二層並行直接設限、前端 HTTP 層補 timeout 與 401 統一處理、通知不再靜默失敗。**修掉一個使用者可見的 bug**：監看清單未指定市場的項目永遠顯示不出價格（SQL 的 IN 不匹配 NULL）。**效能**：路由改動態載入＋字型二進位真正子集化，首屏載入 1254.9→378.5 kB（−69.8%；量的是瀏覽器進站即下載的全部檔案——entry chunk、`index.html` 以 `modulepreload` 指名的 chunk、entry CSS 與圖示字型）。**修掉 `Cors:AllowedOrigins` 從未設定的部署地雷**：`WithOrigins([])` 會拒絕所有跨來源請求，開發時因 Vite proxy 同源而察覺不到，改為非 `Development` 環境缺設定即啟動失敗，並補上進版控的 `appsettings.example.json`。**相依套件漏洞 10→0**（`npm audit`）。**測試 185→230**，Controller 層覆蓋 1/10→3/10。CI 的 lint 改唯讀（原本 `--fix` 會讓違規被吃掉還顯示綠燈），並新增「未定義 CSS 變數」檢查 | ✅ 完成 |
 | —（不掛週次） | `NotificationService` 補測試 | Service 層七支零測試中的第一支。第二輪 code review 改過它的分頁契約（改為 `{ items, hasMore }`）並新增 `MarkAllAsReadAsync`，改完沒有測試守著。四支方法各有測試，其中**邊界條件另立專門測試而非順帶覆蓋**：分頁的關鍵情境是「總筆數恰為每頁筆數的倍數、且要最後一頁」——舊做法（前端看這頁滿了沒）在此會謊報還有下一頁，新做法（後端多撈一筆當探針）才答得對；`MarkAsReadAsync` 的「找不到」分成「通知不存在」與「通知屬於他人」兩種，只有後者能偵測到 `UserId` 查詢條件被移除（越權寫入），且斷言除了例外還要求該筆維持未讀。導覽屬性 `RuleName` 在 EF InMemory 上的行為以最小測試實測確認（必要關聯採 INNER JOIN，指向不存在規則的通知整筆消失、不報錯），據此決定測試資料的準備方式。零筆早退以 `SavedChanges` 事件斷言守住。**驗收方式：將實作改壞六次逐一實跑，確認每次只有預期中的那一條測試變紅。** 230→244 測試、建置 0 警告、實作零改動（GitHub PR #46） | ✅ 完成 |
 | —（不掛週次） | Service 層測試補齊 + 行情端點界限 | 承上一輪，把剩下六支零測試的 Service 一次補完：`WeatherService`／`PestService`／`UserProfileService`／`PestRuleEngine`／`NavService`／`AuthService`，**Service 層至此十二支全部有測試覆蓋**。挑選標準一律是「錯了不會有訊號的地方」——氣象測站查詢的第二段用兩個彼此獨立的 `IN`，會撈到「甲站代號配乙站時間」這種不存在的組合（變異測試確認拿掉第三段記憶體 `GroupBy` 後只有該條變紅）；農場設定檔的作物是**全量取代**，呼叫端誤以為是增量更新就會靜靜刪掉使用者的資料；`NavService` 的三種異常情境統一回退 Guest，回空選單會讓部署錯誤看起來像權限問題；`AuthService` 的「帳號不存在」與「密碼錯誤」必須給出同一句訊息，能被區分開來就等於提供帳號列舉介面。`UserManager`／`RoleManager`／`SignInManager` 以既有的 Moq 建構，**無新增套件**。另補五個共用 UI 元件的結構測試（`vue/server-renderer` 算成 HTML 字串斷言，不需 jsdom）。**行情端點加上限流與查詢區間界限**：全案先前沒有任何端點檢查過日期區間，`1900-01-01` 到 `2100-01-01` 就是一次全表掃描；限流依來源位址每分鐘 60 次、拒絕時回 429 並附 `Retry-After`。順帶把 45 條英文測試命名回填為中文，並統一兩個檔案裡混用的 3 條前綴式命名（全專案 225 條測試方法皆以中文描述行為；其中 60 條沿用「受測方法名＿情境＿預期」格式，集中在六個整份採用該格式的檔案，不改）。後端 244→326、前端 55→81、建置 0 警告 | ✅ 完成 |
+| W26 | 模組 2（通知規則管理） | 補上整條通知鏈缺掉的第一節：鈴鐺、紅點、分頁、已讀都早已完成，但 `PestRuleConfig` 沒有任何建立管道，所以不論等多久都不會有任何一則通知。**規則 CRUD**（`NotificationRuleController` 六支端點，每人上限 7 條、越權一律回 404、型態相依的驗證寫在 DTO 的 `IValidatableObject` 而不是 Controller）；**規則管理畫面**（型態切換換掉一半欄位、刪除前顯示會連帶刪掉幾則通知）；**數值門檻改接自動氣象站觀測**——原來源病蟲害旬報的旬平均值上游未提供值（實測我方 136 筆與上游單頁 500 筆全部為 null），任何門檻都不可能成立，換來源後補上評估水位（只比對上次評估之後才落地的觀測，一批約 876 筆）、7 天新鮮度上限、台／臺兩種寫法都比對；**`ExpiryDays` 補上限**（事件型 180、數值型 30，沒有上限會讓 `AddDays` 溢位並打掛全體評估）。順帶修掉四個實測才看得到的問題：未登入訪客一進站就被鈴鐺的未讀數請求彈到登入頁、沒填過農場設定的帳號一新增監看就 500（`UserWatchlists` 的外鍵改為邏輯 FK）、`.gitignore` 的 `*.user` 連 `TaiwanAgri.Modules.User` 資料夾一起忽略而靜默吞掉新檔案、以及**改了規則條件卻沒有新通知時畫面說成「沒有一條符合條件」**——真正的原因是水位已追到最新一批、掃描範圍是空的，於是評估結果多回兩個數字讓畫面把「沒有新資料可比」與「條件沒命中」分開講，表單也改成依型態說明「改了之後會怎樣」。後端 326→423、前端 vitest 81→120 | ✅ 完成 |
 
 ---
 
@@ -948,11 +967,37 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 
 ---
 
+## ⚠️ 已知限制
+
+以下項目是**探勘或查證之後決定不做**，不是尚未實作。
+
+**規則來源：樹木病蟲害（`TreePest`）不開放**——探勘後判定該資料源不適合驅動通知：
+它沒有時間戳與唯一識別欄位（無法判斷「新出現」也無法去重），且語意是歷史診斷案例而非即時警報，
+因此規則建立時不開放此選項。規則引擎裡對應的分支保留為深度防禦，並有測試釘住
+「它不產生通知、也不拖累其他規則」。
+
+**規則來源：病蟲害旬報（`PestDecade`）不開放**——**原因與上一項完全不同**：
+該資料源要比對的那一格根本沒有值。旬平均值與全島佔比兩個數值欄位上游未提供，
+實測我方 136 筆與上游單頁 500 筆全部為 null，而 SQL 的 `NULL > 任何數字` 結果是 UNKNOWN，
+所以無論門檻填 0 還是 100 都永遠回 0 筆，任何數值門檻都不可能成立。
+數值門檻規則因此改以自動氣象站觀測（氣溫、24 小時雨量）為來源。
+兩者的差別在於能不能靠補欄位救回來：前者不能（資料形狀不對），後者也不能
+（在一個永遠回 0 筆的查詢上多掛條件，還是 0 筆）。
+
+**規則的縣市欄位沒有後端白名單**——畫面上的縣市是從固定的 22 個選項中選，
+但**繞過畫面直接呼叫 API 可以塞進一個不存在的縣市**：規則建得起來，只是永遠不會觸發，
+而且沒有任何訊號。不補的理由是後端要再寫一份 22 個縣市的清單，那會變成第二份真相來源，
+而兩個資料源（疫情警報與氣象觀測）的縣市涵蓋範圍本來就不同，從任一側查都會讓另一種規則少選項。
+**正確的做法是後端提供一支端點回傳縣市清單、前端從那裡取用**，但那要先解決「兩個來源涵蓋範圍不同」
+這件事——在那之前，多寫一份清單只是把同一個問題換個地方放。
+
+---
+
 ## 📁 相關文件
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V35_6.docx` | SA/SD 完整設計文件（W1–W25 全部實戰開發紀錄 + 全專案 Code Review 兩輪 + 前端視覺設計輪 + Service 層測試補齊與行情端點界限結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V36.docx` | SA/SD 完整設計文件（W1–W26 全部實戰開發紀錄 + 全專案 Code Review 兩輪 + 前端視覺設計輪 + Service 層測試補齊與行情端點界限 + 通知規則管理結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -972,4 +1017,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-09-08 ｜ 對應 SA/SD 文件版本 V35.6 ｜ Service 層測試補齊至十二支全覆蓋、共用 UI 元件結構測試、行情端點限流與查詢區間界限（後端 244→326、前端 55→81；前一輪為 `NotificationService` 服務層測試補齊）｜ 後端 326 測試、前端 81 測試全過*
+*最後更新：2026-09-11 ｜ 對應 SA/SD 文件版本 V36 ｜ W26 通知規則管理：規則 CRUD 與管理畫面、數值門檻改接自動氣象站觀測、評估水位與通知壽命上限（後端 326→423、前端 81→120；前一輪為 Service 層測試補齊與行情端點界限）｜ 後端 423 測試、前端 120 測試全過*

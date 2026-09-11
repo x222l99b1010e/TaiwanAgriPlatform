@@ -1,10 +1,19 @@
 <!-- src/views/weather/PestDecadeView.vue -->
+<!--
+  這一頁原本的主軸是「旬密度趨勢」：一張統計卡顯示最高密度、一張折線圖畫各城市的密度變化。
+  實測發現上游從未提供那個欄位的值（我方 136 筆與上游單頁 500 筆全部為 null），
+  所以統計卡永遠顯示 0、折線圖永遠是一條貼著底的平線——兩者都不是壞掉，但看起來就是壞掉。
+
+  處理方式是「刪掉假的、留下真的、講清楚為什麼」：縣市、鄉鎮、期別是真實資料，
+  所以表格保留（兩個空欄顯示「—」讀起來是「這筆沒有值」，不像壞掉）；
+  以密度為主軸的統計卡與折線圖移除；理由用一段提示講在頁面上，完整推導寫在 README。
+-->
 <template>
   <div class="page pest-view">
     <QueryLayout
       title="病蟲害旬報查詢"
       title-en="PEST DECADE REPORT"
-      subtitle="依害蟲名稱查詢各縣市鄉鎮的旬別發生率統計"
+      subtitle="依害蟲名稱查詢各縣市鄉鎮的旬別通報紀錄"
     >
       <template #actions>
         <Btn
@@ -34,6 +43,14 @@
         </div>
       </template>
 
+      <template #hint>
+        <HintBox title="關於「平均密度」與「全島比例」兩欄">
+          這兩個數值欄位上游未提供值——實測我方 136 筆與上游單頁 500 筆全部為空，
+          因此表格中一律顯示「—」。本頁呈現的是通報分布（哪些縣市鄉鎮在哪一旬有通報紀錄），
+          不是密度趨勢。詳細的探勘過程寫在專案 README 的「已知限制」。
+        </HintBox>
+      </template>
+
       <template #results>
         <StateBlock v-if="!hasQueried" state="hint" message="請選擇害蟲後按下查詢" />
         <StateBlock v-else-if="isLoading" state="loading" message="資料載入中..." />
@@ -52,7 +69,7 @@
         />
 
         <div v-else>
-          <!-- 摘要 -->
+          <!-- 摘要：只留真的算得出來的三項 -->
           <div class="summary-bar">
             <div class="stat-card">
               <span class="stat-label">害蟲名稱</span>
@@ -65,31 +82,6 @@
             <div class="stat-card">
               <span class="stat-label">資料筆數</span>
               <span class="stat-value">{{ records.length }}</span>
-            </div>
-            <div class="stat-card">
-              <span class="stat-label">最高密度</span>
-              <span class="stat-value">{{ maxAverage }}</span>
-            </div>
-          </div>
-
-          <!-- 折線圖 -->
-          <div class="chart-card card card--lg">
-            <div class="chart-toolbar">
-              <span class="section-title">旬密度趨勢（按城市）</span>
-              <div class="toolbar-right">
-                <Btn variant="secondary" size="sm" @click="toggleAllSeries">
-                  {{ allVisible ? '全不選' : '全選' }}
-                </Btn>
-              </div>
-            </div>
-            <div class="canvas-wrap">
-              <canvas ref="canvasRef" />
-              <!-- 預設全部隱藏：空白圖表補提示，避免看起來像壞掉 -->
-              <div v-if="visibleCount === 0" class="chart-empty-hint">
-                <span class="mdi mdi-gesture-tap chart-empty-hint__icon" />
-                <p class="chart-empty-hint__main">點上方圖例選擇要顯示的城市</p>
-                <span class="chart-empty-hint__sub">預設全部隱藏，避免多條線疊在一起看不清</span>
-              </div>
             </div>
           </div>
 
@@ -108,24 +100,17 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(r, i) in pagedRecords" :key="i" :class="densityLevel(r.average)">
+                <tr v-for="(r, i) in pagedRecords" :key="i">
                   <td class="city-cell">{{ r.city }}</td>
                   <td class="town-cell">{{ r.town }}</td>
                   <td class="num">{{ r.year }}</td>
                   <td class="num">{{ r.month }}</td>
                   <td>{{ tenDaysLabel(r.tenDays) }}</td>
-                  <td class="num density-val" :class="densityLevel(r.average)">
-                    {{ r.average ?? '—' }}
-                  </td>
+                  <td class="num">{{ r.average ?? '—' }}</td>
                   <td class="num">{{ r.proportionIsland != null ? (r.proportionIsland * 100).toFixed(1) + '%' : '—' }}</td>
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          <div class="legend-row">
-            <span class="legend-item"><i class="legend-swatch is-mid" />密度 3–9</span>
-            <span class="legend-item"><i class="legend-swatch is-high" />密度 ≥ 10</span>
           </div>
 
           <PagerBar
@@ -150,28 +135,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import {
-  Chart,
-  LineElement, PointElement, LineController,
-  CategoryScale, LinearScale,
-  Tooltip, Legend,
-  type ChartDataset,
-} from 'chart.js'
+import { ref, computed, onMounted } from 'vue'
 import { weatherApi, type PestDecadeResponseDto } from '@/api/weather'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
+import HintBox from '@/components/ui/HintBox.vue'
 import Btn from '@/components/ui/Btn.vue'
 import PagerBar from '@/components/PagerBar.vue'
 import { usePagination } from '@/composables/usePagination'
-import {
-  seriesColor, seriesDash, pointBorderColor, lineChartOptions, crosshairPlugin,
-} from '@/constants/chartTheme'
-
-Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
-
-// ── 色盤 ─────────────────────────────────────────────
-
 
 // ── 狀態 ─────────────────────────────────────────────
 const pestNames      = ref<string[]>([])
@@ -181,28 +152,11 @@ const isLoadingNames = ref(false)
 const isLoading      = ref(false)
 const hasQueried     = ref(false)
 const errorMsg       = ref('')
-const canvasRef      = ref<HTMLCanvasElement | null>(null)
-// 預設全部隱藏，起點是 false（按鈕顯示「全選」），由使用者自己點圖例選城市
-const allVisible     = ref(false)
-const visibleCount   = ref(0)
-const visibleCountPlugin = {
-  id: 'visibleCount',
-  afterUpdate(chart: Chart) {
-    visibleCount.value = chart.data.datasets.reduce(
-      (n, _d, i) => n + (chart.isDatasetVisible(i) ? 1 : 0), 0,
-    )
-  },
-}
-let   chartInstance: Chart | null = null
 
 // ── 統計 ─────────────────────────────────────────────
 const cityCount = computed(() =>
   new Set(records.value.map(r => r.city)).size
 )
-const maxAverage = computed(() => {
-  const vals = records.value.map(r => r.average ?? 0)
-  return vals.length ? Math.max(...vals) : 0
-})
 
 // ── 前端分頁 ──────────────────────────────────────────
 // 一種害蟲橫跨全台鄉鎮 × 多個旬別，列數常常上百，整頁列出來會很長。資料已全在 records
@@ -226,99 +180,6 @@ const pagedRecords = computed(() => {
 function tenDaysLabel(n: number) {
   return n === 1 ? '上旬' : n === 2 ? '中旬' : '下旬'
 }
-
-// ── 密度等級樣式 ──────────────────────────────────────
-function densityLevel(val: number | null) {
-  if (val === null) return ''
-  if (val >= 10) return 'level-high'
-  if (val >= 3)  return 'level-mid'
-  return ''
-}
-
-// ── 圖表資料整理 ──────────────────────────────────────
-// X 軸：年-月-旬 組合，排序後去重
-// 每條線：同一城市的 average 值
-const chartData = computed(() => {
-  if (!records.value.length) return { labels: [] as string[], datasets: [] as ChartDataset<'line'>[] }
-
-  // 組合 X 軸標籤
-  const labelSet = new Set(
-    records.value.map(r => `${r.year}-${String(r.month).padStart(2,'0')}-${tenDaysLabel(r.tenDays)}`)
-  )
-  const labels = Array.from(labelSet).sort()
-
-  // 按城市分組
-  const groups: Record<string, Record<string, number>> = {}
-  for (const r of records.value) {
-    const key = `${r.year}-${String(r.month).padStart(2,'0')}-${tenDaysLabel(r.tenDays)}`
-    if (!groups[r.city]) groups[r.city] = {}
-    // 同城市同旬取最大（可能有多個鄉鎮）
-    const existing = groups[r.city]![key] ?? 0
-    groups[r.city]![key] = Math.max(existing, r.average ?? 0)
-  }
-
-  const datasets = Object.entries(groups).map(([city, timeMap], i) => ({
-    label: city,
-    data: labels.map(l => timeMap[l] ?? null),
-    borderColor: seriesColor(i),
-    borderDash: seriesDash(i),   // 顏色以外的第二個線索，見 chartTheme.seriesDash
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    pointRadius: 3.5,
-    pointHoverRadius: 7,
-    pointBackgroundColor: seriesColor(i),
-    pointBorderColor: pointBorderColor(),
-    pointBorderWidth: 1,
-    tension: 0.3,
-    spanGaps: true,
-    // 預設隱藏：一種害蟲橫跨全台多個城市，全畫出來線條互相蓋住。
-    // 讓使用者從圖例點開要比較的城市
-    hidden: true,
-  }))
-
-  return { labels, datasets }
-})
-
-// ── Chart.js ──────────────────────────────────────────
-function buildChart() {
-  if (!canvasRef.value || !chartData.value.labels.length) return
-  chartInstance?.destroy()
-  // 新資料一律回到「全部隱藏」的起點，按鈕文字（全選）與圖表狀態才對得上
-  allVisible.value = false
-
-  chartInstance = new Chart(canvasRef.value, {
-    type: 'line',
-    data: chartData.value,
-    // ⚠ 這裡的提示框原本寫「mm」，是從雨量頁抄過來時漏改的——這條線畫的是平均密度，
-    // 不是雨量。收進共用設定後單位由 spec 指定，抄一份就跟著抄一次的機會不再有。
-    // 密度是「越少越好」的量，從 0 起跳才讀得出絕對高低，所以不開 fitY。
-    options: lineChartOptions({ maxTicksLimit: 10 }),
-    plugins: [crosshairPlugin, visibleCountPlugin],
-  })
-}
-
-function toggleAllSeries() {
-  if (!chartInstance) return
-  const meta = chartInstance.data.datasets.map((_, i) =>
-    chartInstance!.getDatasetMeta(i)
-  )
-  if (allVisible.value) {
-    meta.forEach(m => { m.hidden = true })
-    allVisible.value = false
-  } else {
-    meta.forEach(m => { m.hidden = false })
-    allVisible.value = true
-  }
-  chartInstance.update()
-}
-
-onUnmounted(() => chartInstance?.destroy())
-
-watch(
-  () => records.value,
-  () => nextTick(buildChart),
-  { deep: true }
-)
 
 // ── 初始化：載入害蟲清單 ──────────────────────────────
 onMounted(async () => {
@@ -359,32 +220,6 @@ async function handleQuery() {
 .pest-select { min-width: 200px; }
 .stat-card { min-width: 130px; }
 
-.chart-card { padding-block: var(--space-6) var(--space-8); margin-bottom: var(--space-6); }
-.chart-toolbar {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-4); margin-bottom: var(--space-5);
-}
-.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
-
-.canvas-wrap { position: relative; height: 420px; width: 100%; }
-
-/* 空狀態提示：預設全部隱藏時蓋在空白圖表上，不擋圖例互動 */
-.chart-empty-hint {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  text-align: center;
-  pointer-events: none;
-  color: var(--color-text-dim);
-}
-.chart-empty-hint__icon { font-size: var(--text-4xl); color: var(--color-border-strong); }
-.chart-empty-hint__main { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
-.chart-empty-hint__sub { font-size: var(--text-xs); }
-
 /* 資料收在一個有高度上限的 data grid：內部自己捲、表頭吸頂，配合下方分頁，
    整頁不會被上百列撐得很長（跟雨量頁一致）。 */
 .table-wrap {
@@ -399,17 +234,4 @@ async function handleQuery() {
 
 .city-cell  { font-weight: var(--weight-bold); color: var(--color-text); }
 .town-cell  { color: var(--color-text-dim); }
-.density-val { font-weight: var(--weight-bold); }
-.level-mid  { color: var(--warning-700); }
-.level-high { color: var(--danger-500); }
-
-/* 圖例用實際顏色的色塊示範，不用文字描述顏色 */
-.legend-row { display: flex; flex-wrap: wrap; gap: var(--space-5); margin-top: var(--space-3); }
-.legend-item {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  font-size: var(--text-xs); color: var(--color-text-dim);
-}
-.legend-swatch { width: 10px; height: 10px; border-radius: var(--radius-sm); flex-shrink: 0; }
-.legend-swatch.is-mid  { background: var(--warning-700); }
-.legend-swatch.is-high { background: var(--danger-500); }
 </style>

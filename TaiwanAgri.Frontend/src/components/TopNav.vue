@@ -49,7 +49,12 @@
       </nav>
 
       <div class="top-right">
-        <NotificationBell />
+        <!-- 未登入時整顆不掛載。通知是登入後才有的東西，對訪客顯示一顆點開只會說
+             「目前沒有通知」的鈴鐺是誤導——他不是沒有通知，是這個功能對他不存在。
+             更實際的理由是它會發請求：元件一掛載就打 unread-count，而那支要登入，
+             訪客一進站就會吃到 401。用 v-if 而不是在元件內部加判斷，
+             是因為「不掛載」連 onMounted 的六十秒輪詢一起省掉，防護只有一處 -->
+        <NotificationBell v-if="authStore.isLoggedIn" />
 
         <!-- 已登入：顯示名稱 + 登出 -->
         <template v-if="authStore.isLoggedIn">

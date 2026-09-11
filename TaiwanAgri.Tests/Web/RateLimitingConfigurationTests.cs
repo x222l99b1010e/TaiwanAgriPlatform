@@ -44,7 +44,7 @@ namespace TaiwanAgri.Tests.Web
 		public void 未設定時使用可用的預設值()
 		{
 			var services = new ServiceCollection();
-			services.AddPublicQueryRateLimiting(Config());
+			services.AddApiRateLimiting(Config());
 
 			var options = services.BuildServiceProvider().GetRequiredService<IOptions<RateLimitOptions>>().Value;
 
@@ -60,7 +60,7 @@ namespace TaiwanAgri.Tests.Web
 		public void 設定檔的限流參數要被讀取()
 		{
 			var services = new ServiceCollection();
-			services.AddPublicQueryRateLimiting(Config(
+			services.AddApiRateLimiting(Config(
 				("RateLimiting:PermitLimit", "120"),
 				("RateLimiting:WindowSeconds", "30")));
 
@@ -82,6 +82,55 @@ namespace TaiwanAgri.Tests.Web
 
 			// 每次頁面操作兩支請求，一分鐘內至少要容得下二十次操作
 			Assert.True(options.PermitLimit >= 40, $"預設額度 {options.PermitLimit} 對正常操作偏緊");
+		}
+
+		/// <summary>
+		/// 「立即檢查」是這支控制器上唯一掛限流的端點，屬性因此在方法而不是類別上——
+		/// 掛類別的話，列表與編輯規則會一起吃到這個很緊的額度，正常操作就被擋掉了。
+		/// 代價是新增端點不會自動涵蓋，所以這條測試要指名到方法
+		/// </summary>
+		[Fact]
+		public void 立即檢查端點要套用規則評估限流策略()
+		{
+			var method = typeof(NotificationRuleController)
+				.GetMethod(nameof(NotificationRuleController.EvaluateNow));
+			var attribute = method?.GetCustomAttribute<EnableRateLimitingAttribute>();
+
+			Assert.NotNull(attribute);
+			Assert.Equal(RateLimitingExtensions.RuleEvaluationPolicy, attribute.PolicyName);
+		}
+
+		/// <summary>
+		/// 規則評估的設定值也要真的被讀進來。兩個策略共用同一個設定區段，
+		/// 綁錯屬性名時不會有任何錯誤——選項只是靜靜地維持預設值
+		/// </summary>
+		[Fact]
+		public void 設定檔的規則評估限流參數要被讀取()
+		{
+			var services = new ServiceCollection();
+			services.AddApiRateLimiting(Config(
+				("RateLimiting:RuleEvaluationPermitLimit", "3"),
+				("RateLimiting:RuleEvaluationWindowSeconds", "120")));
+
+			var options = services.BuildServiceProvider().GetRequiredService<IOptions<RateLimitOptions>>().Value;
+
+			Assert.Equal(3, options.RuleEvaluationPermitLimit);
+			Assert.Equal(120, options.RuleEvaluationWindowSeconds);
+		}
+
+		/// <summary>
+		/// 兩個策略的額度不該是同一個量級：評估一次要對氣象觀測表掃一輪，
+		/// 而那張表是每小時寫入約 876 筆、保留 30 天的滾動視窗。
+		/// 若哪天有人把兩者調成一樣，等於這個端點實質沒有額外保護
+		/// </summary>
+		[Fact]
+		public void 規則評估的預設額度要比公開查詢緊得多()
+		{
+			var options = new RateLimitOptions();
+
+			Assert.True(options.RuleEvaluationPermitLimit > 0);
+			Assert.True(options.RuleEvaluationPermitLimit * 4 <= options.PermitLimit,
+				$"規則評估額度 {options.RuleEvaluationPermitLimit} 與公開查詢 {options.PermitLimit} 不在不同量級");
 		}
 	}
 }

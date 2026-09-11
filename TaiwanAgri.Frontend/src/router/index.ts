@@ -38,6 +38,7 @@ const LostPetsView = () => import('@/views/pet/LostPetsView.vue')
 const LostPetDetailView = () => import('@/views/pet/LostPetDetailView.vue')
 const LegalBusinessView = () => import('@/views/pet/LegalBusinessView.vue')
 const MyLostPetsView = () => import('@/views/pet/MyLostPetsView.vue')
+const NotificationRulesView = () => import('@/views/weather/NotificationRulesView.vue')
 
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -132,6 +133,14 @@ const router = createRouter({
     // 「我的協尋貼文」個人管理頁（不掛週次分支新增，放在 /profile 底下＋
     // pet 模組內也放一個連結過去，兩處都要）
     { path: '/profile/lost-pets', name: 'my-lost-pets', component: MyLostPetsView, meta: { requiresAuth: true } },
+    // 通知規則管理（W26）。規則是使用者自己的資料，所以掛在 /profile 底下、
+    // 跟「我的協尋貼文」同一層；檔案放在 views/weather/ 是因為它屬於氣象與病蟲害那個功能領域
+    {
+      path: '/profile/notification-rules',
+      name: 'notification-rules',
+      component: NotificationRulesView,
+      meta: { requiresAuth: true },
+    },
   ]
 })
 

@@ -50,13 +50,18 @@ namespace TaiwanAgri.Modules.User.Data
 			modelBuilder.Entity<UserWatchlist>(entity =>
 			{
 				entity.ToTable("UserWatchlists");
-				// 查詢某使用者的所有追蹤作物走索引
-				entity.HasOne<UserFarmProfile>()  // ← 用泛型指定關聯的 Entity 型別
-				.WithMany()
-				.HasForeignKey(c => c.UserId)
-				.HasPrincipalKey(p => p.UserId)
-				.OnDelete(DeleteBehavior.Cascade);
-
+				// UserId 是邏輯 FK，資料庫層沒有外鍵約束——與 UserNotifications／PestRuleConfigs／
+				// LostPetPosts 同一種處理：它們指向的 AspNetUsers 在 ApplicationDbContext，
+				// EF 不能跨 DbContext 建外鍵。
+				//
+				// ⚠ 這張表原本有外鍵指向 UserFarmProfiles.UserId。那不是業務規則，是「只有那裡指得到」
+				// ——UserDbContext 裡唯一以使用者為鍵的表就是 UserFarmProfiles。後果是沒填過
+				// 「農場設定」的帳號一新增監看就違反外鍵、拿到 500，而農場檔案本來就是選填的偏好設定
+				// （系統只有 Guest／Admin 兩個角色，沒有「農民」這個身分）。監看清單是「我關心哪些作物」，
+				// 與農場在哪、種什麼無關，所以改成邏輯 FK。
+				//
+				// 代價要記得：刪除帳號時 UserWatchlists 不再被 UserFarmProfiles 連帶刪除，
+				// 必須自己清（UserFarmCrops 仍由 UserFarmProfiles 連帶刪除，那一條的歸屬是對的）。
 				entity.HasIndex(c => c.UserId);
 			});
 		}
