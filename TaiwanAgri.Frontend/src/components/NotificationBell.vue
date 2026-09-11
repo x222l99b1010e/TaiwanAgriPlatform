@@ -56,6 +56,13 @@
           已顯示全部通知
         </div>
       </div>
+
+      <!-- 通知是規則產生的，所以「怎麼會有／怎麼沒有通知」的答案都在規則頁。
+           沒有這個入口的話，看到「目前沒有通知」的人不會知道下一步該做什麼 -->
+      <RouterLink to="/profile/notification-rules" class="dropdown-footer" @click="isOpen = false">
+        <span class="mdi mdi-bell-cog-outline" />
+        <span>管理通知規則</span>
+      </RouterLink>
     </div>
   </div>
 </template>
@@ -130,8 +137,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
+  /* 這一列其他控制項是 --control-h-sm(32)，鈴鐺刻意用大一階的 --control-h(40)：
+     它是唯一一顆右上角要疊未讀計數的按鈕，32 的框放不下「圖示 ＋ 角落計數」兩層，
+     兩位數的未讀數會直接壓在鈴鐺上。列本身是 align-items: center，高一階不會破壞對齊 */
+  width: var(--control-h);
+  height: var(--control-h);
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
@@ -144,13 +154,16 @@ onMounted(() => {
 .bell-btn:hover { background: var(--white-a12); color: var(--color-on-deep); }
 .bell-btn:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
 
-.bell-icon { font-size: var(--text-lg); }
+.bell-icon { font-size: var(--text-xl); }
 
 /* 未讀紅點。刻意不用共用的 .badge：它是絕對定位疊在鈴鐺上的計數點，
-   跟頁面裡那種行內的狀態標籤不是同一種東西 */
+   跟頁面裡那種行內的狀態標籤不是同一種東西。
+   ⚠ 位置是負的，計數靠在按鈕框外緣：計數會長到兩位數（寬約 22px），
+   放在框內時它會往左長、直接蓋住鈴鐺本體。外緣不會被裁掉——
+   TopNav 高 56px、鈴鐺 40px，上下各有 8px 餘裕，且該列沒有 overflow 裁切 */
 .bell-badge {
   position: absolute;
-  top: 4px; right: 4px;
+  top: -1px; right: -1px;
   min-width: 16px; height: 16px;
   padding: 0 var(--space-1); border-radius: var(--radius-full);
   background: var(--danger-500); color: var(--color-on-deep);
@@ -231,6 +244,24 @@ onMounted(() => {
 .rule-name { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-action); }
 .item-time { font-family: var(--font-num); font-size: var(--text-2xs); color: var(--color-text-dim); white-space: nowrap; }
 .item-message { font-size: var(--text-sm); color: var(--color-text); line-height: var(--leading-normal); }
+
+/* 底部入口：跟 header 用同一條分隔線的相反方向，讓 dropdown 有明確的上下邊界 */
+.dropdown-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-sunken);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-dim);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-work);
+}
+.dropdown-footer:hover { color: var(--color-action); }
+.dropdown-footer:focus-visible { outline: 2px solid var(--color-action); outline-offset: -2px; }
 
 /* 提示文字 */
 .hint {

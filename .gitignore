@@ -4,6 +4,12 @@
 # Visual Studio 的機器本地檔（*.user 慣例）：內容是本機還原狀態的時間戳，
 # 對其他人 clone 下來沒有意義，且會因每個人的操作而互相覆蓋
 *.user
+# ⚠ 這條 ignore 不只比中檔案，也會比中「資料夾」——本 repo 的 core.ignorecase 是 true
+# （Windows 預設），於是 TaiwanAgri.Modules.User 這個模組資料夾整個被忽略。
+# 已追蹤的檔案不受影響，所以平常完全看不出來；症狀是**該模組底下新增的檔案會無聲消失**
+# ——git add 不報錯、git status 不顯示、commit 就少了那個檔案。
+# 實際踩到：新產生的 Migration 沒有進版控。把這類資料夾重新納入。
+!*.User/
 *.suo
 *.userosscache
 *.sln.docstates

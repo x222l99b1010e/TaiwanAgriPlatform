@@ -115,5 +115,38 @@ namespace TaiwanAgri.Tests.User
 			var count = await dbContext.UserWatchlists.CountAsync();
 			Assert.Equal(1, count);
 		}
+
+		/// <summary>
+		/// 監看清單不依賴農場檔案。
+		/// <para>
+		/// 這張表原本有外鍵指向 <c>UserFarmProfiles.UserId</c>，於是沒填過「農場設定」的帳號
+		/// 一新增監看就違反外鍵、拿到 500，而畫面顯示的是「請稍後再試」——再試幾次都不會成功。
+		/// 農場檔案是選填的偏好設定（系統只有 Guest／Admin 兩個角色，沒有「農民」這個身分），
+		/// 監看清單問的是「我關心哪些作物」，兩者沒有依賴關係。
+		/// </para>
+		/// <para>
+		/// ⚠ 這條測試不能用「新增一筆看會不會成功」來寫：EF InMemory 根本不強制外鍵，
+		/// 那種寫法在移除外鍵之前就已經是綠的，等於什麼都沒檢查。
+		/// 所以直接斷言模型設定——把外鍵加回去，這條就會紅。
+		/// </para>
+		/// </summary>
+		[Fact]
+		public void 監看清單的UserId沒有外鍵指向農場檔案()
+		{
+			var options = new DbContextOptionsBuilder<UserDbContext>()
+				.UseInMemoryDatabase(nameof(監看清單的UserId沒有外鍵指向農場檔案))
+				.Options;
+			using var dbContext = new UserDbContext(options);
+
+			var foreignKeys = dbContext.Model.FindEntityType(typeof(UserWatchlist))!.GetForeignKeys();
+			Assert.Empty(foreignKeys);
+
+			// 對照組：UserFarmCrop 指向農場檔案的外鍵要留著。
+			// 少了這一半，一個「把整個 UserDbContext 的關聯都拿掉」的改動也會讓上面那句通過
+			var cropForeignKey = dbContext.Model.FindEntityType(typeof(UserFarmCrop))!
+				.GetForeignKeys()
+				.Single(fk => fk.PrincipalEntityType.ClrType == typeof(UserFarmProfile));
+			Assert.Equal(DeleteBehavior.Cascade, cropForeignKey.DeleteBehavior);
+		}
 	}
 }
