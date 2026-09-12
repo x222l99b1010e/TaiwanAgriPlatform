@@ -879,6 +879,20 @@ SyncWorker 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbC
 **Redis Cache-Aside（GetPricesAsync）**
 Cache Key 格式：`market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}`。cropCodes 排序後 Join 確保任意排列命中同一 slot。TTL 設定 25 小時（農業部資料每天更新一次，跨天不提早過期）。Cache Key 前綴抽成 `CacheKeys.MarketPricesPrefix` 常數，為後續 RabbitMQ Cache Invalidation 預留介面。
 
+**外部相依可選化：不拋例外不等於降級**
+Redis 與 RabbitMQ 都是可選相依。沒設 `ConnectionStrings:Redis` 時分散式快取改註冊
+`AddDistributedMemoryCache`——那是 `IDistributedCache` 的另一個正式實作，不是關掉快取，
+Cache-Aside 的呼叫端一行都不用改，代價只有「多個執行個體之間不共用」；沒設 `RabbitMQ:HostName`
+時不註冊 `PriceUpdatedConsumer`。後者不是「少一個背景功能」的問題：該消費者在 `StartAsync` 裡
+建連線且不接例外，而 `IHostedService.StartAsync` 拋例外的語意是「整個 host 起不來」，
+實測指向不存在的主機時程序以未處理例外結束、HTTP 連接埠根本沒開。
+**真正的坑在「降級」的定義。** 只替快取存取包上 try/catch 之後，Redis 連不上時行情查詢確實從
+500 變成 200——但要 12.45 秒：StackExchange.Redis 斷線時把指令排進 backlog 等重連，
+而這支端點讀一次、寫一次，各等一輪逾時。12 秒的 200 跟壞掉沒有差別。補上
+`BacklogPolicy.FailFast`、`AbortOnConnectFail = false`、連線與指令逾時各 1 秒之後才降到
+1.45 秒（冷）／0.03 秒（暖）。**判準是量時間，不是看有沒有拋例外**——這幾個連線選項被改回
+預設值時不會有任何測試變紅、也不會有例外，症狀只有「慢」，所以另外寫測試釘住它們。
+
 **SyncState 模式取代 MAX(TransDate)**
 全市場休市日當天，`AgriProductsTrans` 表沒有記錄寫入，MAX 值卡死。改用 `SyncStates` 獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。
 

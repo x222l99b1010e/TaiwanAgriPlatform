@@ -1,9 +1,11 @@
+using System.Net;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using StackExchange.Redis;
 using TaiwanAgri.Web.Extensions;
 using TaiwanAgri.Web.Services;
 
@@ -153,6 +155,40 @@ namespace TaiwanAgri.Tests.Web
 				+ InfrastructureExtensions.MessageBrokerNotConfiguredWarning;
 
 			Assert.Contains(configurationKey, warnings);
+		}
+		/// <summary>
+		/// Redis 連不上時的等待上限。釘住的是一個實測數字：MarketService 的快取存取包上
+		/// try/catch 之後，行情查詢從 500 變成 200，但要 12.45 秒——讀一次、寫一次，
+		/// 各自在 backlog 裡排隊等到逾時。改成 FailFast 之後同一個情境是 1.45 秒（冷）／
+		/// 0.03 秒（暖），而且每次都真的落到資料庫（log 六筆降級警告、三次 DB 查詢）。
+		/// <para>
+		/// 這幾個值被改回預設時不會有任何測試變紅、也不會有例外——症狀只有「慢」，
+		/// 所以只能在這裡釘住
+		/// </para>
+		/// </summary>
+		[Fact]
+		public void Redis連線選項在連不上時快速失敗而不是排隊等逾時()
+		{
+			var options = InfrastructureExtensions.BuildRedisOptions("localhost:6379");
+
+			Assert.Equal(BacklogPolicy.FailFast, options.BacklogPolicy);
+			Assert.False(options.AbortOnConnectFail);
+			Assert.Equal(1000, options.ConnectTimeout);
+			Assert.Equal(1000, options.SyncTimeout);
+			Assert.Equal(1000, options.AsyncTimeout);
+			Assert.Equal(1, options.ConnectRetry);
+		}
+
+		[Fact]
+		public void Redis連線選項保留連線字串裡的端點()
+		{
+			var options = InfrastructureExtensions.BuildRedisOptions("cache.example.test:6380");
+
+			// 比對 Host 與 Port 而不是 ToString()：DnsEndPoint 的字串形式是
+			// "Unspecified/cache.example.test:6380"，前綴是位址家族、不是連線字串的一部分
+			var endpoint = Assert.IsType<DnsEndPoint>(Assert.Single(options.EndPoints));
+			Assert.Equal("cache.example.test", endpoint.Host);
+			Assert.Equal(6380, endpoint.Port);
 		}
 	}
 }

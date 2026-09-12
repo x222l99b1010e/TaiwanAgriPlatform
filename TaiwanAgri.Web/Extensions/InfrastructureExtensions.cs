@@ -1,4 +1,5 @@
-﻿using TaiwanAgri.Web.Services;
+﻿using StackExchange.Redis;
+using TaiwanAgri.Web.Services;
 
 namespace TaiwanAgri.Web.Extensions
 {
@@ -100,6 +101,41 @@ namespace TaiwanAgri.Web.Extensions
 				"請明確設定 Cors:SameOriginOnly = true。");
 		}
 
+		/// <summary>
+		/// Redis 連線選項：連不上時要「快速失敗」，不只是「不要拋例外」。
+		/// <para>
+		/// 這組值是實測逼出來的。MarketService 的快取存取包上 try/catch 之後，
+		/// Redis 指向不存在的主機時 <c>GET /api/market/prices</c> 確實從 500 變成 200——
+		/// 但要 <b>12.45 秒</b>：讀一次、寫一次，各自在 backlog 裡排隊等到逾時。
+		/// 降級成這樣跟壞掉沒有差別，所以預設的「斷線時把指令排進 backlog 等重連」
+		/// 必須改成直接失敗，讓呼叫端的降級路徑立刻生效
+		/// </para>
+		/// <para>
+		/// 這段知道「底下是 Redis」是刻意的，而且只有這裡可以知道——
+		/// 這是組裝根（composition root），本來就負責決定用哪個實作；
+		/// 相對地 MarketService 只認識 IDistributedCache，不為了接特定例外型別而加套件參考
+		/// </para>
+		/// </summary>
+		public static ConfigurationOptions BuildRedisOptions(string connectionString)
+		{
+			var options = ConfigurationOptions.Parse(connectionString);
+
+			// 啟動時連不上不讓建立連線的動作整個失敗——Redis 是加速層，
+			// 它不可用時服務要照樣起得來（比照 RabbitMQ 那一側的判斷，只是這裡有原生開關可用）
+			options.AbortOnConnectFail = false;
+
+			// 斷線期間指令直接失敗，不排進 backlog 等逾時。這是 12.45 秒的成因
+			options.BacklogPolicy = BacklogPolicy.FailFast;
+
+			// 連線與指令的等待上限。使用者正在等這個請求，等 5 秒去確認一件已經知道的事沒有意義
+			options.ConnectTimeout = 1000;
+			options.ConnectRetry = 1;
+			options.SyncTimeout = 1000;
+			options.AsyncTimeout = 1000;
+
+			return options;
+		}
+
 		public static IServiceCollection AddInfrastructure(
 			this IServiceCollection services,
 			IConfiguration configuration,
@@ -110,7 +146,7 @@ namespace TaiwanAgri.Web.Extensions
 			{
 				services.AddStackExchangeRedisCache(options =>
 				{
-					options.Configuration = configuration.GetConnectionString("Redis");
+					options.ConfigurationOptions = BuildRedisOptions(configuration.GetConnectionString("Redis")!);
 				});
 			}
 			else
