@@ -10,6 +10,8 @@ import { useAuthStore } from '@/stores/authStore'
 // 頁面用得到的函式庫全部打進首屏那一包——改動前實測單一 chunk 701 kB，
 // 只想看首頁的人也得先下載整個地圖與圖表函式庫。
 const HomeView = () => import('@/views/HomeView.vue')
+// 四個模組的入口頁共用這一支：深色頁首帶＋子頁卡片牆，是哪個模組由當前路徑決定
+const ModuleEntryView = () => import('@/views/ModuleEntryView.vue')
 const MarketView = () => import('@/views/MarketView.vue')
 const PricesView = () => import('@/views/market/PricesView.vue')
 const DisastersView = () => import('@/views/market/DisastersView.vue')
@@ -53,7 +55,7 @@ const router = createRouter({
       path: '/market',
       component: MarketView,
       children: [
-        { path: '',          redirect: '/market/prices' },
+        { path: '',          component: ModuleEntryView },
         { path: 'prices',    component: PricesView },
         { path: 'disasters', component: DisastersView },
         { path: 'rest-days', component: RestDaysView },
@@ -67,7 +69,7 @@ const router = createRouter({
       path: '/weather',
       component: WeatherView,
       children: [
-        { path: '',            redirect: '/weather/station' },
+        { path: '',            component: ModuleEntryView },
         { path: 'station',     component: StationView },
         { path: 'rainfall',    component: RainfallView },
         { path: 'pest-alerts', component: PestAlertsView },
@@ -81,7 +83,7 @@ const router = createRouter({
       path: '/food-safety',
       component: FoodSafetyView,
       children: [
-        { path: '',              redirect: '/food-safety/traceability' },
+        { path: '',              component: ModuleEntryView },
         { path: 'today-veg',    component: TodayVegView },
         { path: 'traceability', component: TraceabilityView },
         { path: 'pest-violation', component: ViolationWallView },
@@ -94,7 +96,7 @@ const router = createRouter({
       path: '/pet',
       component: PetView,
       children: [
-        { path: '',               redirect: '/pet/shelter-map' },
+        { path: '',               component: ModuleEntryView },
         { path: 'shelter-map',    component: ShelterMapView },
         // 動態路由的 :xxx 參數在 route.params 裡永遠是字串（就算網址長得像數字）。
         // 用 props 函式模式在進入元件前就轉成 number，元件收到的是乾淨的 number prop，
