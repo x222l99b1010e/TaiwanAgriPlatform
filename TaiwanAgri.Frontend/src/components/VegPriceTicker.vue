@@ -103,7 +103,7 @@ const animationDuration = computed(() =>
 .label-en {
   font-family: var(--font-num);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--weight-label);
   letter-spacing: var(--tracking-label);
   color: var(--color-on-deep-dim);
 }

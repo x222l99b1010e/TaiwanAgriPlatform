@@ -142,7 +142,7 @@ onMounted(() => {
 .feature-eyebrow {
   font-family: var(--font-num);
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: var(--weight-label);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-accent-2);

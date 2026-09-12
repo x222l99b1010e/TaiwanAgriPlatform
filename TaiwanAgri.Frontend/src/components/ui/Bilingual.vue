@@ -55,7 +55,7 @@ withDefaults(
    它在不同字級的標題旁邊要看起來是同一種東西 */
 .bilingual--inline .bilingual__en {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--weight-label);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
