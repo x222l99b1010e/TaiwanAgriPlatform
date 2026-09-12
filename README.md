@@ -351,6 +351,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── SiteFooter.vue        # 全站頁尾（P3 抽共用，掛在 App.vue 走 sticky footer）
 │   │   │   ├── MonthCalendar.vue     # 休市日月曆（P3，取代原按月分組清單）
 │   │   │   ├── SeasonMotif.vue       # 節氣母題（首頁節氣牌，只進內容層不進 token）
+│   │   │   ├── ShowcaseRow.vue       # 左右交錯的特寫列（首頁模組列與模組入口頁子頁列共用，兩階尺寸；hover 特效依模組不同）
 │   │   │   ├── ui/                  # 五個共用元件（P0/P1 抽出）＋中英並排
 │   │   │   │   ├── PageHeader.vue    # 頁首區塊（標題／英文副標／說明）
 │   │   │   │   ├── FilterCard.vue    # 查詢條件卡
@@ -362,9 +363,10 @@ TaiwanAgriPlatform/
 │   │   │       ├── QueryLayout.vue   # 查詢頁樣板（篩選卡 + 結果區 + 分頁）
 │   │   │       ├── DetailLayout.vue  # 詳情頁樣板（可分享固定網址）
 │   │   │       ├── MapLayout.vue     # 地圖頁樣板（地圖 + 清單上下排）
-│   │   │       └── EntryLayout.vue   # 入口頁樣板（深色頁首帶，首頁 hero 共用同一支）
+│   │   │       └── EntryLayout.vue   # 入口頁樣板（深色頁首帶 + 子頁卡片牆，四個模組入口頁與首頁 hero 共用同一支）
 │   │   ├── views/
 │   │   │   ├── HomeView.vue          # 全站首頁（P3 新建，`/` 直接掛此頁不再 redirect）
+│   │   │   ├── ModuleEntryView.vue   # 四個模組的入口頁（`/market`、`/weather`、`/food-safety`、`/pet` 共用一支，模組由路徑決定）
 │   │   │   ├── auth/
 │   │   │   │   └── LoginView.vue     # 登入 / 註冊 Tab + 錯誤中文翻譯
 │   │   │   ├── food-safety/
@@ -403,7 +405,8 @@ TaiwanAgriPlatform/
 │   │   ├── router/index.ts           # 路由守衛（requiresAuth + redirect-after-login）
 │   │   ├── main.ts
 │   │   ├── constants/
-│   │   │   └── chartTheme.ts         # 全站圖表共用主題（P2 收斂 5 份重複色盤成單一來源）
+│   │   │   ├── chartTheme.ts         # 全站圖表共用主題（P2 收斂 5 份重複色盤成單一來源）
+│   │   │   └── navCopy.ts            # 模組與子頁的展示文案＋各模組的 hover 特效對照（首頁與模組入口頁共用，以路由字串為 key）
 │   │   └── utils/
 │   │       ├── exportCsv.ts          # CSV 匯出（UTF-8 BOM）
 │   │       ├── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
@@ -451,7 +454,7 @@ TaiwanAgriPlatform/
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
 | 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，423 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store 單元測試（`npm test`，10 檔 120 案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面單元測試（`npm test`，11 檔 130 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
 ---
@@ -592,12 +595,12 @@ npm run dev
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 120 個測試案例）
+# 前端（Vitest，共 130 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 10 個測試檔共 120 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）與 `stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個——本專案唯一一支 store 測試，其餘皆為純函式測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 11 個測試檔共 130 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個——本專案唯一一支 store 測試）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點，10 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -688,7 +691,7 @@ npm test
 >
 > **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V36.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V36.1.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -852,6 +855,7 @@ npm test
 | —（不掛週次） | `NotificationService` 補測試 | Service 層七支零測試中的第一支。第二輪 code review 改過它的分頁契約（改為 `{ items, hasMore }`）並新增 `MarkAllAsReadAsync`，改完沒有測試守著。四支方法各有測試，其中**邊界條件另立專門測試而非順帶覆蓋**：分頁的關鍵情境是「總筆數恰為每頁筆數的倍數、且要最後一頁」——舊做法（前端看這頁滿了沒）在此會謊報還有下一頁，新做法（後端多撈一筆當探針）才答得對；`MarkAsReadAsync` 的「找不到」分成「通知不存在」與「通知屬於他人」兩種，只有後者能偵測到 `UserId` 查詢條件被移除（越權寫入），且斷言除了例外還要求該筆維持未讀。導覽屬性 `RuleName` 在 EF InMemory 上的行為以最小測試實測確認（必要關聯採 INNER JOIN，指向不存在規則的通知整筆消失、不報錯），據此決定測試資料的準備方式。零筆早退以 `SavedChanges` 事件斷言守住。**驗收方式：將實作改壞六次逐一實跑，確認每次只有預期中的那一條測試變紅。** 230→244 測試、建置 0 警告、實作零改動（GitHub PR #46） | ✅ 完成 |
 | —（不掛週次） | Service 層測試補齊 + 行情端點界限 | 承上一輪，把剩下六支零測試的 Service 一次補完：`WeatherService`／`PestService`／`UserProfileService`／`PestRuleEngine`／`NavService`／`AuthService`，**Service 層至此十二支全部有測試覆蓋**。挑選標準一律是「錯了不會有訊號的地方」——氣象測站查詢的第二段用兩個彼此獨立的 `IN`，會撈到「甲站代號配乙站時間」這種不存在的組合（變異測試確認拿掉第三段記憶體 `GroupBy` 後只有該條變紅）；農場設定檔的作物是**全量取代**，呼叫端誤以為是增量更新就會靜靜刪掉使用者的資料；`NavService` 的三種異常情境統一回退 Guest，回空選單會讓部署錯誤看起來像權限問題；`AuthService` 的「帳號不存在」與「密碼錯誤」必須給出同一句訊息，能被區分開來就等於提供帳號列舉介面。`UserManager`／`RoleManager`／`SignInManager` 以既有的 Moq 建構，**無新增套件**。另補五個共用 UI 元件的結構測試（`vue/server-renderer` 算成 HTML 字串斷言，不需 jsdom）。**行情端點加上限流與查詢區間界限**：全案先前沒有任何端點檢查過日期區間，`1900-01-01` 到 `2100-01-01` 就是一次全表掃描；限流依來源位址每分鐘 60 次、拒絕時回 429 並附 `Retry-After`。順帶把 45 條英文測試命名回填為中文，並統一兩個檔案裡混用的 3 條前綴式命名（全專案 225 條測試方法皆以中文描述行為；其中 60 條沿用「受測方法名＿情境＿預期」格式，集中在六個整份採用該格式的檔案，不改）。後端 244→326、前端 55→81、建置 0 警告 | ✅ 完成 |
 | W26 | 模組 2（通知規則管理） | 補上整條通知鏈缺掉的第一節：鈴鐺、紅點、分頁、已讀都早已完成，但 `PestRuleConfig` 沒有任何建立管道，所以不論等多久都不會有任何一則通知。**規則 CRUD**（`NotificationRuleController` 六支端點，每人上限 7 條、越權一律回 404、型態相依的驗證寫在 DTO 的 `IValidatableObject` 而不是 Controller）；**規則管理畫面**（型態切換換掉一半欄位、刪除前顯示會連帶刪掉幾則通知）；**數值門檻改接自動氣象站觀測**——原來源病蟲害旬報的旬平均值上游未提供值（實測我方 136 筆與上游單頁 500 筆全部為 null），任何門檻都不可能成立，換來源後補上評估水位（只比對上次評估之後才落地的觀測，一批約 876 筆）、7 天新鮮度上限、台／臺兩種寫法都比對；**`ExpiryDays` 補上限**（事件型 180、數值型 30，沒有上限會讓 `AddDays` 溢位並打掛全體評估）。順帶修掉四個實測才看得到的問題：未登入訪客一進站就被鈴鐺的未讀數請求彈到登入頁、沒填過農場設定的帳號一新增監看就 500（`UserWatchlists` 的外鍵改為邏輯 FK）、`.gitignore` 的 `*.user` 連 `TaiwanAgri.Modules.User` 資料夾一起忽略而靜默吞掉新檔案、以及**改了規則條件卻沒有新通知時畫面說成「沒有一條符合條件」**——真正的原因是水位已追到最新一批、掃描範圍是空的，於是評估結果多回兩個數字讓畫面把「沒有新資料可比」與「條件沒命中」分開講，表單也改成依型態說明「改了之後會怎樣」。後端 326→423、前端 vitest 81→120 | ✅ 完成 |
+| —（不掛週次） | 模組入口頁補做 | 四條模組路由原本直接 `redirect` 到第一個子頁，`MarketView`／`WeatherView`／`FoodSafetyView`／`PetView` 只是包著 `<RouterView />` 的空殼——**設計規格裡「四個模組入口頁」這一項從未落地**，抽出來的 `EntryLayout` 全案只有首頁在用。改為四條模組路由各自掛同一支 `ModuleEntryView`（是哪個模組由當前路徑決定，展示文案與各模組的 hover 特效查 `navCopy.ts`），子頁卡片牆與首頁的模組列共用抽出的 `ShowcaseRow`（兩階尺寸）。**子頁清單為空時給明確狀態，不留白**——`NavService` 對父模組與子功能是各查一次權限，角色保有父模組 `CanView`、子功能授權全被收掉時會回傳一個 `Children` 為空的模組，畫面上與「還沒載完」無從分辨；三種「畫不出東西」的情況（沒有可用子頁／路徑對不到模組／還在載入）因此各自給不同說法。三個模組外殼原本各自寫著的 `min-width: 960px` 一併移除（食安那一個本來就沒有），入口頁在 375px 是真正的響應式。前端 vitest 120→130（新增本專案第一支 View 測試），`ModuleEntryView` 是獨立 chunk（JS 1,954 B ＋ CSS 429 B）、`index.html` 不預載它，首頁那一包沒有變胖 | ✅ 完成 |
 
 ---
 
@@ -991,13 +995,23 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 **正確的做法是後端提供一支端點回傳縣市清單、前端從那裡取用**，但那要先解決「兩個來源涵蓋範圍不同」
 這件事——在那之前，多寫一份清單只是把同一個問題換個地方放。
 
+**9 個查詢子頁在窄螢幕上是整頁縮放版，不是響應式**——`StationView`／`RainfallView`／
+`PestAlertsView`／`PestDecadeView`／`PricesView`／`RestDaysView`／`DisastersView`／
+`PoultryView`／`PorkView` 各自寫著 `min-width: 960px`，在 375px 的畫面上會橫向縮放。
+首頁與四個模組入口頁不受影響（那一層的寬度下限已經移除，是真正的響應式）。
+不處理的理由是這 9 頁都是資料表格加多欄篩選，**拿掉寬度下限只是第一步**，
+真正的工作是逐頁在窄螢幕重新決定欄位怎麼收、篩選器怎麼折疊並逐頁驗收，
+那是獨立的一件事，不是刪一行 CSS 就結束。
+**表格自己的 `min-width` 不屬於這一項**——違規牆 900px、合法業者 1100/1320px、
+收容所詳情 1020px 是欄位本身需要的寬度，配合容器的 `overflow-x` 橫向捲動是刻意的做法。
+
 ---
 
 ## 📁 相關文件
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V36.docx` | SA/SD 完整設計文件（W1–W26 全部實戰開發紀錄 + 全專案 Code Review 兩輪 + 前端視覺設計輪 + Service 層測試補齊與行情端點界限 + 通知規則管理結案記錄，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| `TaiwanAgriPlatform_SA_SD_V36.1.docx` | SA/SD 完整設計文件（W1–W26 全部實戰開發紀錄 + 全專案 Code Review 兩輪 + 前端視覺設計輪 + Service 層測試補齊與行情端點界限 + 通知規則管理 + 模組入口頁補做，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
 
 ---
 
@@ -1017,4 +1031,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-09-11 ｜ 對應 SA/SD 文件版本 V36 ｜ W26 通知規則管理：規則 CRUD 與管理畫面、數值門檻改接自動氣象站觀測、評估水位與通知壽命上限（後端 326→423、前端 81→120；前一輪為 Service 層測試補齊與行情端點界限）｜ 後端 423 測試、前端 120 測試全過*
+*最後更新：2026-09-12 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 模組入口頁補做：四條模組路由改掛共用的 `ModuleEntryView`、子頁卡片牆與首頁模組列共用 `ShowcaseRow`、子頁清單為空時給明確狀態、移除模組外殼的寬度下限（前端 120→130；前一輪為 W26 通知規則管理）｜ 後端 423 測試、前端 130 測試全過*
