@@ -8,9 +8,9 @@
 </script>
 
 <style scoped>
+/* 不給 min-width：理由同 MarketView——外殼撐寬會讓響應式的入口頁失效 */
 .weather-view {
   width: 100%;
-  min-width: 960px;
   box-sizing: border-box;
   min-height: 100%;
 }
