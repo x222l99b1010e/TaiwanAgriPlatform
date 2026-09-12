@@ -36,6 +36,19 @@ namespace TaiwanAgri.Web
 				app.Logger.LogWarning(Extensions.InfrastructureExtensions.CorsOriginsMissingWarning);
 			}
 
+			// Redis 與 RabbitMQ 都是可選相依：沒設定時走降級路徑，但一定要留下痕跡。
+			// 靜默降級的問題不是「行為錯了」而是「行為對了卻查不出來」——
+			// 多執行個體部署時快取不共用、事件驅動失效沒在跑，兩者都只能靠這兩則警告回溯
+			if (!Extensions.InfrastructureExtensions.IsRedisConfigured(app.Configuration))
+			{
+				app.Logger.LogWarning(Extensions.InfrastructureExtensions.RedisNotConfiguredWarning);
+			}
+
+			if (!Extensions.InfrastructureExtensions.IsMessageBrokerConfigured(app.Configuration))
+			{
+				app.Logger.LogWarning(Extensions.InfrastructureExtensions.MessageBrokerNotConfiguredWarning);
+			}
+
 			// Seed 初始資料（角色、核心資料）
 			using (var scope = app.Services.CreateScope())
 			{

@@ -18,6 +18,23 @@ namespace TaiwanAgri.Web.Extensions
 			"請填入允許的來源，或以 Cors:SameOriginOnly = true 明確宣告不需要 CORS。";
 
 		/// <summary>
+		/// 未設定 Redis 連線字串時的啟動警告。降級本身是正常運作路徑，
+		/// 但「以為連了 Redis、其實是行程內記憶體」必須留下痕跡，否則多執行個體部署時
+		/// 快取不共用的症狀無從追溯
+		/// </summary>
+		public const string RedisNotConfiguredWarning =
+			"未設定 ConnectionStrings:Redis，分散式快取改用行程內記憶體實作（AddDistributedMemoryCache）。" +
+			"單一執行個體部署時這是正確行為；部署多個執行個體時快取不會共用，請改設 Redis 連線字串。";
+
+		/// <summary>
+		/// 未設定 RabbitMQ 主機時的啟動警告。同上：不註冊 consumer 是正常路徑，
+		/// 但要看得出來「事件驅動的快取失效這一段沒有在跑」
+		/// </summary>
+		public const string MessageBrokerNotConfiguredWarning =
+			"未設定 RabbitMQ:HostName，未註冊 PriceUpdatedConsumer，事件驅動的快取失效不會運作。" +
+			"快取仍由 25 小時 TTL 兜底；要啟用事件驅動失效請填入 broker 主機。";
+
+		/// <summary>
 		/// <c>Cors:AllowedOrigins</c> 沒填、且沒有用 <c>Cors:SameOriginOnly</c> 宣告不需要 CORS。
 		/// <para>
 		/// 這個狀態下 <c>WithOrigins([])</c> 會拒絕所有跨來源請求，而且不留任何訊息——
@@ -32,6 +49,34 @@ namespace TaiwanAgri.Web.Extensions
 		public static bool IsCorsOriginsMissing(IConfiguration configuration) =>
 			(configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? []).Length == 0
 			&& !configuration.GetValue<bool>("Cors:SameOriginOnly");
+
+		/// <summary>
+		/// 有沒有設定 Redis 連線字串。沒設定時改註冊 <c>AddDistributedMemoryCache</c>——
+		/// 那是 <c>IDistributedCache</c> 的另一個正式實作，不是「關掉快取」，
+		/// 所以 Cache-Aside 的呼叫端一行都不用改。
+		/// <para>
+		/// 代價只有一個：多個執行個體之間不共用快取，所以這條路徑只在單一執行個體部署時成立
+		/// （限流計數器同樣是 in-memory，依賴的是同一個前提）
+		/// </para>
+		/// </summary>
+		public static bool IsRedisConfigured(IConfiguration configuration) =>
+			!string.IsNullOrWhiteSpace(configuration.GetConnectionString("Redis"));
+
+		/// <summary>
+		/// 有沒有設定 RabbitMQ 主機。沒設定時不註冊 <see cref="PriceUpdatedConsumer"/>。
+		/// <para>
+		/// 之所以是「不註冊」而不是「註冊了連不上再說」：該類別在 <c>StartAsync</c> 裡
+		/// 建連線且不接例外，而 <c>IHostedService.StartAsync</c> 拋例外的語意是
+		/// 「這個服務起不來 ⇒ 整個 host 起不來」——連不上 broker 時整站回 503，
+		/// 不是少一個背景功能。這不是推測：把主機指向不存在的位址時，程序會以
+		/// Unhandled exception 結束、HTTP 連接埠根本沒開
+		/// </para>
+		/// <para>
+		/// 少了它不影響服務完整性：這支 consumer 目前只負責快取失效，而快取另有 25 小時 TTL 兜底
+		/// </para>
+		/// </summary>
+		public static bool IsMessageBrokerConfigured(IConfiguration configuration) =>
+			!string.IsNullOrWhiteSpace(configuration["RabbitMQ:HostName"]);
 
 		/// <summary>
 		/// 啟動時檢查 CORS 來源設定，非 Development 環境缺設定就讓啟動直接失敗。
@@ -60,11 +105,18 @@ namespace TaiwanAgri.Web.Extensions
 			IConfiguration configuration,
 			IHostEnvironment environment)
 		{
-			// Redis
-			services.AddStackExchangeRedisCache(options =>
+			// Redis（沒設連線字串就退回行程內記憶體實作，理由見 IsRedisConfigured）
+			if (IsRedisConfigured(configuration))
 			{
-				options.Configuration = configuration.GetConnectionString("Redis");
-			});
+				services.AddStackExchangeRedisCache(options =>
+				{
+					options.Configuration = configuration.GetConnectionString("Redis");
+				});
+			}
+			else
+			{
+				services.AddDistributedMemoryCache();
+			}
 
 			// CORS
 			ValidateCorsConfiguration(configuration, environment);
@@ -81,8 +133,11 @@ namespace TaiwanAgri.Web.Extensions
 				});
 			});
 
-			// RabbitMQ Consumer
-			services.AddHostedService<PriceUpdatedConsumer>();
+			// RabbitMQ Consumer（沒設主機就不註冊，理由見 IsMessageBrokerConfigured）
+			if (IsMessageBrokerConfigured(configuration))
+			{
+				services.AddHostedService<PriceUpdatedConsumer>();
+			}
 
 			// Web API 基礎
 			services.AddControllers();

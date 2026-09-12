@@ -444,8 +444,8 @@ TaiwanAgriPlatform/
 | 資料庫 | SQL Server | 2022 | Window Functions、時序查詢 |
 | 背景排程 | .NET Worker Service | 10.0 | 資料同步排程 |
 | 日誌 | Serilog | 10.x | Console + 滾動式檔案日誌（60 天保留） |
-| 訊息佇列 | RabbitMQ | 3.x | 非同步事件推播（Topic Exchange） |
-| 快取 | Redis + StackExchange.Redis | 7.x | Cache-Aside Pattern（TTL 25hr） |
+| 訊息佇列 | RabbitMQ | 3.x | 非同步事件推播（Topic Exchange）；**可選相依**，沒設定就不註冊消費者 |
+| 快取 | Redis + StackExchange.Redis | 7.x | Cache-Aside Pattern（TTL 25hr）；**可選相依**，沒設定就改用行程內記憶體快取 |
 | 身分驗證 | ASP.NET Core Identity + JWT | 10.0 | RBAC + JWT Bearer |
 | 前端 | Vue 3 + Vite + TypeScript | 最新穩定版 | SPA 前台 |
 | 狀態管理 | Pinia | 最新穩定版 | 全域狀態管理 |
@@ -505,8 +505,10 @@ cp TaiwanAgri.Worker/appsettings.example.json TaiwanAgri.Worker/appsettings.Deve
 它是「設定該長什麼樣」的唯一有版控來源，每個 key 的用途與預設值都寫在檔案裡的註解（.NET 的
 JSON 設定讀取器允許註解，複製後可以原樣保留）。含密碼的值也可以改放 User Secrets，兩個專案都已設定 `UserSecretsId`。
 
-必填的三項：`ConnectionStrings:DefaultConnection`（密碼同 `.env` 的 `SA_PASSWORD`）、
-`ConnectionStrings:Redis`、`Jwt:SecretKey`（至少 32 字元）。本機開發的 CORS 不必設定——
+必填的兩項：`ConnectionStrings:DefaultConnection`（密碼同 `.env` 的 `SA_PASSWORD`）與
+`Jwt:SecretKey`（至少 32 字元）。`ConnectionStrings:Redis` 與 `RabbitMQ:HostName` 是**可選的**——
+留白時分散式快取改用行程內記憶體實作、事件消費者不註冊，服務照常完整啟動，只會各記一則啟動警告。
+本機開發的 CORS 不必設定——
 Vite dev server 用 proxy 把 `/api` 轉成同源請求，不經過 CORS，啟動時只會收到一則警告。
 **正式部署則必須設定，見下方「正式部署設定」。**
 
@@ -636,7 +638,8 @@ npm test
 `Development` 不套用這個檢查（本機走 proxy 是常態），只會記一則啟動警告。
 
 其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值）、
-`ConnectionStrings` 指向正式資料庫與 Redis、`ASPNETCORE_ENVIRONMENT` 設為 `Production`
+`ConnectionStrings:DefaultConnection` 指向正式資料庫（`ConnectionStrings:Redis` 與
+`RabbitMQ:HostName` 留白即走降級路徑）、`ASPNETCORE_ENVIRONMENT` 設為 `Production`
 （Swagger UI 只在 `Development` 掛載，正式環境不會暴露 API 文件）。
 
 ### 速率限制
