@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text;
 using System.Text.Json;
@@ -85,7 +86,8 @@ namespace TaiwanAgri.Tests.Market
 				dbContext,
 				mockCache.Object,
 				Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()),
-				TimeProvider.System);
+				TimeProvider.System,
+				NullLogger<MarketService>.Instance);
 
 			// ══════════════════════════════════════════════
 			// Act：開演
@@ -204,7 +206,8 @@ namespace TaiwanAgri.Tests.Market
 				dbContext,
 				mockCache.Object,
 				Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()),
-				TimeProvider.System);
+				TimeProvider.System,
+				NullLogger<MarketService>.Instance);
 
 			// ══════════════════════════════════════════════
 			// Act：開演
@@ -248,5 +251,6 @@ namespace TaiwanAgri.Tests.Market
 					It.IsAny<CancellationToken>()),
 				Times.Once());
 		}
+
 	}
 }
