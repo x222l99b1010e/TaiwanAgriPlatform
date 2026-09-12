@@ -252,5 +252,141 @@ namespace TaiwanAgri.Tests.Market
 				Times.Once());
 		}
 
+		/// <summary>
+		/// 建一個能讓 GetPricesAsync 的三表 JOIN 命中的最小資料集。
+		/// 上面兩則測試各自把這段寫在測試本體裡——那是它們要說明的東西之一，所以原樣保留；
+		/// 下面三則降級測試要說的是別的事，佈景因此抽出來
+		/// </summary>
+		private static async Task<MarketDbContext> SeedOneRowAsync(string dbName)
+		{
+			var options = new DbContextOptionsBuilder<MarketDbContext>()
+				.UseInMemoryDatabase(dbName)
+				.Options;
+			var dbContext = new MarketDbContext(options);
+
+			dbContext.CropInfos.Add(new CropInfo { CropCode = "A001", CropName = "高麗菜" });
+
+			dbContext.MarketInfos.Add(new MarketInfo
+			{
+				MarketCode = "M001",
+				MarketName = "台北果菜",
+				MarketType = "Veg"
+			});
+
+			dbContext.AgriProductsTrans.Add(new AgriProductsTrans
+			{
+				CropCode = "A001",
+				MarketCode = "M001",
+				TransDate = DateOnly.FromDateTime(DateTime.Today),
+				UpperPrice = 15.0m,
+				MiddlePrice = 13.0m,
+				LowerPrice = 11.0m,
+				AvgPrice = 13.0m,
+				TransQuantity = 100m,
+				TcType = "A"
+			});
+
+			await dbContext.SaveChangesAsync();
+			return dbContext;
+		}
+
+		/// <summary>
+		/// 寫成 <c>new MarketService(...)</c> 而不是目標型別推斷的 <c>new(...)</c>：
+		/// 本輪替這支服務加建構式參數時，同檔另外兩處寫成 <c>new(...)</c> 的呼叫點
+		/// 用 grep 完全找不到，只有編譯器報錯才發現
+		/// </summary>
+		private static MarketService CreateService(MarketDbContext dbContext, IDistributedCache cache) =>
+			new MarketService(
+				dbContext,
+				cache,
+				Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()),
+				TimeProvider.System,
+				NullLogger<MarketService>.Instance);
+
+		private static Mock<IDistributedCache> CacheThatMisses()
+		{
+			var mockCache = new Mock<IDistributedCache>();
+			mockCache
+				.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync((byte[]?)null);
+			return mockCache;
+		}
+
+		private static void VerifyWroteCacheOnce(Mock<IDistributedCache> mockCache) =>
+			mockCache.Verify(
+				c => c.SetAsync(
+					It.IsAny<string>(),
+					It.IsAny<byte[]>(),
+					It.IsAny<DistributedCacheEntryOptions>(),
+					It.IsAny<CancellationToken>()),
+				Times.Once());
+
+		/// <summary>
+		/// 快取連不上時的正確行為是「慢一點」而不是「壞掉」——快取是加速層、資料庫才是真相。
+		/// 實測過的反面：讀取的例外沒人接時，GET /api/market/prices 會先卡 6.5 秒
+		/// （StackExchange.Redis 把指令排進 backlog 等到逾時）再回 500，
+		/// 而同一時間資料庫從頭到尾都是好的、沒有人去拿
+		/// </summary>
+		[Fact]
+		public async Task 快取讀取拋例外時改查資料庫而不是讓查詢失敗()
+		{
+			var mockCache = new Mock<IDistributedCache>();
+			mockCache
+				.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+				.ThrowsAsync(new InvalidOperationException("模擬快取連線失敗"));
+
+			var dbContext = await SeedOneRowAsync("TestDb_CacheReadThrows");
+			var service = CreateService(dbContext, mockCache.Object);
+
+			var result = await service.GetPricesAsync(marketType: "Veg", cropCodes: ["A001"]);
+
+			Assert.Single(result);
+			Assert.Equal("高麗菜", result[0].CropName);
+		}
+
+		/// <summary>
+		/// 寫入失敗比讀取失敗更不能往上拋：結果已經查到手上了，
+		/// 為了「沒能存進快取」而讓整支查詢失敗，是拿加速層的問題去砸掉一次已經成功的查詢
+		/// </summary>
+		[Fact]
+		public async Task 快取寫入拋例外時查詢結果照樣回傳()
+		{
+			var mockCache = CacheThatMisses();
+			mockCache
+				.Setup(c => c.SetAsync(
+					It.IsAny<string>(),
+					It.IsAny<byte[]>(),
+					It.IsAny<DistributedCacheEntryOptions>(),
+					It.IsAny<CancellationToken>()))
+				.ThrowsAsync(new InvalidOperationException("模擬快取連線失敗"));
+
+			var dbContext = await SeedOneRowAsync("TestDb_CacheWriteThrows");
+			var service = CreateService(dbContext, mockCache.Object);
+
+			var result = await service.GetPricesAsync(marketType: "Veg", cropCodes: ["A001"]);
+
+			Assert.Single(result);
+		}
+
+		/// <summary>
+		/// 壞值與連不上走同一條降級路徑，但壞值多一個要求：必須覆寫那一筆快取。
+		/// 不覆寫的話，壞值會被 25 小時 TTL 鎖住，期間每個請求都重走一次 DB
+		/// </summary>
+		[Fact]
+		public async Task 快取內容壞掉時落回資料庫並覆寫該筆快取()
+		{
+			var mockCache = new Mock<IDistributedCache>();
+			mockCache
+				.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync(Encoding.UTF8.GetBytes("{ 這不是合法的 JSON 陣列 }"));
+
+			var dbContext = await SeedOneRowAsync("TestDb_CacheCorruptValue");
+			var service = CreateService(dbContext, mockCache.Object);
+
+			var result = await service.GetPricesAsync(marketType: "Veg", cropCodes: ["A001"]);
+
+			Assert.Single(result);
+			VerifyWroteCacheOnce(mockCache);
+		}
 	}
 }
