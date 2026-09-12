@@ -97,7 +97,7 @@ const modules = computed(() => navStore.modules)
   margin-bottom: var(--space-4);
   font-family: var(--font-num);
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: var(--weight-label);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-on-deep);
