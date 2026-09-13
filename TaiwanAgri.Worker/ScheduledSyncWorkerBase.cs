@@ -3,12 +3,36 @@ namespace TaiwanAgri.Worker
 	/// <summary>
 	/// 定時同步 Worker 的共用排程外殼：「同步 → 失敗記 log 不中斷 → 等待下一輪」。
 	/// 子類別實作 SyncAsync（單輪工作）、Interval（輪距）與 LogPrefix（日誌前綴）。
-	/// 首輪同步前隨機延遲 0–30 秒（jitter）：17 支 Worker 都在程序啟動瞬間
+	/// 首輪同步前有隨機延遲（見 StartupJitter）：17 支 Worker 都在程序啟動瞬間
 	/// 註冊為 HostedService，不錯開的話首輪會同時打農業部 API 與 DB（啟動風暴）。
 	/// </summary>
 	public abstract class ScheduledSyncWorkerBase : BackgroundService
 	{
 		private readonly ILogger _logger;
+
+		/// <summary>
+		/// 「第一輪同步已經跑過一次」的訊號，給一次性執行模式（RunOnceCoordinator）用。
+		/// <para>
+		/// 用 TaskCompletionSource 而不是把「跑幾輪」做成建構式參數：後者要改 17 支子類的
+		/// 建構式，而這個訊號只有協調器需要，跟每一支 Worker 自己的職責無關。
+		/// </para>
+		/// <para>
+		/// ⚠ 語意是「試過一次」而不是「成功一次」——同步失敗、就緒等待失敗、
+		/// 甚至還沒開始就被取消，都算數。做成「成功才算」的話，一支連不上外部 API 的
+		/// Worker 會讓整個一次性工作永遠等下去
+		/// </para>
+		/// </summary>
+		private readonly TaskCompletionSource _firstRoundAttempted =
+			new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		/// <summary>第一輪同步已經試過一次（成功或失敗都算）</summary>
+		public Task FirstRoundAttempted => _firstRoundAttempted.Task;
+
+		/// <summary>
+		/// 第一輪同步有沒有拋例外。一次性執行模式要靠它回報「這一趟到底同步到東西沒有」——
+		/// 只看「跑完了」的話，17 支全部失敗的一輪也會回報成功，那是綠燈說謊
+		/// </summary>
+		public bool FirstRoundFailed { get; private set; }
 
 		protected ScheduledSyncWorkerBase(ILogger logger)
 		{
@@ -30,9 +54,27 @@ namespace TaiwanAgri.Worker
 		/// </summary>
 		protected virtual Task WaitUntilReadyAsync(CancellationToken stoppingToken) => Task.CompletedTask;
 
+		/// <summary>
+		/// 首輪同步前的隨機延遲。17 支 Worker 都在程序啟動瞬間註冊，不錯開的話
+		/// 首輪會同時打農業部 API 與 DB。
+		/// 開放覆寫是為了讓 Worker 層的測試不必真的等 0–30 秒——
+		/// 隨機延遲一旦寫死在流程裡，任何驗證「跑完一輪」的測試都會被它拖住
+		/// </summary>
+		protected virtual TimeSpan StartupJitter => TimeSpan.FromSeconds(Random.Shared.Next(0, 30));
+
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(0, 30)), stoppingToken);
+			// 不論從哪一條路徑離開，都要把「試過一輪」點亮，否則一次性執行模式會永遠等下去
+			using var cancellationSignal = stoppingToken.Register(() => _firstRoundAttempted.TrySetResult());
+
+			try
+			{
+				await Task.Delay(StartupJitter, stoppingToken);
+			}
+			catch (OperationCanceledException)
+			{
+				return;
+			}
 
 			try
 			{
@@ -66,9 +108,26 @@ namespace TaiwanAgri.Worker
 				}
 				catch (Exception ex)
 				{
+					if (!_firstRoundAttempted.Task.IsCompleted)
+					{
+						FirstRoundFailed = true;
+					}
 					_logger.LogError(ex, "{LogPrefix} 同步失敗", LogPrefix);
 				}
-				await Task.Delay(Interval, stoppingToken);
+
+				_firstRoundAttempted.TrySetResult();
+
+				// 等待要接住取消，而且是 break 不是往外拋。原本這一行在 try 之外，
+				// 停機時 TaskCanceledException 會直接離開 ExecuteAsync；平常一個行程只會發生一次
+				// 所以看不出來，但一次性執行模式每一輪都會走到這裡
+				try
+				{
+					await Task.Delay(Interval, stoppingToken);
+				}
+				catch (OperationCanceledException)
+				{
+					break;
+				}
 			}
 		}
 	}
