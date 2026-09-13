@@ -1,0 +1,178 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
+using TaiwanAgri.Worker;
+
+namespace TaiwanAgri.Tests.Worker
+{
+	/// <summary>
+	/// 一次性執行模式：跑完一輪就讓程序結束，給外部排程（GitHub Actions cron）觸發用。
+	/// <para>
+	/// 這一組要釘的是「收工判斷不會說謊」。最容易寫錯而且不會被發現的兩種：
+	/// ①用固定等待時間代替真正的完成訊號（同步變慢的那天會安靜地少同步幾支）；
+	/// ②不論結果一律回 exit code 0（排程每天顯示成功，實際上什麼都沒同步到）。
+	/// 兩者的共同點都是綠燈，所以只有測試看得出差別
+	/// </para>
+	/// </summary>
+	public class RunOnceCoordinatorTests
+	{
+		/// <summary>
+		/// 可控的假 Worker。jitter 歸零、輪距拉長——真的等 0–30 秒隨機延遲的話，
+		/// 這一組測試會慢到沒有人願意跑
+		/// </summary>
+		private sealed class FakeSyncWorker : ScheduledSyncWorkerBase
+		{
+			private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+			private readonly bool _throwOnSync;
+
+			public FakeSyncWorker(bool throwOnSync = false) : base(NullLogger.Instance)
+				=> _throwOnSync = throwOnSync;
+
+			protected override TimeSpan StartupJitter => TimeSpan.Zero;
+			protected override TimeSpan Interval => TimeSpan.FromHours(1);
+			protected override string LogPrefix => "[Fake]";
+
+			/// <summary>讓測試決定這一輪同步什麼時候結束</summary>
+			public void FinishSync() => _release.TrySetResult();
+
+			protected override async Task SyncAsync(CancellationToken stoppingToken)
+			{
+				await _release.Task.WaitAsync(stoppingToken);
+				if (_throwOnSync)
+				{
+					throw new InvalidOperationException("模擬同步失敗");
+				}
+			}
+		}
+
+		private sealed class FakeLifetime : IHostApplicationLifetime
+		{
+			private readonly CancellationTokenSource _stopping = new();
+			public CancellationToken ApplicationStarted => CancellationToken.None;
+			public CancellationToken ApplicationStopping => _stopping.Token;
+			public CancellationToken ApplicationStopped => CancellationToken.None;
+			public bool StopRequested { get; private set; }
+			public void StopApplication()
+			{
+				StopRequested = true;
+				_stopping.Cancel();
+			}
+		}
+
+		private static (RunOnceCoordinator Coordinator, FakeLifetime Lifetime) Build(
+			IEnumerable<FakeSyncWorker> workers, TimeSpan? timeout = null)
+		{
+			var services = new ServiceCollection();
+			foreach (var worker in workers)
+			{
+				services.AddSingleton<IHostedService>(worker);
+			}
+
+			var lifetime = new FakeLifetime();
+			var coordinator = new RunOnceCoordinator(
+				services.BuildServiceProvider(),
+				lifetime,
+				NullLogger<RunOnceCoordinator>.Instance,
+				timeout ?? TimeSpan.FromSeconds(10));
+
+			return (coordinator, lifetime);
+		}
+
+		private static async Task StartAsync(params FakeSyncWorker[] workers)
+		{
+			foreach (var worker in workers)
+			{
+				await worker.StartAsync(CancellationToken.None);
+			}
+		}
+
+		[Fact]
+		public async Task 全部跑完一輪之後才收工()
+		{
+			var slow = new FakeSyncWorker();
+			var quick = new FakeSyncWorker();
+			await StartAsync(slow, quick);
+			var (coordinator, lifetime) = Build([slow, quick]);
+
+			await coordinator.StartAsync(CancellationToken.None);
+			quick.FinishSync();
+			await quick.FirstRoundAttempted;
+
+			// 只有一支跑完，另一支還卡在同步裡——這時候收工就是少同步一支
+			Assert.False(lifetime.StopRequested);
+
+			slow.FinishSync();
+			await coordinator.ExecuteTask!;
+
+			Assert.True(lifetime.StopRequested);
+			Assert.Equal(0, coordinator.ResultExitCode);
+		}
+
+		[Fact]
+		public async Task 部分同步失敗不算整趟失敗()
+		{
+			// 外部資料源偶爾不通是常態，每一支自己有隔天重跑的兜底。
+			// 這種也回非零的話，排程會長期紅著，紅燈就失去意義
+			var ok = new FakeSyncWorker();
+			var broken = new FakeSyncWorker(throwOnSync: true);
+			await StartAsync(ok, broken);
+			var (coordinator, _) = Build([ok, broken]);
+
+			await coordinator.StartAsync(CancellationToken.None);
+			ok.FinishSync();
+			broken.FinishSync();
+			await coordinator.ExecuteTask!;
+
+			Assert.True(broken.FirstRoundFailed);
+			Assert.False(ok.FirstRoundFailed);
+			Assert.Equal(0, coordinator.ResultExitCode);
+		}
+
+		[Fact]
+		public async Task 全部同步失敗要回非零結束碼()
+		{
+			// 這一趟什麼都沒同步到，卻回報成功的話，排程每天都是綠燈而資料停在原地
+			var first = new FakeSyncWorker(throwOnSync: true);
+			var second = new FakeSyncWorker(throwOnSync: true);
+			await StartAsync(first, second);
+			var (coordinator, lifetime) = Build([first, second]);
+
+			await coordinator.StartAsync(CancellationToken.None);
+			first.FinishSync();
+			second.FinishSync();
+			await coordinator.ExecuteTask!;
+
+			Assert.Equal(1, coordinator.ResultExitCode);
+			Assert.True(lifetime.StopRequested);
+		}
+
+		[Fact]
+		public async Task 逾時要回非零結束碼而不是安靜收工()
+		{
+			var stuck = new FakeSyncWorker();
+			await StartAsync(stuck);
+			var (coordinator, lifetime) = Build([stuck], TimeSpan.FromMilliseconds(200));
+
+			await coordinator.StartAsync(CancellationToken.None);
+			await coordinator.ExecuteTask!;
+
+			Assert.Equal(1, coordinator.ResultExitCode);
+			Assert.True(lifetime.StopRequested);
+			Assert.False(stuck.FirstRoundAttempted.IsCompleted);
+		}
+
+		[Fact]
+		public async Task 停機取消時第一輪訊號也要亮否則協調器會永遠等下去()
+		{
+			// 卡在同步裡的 Worker 被停機取消時，如果不點亮訊號，
+			// 任何在等它的人都會永遠等下去
+			var worker = new FakeSyncWorker();
+			await worker.StartAsync(CancellationToken.None);
+
+			await worker.StopAsync(CancellationToken.None);
+
+			await worker.FirstRoundAttempted.WaitAsync(TimeSpan.FromSeconds(5));
+			Assert.True(worker.FirstRoundAttempted.IsCompleted);
+		}
+	}
+}
