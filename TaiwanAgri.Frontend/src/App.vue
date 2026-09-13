@@ -23,7 +23,10 @@ import SiteFooter from '@/components/SiteFooter.vue'
 import { useNavStore } from '@/stores/nav'
 
 const navStore = useNavStore()
-onMounted(() => navStore.loadModules())
+// loadModules 自己吞掉失敗並把狀態留在 navStore.loadFailed，所以這裡不必接 rejection。
+// 反過來設計（讓它往上拋）在這裡沒有意義：onMounted 的回傳值沒有人接，
+// 拋出去只會變成主控台一句 unhandled rejection，畫面上什麼都不會發生
+onMounted(() => { navStore.loadModules() })
 </script>
 
 <style>

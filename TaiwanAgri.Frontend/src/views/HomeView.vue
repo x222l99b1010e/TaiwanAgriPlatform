@@ -83,7 +83,18 @@
       <section class="entry-screen">
         <p class="screen-eyebrow">EXPLORE</p>
         <h2 class="screen-title">四個模組，一次看懂一塊田</h2>
-        <div class="module-showcase">
+        <!-- 清單載不回來時這一區會是一整片空白，看起來像頁面壞掉一半。
+             首頁是冷啟動之後的第一個畫面，所以這裡比任何一頁都需要說話。 -->
+        <StateBlock
+          v-if="navStore.loadFailed"
+          state="error"
+          message="連不上伺服器，模組清單載不回來"
+          hint="伺服器可能正在啟動中，稍候片刻再重試。"
+          retryable
+          @retry="navStore.loadModules()"
+        />
+
+        <div v-else class="module-showcase">
           <ShowcaseRow
             v-for="(m, i) in moduleCards"
             :key="m.route"
@@ -116,6 +127,7 @@ import { weatherApi } from '@/api/weather'
 import { petApi } from '@/api/pet'
 import { useNavStore } from '@/stores/nav'
 import { useCountUp } from '@/composables/useCountUp'
+import StateBlock from '@/components/ui/StateBlock.vue'
 import { getTodaySolarTerm } from '@/utils/solarTerms'
 import { MODULE_NAME_EN, MODULE_LEAD, MODULE_EFFECT } from '@/constants/navCopy'
 

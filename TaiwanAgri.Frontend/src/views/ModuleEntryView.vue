@@ -14,8 +14,13 @@
   特效依模組而不是依列，因為它要講的是「這裡是哪個模組」，同一頁換來換去會失去意義。
 
   navStore.modules 由 App.vue 掛載時載入，直接打網址進到這一頁時會有一小段空窗，
-  所以「畫不出模組」要分三種，三種的下一步動作完全不同：還在載入（等一下就好）、
-  載完了但一個模組都拿不到（權限問題，找管理員）、載完了但這個路徑對不到（網址打錯）。
+  所以「畫不出模組」要分四種，四種的下一步動作完全不同：
+    ・請求根本沒回來（伺服器沒起來或逾時）→ 說連不上，給重試鈕
+    ・還在載入 → 等一下就好
+    ・載完了但一個模組都拿不到 → 權限問題，找管理員
+    ・載完了但這個路徑對不到 → 網址打錯
+  ⚠ 判斷順序要先問「失敗了沒」再問「載完了沒」：失敗時 loaded 刻意維持 false
+  （為了讓下一次呼叫會重試），先問 loaded 的話失敗會被讀成「還在載入」。
   ⚠ 判斷「還在載入」一律看 navStore.loaded，不要看 modules.length——
   權限全被收掉時後端合法回傳空陣列，用長度判斷會讓那種帳號永遠停在轉圈。
 -->
@@ -58,7 +63,15 @@
   </EntryLayout>
 
   <div v-else class="page">
-    <StateBlock v-if="!navStore.loaded" state="loading" message="載入模組中..." />
+    <StateBlock
+      v-if="navStore.loadFailed"
+      state="error"
+      message="連不上伺服器"
+      hint="伺服器可能正在啟動中，稍候片刻再重試。"
+      retryable
+      @retry="navStore.loadModules()"
+    />
+    <StateBlock v-else-if="!navStore.loaded" state="loading" message="載入模組中..." />
     <StateBlock
       v-else-if="navStore.modules.length === 0"
       state="empty"
