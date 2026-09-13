@@ -14,6 +14,28 @@ namespace TaiwanAgri.Tests.Worker
 	/// 兩者的共同點都是綠燈，所以只有測試看得出差別
 	/// </para>
 	/// </summary>
+	/// <summary>
+	/// 這一組不與其他測試集合並行。
+	/// <para>
+	/// 理由是實測出來的，不是預防性的：這一組量的是 IHostedService 的生命週期時序
+	/// （StartAsync 起跑、StopAsync 取消、ExecuteAsync 收尾），而那完全取決於執行緒集區
+	/// 什麼時候把延續交出來。並行跑全套 450 條時，「取消之後訊號會不會亮」這一則
+	/// 十次會失敗九次——連逾時放寬到 30 秒都還是不亮，不是斷言寫得太嚴，是延續根本排不到。
+	/// </para>
+	/// <para>
+	/// ⚠ 不要改成調高逾時了事。這條路走過一次：第一版逾時 5 秒、被讀成「機器忙」，
+	/// 差點就把它當 flaky test 處理掉——而當時底下藏的是一個真的 bug
+	/// （用 CancellationToken.Register 當「一定會發生」的保證，回呼會被同一次取消
+	/// 所喚醒的路徑搶先 Dispose）。調高逾時會把那個 bug 一起藏起來
+	/// </para>
+	/// </summary>
+	[CollectionDefinition(WorkerLifecycleCollection.Name, DisableParallelization = true)]
+	public sealed class WorkerLifecycleCollection
+	{
+		public const string Name = "Worker lifecycle";
+	}
+
+	[Collection(WorkerLifecycleCollection.Name)]
 	public class RunOnceCoordinatorTests
 	{
 		/// <summary>
@@ -161,18 +183,24 @@ namespace TaiwanAgri.Tests.Worker
 			Assert.False(stuck.FirstRoundAttempted.IsCompleted);
 		}
 
+		/// <summary>
+		/// 卡在同步裡的 Worker 被停機取消時，訊號一定要亮——協調器就是在等這個訊號，
+		/// 不亮的話它會等一個永遠不會來的東西。
+		/// <para>
+		/// 斷言的是「一定會亮」而不是「在某個瞬間就亮」——協調器要的是不會卡住，
+		/// 不是內部的完成順序。並行造成的不穩定由集合層級的 DisableParallelization 解決，
+		/// 見 WorkerLifecycleCollection 的說明
+		/// </para>
+		/// </summary>
 		[Fact]
 		public async Task 停機取消時第一輪訊號也要亮否則協調器會永遠等下去()
 		{
-			// 卡在同步裡的 Worker 被停機取消時，如果不點亮訊號，
-			// 任何在等它的人都會永遠等下去
 			var worker = new FakeSyncWorker();
 			await worker.StartAsync(CancellationToken.None);
 
 			await worker.StopAsync(CancellationToken.None);
 
 			await worker.FirstRoundAttempted.WaitAsync(TimeSpan.FromSeconds(5));
-			Assert.True(worker.FirstRoundAttempted.IsCompleted);
 		}
 	}
 }

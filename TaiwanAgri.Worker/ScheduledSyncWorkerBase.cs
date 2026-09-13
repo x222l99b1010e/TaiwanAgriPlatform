@@ -64,9 +64,24 @@ namespace TaiwanAgri.Worker
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			// 不論從哪一條路徑離開，都要把「試過一輪」點亮，否則一次性執行模式會永遠等下去
-			using var cancellationSignal = stoppingToken.Register(() => _firstRoundAttempted.TrySetResult());
+			try
+			{
+				await RunAsync(stoppingToken);
+			}
+			finally
+			{
+				// 不論從哪一條路徑離開，都要把「試過一輪」點亮，否則一次性執行模式會永遠等下去。
+				// ⚠ 這裡刻意用 finally 而不是 stoppingToken.Register：取消回呼會被同一次取消
+				// 所喚醒的程式碼搶先 Dispose 掉。實際發生過——取消時 WaitAsync 自己的回呼先跑
+				// （回呼是後註冊先執行），ExecuteAsync 在另一條執行緒上醒來、離開、
+				// 順手 Dispose 掉還沒輪到的那個註冊，訊號就永遠不會亮。
+				// 症狀是偶發：單獨跑測試會過，全套並行跑才看得到
+				_firstRoundAttempted.TrySetResult();
+			}
+		}
 
+		private async Task RunAsync(CancellationToken stoppingToken)
+		{
 			try
 			{
 				await Task.Delay(StartupJitter, stoppingToken);
