@@ -419,7 +419,7 @@ TaiwanAgriPlatform/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 423 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 450 個測試案例）
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
@@ -453,8 +453,8 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，423 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面單元測試（`npm test`，11 檔 130 案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，450 個案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面單元測試（`npm test`，12 檔 137 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
 ---
@@ -593,16 +593,16 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 423 個測試案例）
+# 後端（xUnit + Moq，共 450 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 130 個測試案例）
+# 前端（Vitest，共 137 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 11 個測試檔共 130 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個——本專案唯一一支 store 測試）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點，10 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 12 個測試檔共 137 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -657,7 +657,131 @@ npm test
 ```
 
 > ⚠ 計數器是 in-memory 的。**多執行個體部署時每台各記各的**，實際上限會變成
-> 設定值乘以台數。要跨執行個體共用計數需改走 Redis，屬尚未處理的技術債。
+> 設定值乘以台數。要跨執行個體共用計數需改走 Redis，這一項列為技術債、沒有做。
+
+---
+
+## ☁️ 雲端部署與重新部署
+
+> **這一節是可照做的步驟，不是說明。** 目標是「**能停、能開、開起來還是好的**」——
+> 服務平常關著，要展示時照著這一節重新開起來，不靠記憶。
+> 概念解釋（部署是什麼、為什麼分成三個服務）在專案文件資料夾的
+> `部署入門_這個系統要部署什麼.md`。
+
+### 部署形態
+
+| 元件 | 平台 | 免費方案的關鍵限制 |
+|---|---|---|
+| 資料庫 | Azure SQL Database（serverless） | 每月 **100,000 vCore 秒**、資料 32 GB；閒置自動暫停 |
+| 後端 API | Azure App Service **F1** | CPU 60 分鐘／天、頻寬 **165 MB／天**、**無 Always On**、不支援自訂網域 |
+| 前端 | Cloudflare Pages | 靜態流量不計量，每月 500 次建置 |
+| 每日同步 | GitHub Actions（`.github/workflows/worker-sync.yml`） | 排程觸發，跑完即退出 |
+
+**Redis 與 RabbitMQ 不部署。** 兩者都是可選相依：沒設 `ConnectionStrings:Redis` 時
+分散式快取改用行程內記憶體實作（Cache-Aside 的程式碼不變，只是不跨執行個體共用）；
+沒設 `RabbitMQ:HostName` 時不註冊 `PriceUpdatedConsumer`。兩條降級路徑都會在啟動時記一則警告。
+
+### 一次性設定（只做一次）
+
+1. **建 Azure SQL Database（免費方案）**
+   - 從 Azure SQL hub 選「Start free」建立。
+   - ⚠ **「超出免費額度時的行為」選「自動暫停到下個月」，不要選「繼續使用並計費」——
+     選了之後不能改回來。**
+   - ⚠ 免費方案的資料庫**不能**用還原備份或複製既有資料庫建立（官方不支援），
+     所以本機資料庫不能整包搬上去，只能建空的再灌。
+   - 防火牆：加入自己的 IP；若要讓 GitHub Actions 連得到，另需放行（見步驟 5）。
+
+2. **建表**（在本機執行，指向雲端資料庫）
+   ```bash
+   dotnet ef database update -p TaiwanAgri.Web                -s TaiwanAgri.Web -c ApplicationDbContext --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Core               -s TaiwanAgri.Web -c CoreDbContext        --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.Weather    -s TaiwanAgri.Web -c WeatherDbContext     --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.Market     -s TaiwanAgri.Web -c MarketDbContext      --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.User       -s TaiwanAgri.Web -c UserDbContext        --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.FoodSafety -s TaiwanAgri.Web -c FoodSafetyDbContext  --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.Pet        -s TaiwanAgri.Web -c PetDbContext         --connection "<雲端連線字串>"
+   ```
+   > `-s`（`--startup-project`）不能省。五個模組專案與 `TaiwanAgri.Core` 都是類別庫，
+   > 自己沒有主機組態，也沒有 `IDesignTimeDbContextFactory`，EF 只能靠啟動專案把 `DbContext`
+   > 建出來；少了它會停在「Unable to create a 'DbContext' of type ...」。`TaiwanAgri.Web`
+   > 七個 DbContext 全部有註冊，所以七行共用同一個啟動專案就好。
+   > （本機那段用的是 Visual Studio 的 `Update-Database`，它的 `-StartupProject` 本來就有寫。）
+
+3. **搬資料**
+   ```powershell
+   # 先量成本：只搬一張中型表，跑完去 Azure Portal 看「剩餘可用量」掉了多少
+   .\scripts\Copy-DataToAzureSql.ps1 -TargetServer <server>.database.windows.net `
+       -TargetUser <帳號> -Tables 'pet.OfficialLostPetPosts'
+
+   # 確認負擔得起再全量搬（腳本可重跑，已完成的表會跳過）
+   .\scripts\Copy-DataToAzureSql.ps1 -TargetServer <server>.database.windows.net -TargetUser <帳號>
+   ```
+   腳本只搬政府開放資料。帳號表與使用者資料不搬（雲端的測試帳號在網站上重新註冊），
+   種子資料（`NavModules`／`RoleModulePermissions`／`Shelters`）由服務啟動時自己建。
+   密碼不指定就會互動詢問；要免互動重跑，設環境變數 `TAIWANAGRI_SOURCE_PASSWORD`
+   與 `TAIWANAGRI_TARGET_PASSWORD`，**不要打在指令列的字串裡**（那一行會進 PowerShell 歷史紀錄）。
+
+4. **部署後端**
+   ```bash
+   dotnet publish TaiwanAgri.Web -c Release -o ./publish --self-contained -r linux-x64
+   ```
+   > 走自封裝是刻意的：App Service 對 .NET 10 在建立畫面上仍標示 Preview，
+   > 自封裝之後平台支不支援就與這次部署無關。代價是產出多 60–80 MB。
+
+   把 `./publish` 壓成 zip 上傳，然後在 **App Service →「設定」→「環境變數」** 填入：
+
+   | 名稱 | 值 |
+   |---|---|
+   | `ConnectionStrings__DefaultConnection` | 雲端資料庫連線字串 |
+   | `Jwt__SecretKey` | 至少 32 字元的隨機字串（**不要沿用開發用的值**） |
+   | `Cors__AllowedOrigins__0` | 前端網址，例如 `https://xxx.pages.dev` |
+   | `ASPNETCORE_ENVIRONMENT` | `Production` |
+
+   > 雙底線是 .NET 設定的巢狀分隔符：`ConnectionStrings__DefaultConnection`
+   > 對應設定檔裡的 `ConnectionStrings:DefaultConnection`。
+   > `Cors` 兩個鍵都留白時，非 `Development` 環境會**啟動失敗**——這是刻意的，
+   > 因為漏填的症狀只出現在使用者的瀏覽器裡、伺服器端沒有任何紀錄。
+
+5. **接上每日同步**
+   - GitHub repo → Settings → Secrets → 新增 `WORKER_DB_CONNECTION`（雲端資料庫連線字串）。
+   - Azure SQL 防火牆放行 GitHub Actions 的執行器（runner 的 IP 不固定，
+     最省事的做法是開啟「允許 Azure 服務存取」——範圍偏寬，屬已知限制）。
+   - 到 Actions 頁面手動觸發一次 `Worker Sync` 驗收。
+
+6. **部署前端**
+   ```bash
+   cd TaiwanAgri.Frontend
+   echo "VITE_API_BASE_URL=https://<你的後端>.azurewebsites.net" > .env.production
+   npm ci && npm run build          # 產出 dist/
+   ```
+   把 `dist/` 交給 Cloudflare Pages。
+   > ⚠ `VITE_API_BASE_URL` 是**建置期**寫死進 JS 的，後端網址改了就要重新 build。
+
+### 停機
+
+- **資料庫**：不用做任何事。閒置後會自動暫停，暫停期間不計費，**資料保留**。
+- **後端**：App Service →「停止」。
+- **前端**：不用停（靜態檔不計費）。
+- **每日同步**：Actions → `Worker Sync` → 停用 workflow（不停用的話它每天會叫醒資料庫）。
+
+### 重新開機（展示前照這個順序做）
+
+1. App Service →「啟動」。
+2. 打 `https://<後端>/health` → 應回 `Healthy`（這一支不碰資料庫，只確認程式活著）。
+3. 打 `https://<後端>/health/ready` → 應回 `Healthy`。
+   **這一步會把暫停中的資料庫喚醒，第一次可能要等十幾秒。**
+4. 打開前端網址，確認首頁四個模組畫得出來。
+5. 需要當天資料的話，到 Actions 手動觸發一次 `Worker Sync`。
+
+> **為什麼健康檢查有兩支**：`/health` 不碰資料庫，給平台的存活偵測與任何定時 ping 用；
+> `/health/ready` 才碰資料庫。若只有一支而且它會碰資料庫，
+> 任何定時 ping 都會一直把資料庫叫醒、把每月額度燒光——**而且不會有人發現，因為它一路都回 200**。
+
+### 停機後重開，資料還在嗎？
+
+**在。** Azure SQL 的自動暫停只停運算，儲存不動，資料與索引都保留。
+**但資料的「新鮮度」會停在最後一次同步的那天**——重開之後若要今天的數字，
+手動觸發一次 `Worker Sync` 即可（見上面第 5 步）。
 
 ---
 
@@ -1002,7 +1126,8 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 
 ## ⚠️ 已知限制
 
-以下項目是**探勘或查證之後決定不做**，不是尚未實作。
+以下項目分兩種，都附上理由：**探勘或查證之後決定不做**的（不是還沒實作），
+以及**免費方案本身的上限**（不是實作缺陷，但會決定這個服務能怎麼用）。
 
 **規則來源：樹木病蟲害（`TreePest`）不開放**——探勘後判定該資料源不適合驅動通知：
 它沒有時間戳與唯一識別欄位（無法判斷「新出現」也無法去重），且語意是歷史診斷案例而非即時警報，
@@ -1034,6 +1159,28 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 **表格自己的 `min-width` 不屬於這一項**——違規牆 900px、合法業者 1100/1320px、
 收容所詳情 1020px 是欄位本身需要的寬度，配合容器的 `overflow-x` 橫向捲動是刻意的做法。
 
+**部署形態帶來的三個上限**——都是免費方案的條件，不是實作缺陷，但會決定這個服務能怎麼用：
+
+- **資料庫一個月只能「醒著」約 55.6 小時。** Azure SQL 免費方案的額度單位是 vCore 秒
+  （用了幾顆 CPU × 幾秒），每月 100,000 秒；serverless 在線上時的下限是 0.5 vCore，
+  換算就是 100,000 ÷ 0.5 ÷ 3600 ≈ 55.6 小時，平均每天 1.85 小時。
+  **所以這個服務的預設狀態是關著的**，展示前再開（步驟見「雲端部署與重新部署」）。
+  這條上限同時決定了 Worker 不做常駐部署（常駐需要約 1,296,000 vCore 秒，超額 13 倍），
+  改成 GitHub Actions 每天排程觸發、跑完就退出。
+- **後端每天只有 165 MB 頻寬。** App Service F1 的限制。一次查一年的行情會回傳較大的 JSON，
+  連續大量查詢有可能撞到。前端放在 Cloudflare Pages（靜態流量不計量）就是為了不讓畫面的
+  流量吃掉這 165 MB。
+- **速率限制的計數器是 in-memory**（上面「速率限制」一節已說明）。
+  目前是單一執行個體部署，所以不成問題；這也是 Redis 不部署時
+  改用行程內記憶體快取仍然正確的同一個前提。
+
+**Azure SQL 防火牆對 GitHub Actions 開放的範圍偏寬**——每日同步的 workflow 跑在
+GitHub 的執行器上，而執行器的 IP 不固定，因此採用「允許 Azure 服務存取」這個設定。
+它會放行任何 Azure 上的服務，範圍比實際需要的大。
+**收窄的正確做法**是改由 workflow 在執行前後動態增刪防火牆規則，
+但那需要在 GitHub 這一側再保管一組 Azure 認證——用一組更敏感的憑證去換一個較窄的網路範圍，
+在這個專案（資料全部是公開的政府開放資料、寫入端點都要登入）不划算。
+
 ---
 
 ## 📁 相關文件
@@ -1060,4 +1207,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-09-12 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 模組入口頁補做：四條模組路由改掛共用的 `ModuleEntryView`、子頁卡片牆與首頁模組列共用 `ShowcaseRow`、子頁清單為空時給明確狀態、移除模組外殼的寬度下限（前端 120→130；前一輪為 W26 通知規則管理）｜ 後端 423 測試、前端 130 測試全過*
+*最後更新：2026-09-14 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線（程式碼與步驟）：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 加上一次性執行模式並改由 GitHub Actions 每天觸發、新增雲端部署與重新部署步驟與資料搬遷腳本（後端 423→450、前端 130→137；前一輪為模組入口頁補做）｜ 後端 450 測試、前端 137 測試全過*
