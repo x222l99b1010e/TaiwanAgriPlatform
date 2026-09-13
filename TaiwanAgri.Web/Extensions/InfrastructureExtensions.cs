@@ -1,4 +1,5 @@
 ﻿using StackExchange.Redis;
+using TaiwanAgri.Web.HealthChecks;
 using TaiwanAgri.Web.Services;
 
 namespace TaiwanAgri.Web.Extensions
@@ -7,6 +8,11 @@ namespace TaiwanAgri.Web.Extensions
 	{
 		/// <summary>CORS 原則名稱。原本叫 "MyPolicy"，名字說不出它是給誰用的</summary>
 		public const string FrontendCorsPolicy = "FrontendCors";
+
+		/// <summary>
+		/// 標記「這項檢查會碰外部資源」的標籤。只有 /health/ready 會跑帶這個標籤的檢查
+		/// </summary>
+		public const string ReadinessTag = "ready";
 
 		/// <summary>
 		/// Development 未設定 CORS 來源時的啟動警告。
@@ -174,6 +180,13 @@ namespace TaiwanAgri.Web.Extensions
 			{
 				services.AddHostedService<PriceUpdatedConsumer>();
 			}
+
+			// 健康檢查。兩支端點刻意分開，理由見 DatabaseHealthCheck 的註解：
+			// /health 只回答「這個程序還活著嗎」（不碰任何外部資源），
+			// /health/ready 才碰資料庫——後者兼作錄影／展示前的暖機入口，
+			// 一次請求就把 App Service 的冷啟動與 Azure SQL 的喚醒都做完
+			services.AddHealthChecks()
+					.AddCheck<DatabaseHealthCheck>("database", tags: [ReadinessTag]);
 
 			// Web API 基礎
 			services.AddControllers();

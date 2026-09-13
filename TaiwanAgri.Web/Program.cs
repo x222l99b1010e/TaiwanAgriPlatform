@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Identity;
 using TaiwanAgri.Core.Infrastructure;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.Pet.Data;
@@ -93,6 +94,18 @@ namespace TaiwanAgri.Web
 			// 日後若要改成「登入者額度較高」，分割鍵拿得到使用者
 			app.UseRateLimiter();
 			app.MapControllers();
+
+			// /health＝活著嗎（不跑任何檢查，也就不碰資料庫）：
+			//   給平台的存活探測與任何定時 ping 用。碰資料庫的話，Azure SQL serverless
+			//   會被 ping 一直叫醒，把每月的 vCore 秒額度燒光。
+			// /health/ready＝可以服務了嗎（跑 database 檢查）：
+			//   部署後的驗收入口，也是展示前的暖機入口——打一次就把 App Service 的
+			//   冷啟動與資料庫的喚醒都做完，不必讓第一個真實使用者去撞
+			app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+			app.MapHealthChecks("/health/ready", new HealthCheckOptions
+			{
+				Predicate = check => check.Tags.Contains(Extensions.InfrastructureExtensions.ReadinessTag)
+			});
 
 			app.Run();
 		}
