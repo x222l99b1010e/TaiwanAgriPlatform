@@ -13,6 +13,14 @@ namespace TaiwanAgri.Tests.Weather
 	/// </summary>
 	public class WeatherServiceTests
 	{
+		/// <summary>固定時刻的 TimeProvider，讓日界測試可重現（比照 FoodSafetyServiceTests 既有寫法）</summary>
+		private sealed class FixedTimeProvider : TimeProvider
+		{
+			private readonly DateTimeOffset _utcNow;
+			public FixedTimeProvider(DateTimeOffset utcNow) => _utcNow = utcNow;
+			public override DateTimeOffset GetUtcNow() => _utcNow;
+		}
+
 		/// <summary>
 		/// InMemory 資料庫依名稱共用，所以每個測試各給一個唯一名稱避免互相污染
 		/// </summary>
@@ -63,7 +71,7 @@ namespace TaiwanAgri.Tests.Weather
 				Rainfall("B01", new DateTime(2026, 9, 1), 20m));
 			await db.SaveChangesAsync();
 
-			var result = await new WeatherService(db).GetRainfallByCityAsync(
+			var result = await new WeatherService(db, TimeProvider.System).GetRainfallByCityAsync(
 				"臺北市", new DateOnly(2026, 8, 1), new DateOnly(2026, 9, 30));
 
 			Assert.Single(result);
@@ -87,7 +95,7 @@ namespace TaiwanAgri.Tests.Weather
 				Rainfall("A01", new DateTime(2026, 9, 4), 4m));   // 區間後一天
 			await db.SaveChangesAsync();
 
-			var result = await new WeatherService(db).GetRainfallByCityAsync(
+			var result = await new WeatherService(db, TimeProvider.System).GetRainfallByCityAsync(
 				"臺北市", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 3));
 
 			Assert.Equal(2, result.Count);
@@ -97,7 +105,8 @@ namespace TaiwanAgri.Tests.Weather
 
 		/// <summary>
 		/// 不傳日期時的預設區間是「往前十四天到今天」。這裡刻意用相對於當下的日期種資料，
-		/// 而不是寫死日期——因為這支方法的預設值取自呼叫當下的系統時間，寫死的日期會讓測試在某天突然變紅
+		/// 而不是寫死日期——這支方法的預設值取自注入的時鐘，而這一則刻意仍用系統時鐘，
+		/// 驗的是「相對區間算得對」；日界本身另有一則用固定時刻的測試
 		/// </summary>
 		[Fact]
 		public async Task 不指定日期時預設查最近十四天()
@@ -109,7 +118,7 @@ namespace TaiwanAgri.Tests.Weather
 				Rainfall("A01", DateTime.Now.AddDays(-5), 5m));   // 十四天之內
 			await db.SaveChangesAsync();
 
-			var result = await new WeatherService(db).GetRainfallByCityAsync("臺北市");
+			var result = await new WeatherService(db, TimeProvider.System).GetRainfallByCityAsync("臺北市");
 
 			Assert.Single(result);
 			Assert.Equal(5m, result[0].Hour24);
@@ -130,7 +139,7 @@ namespace TaiwanAgri.Tests.Weather
 				Rainfall("Z99", new DateTime(2026, 9, 1), 20m));  // 主檔裡沒有 Z99
 			await db.SaveChangesAsync();
 
-			var result = await new WeatherService(db).GetRainfallByCityAsync(
+			var result = await new WeatherService(db, TimeProvider.System).GetRainfallByCityAsync(
 				"臺北市", new DateOnly(2026, 8, 1), new DateOnly(2026, 9, 30));
 
 			Assert.Single(result);
@@ -151,7 +160,7 @@ namespace TaiwanAgri.Tests.Weather
 				Observation("A01", "臺北市", new DateTime(2026, 9, 1, 14, 0, 0), 30m));
 			await db.SaveChangesAsync();
 
-			var result = await new WeatherService(db).GetStationsByCityAsync("臺北市");
+			var result = await new WeatherService(db, TimeProvider.System).GetStationsByCityAsync("臺北市");
 
 			Assert.Single(result);
 			Assert.Equal(30m, result[0].Temperature);
@@ -175,7 +184,7 @@ namespace TaiwanAgri.Tests.Weather
 				Observation("B01", "臺北市", 早上, 25m));  // B 站最新
 			await db.SaveChangesAsync();
 
-			var result = await new WeatherService(db).GetStationsByCityAsync("臺北市");
+			var result = await new WeatherService(db, TimeProvider.System).GetStationsByCityAsync("臺北市");
 
 			Assert.Equal(2, result.Count);
 			Assert.Equal(30m, Assert.Single(result, r => r.StationName == "A01 站").Temperature);
@@ -195,10 +204,41 @@ namespace TaiwanAgri.Tests.Weather
 				Observation("B01", "臺中市", new DateTime(2026, 9, 1), 28m));
 			await db.SaveChangesAsync();
 
-			var result = await new WeatherService(db).GetStationsByCityAsync("臺北市");
+			var result = await new WeatherService(db, TimeProvider.System).GetStationsByCityAsync("臺北市");
 
 			Assert.Single(result);
 			Assert.Equal("臺北市", result[0].CityName);
+		}
+
+		/// <summary>
+		/// 預設區間的「今天」是台灣日曆日，不是主機本地時區的今天。
+		/// <para>
+		/// 固定在 2026-07-10 18:00 UTC＝台灣 2026-07-11 凌晨兩點，兩邊日期不同。
+		/// 這是部署會踩到的實際情境：Azure App Service 的主機時區預設是 UTC，
+		/// 台灣時間每天 08:00 之前主機還停在前一天，整組預設區間跟著差一天，
+		/// 症狀是「今天的觀測查不到」而不是任何錯誤。
+		/// </para>
+		/// <para>
+		/// ⚠ 這一則不能改用 TimeProvider.System 寫：開發機是 UTC+8，
+		/// 用系統時鐘的話 DateTime.Now 與台灣日界永遠一致，這個 bug 在本機測不出來
+		/// </para>
+		/// </summary>
+		[Fact]
+		public async Task 預設區間以台灣時區的今天為界而不是主機時區()
+		{
+			using var db = CreateDbContext(nameof(預設區間以台灣時區的今天為界而不是主機時區));
+			var clock = new FixedTimeProvider(new DateTimeOffset(2026, 7, 10, 18, 0, 0, TimeSpan.Zero));
+
+			db.RainfallStations.Add(Station("A01", "臺北市"));
+			db.RainfallObservations.AddRange(
+				Rainfall("A01", new DateTime(2026, 7, 11, 1, 0, 0), 11m),   // 台灣的今天，UTC 還是昨天
+				Rainfall("A01", new DateTime(2026, 6, 26, 1, 0, 0), 99m));  // 台灣今天往前 15 天，在區間外
+			await db.SaveChangesAsync();
+
+			var result = await new WeatherService(db, clock).GetRainfallByCityAsync("臺北市");
+
+			Assert.Single(result);
+			Assert.Equal(11m, result[0].Hour24);
 		}
 
 		/// <summary>
@@ -209,7 +249,7 @@ namespace TaiwanAgri.Tests.Weather
 		{
 			using var db = CreateDbContext(nameof(查無資料時回傳空清單));
 
-			var service = new WeatherService(db);
+			var service = new WeatherService(db, TimeProvider.System);
 
 			Assert.Empty(await service.GetStationsByCityAsync("臺北市"));
 			Assert.Empty(await service.GetRainfallByCityAsync("臺北市"));
