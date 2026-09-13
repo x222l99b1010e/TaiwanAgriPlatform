@@ -52,7 +52,7 @@
 
 - ASP.NET Core Identity + JWT（SignInManager + UserManager + JwtSecurityTokenHandler）
 - 登入 / 註冊（後端驗證訊息中文翻譯）
-- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，目前 22 筆：4 個頂層模組 + 18 個子功能）
+- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，共 22 筆：4 個頂層模組 + 18 個子功能）
 - RoleModulePermission 複合 PK Entity（RoleId × ModuleId，Guest / Admin 各一列）
 - NavController `[AllowAnonymous]`：訪客直接取得 Guest 可見模組清單，無需 JWT
 - Vue 3 TopNav：頂層 tabs + hover dropdown 子功能渲染
@@ -110,20 +110,21 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    農業部 Open Data API                     │
-│              data.moa.gov.tw（60 支 REST API）              │
+│                     MOA Open Data API                       │
+│              data.moa.gov.tw  (60 REST APIs)                │
 └──────────────────────┬──────────────────────────────────────┘
                        │ HTTP / IHttpClientFactory
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      TaiwanAgri.Worker                      │
-│    .NET Worker Service + Serilog                            │
-│    17 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼   │
-│    依模組分資料夾（Weather / Market / FoodSafety / Pet）    │
-│    落地共用 DbSyncHelper（InsertNewByKey / UpsertByKey）    │
+│   .NET Worker Service + Serilog                             │
+│   17 x SyncWorker : ScheduledSyncWorkerBase                 │
+│   by module: Weather / Market / FoodSafety / Pet            │
+│   DbSyncHelper (InsertNewByKey / UpsertByKey)               │
+│   RunOnceCoordinator  <- GitHub Actions cron (1 run/day)    │
 └──────────┬────────────────────────┬─────────────────────────┘
-           │ EF Core                │ RabbitMQ
-           │ (多 DbContext)         │
+           │ EF Core                │ RabbitMQ  (optional)
+           │ (multi DbContext)      │
      ┌─────┴────────────┐           │
      │ WeatherDbContext │           │
      │ MarketDbContext  │           ▼
@@ -141,28 +142,45 @@
      ┌─────┴──────┐         │            TaiwanAgri.Web            │
      │ SQL Server │         │   ASP.NET Core Web API               │
      │   2022     │         │   ApplicationDbContext               │
-     └────────────┘         │   （繼承 IdentityDbContext）         │
+     └────────────┘         │     : IdentityDbContext              │
                             │   GlobalExceptionMiddleware          │
-                            │   MarketController         8 支端點  │
-                            │   PetController           10 支端點  │
-                            │   FoodSafetyController     4 支端點  │
-                            │   NotificationController   4 支端點  │
-                            │   WeatherController        3 支端點  │
-                            │   PestController           3 支端點  │
-                            │   WatchlistController      3 支端點  │
-                            │   AuthController           2 支端點  │
-                            │   ProfileController        2 支端點  │
-                            │   NavController            1 支端點  │
+                            │   /health   /health/ready            │
+                            │                                      │
+                            │   Controller             endpoints   │
+                            │   PetController                 10   │
+                            │   MarketController               8   │
+                            │   NotificationRuleController     6   │
+                            │   FoodSafetyController           4   │
+                            │   NotificationController         4   │
+                            │   WeatherController              3   │
+                            │   PestController                 3   │
+                            │   WatchlistController            3   │
+                            │   AuthController                 2   │
+                            │   ProfileController              2   │
+                            │   NavController                  1   │
+                            │                        total    46   │
                             └──────────┬───────────────────────────┘
                                        │ Cache-Aside
                                        ▼
                       ┌─────────────────────────────────────┐
                       │ Redis TTL 25hr  |  Vue 3 Frontend   │
-                      │ StackExchange   |  Vite + Chart.js  │
-                      │                 |  TopNav dropdown  │
+                      │ (optional)      |  Vite + Chart.js  │
+                      │ StackExchange   |  TopNav dropdown  │
                       │                 |  Pinia stores     │
                       └─────────────────────────────────────┘
 ```
+
+資料流是單向的：Worker 從農業部 API 抓資料落地，Web API 從資料庫查出來回給前端。
+`RunOnceCoordinator` 是一次性執行模式——雲端部署時由 GitHub Actions 每天觸發一次，
+17 支 Worker 各跑完一輪就讓程序自己結束。標 `optional` 的 Redis 與 RabbitMQ 是可選相依：
+沒設定就走降級路徑（行程內記憶體快取／不註冊事件消費者），服務照常完整啟動。
+`endpoints` 欄是各 Controller 的端點數，合計 46 支；`/health` 與 `/health/ready` 不在其中。
+
+> **圖裡沒有中文是刻意的。** GitHub 的等寬字型堆疊不含中日韓字，中文會落到系統的備援字型，
+> 而備援字型的字寬不會剛好是等寬字型的兩倍——只要框線內有中文，那一行的右邊框就必定對不齊，
+> 不同機器上的偏移量還不一樣。所以框線內一律只放 ASCII，中文說明放到圖外。
+> 下方「Solution 結構」的目錄樹不受影響：它的中文只出現在 `#` 註解之後，
+> 也就是每一行的最尾端，後面沒有任何需要對齊的東西。
 
 ### Solution 結構
 
@@ -1171,7 +1189,7 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
   連續大量查詢有可能撞到。前端放在 Cloudflare Pages（靜態流量不計量）就是為了不讓畫面的
   流量吃掉這 165 MB。
 - **速率限制的計數器是 in-memory**（上面「速率限制」一節已說明）。
-  目前是單一執行個體部署，所以不成問題；這也是 Redis 不部署時
+  本專案採單一執行個體部署，所以不成問題；這也是 Redis 不部署時
   改用行程內記憶體快取仍然正確的同一個前提。
 
 **Azure SQL 防火牆對 GitHub Actions 開放的範圍偏寬**——每日同步的 workflow 跑在
