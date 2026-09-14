@@ -100,11 +100,16 @@ namespace TaiwanAgri.Tests.Worker
 			return (coordinator, lifetime);
 		}
 
+		/// <summary>
+		/// 起跑一律走 <see cref="Task.Run(Func{Task})"/>，讓 Worker 的延續落在執行緒集區上。
+		/// 直接在測試執行緒上呼叫的話，ExecuteAsync 裡每一個 await 都會捕捉測試框架的同步內容，
+		/// 之後「取消之後收尾」那條延續就得排在其他測試後面，量起來會變成排程速度而不是行為
+		/// </summary>
 		private static async Task StartAsync(params FakeSyncWorker[] workers)
 		{
 			foreach (var worker in workers)
 			{
-				await worker.StartAsync(CancellationToken.None);
+				await Task.Run(() => worker.StartAsync(CancellationToken.None));
 			}
 		}
 
@@ -187,20 +192,21 @@ namespace TaiwanAgri.Tests.Worker
 		/// 卡在同步裡的 Worker 被停機取消時，訊號一定要亮——協調器就是在等這個訊號，
 		/// 不亮的話它會等一個永遠不會來的東西。
 		/// <para>
-		/// 斷言的是「一定會亮」而不是「在某個瞬間就亮」——協調器要的是不會卡住，
-		/// 不是內部的完成順序。並行造成的不穩定由集合層級的 DisableParallelization 解決，
-		/// 見 WorkerLifecycleCollection 的說明
+		/// ⚠ StopAsync 回來不代表 ExecuteAsync 已經收尾：.NET 10 的 BackgroundService 實測起來，
+		/// StopAsync 回來當下 ExecuteTask 讀到的是 Canceled，而 ExecuteAsync 的 finally 還沒跑到。
+		/// 所以這裡只能等訊號本身，不能改成等 ExecuteTask（await 一個取消狀態的 Task 會直接拋）。
+		/// 逾時三十秒是看門狗、不是斷言的機制——讓它穩定的是 Worker 在測試執行緒之外起跑
 		/// </para>
 		/// </summary>
 		[Fact]
 		public async Task 停機取消時第一輪訊號也要亮否則協調器會永遠等下去()
 		{
 			var worker = new FakeSyncWorker();
-			await worker.StartAsync(CancellationToken.None);
+			await StartAsync(worker);
 
 			await worker.StopAsync(CancellationToken.None);
 
-			await worker.FirstRoundAttempted.WaitAsync(TimeSpan.FromSeconds(5));
+			await worker.FirstRoundAttempted.WaitAsync(TimeSpan.FromSeconds(30));
 		}
 	}
 }
