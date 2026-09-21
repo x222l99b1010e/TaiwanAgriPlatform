@@ -2,8 +2,9 @@
 --
 -- 為什麼需要這支手動 SQL：DbInitializer 的 SeedNavModulesAsync 有「表裡已經有資料就整段跳過」
 -- 的守衛（NavModules.Any()），所以既有資料庫**永遠不會**拿到新增的列。`DbInitializer.cs`
--- 只保證「全新環境從零建起來時是對的」，既有環境一律要另外跑這支。兩件事缺一不可
--- （教訓見 DevLog 條目 286，W24 已照此模式跑過一次，見 docs/sql/W24_add_pesticide_navmodule.sql）。
+-- 只保證「全新環境從零建起來時是對的」，既有環境一律要另外跑這支。兩件事缺一不可：
+-- DbInitializer 管新環境，這支管既有環境（W24 已照同一模式跑過一次，
+-- 見 docs/sql/W24_add_pesticide_navmodule.sql）。
 --
 -- 執行方式：對正式資料庫執行一次。可重複執行（有 IF NOT EXISTS 保護）。
 

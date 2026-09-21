@@ -23,14 +23,11 @@ services:
     ports:
       - "5672:5672"     # AMQP 協議（應用程式連線用）
       - "15672:15672"   # Management UI（瀏覽器管理介面）
-  # ── [已停用 2026-07-11 文件校正] ─────────────────────────────────
-  # web / worker 服務引用的 TaiwanAgri.Web/Dockerfile 與 TaiwanAgri.Worker/Dockerfile
-  # 尚未建立，保留此定義會導致 docker-compose up 直接失敗。
-  # 此二區塊原為 W17 Code Review（2026-06-13）示範 RabbitMQ__HostName 環境覆蓋而加入，
-  # 與「Docker 只跑基礎設施，.NET 應用跑在本機」的開發原則（PR #001／DevLog 條目 001）
-  # 及 SA/SD W20 註記「Docker 打包延後至所有功能模組完成後統一處理」不符，故先註解停用。
-  # 重新啟用條件：功能模組全部完成、進入統一容器化打包階段（SA/SD §11.1 排程之後），
-  # 補上兩個 Dockerfile 後再取消註解。
+  # ── 已停用：web / worker 服務 ─────────────────────────────────
+  # 這個 compose 檔只負責基礎設施（資料庫、Redis、RabbitMQ），.NET 應用程式跑在本機。
+  # 下面兩個區塊引用的 TaiwanAgri.Web/Dockerfile 與 TaiwanAgri.Worker/Dockerfile 都還不存在，
+  # 取消註解會讓 docker compose up 直接失敗。
+  # 重新啟用條件：補上那兩個 Dockerfile、改成容器化啟動之後。
   # web:
   #   build:
   #     context: .
