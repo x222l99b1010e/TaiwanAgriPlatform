@@ -42,11 +42,34 @@ namespace TaiwanAgri.Worker.Market
 				await PublishPriceUpdatedEventAsync();
 		}
 
-		private async Task PublishPriceUpdatedEventAsync()
+		/// <summary>
+		/// 有沒有設定 RabbitMQ 主機。沒設定就不發布事件——不是連 localhost。
+		/// <para>
+		/// ⚠ 必須用 <c>IsNullOrWhiteSpace</c> 判斷，不能寫成 <c>?? "localhost"</c>：
+		/// 外部排程環境（GitHub Actions）是把這個值**刻意設成空字串**表示「這裡沒有 broker」，
+		/// 而 <c>??</c> 只接得住 null、接不住空字串。接不住的後果是去連一個不存在的 localhost、
+		/// 例外往上冒出同步方法、那一支 Worker 被記成同步失敗——資料其實已經寫進去了
+		/// （發布排在同步成功之後），失敗訊號是假的，而每天都有一則假失敗會讓真的失敗看不出來
+		/// </para>
+		/// <para>
+		/// 少了這則事件不影響資料正確性：它只用來讓 Web 端的快取提早失效，快取另有 25 小時 TTL 兜底
+		/// </para>
+		/// </summary>
+		internal static bool IsMessageBrokerConfigured(IConfiguration configuration) =>
+			!string.IsNullOrWhiteSpace(configuration["RabbitMQ:HostName"]);
+
+		internal async Task PublishPriceUpdatedEventAsync()
 		{
+			if (!IsMessageBrokerConfigured(_configuration))
+			{
+				_logger.LogInformation(
+					"[AgriProductsTransSyncWorker] 未設定 RabbitMQ:HostName，略過發布 agri.market.priceUpdated 事件（不算同步失敗）");
+				return;
+			}
+
 			var factory = new ConnectionFactory
 			{
-				HostName = _configuration["RabbitMQ:HostName"] ?? "localhost"
+				HostName = _configuration["RabbitMQ:HostName"]!
 			};
 			await using var connection = await factory.CreateConnectionAsync();
 			await using var channel = await connection.CreateChannelAsync();

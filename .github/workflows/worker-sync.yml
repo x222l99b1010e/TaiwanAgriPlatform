@@ -53,7 +53,10 @@ jobs:
           ConnectionStrings__DefaultConnection: ${{ secrets.WORKER_DB_CONNECTION }}
           Worker__RunOnce: 'true'
           Worker__RunOnceTimeoutMinutes: '30'
-          # 雲端不部署 RabbitMQ；Worker 不會因此少做事（它本來就只發事件、不收）
+          # 雲端不部署 RabbitMQ。空字串就是「這裡沒有 broker」的訊號，Worker 讀到之後跳過發布事件。
+          # 同步的資料一筆都不會少（發布排在同步成功之後，只用來讓 Web 端的快取提早失效，
+          # 而快取另有 25 小時 TTL 兜底）。
+          # ⚠ 不要改成不設這個變數：沒設等於本機漏設，行為要由 Worker 端判斷，而它對兩者一視同仁。
           RabbitMQ__HostName: ''
           DOTNET_ENVIRONMENT: Production
         run: dotnet run --project TaiwanAgri.Worker/TaiwanAgri.Worker.csproj --configuration Release --no-build
