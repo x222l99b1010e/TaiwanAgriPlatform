@@ -707,7 +707,7 @@ npm test
      選了之後不能改回來。**
    - ⚠ 免費方案的資料庫**不能**用還原備份或複製既有資料庫建立（官方不支援），
      所以本機資料庫不能整包搬上去，只能建空的再灌。
-   - 防火牆：加入自己的 IP；若要讓 GitHub Actions 連得到，另需放行（見步驟 5）。
+   - 防火牆：加入自己的 IP；若要讓 GitHub Actions 連得到，另需放行（見步驟 7）。
 
 2. **建表**（在本機執行，指向雲端資料庫）
    ```bash
@@ -739,20 +739,39 @@ npm test
    密碼不指定就會互動詢問；要免互動重跑，設環境變數 `TAIWANAGRI_SOURCE_PASSWORD`
    與 `TAIWANAGRI_TARGET_PASSWORD`，**不要打在指令列的字串裡**（那一行會進 PowerShell 歷史紀錄）。
 
-4. **部署後端**
-   ```bash
-   dotnet publish TaiwanAgri.Web -c Release -o ./publish --self-contained -r linux-x64
-   ```
-   > 走自封裝是刻意的：App Service 對 .NET 10 在建立畫面上仍標示 Preview，
-   > 自封裝之後平台支不支援就與這次部署無關。代價是產出多 60–80 MB。
+4. **建 App Service（先建空殼，不放程式）**
+   - 「建立資源」→「Web 應用程式」。資源群組與資料庫同一個、區域同一區。
+   - 發佈選**程式碼**、作業系統選 **Linux**（第 6 步的發布指令是 `-r linux-x64`，兩者要一致）。
+   - ⚠ 定價方案要選**免費 F1**；建立畫面的預設常常是按月收費的 B1。
+   - 建好後到「概觀」頁**複製預設網域**，那就是後端網址，第 5 步要用。
+     以畫面顯示的為準、不要自己拼——勾了「唯一預設主機名稱」時網址會多一段隨機字串。
 
-   把 `./publish` 壓成 zip 上傳，然後在 **App Service →「設定」→「環境變數」** 填入：
+   > **為什麼程式要晚一步才上**：後端啟動時要讀 `Cors__AllowedOrigins__0`（前端網址），
+   > 前端建置時要讀 `VITE_API_BASE_URL`（後端網址），兩個網址都得等資源建好才知道；
+   > 而後端在非 `Development` 環境沒填 CORS 會**直接啟動失敗**。
+   > 所以順序只能是：空殼 → 前端 → 回填環境變數 → 上傳後端程式。
+
+5. **部署前端**
+   ```bash
+   cd TaiwanAgri.Frontend
+   echo "VITE_API_BASE_URL=https://<第 4 步複製的後端網址>" > .env.production
+   npm ci && npm run build          # 產出 dist/
+   ```
+   把 `dist/` 交給 Cloudflare Pages（Workers & Pages →「建立」→ Pages →「上傳資產」），
+   部署完**複製前端網址**（`https://<專案名>.pages.dev`；撞名會被加尾巴，同樣以畫面顯示的為準）。
+   > ⚠ `VITE_API_BASE_URL` 是**建置期**寫死進 JS 的，後端網址改了就要重新 build。
+   > 這時後端還沒上程式，所以首頁的模組區會顯示「連不上伺服器」＋重試鈕。
+   > **那是對的**——代表前端確實照著建置時填的網址去找後端。
+
+6. **填環境變數，再上傳後端**
+
+   先在 **App Service →「設定」→「環境變數」** 填入四個：
 
    | 名稱 | 值 |
    |---|---|
    | `ConnectionStrings__DefaultConnection` | 雲端資料庫連線字串 |
    | `Jwt__SecretKey` | 至少 32 字元的隨機字串（**不要沿用開發用的值**） |
-   | `Cors__AllowedOrigins__0` | 前端網址，例如 `https://xxx.pages.dev` |
+   | `Cors__AllowedOrigins__0` | 第 5 步複製的前端網址，例如 `https://xxx.pages.dev` |
    | `ASPNETCORE_ENVIRONMENT` | `Production` |
 
    > 雙底線是 .NET 設定的巢狀分隔符：`ConnectionStrings__DefaultConnection`
@@ -760,20 +779,28 @@ npm test
    > `Cors` 兩個鍵都留白時，非 `Development` 環境會**啟動失敗**——這是刻意的，
    > 因為漏填的症狀只出現在使用者的瀏覽器裡、伺服器端沒有任何紀錄。
 
-5. **接上每日同步**
-   - GitHub repo → Settings → Secrets → 新增 `WORKER_DB_CONNECTION`（雲端資料庫連線字串）。
+   再打包上傳：
+   ```bash
+   dotnet publish TaiwanAgri.Web -c Release -o ./publish --self-contained -r linux-x64
+   tar -a -c -f publish.zip -C publish .
+   ```
+   > 走自封裝是刻意的：App Service 對 .NET 10 在建立畫面上仍標示 Preview，
+   > 自封裝之後平台支不支援就與這次部署無關。代價是產出多 60–80 MB。
+   > ⚠ **不要用 PowerShell 的 `Compress-Archive` 打包**：它產出的 zip 以反斜線當路徑分隔符，
+   > 在 Linux 上解開會把整個資料夾結構攤平成怪檔名。上面用的 `tar` 是 Windows 內建的。
+
+7. **接上每日同步**
+   - GitHub repo → Settings → Secrets and variables → Actions →
+     新增 `WORKER_DB_CONNECTION`（雲端資料庫連線字串；名字一個字都不能差，workflow 用這個名字取用）。
    - Azure SQL 防火牆放行 GitHub Actions 的執行器（runner 的 IP 不固定，
      最省事的做法是開啟「允許 Azure 服務存取」——範圍偏寬，屬已知限制）。
-   - 到 Actions 頁面手動觸發一次 `Worker Sync` 驗收。
-
-6. **部署前端**
-   ```bash
-   cd TaiwanAgri.Frontend
-   echo "VITE_API_BASE_URL=https://<你的後端>.azurewebsites.net" > .env.production
-   npm ci && npm run build          # 產出 dist/
-   ```
-   把 `dist/` 交給 Cloudflare Pages。
-   > ⚠ `VITE_API_BASE_URL` 是**建置期**寫死進 JS 的，後端網址改了就要重新 build。
+   - 驗收：到 Actions 頁面手動觸發一次 `Worker Sync`。
+   > ⚠ **`workflow_dispatch` 與 `schedule` 都只認預設分支上的 workflow 檔**，
+   > 所以 `worker-sync.yml` 合併進 `main` 之前，Actions 頁面上按不到這一支。
+   > 在那之前改用本機驗收同一段路：連線字串指向雲端、`$env:Worker__RunOnce = "true"`，
+   > 跑 `dotnet run --project TaiwanAgri.Worker --configuration Release`，
+   > 確認結束碼是 0、而且摘要裡沒有任何一支同步失敗。
+   > 兩者的差別只有「誰去連資料庫」——合併之後那一輪才會驗到防火牆。
 
 ### 停機
 
@@ -799,7 +826,7 @@ npm test
 
 **在。** Azure SQL 的自動暫停只停運算，儲存不動，資料與索引都保留。
 **但資料的「新鮮度」會停在最後一次同步的那天**——重開之後若要今天的數字，
-手動觸發一次 `Worker Sync` 即可（見上面第 5 步）。
+手動觸發一次 `Worker Sync` 即可（見上面第 7 步）。
 
 ---
 
