@@ -702,14 +702,35 @@ npm test
 ### 一次性設定（只做一次）
 
 1. **建 Azure SQL Database（免費方案）**
-   - 從 Azure SQL hub 選「Start free」建立。
+   - 從 Azure SQL hub（`aka.ms/azuresqlhub`）選「Start free」建立。
+     建立畫面要出現「**Free offer applied!／已套用免費供應項目**」橫幅才算走對入口；
+     沒有橫幅就是走成付費流程，退回去重走。⚠ 訂閱附的「12 個月免費服務」清單裡有一項
+     `SQL Database, Single Standard, S0 DTUs`，名字很像但**不是**這個，它 12 個月後開始計費。
    - ⚠ **「超出免費額度時的行為」選「自動暫停到下個月」，不要選「繼續使用並計費」——
      選了之後不能改回來。**
    - ⚠ 免費方案的資料庫**不能**用還原備份或複製既有資料庫建立（官方不支援），
      所以本機資料庫不能整包搬上去，只能建空的再灌。
    - 防火牆：加入自己的 IP；若要讓 GitHub Actions 連得到，另需放行（見步驟 7）。
 
-2. **建表**（在本機執行，指向雲端資料庫）
+2. **建 App Service（先建空殼，不放程式）**
+   - 「建立資源」→「Web 應用程式」。資源群組與資料庫同一個、區域同一區。
+   - 發佈選**程式碼**、作業系統選 **Linux**（第 6 步的發布指令是 `-r linux-x64`，兩者要一致）。
+   - ⚠ 定價方案要選**免費 F1**；建立畫面的預設是按月收費的方案
+     （2026-09-22 實際看到的預設是「進階版 V4 P0V4」），要自己改。
+     F1 的容量分區域計算，選好區域後先確認下拉選單裡真的有 F1。
+   - 建好後到「概觀」頁**複製預設網域**，那就是後端網址，第 5 步要用。
+     以畫面顯示的為準、不要自己拼——勾了「唯一預設主機名稱」時網址會多一段隨機字串。
+
+   > **為什麼程式要晚一步才上**：後端啟動時要讀 `Cors__AllowedOrigins__0`（前端網址），
+   > 前端建置時要讀 `VITE_API_BASE_URL`（後端網址），兩個網址都得等資源建好才知道；
+   > 而後端在非 `Development` 環境沒填 CORS 會**直接啟動失敗**。
+   > 所以順序只能是：空殼 → 前端 → 回填環境變數 → 上傳後端程式。
+   >
+   > **為什麼空殼排在建表與搬資料之前**：F1 免費層的容量是分區域計算的，而「下拉選單裡
+   > 列得出來」與「按下去真的建得起來」是兩件事。資料庫的區域一旦選定就鎖住該訂閱之後
+   > 所有免費資料庫，換不了；所以要在花掉任何 vCore 秒之前，先確認同一區真的建得出 F1。
+
+3. **建表**（在本機執行，指向雲端資料庫）
    ```bash
    dotnet ef database update -p TaiwanAgri.Web                -s TaiwanAgri.Web -c ApplicationDbContext --connection "<雲端連線字串>"
    dotnet ef database update -p TaiwanAgri.Core               -s TaiwanAgri.Web -c CoreDbContext        --connection "<雲端連線字串>"
@@ -725,7 +746,7 @@ npm test
    > 七個 DbContext 全部有註冊，所以七行共用同一個啟動專案就好。
    > （本機那段用的是 Visual Studio 的 `Update-Database`，它的 `-StartupProject` 本來就有寫。）
 
-3. **搬資料**
+4. **搬資料**
    ```powershell
    # 先量成本：只搬一張中型表，跑完去 Azure Portal 看「剩餘可用量」掉了多少
    .\scripts\Copy-DataToAzureSql.ps1 -TargetServer <server>.database.windows.net `
@@ -739,22 +760,10 @@ npm test
    密碼不指定就會互動詢問；要免互動重跑，設環境變數 `TAIWANAGRI_SOURCE_PASSWORD`
    與 `TAIWANAGRI_TARGET_PASSWORD`，**不要打在指令列的字串裡**（那一行會進 PowerShell 歷史紀錄）。
 
-4. **建 App Service（先建空殼，不放程式）**
-   - 「建立資源」→「Web 應用程式」。資源群組與資料庫同一個、區域同一區。
-   - 發佈選**程式碼**、作業系統選 **Linux**（第 6 步的發布指令是 `-r linux-x64`，兩者要一致）。
-   - ⚠ 定價方案要選**免費 F1**；建立畫面的預設常常是按月收費的 B1。
-   - 建好後到「概觀」頁**複製預設網域**，那就是後端網址，第 5 步要用。
-     以畫面顯示的為準、不要自己拼——勾了「唯一預設主機名稱」時網址會多一段隨機字串。
-
-   > **為什麼程式要晚一步才上**：後端啟動時要讀 `Cors__AllowedOrigins__0`（前端網址），
-   > 前端建置時要讀 `VITE_API_BASE_URL`（後端網址），兩個網址都得等資源建好才知道；
-   > 而後端在非 `Development` 環境沒填 CORS 會**直接啟動失敗**。
-   > 所以順序只能是：空殼 → 前端 → 回填環境變數 → 上傳後端程式。
-
 5. **部署前端**
    ```bash
    cd TaiwanAgri.Frontend
-   echo "VITE_API_BASE_URL=https://<第 4 步複製的後端網址>" > .env.production
+   echo "VITE_API_BASE_URL=https://<第 2 步複製的後端網址>" > .env.production
    npm ci && npm run build          # 產出 dist/
    ```
    把 `dist/` 交給 Cloudflare Pages（Workers & Pages →「建立」→ Pages →「上傳資產」），
