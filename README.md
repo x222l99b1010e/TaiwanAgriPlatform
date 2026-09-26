@@ -437,7 +437,7 @@ TaiwanAgriPlatform/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 450 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 470 個測試案例）
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
@@ -471,7 +471,7 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，450 個案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，470 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面單元測試（`npm test`，12 檔 137 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
@@ -611,7 +611,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 450 個測試案例）
+# 後端（xUnit + Moq，共 470 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -620,7 +620,7 @@ cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 12 個測試檔共 137 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 12 個測試檔共 137 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -655,7 +655,9 @@ npm test
 把後者變成要寫下來的宣告之後，剩下的空白就只有「忘了填」一種解釋，這時候讓啟動失敗才是對的。
 `Development` 不套用這個檢查（本機走 proxy 是常態），只會記一則啟動警告。
 
-其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值）、
+其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值），`Jwt:Issuer`／`Jwt:Audience`／
+`Jwt:ExpiresInDays` 三個也要帶上（本機的值多半在 `appsettings.Development.json` 或 User Secrets，
+正式環境兩者都不讀；缺任何一個啟動就會失敗，訊息會列出缺哪幾個鍵）、
 `ConnectionStrings:DefaultConnection` 指向正式資料庫（`ConnectionStrings:Redis` 與
 `RabbitMQ:HostName` 留白即走降級路徑）、`ASPNETCORE_ENVIRONMENT` 設為 `Production`
 （Swagger UI 只在 `Development` 掛載，正式環境不會暴露 API 文件）。
@@ -774,17 +776,22 @@ npm test
 
 6. **填環境變數，再上傳後端**
 
-   先在 **App Service →「設定」→「環境變數」** 填入四個：
+   先在 **App Service →「設定」→「環境變數」** 填入七個：
 
    | 名稱 | 值 |
    |---|---|
    | `ConnectionStrings__DefaultConnection` | 雲端資料庫連線字串 |
    | `Jwt__SecretKey` | 至少 32 字元的隨機字串（**不要沿用開發用的值**） |
+   | `Jwt__Issuer` | `TaiwanAgriPlatform` |
+   | `Jwt__Audience` | `TaiwanAgriPlatformUsers` |
+   | `Jwt__ExpiresInDays` | `7` |
    | `Cors__AllowedOrigins__0` | 第 5 步複製的前端網址，例如 `https://xxx.pages.dev` |
    | `ASPNETCORE_ENVIRONMENT` | `Production` |
 
    > 雙底線是 .NET 設定的巢狀分隔符：`ConnectionStrings__DefaultConnection`
    > 對應設定檔裡的 `ConnectionStrings:DefaultConnection`。
+   > `Jwt` 的後三個不是機密，但本機的值在 `appsettings.Development.json` 或 User Secrets，
+   > 正式環境兩者都不讀——`dotnet publish` 帶上去的只有 `appsettings.json`，所以要在這裡補。
    > `Cors` 兩個鍵都留白時，非 `Development` 環境會**啟動失敗**——這是刻意的，
    > 因為漏填的症狀只出現在使用者的瀏覽器裡、伺服器端沒有任何紀錄。
 
