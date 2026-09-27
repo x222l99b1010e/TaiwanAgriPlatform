@@ -763,13 +763,18 @@ npm test
 
 4. **搬資料**
    ```powershell
-   # 先量成本：只搬一張中型表，跑完去 Azure Portal 看「剩餘可用量」掉了多少
+   # 先量成本：只搬一張中型表，看資料庫「計量」的 App CPU billed（每分鐘計費的 vCore 秒）
    .\scripts\Copy-DataToAzureSql.ps1 -TargetServer <server>.database.windows.net `
        -TargetUser <帳號> -Tables 'pet.OfficialLostPetPosts'
 
-   # 確認負擔得起再全量搬（腳本可重跑，已完成的表會跳過）
+   # 確認負擔得起再全量搬（以整張表為單位可重跑，已完成的表會跳過）
    .\scripts\Copy-DataToAzureSql.ps1 -TargetServer <server>.database.windows.net -TargetUser <帳號>
    ```
+   腳本開始前會先把暫停中的資料庫叫醒、連得上才開始搬。**搬到一半中斷的表不會自動接續**
+   （bcp 重送會從第一列開始、撞上已存在的主鍵）：腳本會略過它，最後印出清空雲端那張表的指令，
+   清掉之後再重跑。
+   量成本時別看「剩餘可用量」：它有延遲、刻度粗。資料庫醒著的每一分鐘都計費，
+   閒置時實測每分鐘 30–41 vCore 秒（2026-09-27／28），搬一張 3.9 萬列、16.7 MB 的表只多出約 10。
    腳本只搬政府開放資料。帳號表與使用者資料不搬（雲端的測試帳號在網站上重新註冊），
    種子資料（`NavModules`／`RoleModulePermissions`／`Shelters`）由服務啟動時自己建。
    密碼不指定就會互動詢問；要免互動重跑，設環境變數 `TAIWANAGRI_SOURCE_PASSWORD`
