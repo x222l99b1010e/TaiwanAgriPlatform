@@ -713,10 +713,14 @@ npm test
    - ⚠ 免費方案的資料庫**不能**用還原備份或複製既有資料庫建立（官方不支援），
      所以本機資料庫不能整包搬上去，只能建空的再灌。
    - 防火牆：加入自己的 IP；若要讓 GitHub Actions 連得到，另需放行（見步驟 7）。
+     家用網路的 IP 會變（換地點、數據機重開），**每次要從自己電腦連資料庫之前先比對一次**：
+     `curl.exe -s https://api.ipify.org` 查出現在的 IP，不同就改掉同一條規則
+     （`az sql server firewall-rule update -g <資源群組> -s <伺服器> -n <規則名> --start-ip-address <IP> --end-ip-address <IP>`）。
 
 2. **建 App Service（先建空殼，不放程式）**
    - 「建立資源」→「Web 應用程式」。資源群組與資料庫同一個、區域同一區。
-   - 發佈選**程式碼**、作業系統選 **Linux**（第 6 步的發布指令是 `-r linux-x64`，兩者要一致）。
+   - 發佈選**程式碼**、執行階段堆疊選 **.NET 10 (LTS)**、作業系統選 **Linux**
+     （第 6 步是框架相依發布，程式由平台裝好的這份 .NET 執行）。
    - ⚠ 定價方案要選**免費 F1**；建立畫面的預設是按月收費的方案
      （2026-09-22 實際看到的預設是「進階版 V4 P0V4」），要自己改。
      F1 的容量分區域計算，選好區域後先確認下拉選單裡真的有 F1。
@@ -726,7 +730,10 @@ npm test
    > **為什麼程式要晚一步才上**：後端啟動時要讀 `Cors__AllowedOrigins__0`（前端網址），
    > 前端建置時要讀 `VITE_API_BASE_URL`（後端網址），兩個網址都得等資源建好才知道；
    > 而後端在非 `Development` 環境沒填 CORS 會**直接啟動失敗**。
-   > 所以順序只能是：空殼 → 前端 → 回填環境變數 → 上傳後端程式。
+   > 所以 CORS 的真值只能等前端建好才填。本節照「空殼 → 前端 → 回填環境變數 → 上傳」排列；
+   > 也可以在第 3 步建完表就先做第 6 步、CORS 暫填 `https://placeholder.invalid`，
+   > 上傳驗證完先把 App Service 停止，拿到前端網址再回頭換掉 CORS、啟動——
+   > 上傳與建表共用同一段資料庫醒著的時間，啟動問題也提早現形（第一次部署走的是這條）。
    >
    > **為什麼空殼排在建表與搬資料之前**：F1 免費層的容量是分區域計算的，而「下拉選單裡
    > 列得出來」與「按下去真的建得起來」是兩件事。資料庫的區域一旦選定就鎖住該訂閱之後
@@ -747,6 +754,12 @@ npm test
    > 建出來；少了它會停在「Unable to create a 'DbContext' of type ...」。`TaiwanAgri.Web`
    > 七個 DbContext 全部有註冊，所以七行共用同一個啟動專案就好。
    > （本機那段用的是 Visual Studio 的 `Update-Database`，它的 `-StartupProject` 本來就有寫。）
+   >
+   > 連線字串含密碼，**不要直接打在指令列**（整行會進 PowerShell 歷史紀錄）。先用
+   > `$pw = Read-Host -AsSecureString` 收密碼、組成變數 `$cs`，七行都寫 `--connection $cs`。
+   > ⚠ 資料庫若正在自動暫停，第一行會回 `is not currently available`（錯誤碼 40613）：
+   > 這一連正在把它叫醒，恢復約需 1 分鐘（2026-09-27 實測 60 秒）。等一下原樣重跑即可，
+   > 已套用的 migration 會跳過。
 
 4. **搬資料**
    ```powershell
@@ -771,7 +784,7 @@ npm test
    把 `dist/` 交給 Cloudflare Pages（Workers & Pages →「建立」→ Pages →「上傳資產」），
    部署完**複製前端網址**（`https://<專案名>.pages.dev`；撞名會被加尾巴，同樣以畫面顯示的為準）。
    > ⚠ `VITE_API_BASE_URL` 是**建置期**寫死進 JS 的，後端網址改了就要重新 build。
-   > 這時後端還沒上程式，所以首頁的模組區會顯示「連不上伺服器」＋重試鈕。
+   > 這時後端還沒上程式（或已上傳但處於停止），所以首頁的模組區會顯示「連不上伺服器」＋重試鈕。
    > **那是對的**——代表前端確實照著建置時填的網址去找後端。
 
 6. **填環境變數，再上傳後端**
@@ -795,15 +808,32 @@ npm test
    > `Cors` 兩個鍵都留白時，非 `Development` 環境會**啟動失敗**——這是刻意的，
    > 因為漏填的症狀只出現在使用者的瀏覽器裡、伺服器端沒有任何紀錄。
 
-   再打包上傳：
-   ```bash
-   dotnet publish TaiwanAgri.Web -c Release -o ./publish --self-contained -r linux-x64
+   再發布、打包、上傳。建立 App Service 時「基本驗證」是停用的，FTP 與發佈設定檔這類
+   固定帳密的上傳路都關著，所以上傳走 Microsoft 帳號：**先 `az login`**。
+   ```powershell
+   dotnet publish TaiwanAgri.Web -c Release -o ./publish
    tar -a -c -f publish.zip -C publish .
+   az webapp deploy --resource-group <資源群組> --name <App Service 名稱> --src-path publish.zip --type zip
    ```
-   > 走自封裝是刻意的：App Service 對 .NET 10 在建立畫面上仍標示 Preview，
-   > 自封裝之後平台支不支援就與這次部署無關。代價是產出多 60–80 MB。
+   > 框架相依發布：只打包程式本身，由平台裝好的 .NET 10 執行。平台會在網站根目錄找唯一的
+   > `*.runtimeconfig.json`，自己用 `dotnet TaiwanAgri.Web.dll` 啟動，**不需要設定啟動命令**；
+   > 程式聽 8080 埠，與平台期待的一致（2026-09-27 實測）。
    > ⚠ **不要用 PowerShell 的 `Compress-Archive` 打包**：它產出的 zip 以反斜線當路徑分隔符，
-   > 在 Linux 上解開會把整個資料夾結構攤平成怪檔名。上面用的 `tar` 是 Windows 內建的。
+   > 在 Linux 上解開會把整個資料夾結構攤平成怪檔名。上面用的 `tar` 是 Windows 內建的；
+   > 上傳前用 `tar -tf publish.zip` 看一眼，路徑要是 `./` 開頭的正斜線、沒有多包一層 `publish/`。
+   > `publish/` 與 `publish.zip` 都在 `.gitignore` 裡（zip 會帶著本機的 `appsettings.json`）。
+
+   上傳後驗證：
+   - App Service →「監視」→「App Service 記錄」先把「應用程式記錄」設成「**檔案系統**」
+     （不開的話「記錄資料流」看不到程式的輸出；存在 App Service 自己的空間，不另收費），
+     再到「記錄資料流」確認有 `Now listening on: http://[::]:8080`。
+   - `/health` 與 `/health/ready` 都回 `Healthy`；用不存在的帳號 `POST /api/auth/login` 應回 **401**。
+   > 記錄裡會有一則 `Failed to determine the https port for redirect` 警告，**是預期的**：
+   > 平台在前端解掉 HTTPS、以 HTTP 轉給程式，程式看不到 HTTPS 埠，所以自己不轉址；
+   > `http://` 轉 `https://` 由平台做（回 301，回應裡沒有程式會帶的 `Server: Kestrel`）。
+   > `az webapp deploy` 可能一直印 `Starting the site...`，即使網站早已啟動
+   > （實測平台 37 秒就啟動完成，指令仍輪詢超過 5 分鐘）。以 `/health` 或
+   > `az webapp troubleshoot status` 為準。
 
 7. **接上每日同步**
    - GitHub repo → Settings → Secrets and variables → Actions →
@@ -830,7 +860,8 @@ npm test
 1. App Service →「啟動」。
 2. 打 `https://<後端>/health` → 應回 `Healthy`（這一支不碰資料庫，只確認程式活著）。
 3. 打 `https://<後端>/health/ready` → 應回 `Healthy`。
-   **這一步會把暫停中的資料庫喚醒，第一次可能要等十幾秒。**
+   **程式啟動時會先寫種子資料，所以第 1 步一按「啟動」就會把暫停中的資料庫叫醒**；
+   恢復約需 1 分鐘（2026-09-27 實測 60 秒），這段期間可能先回失敗，等一下再打一次。
 4. 打開前端網址，確認首頁四個模組畫得出來。
 5. 需要當天資料的話，到 Actions 手動觸發一次 `Worker Sync`。
 
