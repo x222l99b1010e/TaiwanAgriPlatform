@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using TaiwanAgri.Core.Extensions;
 using TaiwanAgri.Modules.User.Services;
 using TaiwanAgri.Modules.User.Data;
 
@@ -9,7 +9,7 @@ namespace TaiwanAgri.Web.Extensions
 		public static IServiceCollection AddUserModule(this IServiceCollection services, IConfiguration configuration)
 		{
 			services.AddDbContext<UserDbContext>(options =>
-				options.UseSqlServer(
+				options.UseSqlServerWithRetry(
 					configuration.GetConnectionString("DefaultConnection")));
 
 			// IUserProfileService → UserProfileService

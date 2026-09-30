@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TaiwanAgri.Core.Entities;
+using TaiwanAgri.Core.Extensions;
 using TaiwanAgri.Web.Data;
 using TaiwanAgri.Web.Services;
 
@@ -62,7 +62,7 @@ namespace TaiwanAgri.Web.Extensions
 				?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 			services.AddDbContext<ApplicationDbContext>(options =>
-				options.UseSqlServer(connectionString));
+				options.UseSqlServerWithRetry(connectionString));
 
 			services.AddDefaultIdentity<ApplicationUser>(options =>
 			// 先不驗證信箱帳號

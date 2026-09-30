@@ -1,11 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Serilog;
 using TaiwanAgri.Core.Extensions;
-using TaiwanAgri.Core.Infrastructure.Data;
-using TaiwanAgri.Modules.FoodSafety.Data;
-using TaiwanAgri.Modules.Market.Data;
-using TaiwanAgri.Modules.Pet.Data;
-using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
 using TaiwanAgri.Worker.Weather;
 using TaiwanAgri.Worker.Market;
@@ -33,23 +27,8 @@ namespace TaiwanAgri.Worker
 			builder.Logging.ClearProviders();
 			builder.Logging.AddSerilog();
 
-			//DbContext 註冊
-			builder.Services.AddDbContext<CoreDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-			builder.Services.AddDbContext<WeatherDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-
-			builder.Services.AddDbContext<MarketDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-			builder.Services.AddDbContext<FoodSafetyDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-			builder.Services.AddDbContext<PetDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
+			// DbContext 註冊：連線設定（含遇到暫時性錯誤自動重試）與測試共用同一份
+			builder.Services.AddWorkerDbContexts(builder.Configuration);
 
 			// MoaApi Named Client 設定與 Web 共用（TaiwanAgri.Core.Extensions）
 			builder.Services.AddMoaApiClient();
