@@ -4,8 +4,11 @@
       <!-- 站名是回首頁的標準入口，但「可以點」這件事在畫面上看不出來，
            所以另外在分頁列第一格放一個明寫「首頁」的分頁——兩個入口都要。 -->
       <router-link to="/" class="logo" aria-label="回到首頁">
-        <img class="logo-icon" src="/favicon.svg" alt="" width="24" height="24">
-        <span class="logo-text">台灣農業平台</span>
+        <img class="brand-mark" src="/favicon.svg" alt="" width="32" height="32">
+        <span class="logo-words">
+          <span class="logo-text brand-name">田野‧農時</span>
+          <span class="logo-desc">台灣農業開放資料平台</span>
+        </span>
       </router-link>
 
       <nav class="module-tabs">
@@ -201,9 +204,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 .logo:hover { background: var(--white-a12); }
 .logo:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
-/* 站名前的標誌直接引用分頁圖示 favicon.svg：兩處是同一個標誌，改圖只改那一張。
-   它的夜土底跟導覽列同色，平常只看得到夕陽與田埂；滑過時站名底色浮起來，方形輪廓才出現 */
-.logo-icon { flex: none; }
+/* 站名前的標誌就是分頁圖示 favicon.svg；外框與站名字型是全站共用的 .brand-mark／.brand-name（base.css）。
+   站名下方那行小字說明這是什麼網站：一般字重、淡色，比站名輕一階。疊在站名下方而不是並排：
+   並排要多吃 146px，五個模組分頁在 901–1024px 之間會排不下；疊起來整組只比站名寬一點。
+   標誌 32px＝兩行字的總高，也是原稿 16 格的 2 倍，邊緣仍落在整數像素。 */
+.logo-words { display: flex; flex-direction: column; gap: 2px; line-height: 1.15; }
+.logo-desc {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  color: var(--color-on-deep-dim);
+  white-space: nowrap;
+}
 .module-tabs { display: flex; gap: var(--space-1); flex: 1; }
 .tab-wrapper { position: relative; }
 

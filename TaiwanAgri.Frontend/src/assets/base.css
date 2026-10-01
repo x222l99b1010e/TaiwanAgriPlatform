@@ -319,7 +319,7 @@
   --color-accent-2:      var(--persimmon-600);
   --color-accent-2-fill: var(--persimmon-400);
   --color-control-ring:  var(--cream-600);       /* 次要按鈕的外環（也是它的圖示色） */
-  /* 主要按鈕外框與填色之間那一圈，以及圓鈕的底。用填色同色系的淡綠、不用近白：
+  /* 主要按鈕外框與填色之間那一圈，以及圓鈕的底（網站標誌的外框也用它，見 .brand-mark）。用填色同色系的淡綠、不用近白：
      近白跟綠色填色的明度差太大，整顆會像白框裡塞一塊綠，突兀（2026-10-01 owner 三選一定案） */
   --color-control-gap:   var(--seed-100);
   --color-accent-2-ring: var(--persimmon-500);   /* 強調按鈕的外環（也是它的圖示色） */
@@ -821,6 +821,24 @@ textarea.form-control {
 @keyframes action-sheen {
   from { background-position: 0% 0; }
   to   { background-position: 100% 0; }
+}
+
+/* ── 網站標誌與站名：導覽列、頁尾、登入卡三處共用，改這裡全站跟著換 ──
+   標誌就是分頁圖示 favicon.svg。它的夜土底跟深色列同色，不框起來方形輪廓會消失，
+   所以外圍加一圈淡綠細線，跟主要按鈕的間隙同色，是同一套語彙。
+   只能是細線：標誌裡的田埂一路畫到方塊左右兩緣，框一粗（試過 3px）田埂就跟框連成一片，
+   看起來像標誌被吃掉一圈。也不能在框與標誌之間留縫——深底上那道縫是黑的，會跟底色混在一起。
+   淺色底上它只是一圈淡淡的綠，邊緣由深色方塊本身負責。box-shadow 沒有模糊也沒有位移，是框不是陰影。
+   圓角用百分比（16 格裡的 3.5），任何尺寸都跟標誌本身的圓角貼齊。 */
+.brand-mark {
+  flex: none;
+  border-radius: 21.875%;
+  box-shadow: 0 0 0 1.5px var(--color-control-gap);
+}
+/* 站名「田野‧農時」用明體（首頁大標那一套）；中間是間隔號 ‧（U+2027），不是全形句點 */
+.brand-name {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
 }
 
 /* 尊重使用者的減少動態偏好設定——後續加入動效時這條會一併生效，

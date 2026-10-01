@@ -3,8 +3,8 @@
     <div class="login-card">
       <!-- Logo 區 -->
       <div class="card-header">
-        <img class="logo-icon" src="/favicon.svg" alt="" width="48" height="48">
-        <h1 class="card-title">台灣農業平台</h1>
+        <img class="logo-icon brand-mark" src="/favicon.svg" alt="" width="48" height="48">
+        <h1 class="card-title brand-name">田野‧農時</h1>
         <p class="card-subtitle">請登入以繼續</p>
       </div>
 
@@ -73,7 +73,7 @@
               class="form-control field-input"
               type="text"
               v-model="displayName"
-              placeholder="例如：信義區自耕農阿志頭"
+              placeholder="例如：大安區自耕農阿志頭"
               :disabled="isLoading"
             />
           </div>

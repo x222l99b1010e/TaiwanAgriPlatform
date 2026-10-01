@@ -1,5 +1,5 @@
-# 🌱 台灣農業開放資料整合平台
-### Taiwan Agricultural Open Data Integration Platform
+# 田野‧農時 Field & Season
+### 台灣農業開放資料整合平台 · Taiwan Agricultural Open Data Integration Platform
 
 > 把農業部 60 支 API 的孤島資料，串成一個對農民、消費者與研究者都友善的整合平台。
 
