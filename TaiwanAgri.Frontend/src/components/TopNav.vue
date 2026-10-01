@@ -329,14 +329,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 /* ── 窄螢幕：分頁列收成選單 ───────────────────────────────────────────────
-   分頁列（站名＋首頁＋四個模組＋右上角）桌機寬度約要 800px 才排得下；比這窄時整列會撐出
-   左右捲動、站名被擠成一字一行。斷點取 900px，跟 EntryLayout 的窄版同一條線。
+   分頁列（站名＋首頁＋四個模組＋右上角）要多寬，是在模組清單載入後實測的：未登入要 963px，
+   登入後右上角多了鈴鐺、名字與三顆按鈕，要 1196px（視窗約 1226px）；比這窄時整列會撐出左右捲動。
+   斷點取 1240px，兩種狀態都排得下。⚠ 量寬度一定要等模組清單載入——後端沒開時只有「首頁」一個分頁，
+   量出來會小很多（原本的 900px 就是這樣低估的）。
    窄版的列上只留站名、登入（或鈴鐺）與選單鈕，其餘全部進選單。 */
 .logo-text { white-space: nowrap; }
 .nav-toggle,
 .mobile-menu { display: none; }
 
-@media (max-width: 900px) {
+@media (max-width: 1240px) {
   .top-nav-inner { gap: var(--space-3); }
   .module-tabs,
   .desktop-only { display: none; }

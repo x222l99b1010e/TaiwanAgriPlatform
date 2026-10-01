@@ -355,7 +355,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── useCountUp.ts         # 數字滾動動畫（首頁今日三數字；可指定小數位，停下來的是原值）
 │   │   │   └── useStatTile.ts        # 首頁今日數字單格的四種狀態：載入中／有值／沒有資料／抓不到（vitest 覆蓋）
 │   │   ├── components/
-│   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺；900px 以下收成選單鈕
+│   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺；1240px 以下收成選單鈕
 │   │   │   ├── NotificationBell.vue  # 鈴鐺 + 未讀紅點 + Dropdown 無限捲動
 │   │   │   ├── NotificationRuleForm.vue # 通知規則新增／編輯表單（型態切換換掉一半欄位）
 │   │   │   ├── CitySelector.vue      # 縣市下拉（補 includeAll，寵物模組共用）
@@ -1258,7 +1258,7 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 `PestAlertsView`／`PestDecadeView`／`PricesView`／`RestDaysView`／`DisastersView`／
 `PoultryView`／`PorkView` 各自寫著 `min-width: 960px`，在 375px 的畫面上會橫向縮放。
 首頁與四個模組入口頁不受影響（那一層的寬度下限已經移除，是真正的響應式）；
-全站共用的導覽列在 900px 以下收成一顆選單鈕，子頁直接攤開列出。
+全站共用的導覽列在 1240px 以下收成一顆選單鈕（登入後的分頁列要 1196px 才排得下），子頁直接攤開列出。
 不處理的理由是這 9 頁都是資料表格加多欄篩選，**拿掉寬度下限只是第一步**，
 真正的工作是逐頁在窄螢幕重新決定欄位怎麼收、篩選器怎麼折疊並逐頁驗收，
 那是獨立的一件事，不是刪一行 CSS 就結束。
