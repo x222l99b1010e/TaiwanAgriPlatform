@@ -18,7 +18,7 @@
           <span class="site-footer__logo-zh brand-name">田野‧農時</span>
         </div>
         <p class="site-footer__logo-en">FIELD &amp; SEASON · TAIWAN AGRI OPEN DATA · SINCE 2026</p>
-        <p class="site-footer__tagline">把政府開放資料，變成農民看得懂的今日數字。</p>
+        <p class="site-footer__tagline wrap-phrase">把政府開放資料，變成農民看得懂的今日數字。</p>
       </div>
 
       <nav class="site-footer__col">
@@ -86,9 +86,10 @@ const modules = computed(() => navStore.modules)
   letter-spacing: var(--tracking-label);
   color: var(--color-on-deep-dim);
 }
+/* 寬度上限 24em：標語 21 字排得下一排；欄位更窄時由 .wrap-phrase 在逗號處換行 */
 .site-footer__tagline {
   margin-top: var(--space-4);
-  max-width: 34ch;
+  max-width: 24em;
   font-size: var(--text-sm);
   line-height: var(--leading-loose);
 }

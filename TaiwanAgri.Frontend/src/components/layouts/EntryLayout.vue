@@ -26,10 +26,10 @@
       <div class="entry-layout__band-inner" :class="{ 'has-aside': $slots.aside }">
         <div class="entry-layout__main">
           <p v-if="eyebrow" class="entry-layout__eyebrow">{{ eyebrow }}</p>
-          <h1 class="entry-layout__title" :class="{ 'entry-layout__title--display': titleSize === 'display' }">
+          <h1 class="entry-layout__title wrap-phrase" :class="{ 'entry-layout__title--display': titleSize === 'display' }">
             <Bilingual :zh="title" :en="titleEn" layout="stacked" tone="deep" />
           </h1>
-          <p v-if="lead" class="entry-layout__lead">{{ lead }}</p>
+          <p v-if="lead" class="entry-layout__lead wrap-phrase">{{ lead }}</p>
           <div v-if="$slots.stats" class="entry-layout__stats"><slot name="stats" /></div>
           <div v-if="$slots.cta" class="entry-layout__cta"><slot name="cta" /></div>
         </div>
@@ -150,9 +150,10 @@ defineProps<{
   font-size: var(--text-display);
 }
 
+/* 寬度上限 36em：最長的導言（首頁，33 字）在桌機排得下一排；更窄時由 .wrap-phrase 在標點處換行 */
 .entry-layout__lead {
   margin-top: var(--space-5);
-  max-width: 52ch;
+  max-width: 36em;
   font-size: var(--text-base);
   line-height: var(--leading-loose);
   color: var(--color-on-deep-dim);

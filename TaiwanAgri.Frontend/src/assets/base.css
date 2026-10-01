@@ -835,6 +835,16 @@ textarea.form-control {
   border-radius: 21.875%;
   box-shadow: 0 0 0 1.5px var(--color-control-gap);
 }
+/* 一句話的中文標題與說明（首頁與入口頁的大標、導言，頁尾標語）：只在標點處換行，換行時兩行等長。
+   中文字與字之間預設都能斷，寬度不夠時會從詞中間切開（「來自政／府開放資料」）。
+   keep-all 讓斷點只剩標點；break-word 是保險，一段話比容器還寬時仍可強制斷開，不會撐破版面。
+   ⚠ 這類文字的寬度上限要用 em（一個中文字寬），不要用 ch：ch 是拉丁字母 0 的寬度，中文一字約 2ch。 */
+.wrap-phrase {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
 /* 站名「田野‧農時」用明體（首頁大標那一套）；中間是間隔號 ‧（U+2027），不是全形句點 */
 .brand-name {
   font-family: var(--font-display);
