@@ -153,6 +153,7 @@ import {
   seriesColor, seriesDash, pointBorderColor, exportBackground,
   lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -166,8 +167,8 @@ const metricOptions: { key: MetricKey; label: string; unit: string }[] = [
 const activeMetric = ref<MetricKey>('excludeFreezerAvgPrice')
 
 // ── 狀態 ──────────────────────────────────────────────────────────────────
-const today        = new Date().toISOString().split('T')[0]!
-const oneYearAgo   = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
+const today        = taiwanDateString()
+const oneYearAgo   = taiwanDateDaysAgo(365)
 const startDate    = ref(oneYearAgo)
 const endDate      = ref(today)
 const selectedMarket = ref('')          // '' = 全部市場

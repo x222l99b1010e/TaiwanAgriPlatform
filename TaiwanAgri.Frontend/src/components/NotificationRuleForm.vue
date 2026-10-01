@@ -174,6 +174,7 @@ import {
 } from '@/utils/notificationRule'
 import type { RuleFormState } from '@/utils/notificationRule'
 import type { NotificationRuleDto } from '@/api/notificationRule'
+import { taiwanDateDaysAgo } from '@/utils/taiwanDate'
 
 const props = defineProps<{
   /** null＝新增模式；帶入現有規則＝編輯模式，欄位用它的值預填 */
@@ -188,7 +189,7 @@ const panelRef = ref<HTMLElement | null>(null)
 const formError = ref('')
 
 /** 事件型的起始日預設「今天往前 90 天」，使用者可以自己改 */
-const defaultDateFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
+const defaultDateFrom = taiwanDateDaysAgo(90)
 
 function toFormState(rule: NotificationRuleDto | null): RuleFormState {
   if (rule === null) {

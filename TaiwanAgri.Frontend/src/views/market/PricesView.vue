@@ -106,10 +106,11 @@ import { exportPricesToCsv } from '@/utils/exportCsv'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 
 const store = useMarketStore()
-const today = new Date().toISOString().split('T')[0]!
-const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
+const today = taiwanDateString()
+const oneYearAgo = taiwanDateDaysAgo(365)
 
 const startDate = ref(oneYearAgo)
 const endDate = ref(today)

@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 
 withDefaults(defineProps<{ startDate?: string; endDate?: string }>(), {
   startDate: '', endDate: '',
@@ -36,7 +37,7 @@ const emit = defineEmits<{
   'update:endDate': [value: string]
 }>()
 
-const today = computed(() => new Date().toISOString().split('T')[0])
+const today = computed(() => taiwanDateString())
 const shortcuts = [
   { label: '近 30 天', days: 30 },
   { label: '近 90 天', days: 90 },
@@ -48,12 +49,8 @@ const activeShortcut = ref<number | null>(null)
 
 function applyShortcut(days: number) {
   activeShortcut.value = days
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0] ?? ''
-  emit('update:endDate', fmt(end))
-  emit('update:startDate', fmt(start))
+  emit('update:endDate', taiwanDateString())
+  emit('update:startDate', taiwanDateDaysAgo(days))
 }
 </script>
 

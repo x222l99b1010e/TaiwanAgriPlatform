@@ -5,6 +5,7 @@
 // 行情、警報都是台灣的日期。
 // ⚠ 不要用 toISOString().split('T')[0]：那是 UTC 的日期，台灣時間 00:00–08:00 之間
 // 會拿到「昨天」，查詢區間整段往前偏一天，而且白天測試完全看不出來。
+// 這個寫法已交給 lint 擋（eslint.config.ts 的 app/dates-via-taiwan-date），不靠記性。
 
 // en-CA 的日期格式剛好是 YYYY-MM-DD，不必自己補零拼字串
 const formatter = new Intl.DateTimeFormat('en-CA', {
