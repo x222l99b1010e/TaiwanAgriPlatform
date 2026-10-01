@@ -56,26 +56,79 @@
              是因為「不掛載」連 onMounted 的六十秒輪詢一起省掉，防護只有一處 -->
         <NotificationBell v-if="authStore.isLoggedIn" />
 
-        <!-- 已登入：顯示名稱 + 登出 -->
+        <!-- 已登入：顯示名稱 + 三顆連結。窄螢幕收進選單（desktop-only） -->
         <template v-if="authStore.isLoggedIn">
-          <span class="user-name">{{ authStore.displayName }}</span>
-          <router-link to="/profile" class="login-btn">農場設定</router-link>
-          <router-link to="/watchlist" class="login-btn">監看清單</router-link>
-          <button class="login-btn" @click="handleLogout">登出</button>
+          <span class="user-name desktop-only">{{ authStore.displayName }}</span>
+          <router-link to="/profile" class="login-btn desktop-only">農場設定</router-link>
+          <router-link to="/watchlist" class="login-btn desktop-only">監看清單</router-link>
+          <button class="login-btn desktop-only" @click="handleLogout">登出</button>
         </template>
 
-        <!-- 未登入：登入按鈕 -->
+        <!-- 未登入：登入按鈕（窄螢幕也留在列上：它是訪客唯一的主要動作） -->
         <button v-else class="login-btn login-btn--primary" @click="router.push('/login')">
           <span class="login-btn__fill">登入</span>
           <span class="login-btn__knob" aria-hidden="true"><span class="mdi mdi-login" /></span>
         </button>
+
+        <!-- 窄螢幕才出現：分頁列放不下時，改成一顆按鈕展開下面的選單 -->
+        <button
+          type="button"
+          class="nav-toggle"
+          :aria-expanded="menuOpen"
+          aria-controls="mobile-menu"
+          :aria-label="menuOpen ? '關閉選單' : '開啟選單'"
+          @click="menuOpen = !menuOpen"
+        >
+          <span :class="['mdi', menuOpen ? 'mdi-close' : 'mdi-menu']" />
+        </button>
       </div>
     </div>
+
+    <!-- 窄螢幕的選單。子頁直接攤開列出，不用滑過才出現的下拉——觸控螢幕沒有「滑過」 -->
+    <nav v-if="menuOpen" id="mobile-menu" class="mobile-menu" aria-label="網站選單">
+      <router-link to="/" class="mobile-item" :class="{ active: route.path === '/' }">
+        <span class="mdi mdi-home-variant-outline" />
+        首頁
+      </router-link>
+
+      <div v-for="mod in navStore.modules" :key="mod.route" class="mobile-group">
+        <router-link :to="mod.route" class="mobile-item" :class="{ active: route.path === mod.route }">
+          <span :class="`mdi ${mod.icon}`" />
+          {{ mod.name }}
+        </router-link>
+        <router-link
+          v-for="child in mod.children"
+          :key="child.route"
+          :to="child.route"
+          class="mobile-item mobile-item--child"
+          :class="{ active: route.path === child.route }"
+        >
+          <span :class="`mdi ${child.icon}`" />
+          {{ child.name }}
+        </router-link>
+      </div>
+
+      <template v-if="authStore.isLoggedIn">
+        <div class="mobile-user">{{ authStore.displayName }}</div>
+        <router-link to="/profile" class="mobile-item">
+          <span class="mdi mdi-account-cog-outline" />
+          農場設定
+        </router-link>
+        <router-link to="/watchlist" class="mobile-item">
+          <span class="mdi mdi-eye-outline" />
+          監看清單
+        </router-link>
+        <button type="button" class="mobile-item" @click="handleLogout">
+          <span class="mdi mdi-logout" />
+          登出
+        </button>
+      </template>
+    </nav>
   </header>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { useNavStore } from '@/stores/nav'
@@ -87,15 +140,30 @@ const route = useRoute()
 const navStore = useNavStore()
 const authStore = useAuthStore()
 const hoveredRoute = ref<string | null>(null)
+const menuOpen = ref(false)
 
 function isActive(moduleRoute: string) {
   return route.path === moduleRoute || route.path.startsWith(moduleRoute + '/')
 }
 
 function handleLogout() {
+  menuOpen.value = false
   authStore.logout()
   router.push('/login')
 }
+
+// 點了選單裡的連結、換到別頁之後選單要自己收起來，否則新頁面一打開就被選單蓋住
+watch(() => route.fullPath, () => { menuOpen.value = false })
+
+// 鍵盤使用者用 Esc 關選單。只在選單開著時掛監聽，關了就拿掉
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') menuOpen.value = false
+}
+watch(menuOpen, open => {
+  if (open) window.addEventListener('keydown', onKeydown)
+  else window.removeEventListener('keydown', onKeydown)
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <style scoped>
@@ -245,5 +313,91 @@ function handleLogout() {
   font-size: var(--text-base);
   color: var(--color-on-deep-dim);
   font-weight: var(--weight-medium);
+}
+
+/* ── 窄螢幕：分頁列收成選單 ───────────────────────────────────────────────
+   分頁列（站名＋首頁＋四個模組＋右上角）桌機寬度約要 800px 才排得下；比這窄時整列會撐出
+   左右捲動、站名被擠成一字一行。斷點取 900px，跟 EntryLayout 的窄版同一條線。
+   窄版的列上只留站名、登入（或鈴鐺）與選單鈕，其餘全部進選單。 */
+.logo-text { white-space: nowrap; }
+.nav-toggle,
+.mobile-menu { display: none; }
+
+@media (max-width: 900px) {
+  .top-nav-inner { gap: var(--space-3); }
+  .module-tabs,
+  .desktop-only { display: none; }
+
+  .nav-toggle {
+    display: grid;
+    place-items: center;
+    width: var(--control-h);
+    height: var(--control-h);
+    border: var(--control-ring-w-sm) solid var(--color-deep-border-strong);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-on-deep);
+    font-size: var(--text-xl);
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-work);
+  }
+  .nav-toggle:hover { background: var(--white-a12); }
+  .nav-toggle:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
+
+  /* 浮在頁面上方的一層，所以可以用 --shadow-float；高度超過一屏時選單自己捲，不帶著整頁捲 */
+  .mobile-menu {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: calc(100dvh - 56px);
+    overflow-y: auto;
+    padding: var(--space-2) var(--page-padding-x) var(--space-4);
+    background: var(--color-deep);
+    border-top: var(--border-width) solid var(--color-deep-border);
+    box-shadow: var(--shadow-float);
+  }
+
+  /* 觸控目標至少 44px（--control-h 再加一階） */
+  .mobile-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    min-height: calc(var(--control-h) + var(--space-1));
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--color-on-deep);
+    font-family: inherit;
+    font-size: var(--text-base);
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-work);
+  }
+  .mobile-item:hover { background: var(--white-a12); }
+  .mobile-item.active { background: var(--white-a20); font-weight: var(--weight-medium); }
+  .mobile-item--child {
+    padding-inline-start: var(--space-8);
+    color: var(--color-on-deep-dim);
+    font-size: var(--text-sm);
+  }
+  .mobile-item--child.active { color: var(--color-on-deep); }
+
+  .mobile-group,
+  .mobile-user {
+    margin-top: var(--space-1);
+    padding-top: var(--space-1);
+    border-top: var(--border-width) solid var(--color-deep-border);
+  }
+  .mobile-user {
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    color: var(--color-on-deep-dim);
+    font-size: var(--text-sm);
+  }
 }
 </style>
