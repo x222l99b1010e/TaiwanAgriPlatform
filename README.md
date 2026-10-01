@@ -352,7 +352,8 @@ TaiwanAgriPlatform/
 │   │   ├── composables/
 │   │   │   ├── useLatestRequest.ts   # 請求序號防競態（vitest 覆蓋）
 │   │   │   ├── usePagination.ts      # 分頁邏輯共用（分頁視窗固定顯示 6 個頁碼，19 個 vitest 測試覆蓋；paginationWindow 純函式已抽出供巢狀多表重用）
-│   │   │   └── useCountUp.ts         # 數字滾動動畫（首頁今日三數字）
+│   │   │   ├── useCountUp.ts         # 數字滾動動畫（首頁今日三數字；可指定小數位，停下來的是原值）
+│   │   │   └── useStatTile.ts        # 首頁今日數字單格的四種狀態：載入中／有值／沒有資料／抓不到（vitest 覆蓋）
 │   │   ├── components/
 │   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺
 │   │   │   ├── NotificationBell.vue  # 鈴鐺 + 未讀紅點 + Dropdown 無限捲動
@@ -430,6 +431,7 @@ TaiwanAgriPlatform/
 │   │       ├── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
 │   │       ├── calendar.ts           # 休市日月曆計算（vitest 覆蓋）
 │   │       ├── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
+│   │       ├── taiwanDate.ts         # 以台灣時區算「今天」與「N 天前」的日期字串（vitest 覆蓋）
 │   │       ├── lostPetPost.ts        # 遺失啟事狀態對照與卡片渲染純函式（列表頁與詳情頁共用）
 │   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 36 個 vitest 案例）
 │   │       └── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup 與詳情頁共用）

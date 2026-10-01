@@ -68,12 +68,17 @@
         <div class="stat-grid">
           <div class="stat-tile" v-for="s in statTiles" :key="s.key">
             <span class="stat-tile__label">{{ s.label }}</span>
+            <!-- 只有 ready 才畫數字；載入中、沒有資料、抓不到一律是「—」，說明交給下面那一行 -->
             <span class="stat-tile__value">
-              <template v-if="s.loading">—</template>
-              <template v-else>{{ s.display }}<span class="stat-tile__unit">{{ s.unit }}</span></template>
+              <template v-if="s.state === 'ready'">{{ s.value }}<span class="stat-tile__unit">{{ s.unit }}</span></template>
+              <template v-else>—</template>
             </span>
-            <span class="stat-tile__hint">{{ s.hint }}</span>
+            <span class="stat-tile__hint" :class="{ 'stat-tile__hint--error': s.state === 'error' }">{{ tileHint(s) }}</span>
           </div>
+        </div>
+        <!-- 模組清單也失敗時，下面那顆「重試」會連數字一起重抓，這裡就不再多放一顆 -->
+        <div v-if="hasFailedStat && !navStore.loadFailed" class="stats-retry">
+          <Btn variant="secondary" size="sm" icon="mdi-refresh" @click="reloadFailedStats">重新抓取數字</Btn>
         </div>
       </section>
 
@@ -91,7 +96,7 @@
           message="連不上伺服器，模組清單載不回來"
           hint="伺服器可能正在啟動中，稍候片刻再重試。"
           retryable
-          @retry="navStore.loadModules()"
+          @retry="retryAll"
         />
 
         <div v-else class="module-showcase">
@@ -126,8 +131,10 @@ import { marketApi } from '@/api/market'
 import { weatherApi } from '@/api/weather'
 import { petApi } from '@/api/pet'
 import { useNavStore } from '@/stores/nav'
-import { useCountUp } from '@/composables/useCountUp'
+import { useStatTile } from '@/composables/useStatTile'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 import { getTodaySolarTerm } from '@/utils/solarTerms'
 import { MODULE_NAME_EN, MODULE_LEAD, MODULE_EFFECT } from '@/constants/navCopy'
 
@@ -151,71 +158,74 @@ const moduleCards = computed(() =>
 )
 
 // ── 三個今日數字 ─────────────────────────────────────────────────────────
-interface StatTile {
-  key: string
-  label: string
-  unit: string
-  hint: string
-  loading: boolean
-  // reactive() 會把巢狀的 Ref 攤平成裸值，所以這裡的型別是 number 不是 Ref<number>——
-  // useCountUp() 回傳 Ref 是給元件外部用 .value 存取，包進 reactive() 之後模板直接讀
-  // s.display 就是最新值，不用再多一層 .value
-  display: number
-  start: ReturnType<typeof useCountUp>['start']
+// 每一格各自有狀態（見 useStatTile）：抓不到與沒有資料都顯示「—」加一句說明，不畫成 0。
+// 三格各自取值、互不等待——一格失敗不影響另外兩格。
+// reactive() 會把 useStatTile 回傳的 Ref 攤平，模板直接讀 s.state／s.value，不用再多一層 .value
+function makeTile(
+  key: string,
+  label: string,
+  unit: string,
+  hint: string,
+  fetchValue: () => Promise<number | null>,
+  options: { emptyHint?: string; decimals?: number } = {},
+) {
+  return reactive({
+    key,
+    label,
+    unit,
+    hint,
+    emptyHint: options.emptyHint ?? '目前沒有資料',
+    ...useStatTile(fetchValue, { decimals: options.decimals }),
+  })
 }
 
-function makeTile(key: string, label: string, unit: string, hint: string): StatTile {
-  const { value, start } = useCountUp()
-  return reactive({ key, label, unit, hint, loading: true, display: value, start })
-}
-
-const statTiles: StatTile[] = [
-  makeTile('egg', '今日雞蛋產地均價', '元', '公斤裝、農業部產地行情'),
-  makeTile('pest', '生效中病蟲害警報', '則', '全台縣市加總，不分等級'),
-  makeTile('pet', '全台在養動物', '隻', '收容所目前在養總數'),
-]
-
-async function loadStats() {
-  const [egg, pest, pet] = statTiles
-
+const statTiles = [
   // 雞蛋產地均價：抓最近 7 天，取最新一筆「正常報價」——蛋價不是每天都報，
-  // 抓區間再挑最新，比只查「今天」穩，跟 PoultryView 的容錯邏輯同一個道理
-  try {
-    const today = new Date().toISOString().split('T')[0]!
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-    const rows = await marketApi.getPoultry({ startDate: weekAgo, endDate: today })
-    const latest = rows
-      .filter(r => r.metricCode === 'Egg_Producer' && r.priceStatus === 'Normal' && r.price != null)
-      .sort((a, b) => b.transDate.localeCompare(a.transDate))[0]
-    egg!.loading = false
-    egg!.start(latest?.price ?? 0)
-  } catch {
-    egg!.loading = false
-  }
-
-  // 生效中的病蟲害警報則數：只要總筆數，pageSize=1 就夠，不用把資料本身撈回來
-  try {
-    const result = await weatherApi.getPestAlerts(undefined, 1, 1)
-    pest!.loading = false
-    pest!.start(result.totalCount)
-  } catch {
-    pest!.loading = false
-  }
-
+  // 抓區間再挑最新，比只查「今天」穩，跟 PoultryView 的容錯邏輯同一個道理。
+  // 7 天內一筆正常報價都沒有時回 null（沒有資料），不是 0 元
+  makeTile(
+    'egg', '今日雞蛋產地均價', '元', '公斤裝、農業部產地行情',
+    async () => {
+      const rows = await marketApi.getPoultry({ startDate: taiwanDateDaysAgo(7), endDate: taiwanDateString() })
+      const latest = rows
+        .filter(r => r.metricCode === 'Egg_Producer' && r.priceStatus === 'Normal' && r.price != null)
+        .sort((a, b) => b.transDate.localeCompare(a.transDate))[0]
+      return latest?.price ?? null
+    },
+    { emptyHint: '近 7 天沒有產地報價', decimals: 1 },
+  ),
+  // 生效中的病蟲害警報則數：只要總筆數，pageSize=1 就夠，不用把資料本身撈回來。0 則是真的 0
+  makeTile('pest', '生效中病蟲害警報', '則', '全台縣市加總，不分等級', async () =>
+    (await weatherApi.getPestAlerts(undefined, 1, 1)).totalCount,
+  ),
   // 全台在養動物總數：沿用收容動物地圖同一支聚合端點，summary 每列是一間收容所，
   // totalCount 加總即為全台在養總數
-  try {
-    const summaries = await petApi.getShelterAnimalSummary({})
-    pet!.loading = false
-    pet!.start(summaries.reduce((sum, s) => sum + s.totalCount, 0))
-  } catch {
-    pet!.loading = false
-  }
+  makeTile('pet', '全台在養動物', '隻', '收容所目前在養總數', async () =>
+    (await petApi.getShelterAnimalSummary({})).reduce((sum, s) => sum + s.totalCount, 0),
+  ),
+]
+
+function tileHint(tile: (typeof statTiles)[number]) {
+  if (tile.state === 'error') return '暫時抓不到資料'
+  if (tile.state === 'empty') return tile.emptyHint
+  return tile.hint
+}
+
+const hasFailedStat = computed(() => statTiles.some(t => t.state === 'error'))
+
+function reloadFailedStats() {
+  statTiles.filter(t => t.state === 'error').forEach(t => void t.load())
+}
+
+// 模組清單載不回來時，數字多半也一起失敗（同一台後端）——一顆重試兩邊都重抓
+function retryAll() {
+  navStore.loadModules()
+  reloadFailedStats()
 }
 
 onMounted(() => {
   navStore.loadModules()
-  loadStats()
+  statTiles.forEach(t => void t.load())
 })
 </script>
 
@@ -365,6 +375,9 @@ onMounted(() => {
 }
 .stat-tile__unit { margin-left: var(--space-2); font-size: var(--text-lg); color: var(--color-text-dim); }
 .stat-tile__hint { display: block; margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-text-dim); }
+/* 抓不到資料時說明改用危險色：數字位置已經是「—」，說明要讓人一眼看出這格是壞的，不是沒事 */
+.stat-tile__hint--error { color: var(--danger-500); }
+.stats-retry { margin-top: var(--space-4); display: flex; justify-content: center; }
 
 /* ── 屏 3：只剩列與列之間的間距，列本身的排版在 ShowcaseRow ────────────── */
 .module-showcase { display: flex; flex-direction: column; gap: var(--space-8); }
