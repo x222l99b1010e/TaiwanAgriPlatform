@@ -69,7 +69,7 @@
 
         <Btn
           v-if="hasActiveLegalFilters"
-          variant="secondary"
+          variant="accent"
           icon="mdi-filter-remove-outline"
           title="清除所有篩選條件，回到未篩選狀態"
           @click="clearLegalFilters"
@@ -192,7 +192,7 @@
 
         <Btn
           v-if="hasActiveOfficialFilters"
-          variant="secondary"
+          variant="accent"
           icon="mdi-filter-remove-outline"
           title="清除所有篩選條件，回到未篩選狀態"
           @click="clearOfficialFilters"

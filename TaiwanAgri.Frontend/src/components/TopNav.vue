@@ -65,7 +65,10 @@
         </template>
 
         <!-- 未登入：登入按鈕 -->
-        <button v-else class="login-btn login-btn--primary" @click="router.push('/login')">登入</button>
+        <button v-else class="login-btn login-btn--primary" @click="router.push('/login')">
+          <span class="login-btn__fill">登入</span>
+          <span class="login-btn__knob" aria-hidden="true"><span class="mdi mdi-login" /></span>
+        </button>
       </div>
     </div>
   </header>
@@ -174,33 +177,69 @@ function handleLogout() {
 
 .top-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
 
-/* 深色列上的按鈕不共用 Btn 元件：Btn 的三個變體全部是對「淺底」調的，
-   把深底當第四個變體塞進去，等於讓那個元件同時背兩套底色系統。
-   共用的是規格不是程式碼——高度、圓角、字級與 Btn 同一組 token。 */
+/* 深色列上的按鈕不共用 Btn 元件：Btn 的變體全部是對「淺底」調的，
+   把深底塞進去等於讓那個元件同時背兩套底色系統。共用的是規格不是程式碼——
+   藥丸、雙線描邊、高度、字級與 Btn 同一組 token。
+   登入之後那三顆（農場設定／監看清單／登出）沒有主從之分，照次要變體的外環＋內側細線，
+   但留在深底上不填米白（三顆米白藥丸排在導覽列會比站名還搶眼），描邊因此改用米白系——
+   墨色線在夜土上看不見。 */
 .login-btn {
   display: inline-flex; align-items: center;
   min-height: var(--control-h-sm); padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-deep-border-strong);
+  border-radius: var(--radius-full);
+  border: var(--control-ring-w-sm) solid var(--color-deep-border-strong);
+  box-shadow: inset 0 0 0 var(--control-line-w-sm) var(--color-on-deep-dim);
   background: transparent; color: var(--color-on-deep);
-  font-family: inherit; font-size: var(--text-sm); font-weight: var(--weight-medium);
-  letter-spacing: 0.02em; text-decoration: none; white-space: nowrap; cursor: pointer;
+  font-family: inherit; font-size: var(--text-sm); font-weight: var(--weight-bold);
+  letter-spacing: 0.02em; line-height: 1; text-decoration: none; white-space: nowrap; cursor: pointer;
   transition:
     background var(--duration-fast) var(--ease-work),
-    border-color var(--duration-fast) var(--ease-work);
+    box-shadow var(--duration-fast) var(--ease-work);
 }
-.login-btn:hover { background: var(--white-a12); border-color: var(--color-on-deep-dim); }
+.login-btn:hover { background: var(--white-a12); box-shadow: inset 0 0 0 var(--control-line-w-sm) var(--color-on-deep); }
 .login-btn:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
 
-/* 未登入時「登入」是這一列唯一的主要動作，給它實心的動作色；
-   登入之後那三顆（農場設定／監看清單／登出）沒有主從之分，維持描邊。 */
+/* 未登入時「登入」是這一列唯一的主要動作，照主要變體：墨色外框 → 實心淡綠間隙 →
+   漸層填色 → 右端凸出的圓鈕（sm：按鈕 32px、圓鈕 38px）。間隙不能透出底色，
+   否則外框與填色中間多一圈黑、跟列的底色混在一起（同首頁「開始查詢」的說明）。 */
 .login-btn--primary {
-  background: var(--color-action-on-deep);
-  border-color: var(--color-action-on-deep);
-  color: var(--color-deep);
-  font-weight: var(--weight-bold);
+  --login-knob: 38px;
+  --login-overhang: 5px;
+  position: relative;
+  align-items: stretch;
+  padding: 3px;
+  margin-inline-end: var(--login-overhang);
+  border: var(--control-line-w-sm) solid var(--color-text);
+  box-shadow: none;
+  background: var(--color-control-gap);
+  color: var(--color-on-action);
 }
-.login-btn--primary:hover { background: var(--seed-300); border-color: var(--seed-300); }
+.login-btn--primary:hover { background: var(--color-control-gap); box-shadow: none; }
+.login-btn__fill {
+  display: inline-flex; align-items: center;
+  padding-inline: var(--space-4) calc(var(--login-knob) - var(--login-overhang) + var(--space-1));
+  border-radius: inherit;
+  background-image: var(--gradient-action);
+  background-size: var(--gradient-action-size);
+}
+.login-btn--primary:hover .login-btn__fill {
+  background-image: var(--gradient-action-hover);
+  animation: action-sheen var(--duration-sheen) var(--ease-in-out) 1;
+}
+.login-btn__knob {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: calc(var(--login-overhang) * -1);
+  width: var(--login-knob);
+  height: var(--login-knob);
+  margin-block-start: calc(var(--login-knob) / -2);
+  display: grid; place-items: center;
+  border: var(--control-line-w-sm) solid var(--color-text);
+  border-radius: 50%;
+  background: var(--color-control-gap);
+  color: var(--color-action);
+  font-size: var(--text-lg);
+}
 
 .user-name {
   font-size: var(--text-base);

@@ -105,9 +105,9 @@ function applyShortcut(days: number) {
 
 .shortcuts { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
-/* 快捷鍵是 chip 不是動作按鈕，所以維持藥丸形。
-   全站的分工：**方角（--radius-md）＝按下去會做事的動作按鈕，
-   藥丸（--radius-full）＝切換條件的 chip**——形狀本身就在說明它是哪一種東西。 */
+/* 快捷鍵是切換條件的 chip，不是動作按鈕。兩者都是藥丸形，分工靠描邊與字重：
+   **動作按鈕（Btn）＝外環＋內側細線的雙線描邊、粗體字；chip＝一道細框、一般字重、淡色字**
+   ——chip 比按鈕輕一階，「按下去會做事」與「切換條件」才分得出來。 */
 .shortcut-btn {
   min-height: var(--control-h-sm);
   padding: 0 var(--space-4);

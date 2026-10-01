@@ -14,7 +14,7 @@
         </Btn>
         <Btn
           v-if="rawData.length > 0 && selectedMarket"
-          variant="secondary"
+          variant="accent"
           icon="mdi-filter-remove-outline"
           @click="selectedMarket = ''"
         >顯示全部市場</Btn>

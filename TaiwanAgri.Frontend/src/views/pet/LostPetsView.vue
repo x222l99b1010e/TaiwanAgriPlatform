@@ -333,22 +333,33 @@ onMounted(fetchList)
 .sort-dir-btn:hover { border-color: var(--color-action); color: var(--color-action); }
 .sort-dir-btn:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
 
-/* 「我的協尋貼文」原本是純文字連結，太不顯眼（
-   電腦上幾乎看不到）。做成描邊按鈕，跟旁邊的主要動作（實心的「張貼協尋啟事」）
-   分出主從。⚠ 邊框從 2px 改回 1px：它跟旁邊的 Btn 排在同一列，2px 會比隔壁粗一圈，
-   而且加上邊框後總高比 Btn 多 2px、底部對不齊。形狀也跟著 Btn 改成方角。 */
+/* 「我的協尋貼文」是換頁連結，外觀照 Btn 的次要變體手寫（藥丸＋外環＋內側細線）：
+   它跟主要按鈕「張貼協尋啟事」排在同一列，形狀、描邊、高度差一點都一眼看得出來。
+   不直接用 Btn：Btn 渲染的是 <button>，拿來換頁得自己接 router.push，
+   就沒了連結該有的中鍵開新分頁與網址預覽。 */
 .my-posts-link {
   display: inline-flex; align-items: center; gap: var(--space-2);
   min-height: var(--control-h); padding: 0 var(--space-5);
-  border-radius: var(--radius-md);
-  border: var(--border-width) solid var(--color-action);
+  border-radius: var(--radius-full);
+  border: var(--control-ring-w) solid var(--color-control-ring);
+  box-shadow: inset 0 0 0 var(--control-line-w) var(--color-text);
   background: var(--color-surface);
-  color: var(--color-action);
-  font-size: var(--text-sm); font-weight: var(--weight-medium);
-  letter-spacing: 0.02em; text-decoration: none; white-space: nowrap;
-  transition: background var(--duration-fast) var(--ease-work);
+  color: var(--color-text);
+  font-size: var(--text-sm); font-weight: var(--weight-bold);
+  letter-spacing: 0.02em; line-height: 1; text-decoration: none; white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-work),
+    color var(--duration-fast) var(--ease-work),
+    box-shadow var(--duration-fast) var(--ease-work);
 }
-.my-posts-link:hover { background: var(--color-action-soft); }
+.my-posts-link .mdi { font-size: 1.15em; color: var(--color-control-ring); }
+.my-posts-link:hover {
+  background: var(--color-action-soft);
+  color: var(--color-action);
+  box-shadow: inset 0 0 0 var(--control-line-w) var(--color-action);
+}
+.my-posts-link:hover .mdi { color: inherit; }
+.my-posts-link:focus-visible { outline: none; box-shadow: inset 0 0 0 var(--control-line-w) var(--color-text), var(--shadow-focus); }
 .login-hint { font-size: var(--text-sm); color: var(--color-action); font-weight: var(--weight-medium); text-decoration: none; }
 .login-hint:hover { text-decoration: underline; }
 

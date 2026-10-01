@@ -28,7 +28,7 @@
               >匯出 CSV</Btn>
               <Btn
                 v-if="store.selectedCropCodes.length > 0"
-                variant="secondary"
+                variant="accent"
                 icon="mdi-filter-remove-outline"
                 @click="store.$patch({ selectedCropCodes: [] })"
               >清空作物</Btn>

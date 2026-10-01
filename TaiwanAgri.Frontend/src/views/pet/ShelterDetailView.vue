@@ -27,7 +27,7 @@
         <span v-else-if="page" class="stat-text">共 {{ page.totalCount }} 隻在養動物</span>
         <Btn
           v-if="hasActiveFilters"
-          variant="secondary"
+          variant="accent"
           icon="mdi-filter-remove-outline"
           title="清除所有篩選條件，回到未篩選狀態"
           @click="clearFilters"

@@ -374,7 +374,7 @@ TaiwanAgriPlatform/
 │   │   │   │   ├── PageHeader.vue    # 頁首區塊（標題／英文副標／說明）
 │   │   │   │   ├── FilterCard.vue    # 查詢條件卡
 │   │   │   │   ├── StateBlock.vue    # 載入／空結果／錯誤三種狀態的統一呈現
-│   │   │   │   ├── Btn.vue           # 語意性動作按鈕（查詢／重試／送出／匯出）
+│   │   │   │   ├── Btn.vue           # 語意性動作按鈕（查詢／重試／送出／匯出／清除篩選）：藥丸＋雙線描邊，主要按鈕右端有凸出的圓鈕
 │   │   │   │   ├── HintBox.vue       # 提示框（info／success／warning 三階語意色）
 │   │   │   │   └── Bilingual.vue     # 中英並排排版（四個模組英文定譯全站唯一）
 │   │   │   └── layouts/              # 四個頁面樣板（P2.5 抽出，P3 套到 28 頁）

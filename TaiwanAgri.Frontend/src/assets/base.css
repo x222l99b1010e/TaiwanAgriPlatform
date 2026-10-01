@@ -73,10 +73,10 @@
   /* --- 圓角：五階 ---------------------------------------------------------
      相差 2px 的圓角看不出是刻意的，只會顯得對不齊，所以階與階之間至少差 4px。 */
   --radius-sm:   4px;    /* 標籤、chip */
-  --radius-md:   8px;    /* 輸入框、按鈕 */
+  --radius-md:   8px;    /* 輸入框、下拉、切換鈕 */
   --radius-lg:   10px;   /* 卡片 */
   --radius-xl:   12px;   /* 大區塊 */
-  --radius-full: 999px;  /* 藥丸按鈕、頭像 */
+  --radius-full: 999px;  /* 動作按鈕（一律帶描邊，見 Btn.vue）、chip、頭像 */
 
   /* --- 陰影：只剩浮動層一階 ------------------------------------------------
      ⚠ 原本的三階 --shadow-sm/md/lg 已於 P3 收工時整組刪除（全站 grep 回傳 0）。
@@ -94,6 +94,13 @@
 
   /* --- 邊框寬度 --- */
   --border-width: 1px;
+  /* 動作按鈕的雙線描邊：外環＋內側細線，主要按鈕的外框也是細線那一階（md／sm 兩組）。
+     Btn 以外照同一份規格手寫的按鈕（深色列、連結型按鈕）一律取這兩個值，不要自己寫數字。
+     外環至少是細線的兩倍粗、顏色是中間調（細線是墨色），才看得出是兩道線而不是一道粗框。 */
+  --control-ring-w: 4px;
+  --control-line-w: 1.5px;
+  --control-ring-w-sm: 2px;
+  --control-line-w-sm: 1px;
 
   /* --- 控制項高度：兩階 -----------------------------------------------------
      按鈕、輸入框、下拉、日期欄位一律用這兩個值當 min-height。沒有這一階時，
@@ -131,6 +138,7 @@
   --duration-base: 170ms;   /* 工作檔：展開、切換、篩選重繪 */
   --duration-slow: 320ms;   /* 工作檔：頁面層級轉場 */
   --duration-entry: 1100ms; /* 入口檔：首頁與模組入口頁的進場 */
+  --duration-sheen: 900ms;  /* 主要按鈕滑過時的反光（action-sheen），全站主要按鈕共用 */
   --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
   --ease-work:    cubic-bezier(0.33, 0.68, 0.4, 1);   /* 工作檔的曲線 */
@@ -279,6 +287,7 @@
   --cream-300: #e5ddce;   /* 地圖底、停用態 */
   --cream-400: #dcd2c0;   /* 邊框 */
   --cream-500: #bcaf98;   /* 強邊框、分隔線 */
+  --cream-600: #9a8b7c;   /* 描邊按鈕的外環：要比強邊框深一截，雙線描邊才分得出兩道 */
 
   --ink:     #241c14;   /* 正文墨色 */
   --ink-dim: #6c604f;   /* 次要文字 */
@@ -309,6 +318,22 @@
   --color-brand:         var(--seed-500);   /* 圖表、燈號、焦點環 */
   --color-accent-2:      var(--persimmon-600);
   --color-accent-2-fill: var(--persimmon-400);
+  --color-control-ring:  var(--cream-600);       /* 次要按鈕的外環（也是它的圖示色） */
+  /* 主要按鈕外框與填色之間那一圈，以及圓鈕的底。用填色同色系的淡綠、不用近白：
+     近白跟綠色填色的明度差太大，整顆會像白框裡塞一塊綠，突兀（2026-10-01 owner 三選一定案） */
+  --color-control-gap:   var(--seed-100);
+  --color-accent-2-ring: var(--persimmon-500);   /* 強調按鈕的外環（也是它的圖示色） */
+  --color-accent-2-soft: var(--persimmon-100);   /* 強調按鈕的 hover 底 */
+  /* 主要按鈕的填色：左深右淺。文字落在左半段（深的那端），最淺的右端被圓鈕蓋住，
+     所以 500 雖然當不了文字底色，放在這裡不影響可讀性。
+     圖面是按鈕寬的 2.5 倍（--gradient-action-size），排成「深→淺→深→淺」：平常只露出
+     第一段；滑過時用 action-sheen 把圖面拉到最後一段，淺色那一頭就從右往左滑過去，
+     當作金屬反光。最後一段跟第一段一模一樣，所以動畫跑完不必停在終點，也不會跳一下。
+     淺色只是從文字底下滑過去，不會停在那裡。
+     用這兩個 token 的地方要寫 background-image、不能寫 background：簡寫會把 size 洗掉。 */
+  --gradient-action:       linear-gradient(90deg, var(--seed-700), var(--seed-500) 40%, var(--seed-700) 60%, var(--seed-500));
+  --gradient-action-hover: linear-gradient(90deg, var(--seed-800), var(--seed-600) 40%, var(--seed-800) 60%, var(--seed-600));
+  --gradient-action-size:  250% 100%;
 
   /* 深底（導覽列、首頁幕、模組入口頁首帶） */
   --color-deep:              var(--soil-900);
@@ -749,9 +774,9 @@ textarea.form-control {
   white-space: nowrap;
 }
 
-/* 範例碼 chip：原本是「藍框藍字藥丸」，跟全站方角的輸入框／按鈕不同調、又用到被
-   淘汰的 Material 藍。改成中性的方角小卡（跟輸入框同一種圓角），hover 才亮成動作綠——
-   平常安靜、可點時才有顏色，跟其他可點元素的手感一致。 */
+/* 範例碼 chip：中性的方角小卡（跟旁邊的輸入框同一種圓角），hover 才亮成動作綠——
+   平常安靜、可點時才有顏色，跟其他可點元素的手感一致。
+   不做成藥丸：藥丸在這個專案是動作按鈕與條件 chip 的形狀，範例碼是「把這串字填進去」，兩者都不是。 */
 .example-chip {
   display: inline-flex;
   align-items: center;
@@ -790,6 +815,13 @@ textarea.form-control {
 .example-chip--danger:hover { border-color: var(--danger-500); }
 
 .chip-icon { font-size: var(--text-base); }
+
+/* 主要按鈕滑過時的反光：把 --gradient-action 的圖面從第一段拉到最後一段。
+   放在全域是因為 Btn、首頁「開始查詢」、導覽列「登入」三處共用，要改手感只改這裡 */
+@keyframes action-sheen {
+  from { background-position: 0% 0; }
+  to   { background-position: 100% 0; }
+}
 
 /* 尊重使用者的減少動態偏好設定——後續加入動效時這條會一併生效，
    不必等到每個元件各自處理。 */
