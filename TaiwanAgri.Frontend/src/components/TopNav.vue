@@ -4,7 +4,7 @@
       <!-- 站名是回首頁的標準入口，但「可以點」這件事在畫面上看不出來，
            所以另外在分頁列第一格放一個明寫「首頁」的分頁——兩個入口都要。 -->
       <router-link to="/" class="logo" aria-label="回到首頁">
-        <span class="mdi mdi-sprout logo-icon" />
+        <img class="logo-icon" src="/favicon.svg" alt="" width="24" height="24">
         <span class="logo-text">台灣農業平台</span>
       </router-link>
 
@@ -201,7 +201,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 .logo:hover { background: var(--white-a12); }
 .logo:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
-.logo-icon { font-size: var(--text-xl); color: var(--color-action-on-deep); }
+/* 站名前的標誌直接引用分頁圖示 favicon.svg：兩處是同一個標誌，改圖只改那一張。
+   它的夜土底跟導覽列同色，平常只看得到夕陽與田埂；滑過時站名底色浮起來，方形輪廓才出現 */
+.logo-icon { flex: none; }
 .module-tabs { display: flex; gap: var(--space-1); flex: 1; }
 .tab-wrapper { position: relative; }
 

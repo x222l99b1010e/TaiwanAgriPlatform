@@ -3,7 +3,8 @@
        刻意畫在 16×16 的格子上：分頁上實際就是 16px，夕陽直徑 6px、田埂各 2px 厚、間隔 1px、
        弧度只拱 1px，每條邊都落在像素邊界，縮到 16px 才不會糊成色塊。
        色值對應 base.css 的原始色階：夜土 soil-900／夕陽 persimmon-400／田埂由遠到近 seed-300、400、500。
-       favicon.ico 與 apple-touch-icon.png 是從這張點陣化出來的，改這張要一併重產。
+       favicon.ico 與 apple-touch-icon.png 是從這張點陣化出來的，改這張要一併重產；
+       導覽列站名前、登入卡、頁尾的網站標誌也直接引用這張。
        ⚠ 這段註解裡不能出現連續兩個減號（XML 註解的規定），寫了整張圖會解析失敗、分頁上沒有圖示。 -->
   <defs>
     <clipPath id="r"><rect width="16" height="16" rx="3.5"/></clipPath>

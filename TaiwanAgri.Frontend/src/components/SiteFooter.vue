@@ -14,7 +14,7 @@
     <div class="site-footer__inner">
       <div class="site-footer__brand">
         <div class="site-footer__logo">
-          <span class="mdi mdi-sprout" />
+          <img class="site-footer__mark" src="/favicon.svg" alt="" width="32" height="32">
           <span class="site-footer__logo-zh">台灣農業平台</span>
         </div>
         <p class="site-footer__logo-en">TAIWAN AGRI PLATFORM · SINCE 2026</p>
@@ -78,7 +78,8 @@ const modules = computed(() => navStore.modules)
   border-bottom: var(--border-width) solid var(--color-deep-border);
 }
 .site-footer__logo { display: flex; align-items: center; gap: var(--space-2); }
-.site-footer__logo .mdi { font-size: var(--text-2xl); color: var(--color-action-on-deep); }
+/* 網站標誌，跟分頁圖示、導覽列站名前的是同一張（favicon.svg） */
+.site-footer__mark { flex: none; }
 .site-footer__logo-zh { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--color-on-deep); }
 .site-footer__logo-en {
   margin-top: var(--space-3);

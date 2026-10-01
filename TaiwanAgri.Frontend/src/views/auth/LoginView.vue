@@ -3,7 +3,7 @@
     <div class="login-card">
       <!-- Logo 區 -->
       <div class="card-header">
-        <span class="mdi mdi-sprout logo-icon" />
+        <img class="logo-icon" src="/favicon.svg" alt="" width="48" height="48">
         <h1 class="card-title">台灣農業平台</h1>
         <p class="card-subtitle">請登入以繼續</p>
       </div>
@@ -231,11 +231,10 @@ async function handleSubmit() {
   margin-bottom: var(--space-8);
 }
 
+/* 網站標誌，跟分頁圖示是同一張（favicon.svg）。48px＝原稿 16 格的 3 倍，每條邊仍落在整數像素 */
 .logo-icon {
-  font-size: var(--text-3xl);
-  color: var(--color-brand);
   display: block;
-  margin-bottom: var(--space-3);
+  margin: 0 auto var(--space-3);
 }
 
 .card-title {
