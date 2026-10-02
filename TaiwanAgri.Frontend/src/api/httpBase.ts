@@ -6,6 +6,14 @@
 // 改一邊就會壞掉且不會有任何錯誤訊息。
 
 import axios, { type AxiosInstance } from 'axios'
+import { serverWake } from './serverWake'
+
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    /** serverWake 的追蹤：請求送出時登記，回應或失敗時呼叫這個函式結束 */
+    endWakeTracking?: () => void
+  }
+}
 
 /** JWT 在 localStorage 的 key。authClient 與 authStore 一律引用這個常數，不要各寫字面值 */
 export const TOKEN_STORAGE_KEY = 'token'
@@ -36,6 +44,22 @@ export function createHttpClient(options: { withAuth: boolean }): AxiosInstance 
     headers: { 'Content-Type': 'application/json' },
     timeout: REQUEST_TIMEOUT_MS,
   })
+
+  // 每個請求都登記給 serverWake：等超過幾秒時，畫面會說明現在卡在伺服器還是資料庫
+  client.interceptors.request.use(config => {
+    config.endWakeTracking = serverWake.requestStarted()
+    return config
+  })
+  client.interceptors.response.use(
+    response => {
+      response.config.endWakeTracking?.()
+      return response
+    },
+    (error: unknown) => {
+      if (axios.isAxiosError(error)) error.config?.endWakeTracking?.()
+      return Promise.reject(error)
+    },
+  )
 
   if (options.withAuth) {
     client.interceptors.request.use(config => {

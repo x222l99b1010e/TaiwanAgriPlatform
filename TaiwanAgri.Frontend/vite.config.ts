@@ -24,7 +24,13 @@ export default defineConfig({
         target: 'https://localhost:7147',
         changeOrigin: true,
         secure: false,
-      }
+      },
+      // 等太久時的「伺服器喚醒中」提示會打 /health 與 /health/ready（src/api/serverWake.ts）
+      '/health': {
+        target: 'https://localhost:7147',
+        changeOrigin: true,
+        secure: false,
+      },
     }
   }
 })

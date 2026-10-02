@@ -330,6 +330,7 @@ TaiwanAgriPlatform/
 │   │   ├── api/
 │   │   │   ├── auth.ts               # /api/auth/login、/api/auth/register
 │   │   │   ├── httpBase.ts           # 兩支 client 的共用底座（timeout、401 統一處理、儲存鍵常數）
+│   │   │   ├── serverWake.ts         # 請求等太久時判斷卡在伺服器還是資料庫（另打 /health、/health/ready），給畫面說明用
 │   │   │   ├── authClient.ts         # axios instance（有 token 才注入 Bearer header）
 │   │   │   ├── apiClient.ts          # axios instance（不帶 JWT，公開端點用）
 │   │   │   ├── pagination.ts         # 後端分頁契約共用型別（對應 Core 的 PagedResult<T>）
@@ -371,6 +372,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── LostPetPostPhoto.vue  # 遺失啟事照片渲染（外部圖床連結，載入失敗時降級）
 │   │   │   ├── VegPriceTicker.vue    # 全站菜價輪播（今日菜價快覽用）
 │   │   │   ├── SiteFooter.vue        # 全站頁尾（P3 抽共用，掛在 App.vue 走 sticky footer）
+│   │   │   ├── ServerWakeNotice.vue  # 等超過 8 秒時畫面下方的「伺服器喚醒中／正在喚醒資料庫／仍在查詢中」（掛在 App.vue）
 │   │   │   ├── MonthCalendar.vue     # 休市日月曆（P3，取代原按月分組清單）
 │   │   │   ├── SeasonMotif.vue       # 節氣母題（首頁節氣牌，只進內容層不進 token）
 │   │   │   ├── ShowcaseRow.vue       # 左右交錯的特寫列（首頁模組列與模組入口頁子頁列共用，兩階尺寸；hover 特效依模組不同）
@@ -441,7 +443,7 @@ TaiwanAgriPlatform/
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
-│   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
+│   └── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
 │
 └── TaiwanAgri.Tests/                 # xUnit + Moq（後端 474 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
@@ -479,7 +481,7 @@ TaiwanAgriPlatform/
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
 | 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，474 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面單元測試（`npm test`，14 檔 153 案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 168 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
 ---
@@ -617,12 +619,12 @@ npm run dev
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 153 個測試案例）
+# 前端（Vitest，共 168 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 14 個測試檔共 153 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -1160,8 +1162,11 @@ Cache-Aside 的呼叫端一行都不用改，代價只有「多個執行個體�
 - **連線逾時改從連線字串處理，不加進重試清單。** 網站開著、資料庫睡著時，第一個請求撞到的常是這一種
   （2026-10-02 實測 4 次，回 500）。錯誤碼 -2 同時也代表「查詢跑太久」，加進重試清單會讓一個慢查詢整個重跑最多 6 次，
   所以改成把連線字串的 `Connection Timeout` 從範本的 30 秒拉到 90 秒，讓連線等到資料庫醒來。
-- **前端的請求等待上限是 120 秒。** 閒置之後的第一個訪客要等冷啟動加上資料庫恢復（實測 85–97 秒），
-  上限比這段時間短，第一個訪客就一定先看到「連不上」。
+- **前端的請求等待上限是 120 秒，等超過 8 秒就說明卡在哪一段。** 閒置之後的第一個訪客要等冷啟動加上資料庫恢復（實測 85–97 秒），
+  上限比這段時間短，第一個訪客就一定先看到「連不上」；但只拉長上限的話，畫面會無聲地轉圈一兩分鐘。
+  所以有請求等超過 8 秒時，前端另外問兩支健康檢查：`/health` 回不來＝「伺服器喚醒中」，
+  `/health` 回來但 `/health/ready` 還沒＝「正在喚醒資料庫」，兩支都回來＝「仍在查詢中」，顯示在畫面下方並附上已等待秒數。
+  健康檢查只在有請求等太久時才打（`/health/ready` 會碰資料庫），請求都回來就收起來。
 
 開了重試之後若要自己開交易，必須包在 `CreateExecutionStrategy().ExecuteAsync` 裡（目前全專案沒有手動交易）。
 
@@ -1309,7 +1314,7 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
   改成 GitHub Actions 每天排程觸發、跑完就退出。
 - **閒置之後的第一個訪客要等 1.5 分鐘左右。** F1 沒有 Always On，閒置一段時間平台會把程式收起來；
   下一個請求要等冷啟動，資料庫若也睡著再加上恢復時間，實測 85–97 秒（2026-10-02，4 次）。
-  前端的請求等待上限因此是 120 秒，畫面會停在載入中，而不是先顯示「連不上」。
+  前端的請求等待上限因此是 120 秒，等待期間畫面下方會說明「伺服器喚醒中」或「正在喚醒資料庫」，而不是先顯示「連不上」。
 - **F1 會不定期把網站搬到別台機器。** 2026-10-02 開著的 12 小時裡換了 6 台，其中兩次發生在使用中，
   各中斷約 1.5 分鐘；程式與平台記錄都沒有錯誤，平台也不寫原因。F1 是共用機器、沒有可用性保證。
 - **後端每天只有 165 MB 頻寬。** App Service F1 的限制。一次查一年的行情會回傳較大的 JSON，
@@ -1352,4 +1357,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-10-02 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒）；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 474 測試、前端 153 測試全過*
+*最後更新：2026-10-02 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 474 測試、前端 168 測試全過*
