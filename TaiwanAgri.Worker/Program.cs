@@ -60,7 +60,7 @@ namespace TaiwanAgri.Worker
 
 			// 一次性執行模式：跑完一輪就結束，給外部排程（GitHub Actions cron）觸發用。
 			// 常駐模式在部署形態上撐不起來——Azure SQL 免費方案每月 100,000 vCore 秒
-			// （最省狀態約 55.6 小時），一直開著要約 1,296,000 vCore 秒，超額 13 倍；
+			// （實測約夠醒著 40–54 小時），一直開著照規格下限算也要約 1,296,000 vCore 秒，超額 13 倍以上；
 			// App Service F1 也沒有 Always On。詳細判斷見 RunOnceCoordinator 的註解。
 			// 協調器最後才註冊：它要等其他 Worker 亮燈，順序上放最後最不容易誤讀
 			if (builder.Configuration.GetValue<bool>("Worker:RunOnce"))

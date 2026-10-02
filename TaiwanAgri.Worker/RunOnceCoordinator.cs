@@ -7,8 +7,8 @@ namespace TaiwanAgri.Worker
 	/// <para>
 	/// 為什麼需要它：Worker 平常是常駐服務——同步、睡到下一輪、再同步，設計上不會結束。
 	/// 但部署形態撐不起常駐：Azure SQL 免費方案每月 100,000 vCore 秒
-	/// （最省狀態約 55.6 小時），一直開著的話 24×30 天需要約 1,296,000 vCore 秒，
-	/// 超出額度 13 倍。而 App Service F1 沒有 Always On，常駐 WebJob 本來就會被回收。
+	/// （實測約夠醒著 40–54 小時），一直開著的話照規格下限算 24×30 天也要約 1,296,000 vCore 秒，
+	/// 超出額度 13 倍以上。而 App Service F1 沒有 Always On，常駐 WebJob 本來就會被回收。
 	/// 所以排程改由外部觸發（GitHub Actions 的 cron），程序跑完一輪就要自己結束。
 	/// </para>
 	/// <para>
