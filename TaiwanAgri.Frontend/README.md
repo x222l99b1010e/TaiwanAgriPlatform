@@ -1,48 +1,28 @@
 # TaiwanAgri.Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+田野‧農時的前端：Vue 3 + Vite + TypeScript + Pinia + Vue Router。
+整個系統的架構、本機啟動順序與雲端部署步驟寫在 repo 根目錄的 [README](../README.md)，這裡只放前端自己的指令與約定。
 
-## Recommended IDE Setup
+## 指令
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+| 指令 | 做什麼 |
+|---|---|
+| `npm install` | 安裝相依（CI 用 `npm ci`，照 `package-lock.json` 原樣安裝） |
+| `npm run dev` | 開發伺服器 `http://localhost:5173`；`/api` 由 Vite proxy 轉給 `https://localhost:7147`，同源請求、不經過 CORS |
+| `npm test` | Vitest，環境是 Node：元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom |
+| `npm run lint` | oxlint ＋ ESLint ＋ 未定義 CSS 變數檢查，**三項都唯讀**；要自動修正用 `npm run lint:fix`（只在本機用，CI 不用） |
+| `npm run type-check` | `vue-tsc` 型別檢查 |
+| `npm run build` | 型別檢查＋正式建置，產出 `dist/` |
 
-## Recommended Browser Setup
+## 後端網址
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+正式建置的 API 位址來自 `VITE_API_BASE_URL`，**在建置當下寫死進 JS**，後端網址改了就要重新 build。
+雲端部署的寫法（含 Windows PowerShell 5.1 的編碼陷阱，以及建置後到 `dist` 數後端主機名的驗證）
+見根目錄 README「雲端部署與重新部署」第 5 步。本機開發時請求走同源的 `/api`，由開發伺服器轉發。
 
-## Type Support for `.vue` Imports in TS
+## 約定
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+- 顏色、字級、間距、圓角、動效一律引用 `src/assets/base.css` 的 token，不在元件裡寫死數值；
+  引用了未定義的 CSS 變數時 `npm run lint` 會擋下來。
+- 「今天是哪一天」一律用 `src/utils/taiwanDate.ts`（台灣時區）；`toISOString().split('T')[0]` 拿到的是 UTC 日期，ESLint 會擋。
+- 網站圖示的原稿是 `public/favicon.svg`，`favicon.ico` 與 `apple-touch-icon.png` 由它點陣化；導覽列、登入卡、頁尾的標誌也直接引用它。
