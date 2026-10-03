@@ -47,7 +47,7 @@ namespace TaiwanAgri.Web.Extensions
 
 			services.AddRateLimiter(limiter =>
 			{
-				// 預設是 200，也就是「擋下來但看起來像伺服器錯誤」。
+				// 預設是 503，也就是「擋下來但看起來像伺服器掛了」。
 				// 429 才說得出「你被限流了、等一下再來」這件事，
 				// 呼叫端才有辦法分辨自己是被擋還是打壞了什麼
 				limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

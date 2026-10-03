@@ -1,7 +1,7 @@
 # 田野‧農時 Field & Season
 ### 台灣農業開放資料整合平台 · Taiwan Agricultural Open Data Integration Platform
 
-> 把農業部 60 支 API 的孤島資料，串成一個對農民、消費者與研究者都友善的整合平台。
+> 把農業部開放資料平台上各自孤立的資料，串成一個對農民、消費者與研究者都友善的整合平台。
 
 [![CI](https://github.com/x222l99b1010e/TaiwanAgriPlatform/actions/workflows/ci.yml/badge.svg)](https://github.com/x222l99b1010e/TaiwanAgriPlatform/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
@@ -192,7 +192,7 @@ TaiwanAgriPlatform/
 │
 ├── TaiwanAgri.Core/                  # 共用 Interface / DTO / Enum / Entity
 │   ├── Constants/
-│   │   └── MoaApiEndpoints.cs        # 實際串接的 27 支端點路徑集中定義（含 3 支舊制 TransService 通道）
+│   │   └── MoaApiEndpoints.cs        # 實際串接的 26 支端點路徑集中定義（含 3 支舊制 TransService 通道）
 │   ├── Entities/
 │   │   ├── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
 │   │   ├── NavModule.cs              # 自參照樹狀 Entity（ParentId 自參照 FK）
@@ -269,7 +269,7 @@ TaiwanAgriPlatform/
 │   │   └── (PesticideViolation / OrganicCertification)
 │   ├── Dtos/                         # ViolationQueryDto 等統一查詢簽名
 │   └── Services/
-│       └── (IFoodSafetyService / FoodSafetyService)
+│       └── (IFoodSafetyService / FoodSafetyService、ITraceabilityService / TraceabilityService)
 │
 ├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組（W22-23 完成）
 │   ├── Constants/
@@ -387,7 +387,7 @@ TaiwanAgriPlatform/
 │   │   │       ├── QueryLayout.vue   # 查詢頁樣板（篩選卡 + 結果區 + 分頁）
 │   │   │       ├── DetailLayout.vue  # 詳情頁樣板（可分享固定網址）
 │   │   │       ├── MapLayout.vue     # 地圖頁樣板（地圖 + 清單上下排）
-│   │   │       └── EntryLayout.vue   # 入口頁樣板（深色頁首帶 + 子頁卡片牆，四個模組入口頁與首頁 hero 共用同一支）
+│   │   │       └── EntryLayout.vue   # 入口頁樣板（深色頁首帶 + 下方內容插槽，四個模組入口頁與首頁 hero 共用同一支）
 │   │   ├── views/
 │   │   │   ├── HomeView.vue          # 全站首頁（P3 新建，`/` 直接掛此頁不再 redirect）
 │   │   │   ├── ModuleEntryView.vue   # 四個模組的入口頁（`/market`、`/weather`、`/food-safety`、`/pet` 共用一支，模組由路徑決定）
@@ -482,7 +482,7 @@ TaiwanAgriPlatform/
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
 | 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，475 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 168 案例） |
-| HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
+| HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
 ---
 
@@ -685,7 +685,7 @@ npm test
 ```
 
 > ⚠ 計數器是 in-memory 的。**多執行個體部署時每台各記各的**，實際上限會變成
-> 設定值乘以台數。要跨執行個體共用計數需改走 Redis，這一項列為技術債、沒有做。
+> 設定值乘以台數。本專案部署成單一執行個體，所以不成問題；要水平擴展時，計數才需要改放 Redis 共用。
 
 ---
 
@@ -1073,14 +1073,14 @@ npm test
 
 ## 🔌 農業部 API 說明
 
-本專案串接 [農業部開放資料平台](https://data.moa.gov.tw) 共 60 支 API。
+開發前盤點過 [農業部開放資料平台](https://data.moa.gov.tw) 的 60 支 API（實際串接哪些見本節末）：
 
 - **免費可用（53 支）**：涵蓋所有核心功能，MVP 開發不受限制
 - **Swagger 介面標示 api_key 參數（7 支）**：`SheepQuotation`、`WashedEggsTraceabilityType`、`LegalSpecificPet`、`PetFood`、`FeedAndAdditiveInputCertificate`、`FeedManagementInfo`、`MothSpecimenData`。實測這 7 支**同樣可以未登入呼叫**——api_key 的真正作用是分頁權限（見下方限制說明），不是存取權限
 
 > **重要限制**：免費帳號分頁 API 只回傳第一頁資料（每頁最多 1,000 筆）。程式碼中保留分頁迴圈，當 API 回傳 `RS: "ERROR"` 時會優雅地 `break`，不影響正常運作。
 
-本專案**實際串接的 27 支端點**路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
+本專案**實際串接的 26 支端點**路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
 （其中 3 支走農業部舊制 `TransService` 通道：土石流警戒、收容動物一次性回填、合法特定寵物業一次性回填）。
 探勘後判定不採用的候選端點，在該檔以註解記錄排除理由，避免日後重複探勘。
 
@@ -1107,7 +1107,7 @@ npm test
 | W17 | 監看清單 | UserWatchlist Entity；IUserWatchlistService（防重複 + 409）；WatchlistController 批量刪除；WatchlistView.vue（PR #035–037） | ✅ 完成 |
 | W18 | 監看清單行情整合 | WatchlistEnrichedItemDto 跨模組聚合；Controller Pattern C；UserWatchlist 補 MarketType；均價顯示（PR #038） | ✅ 完成 |
 | W19 | 測試 Sprint | xUnit + Moq；MarketServiceCacheTests / UserWatchlistServiceTests / WatchlistControllerTests；共 12 個測試全數綠燈（PR #039） | ✅ 完成 |
-| W20 | DevOps | GitHub Actions CI（restore/build/test + badge，W20a）；GlobalExceptionMiddleware 全域例外攔截 + 標準化 JSON 錯誤回應（W20b）。全域搜尋與 Docker 打包延後至功能模組全部完成後統一處理 | ✅ 完成 |
+| W20 | DevOps | GitHub Actions CI（restore/build/test + badge，W20a）；GlobalExceptionMiddleware 全域例外攔截 + 標準化 JSON 錯誤回應（W20b）。全域搜尋與 Docker 打包當時延後——前者後來決定不做；後者不是部署的前提（App Service 直接吃 .NET 發布包） | ✅ 完成 |
 | W21 | 模組 1（食安） | FoodSafetyDbContext + 模組骨架；今日菜價快覽 + 全站菜價輪播（W21a）；農產品追溯查詢（W21b）；農藥違規警示牆 + PesticideViolationSyncWorker（W21c）；有機農產品驗證查詢 + OrganicCertificationSyncWorker（W21d）（GitHub PR #5–#8） | ✅ 完成 |
 | —（不掛週次） | Code Review 修正批次 | TimeProvider 時鐘注入 + 台灣時區日界；ScheduledSyncWorkerBase / DbSyncHelper / MoaPagedFetcher 抽共用；Watchlist N+1 批次化；分頁排序穩定性；(CropCode, MarketCode, TransDate DESC) 索引；前端 vitest 導入 + useLatestRequest/usePagination（PR #045–046，GitHub PR #10–#12） | ✅ 完成 |
 | W22–23 | 模組 3（寵物地圖） | **後端**：三支同步 Worker（收容動物回填 8187 筆 + 官方遺失啟事 + 合法業者 upsert）、五張資料表、33 間收容所座標種子、PetController 7 支端點、49→65 測試（PR #048）。**前端**：`ShelterMapView`（Leaflet + MarkerCluster，並依收容所座標分組渲染一所一標記）、`LostPetsView`（遺失啟事 CRUD、`IsOwner` 按鈕、地圖點選座標）、`LegalBusinessView`（五條件疊加篩選 + 三種排序 + 業務項目中文化），65→75 後端測試、8→27 前端測試（PR #049）。前端串接期間回頭修正後端四處介面不一致（`IsOwner`／`[FromBody]` enum／篩選排序／標記上限與截斷標頭）（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ✅ 完成 |
@@ -1130,7 +1130,7 @@ npm test
 每個業務模組有獨立的 DbContext，連線字串設定與啟動由入口層統一組裝，模組本身不感知執行環境。`CoreDbContext` 管理跨模組共用的基礎設施（`SyncStates`、`NavModules`、`RoleModulePermissions`）。
 
 **跨模組資料組合：Controller 層 Pattern C**
-`WatchlistController` 同時注入 `IUserWatchlistService`（User 模組）與 `IMarketService`（Market 模組），在 Controller 層做 foreach 聚合，而非把跨模組邏輯下沉到 Service 層。這讓各模組 Service 保持獨立，可分別測試，組合責任明確落在入口層。
+`WatchlistController` 同時注入 `IUserWatchlistService`（User 模組）與 `IMarketService`（Market 模組），在 Controller 層組合（先取監看清單，再用一次批次查詢取回所有作物的最新價，不逐筆呼叫），而非把跨模組邏輯下沉到 Service 層。這讓各模組 Service 保持獨立，可分別測試，組合責任明確落在入口層。
 
 **BackgroundService 生命週期管理**
 SyncWorker 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbContext` 是 Scoped。每次同步任務執行時透過 `IServiceScopeFactory.CreateScope()` 建立新 Scope，用完即釋放，避免 Change Tracker 持續累積狀態。
@@ -1172,7 +1172,7 @@ Cache-Aside 的呼叫端一行都不用改，代價只有「多個執行個體�
   `/health` 回來但 `/health/ready` 還沒＝「正在喚醒資料庫」，兩支都回來＝「仍在查詢中」，顯示在畫面下方並附上已等待秒數。
   健康檢查只在有請求等太久時才打（`/health/ready` 會碰資料庫），請求都回來就收起來。
 
-開了重試之後若要自己開交易，必須包在 `CreateExecutionStrategy().ExecuteAsync` 裡（目前全專案沒有手動交易）。
+開了重試之後若要自己開交易，必須包在 `CreateExecutionStrategy().ExecuteAsync` 裡（2026-10-03 全專案沒有手動交易）。
 
 **SyncState 模式取代 MAX(TransDate)**
 全市場休市日當天，`AgriProductsTrans` 表沒有記錄寫入，MAX 值卡死。改用 `SyncStates` 獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。
@@ -1196,7 +1196,7 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 `api/` 負責 HTTP 封裝；`stores/`（Pinia）負責全域狀態；Vue 元件負責 UI 渲染。`authClient.ts` 以 axios interceptor 在每次請求自動注入 Bearer token。平鋪 prices → Chart.js datasets 的格式轉換放在 `PriceChart.vue` 的 `computed()`，純顯示格式轉換，不屬於業務邏輯。
 
 **GlobalExceptionMiddleware 標準化錯誤回應**
-所有未攔截例外統一在 Middleware 層轉為標準化 JSON 錯誤格式，Controller 不再散落 try-catch。開發環境回傳詳細訊息、正式環境只回傳通用訊息，避免內部細節外洩。
+所有未攔截例外統一在 Middleware 層轉為標準化 JSON 錯誤格式，Controller 不再散落 try-catch。回應一律是固定的通用訊息、不分環境，例外細節只寫進伺服器端 log，避免內部細節外洩。
 
 **台灣時區日界 + TimeProvider 時鐘注入**
 「今天」的定義統一為台灣時區（`TaiwanTime.Today(TimeProvider)`），查詢服務的時鐘一律走 `TimeProvider` 注入而非直接呼叫 `DateTime.Now`，讓日界邏輯可測試、跨時區部署不出錯。
@@ -1243,8 +1243,8 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 **xUnit + Moq 三種隔離策略**
 Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistributedCache>`）；Service 層只依賴 DB 時用 InMemory（UserWatchlistService → InMemory UserDbContext）；Controller 層測試跨模組組合邏輯時同時 Mock 兩個 Service（WatchlistController）。Extension Method 無法被 Mock 攔截，須 Setup 底層介面方法（GetStringAsync → GetAsync）。
 
-**前端設計系統：token 三層 + 五個頁面樣板（前端視覺設計輪）**
-`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種顏色、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出五個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 5 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 5 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段）。**第二輪 code review 再把路由改成動態載入之後，首屏實際只需要 46.2 kB CSS（gzip 12.99 kB）**——其餘各頁的樣式跟著各自的 chunk 走，進到那一頁才下載。
+**前端設計系統：token 三層 + 四個頁面樣板（前端視覺設計輪）**
+`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種 hex 色值（連 rgba 共 175 種）、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出四個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 4 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 4 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段）。**第二輪 code review 再把路由改成動態載入之後，首屏實際只需要 46.2 kB CSS（gzip 12.99 kB）**——其餘各頁的樣式跟著各自的 chunk 走，進到那一頁才下載。
 
 **新慣例確立時要回頭套用，否則它只是「那一次的寫法」**
 兩輪 code review 的共同頭號結論。第一輪的說法是「共用抽象建立後沒回頭替換舊寫法」，
@@ -1306,6 +1306,19 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 那是獨立的一件事，不是刪一行 CSS 就結束。
 **表格自己的 `min-width` 不屬於這一項**——違規牆 900px、合法業者 1100/1320px、
 收容所詳情 1020px 是欄位本身需要的寬度，配合容器的 `overflow-x` 橫向捲動是刻意的做法。
+
+**價格更新事件的訊息佇列只是骨架，沒有可靠投遞**——`PriceUpdatedConsumer` 宣告的是臨時佇列
+（不持久、只屬於這條連線、連線一斷就刪除）：Web 停機期間發出的事件沒有佇列接，
+處理到一半程式崩潰時，還沒確認的訊息會跟著佇列一起消失；處理失敗也不會退回重送或轉進死信佇列（DLQ）。
+不補的理由是它沒有承載任何實際工作：收到事件只記 log（快取失效沒有實作），
+行情快取靠 25 小時 TTL 自然過期，雲端部署也不含 RabbitMQ。要讓它承載實際流量時，
+需要改成具名的持久佇列、處理失敗時退回並設定死信佇列，快取失效也要同一次做。
+
+**呼叫農業部 API 的重試不涵蓋逾時**——共用的 HttpClient 以 Polly 重試 3 次、間隔 2 秒，
+但只處理連線失敗與 5xx／408；逾時由各支 Worker 自己的取消權杖控制（行情同步預設 90 秒），
+逾時拋出的 `TaskCanceledException` 不在重試範圍內。結果是該市場這一輪同步失敗、同步進度不往前推，
+下一次排程會從同一天重抓——資料不會漏，只會晚一輪。不修的理由是這個結果本身可以接受，
+而把逾時也納入重試，要先決定「單次逾時」與「整體時間預算」怎麼分，那是另一件需要設計的事。
 
 **部署形態帶來的限制**——都是免費方案的條件，不是實作缺陷，但會決定這個服務能怎麼用：
 

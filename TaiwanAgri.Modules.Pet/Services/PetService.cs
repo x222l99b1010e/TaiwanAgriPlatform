@@ -15,9 +15,9 @@ namespace TaiwanAgri.Modules.Pet.Services
 		/// <summary>
 		/// ShelterAnimal → 回應 DTO 的投影，兩支查詢共用。
 		/// <para>
-		/// 型別是 Expression 而不是一般方法，這一點是關鍵：EF Core 無法把編譯過的 C# 方法
-		/// 翻譯成 SQL（那是 LostPetPost 那邊 MapToResponseDto 不能進 Select 的原因），
-		/// 但 Expression 本身就是查詢樹，可以直接交給 Select 並在資料庫端執行。
+		/// 型別是 Expression 而不是一般方法，這一點是關鍵：一般 C# 方法放進 Select，EF Core 翻不成 SQL，
+		/// 只能把整筆實體撈回來、在記憶體端呼叫——欄位全撈，而且 x.Shelter 這類導覽屬性不會 JOIN，
+		/// 拿到的是 null。Expression 本身就是查詢樹，EF 能整段翻成 SQL：只撈用到的欄位，Shelter 直接 JOIN。
 		/// 「共用」與「查詢在 DB 端執行」兩件事不衝突，不需要為此各寫一份 21 欄的投影。
 		/// </para>
 		/// </summary>
@@ -312,8 +312,9 @@ namespace TaiwanAgri.Modules.Pet.Services
 					: query.OrderBy(x => x.CreatedAt).ThenByDescending(x => x.Id),
 			};
 
-			// 先撈實體再於記憶體內轉 DTO——MapToResponseDto 是一般 C# 方法，EF Core 無法把它翻譯成 SQL，
-			// 直接寫在 Select 裡會在執行期丟例外，必須先 ToListAsync() 讓查詢在 DB 端執行完畢
+			// 先撈實體再於記憶體內轉 DTO。MapToResponseDto 是一般 C# 方法，EF Core 翻不成 SQL——
+			// 寫在最後一層 Select 裡也會被改到記憶體端執行，結果相同；明寫 ToListAsync() 是讓
+			// 「分頁在資料庫做完、轉 DTO 在記憶體做」一眼看得出來
 			var entities = await orderedQuery
 				.AsNoTracking()
 				.Skip((queryDto.Page - 1) * queryDto.PageSize)

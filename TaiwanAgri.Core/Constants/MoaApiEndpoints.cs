@@ -46,7 +46,6 @@ namespace TaiwanAgri.Core.Constants
 		public const string CropMarketType = "api/v1/CropMarketType/?CropMarketType=";
 
 		// 模組 1：食安
-		public const string Traceability = "api/v1/TraceabilityType/";
 		public const string AgriProductInfo = "api/v1/TWAgriProductsTraceabilityType_ProductInfo/";
 		public const string AgriProducerInfo = "api/v1/TWAgriProductsTraceabilityType_ProducerInfo/";
 		public const string WashedEggs = "api/v1/WashedEggsTraceabilityType/";

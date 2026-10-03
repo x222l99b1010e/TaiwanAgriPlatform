@@ -202,7 +202,7 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			// 兩段式的 SQL 是固定的兩條獨立查詢，不會互相依賴，效能穩定。
 			// Step 1：先從 AgriProductsTrans 撈出該 TcType 下所有出現過的 CropCode
-			//         翻譯為：SELECT DISTINCT CropCode FROM AgriProductsTrans WHERE TcType = 'V'
+			//         翻譯為：SELECT DISTINCT CropCode FROM AgriProductsTrans WHERE TcType = 'N04'（蔬菜；水果 N05、花卉 N06）
 			var validCropCodes = await _context.AgriProductsTrans
 				.Where(a => a.TcType == tcType)
 				.Select(a => a.CropCode)
@@ -315,8 +315,9 @@ namespace TaiwanAgri.Modules.Market.Services
 				})
 				.ToListAsync(cancellationToken);
 
-			// DisplayName 在記憶體端補上：PoultryMetrics.DisplayNames 是 C# 字典，
-			// 放進 Select 會讓 EF 無法轉譯（比照 MapToResponseDto 的教訓）
+			// DisplayName 在記憶體端補上：PoultryMetrics.DisplayNames 是 C# 字典，資料庫裡沒有它。
+			// 寫進上面的 Select 不行——TryGetValue 的 out 變數在查詢運算式裡編不過，
+			// 改用索引子則會被 EF 以「投影引用了字典實例」為由在執行期拒絕
 			return rows.Select(p => new PoultryResponseDto
 			{
 				TransDate = p.TransDate,
@@ -395,7 +396,8 @@ namespace TaiwanAgri.Modules.Market.Services
 		/// <para>
 		/// 固定兩次查詢、不隨作物數成長：先取每個作物的最新交易日，再以其中最早的那個日期
 		/// 當下界撈回這段區間的資料，在記憶體端依各作物自己的最新日過濾後平均。
-		/// 不能寫成單一查詢裡的巢狀 g.Max（EF 無法翻譯），也不該逐作物查一次（那是 N+1）。
+		/// 不能在分組裡巢狀 g.Max：EF 會照翻成 AVG 裡套 MAX，但 SQL Server 不接受聚合函式巢狀；
+		/// 也不該逐作物查一次（那是 N+1）。
 		/// </para>
 		/// </summary>
 		private async Task<List<LatestPriceDto>> GetLatestCrossMarketPricesAsync(
