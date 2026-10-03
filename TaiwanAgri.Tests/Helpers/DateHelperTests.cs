@@ -100,6 +100,15 @@ namespace TaiwanAgri.Tests.Helpers
 			Assert.Null(result);
 		}
 
+		[Fact]
+		public void 日為零超出範圍時回傳null()
+		{
+			// 每個月都從 1 日開始，日 0 不存在
+			var result = DateHelper.ConvertRocRestDay(107, 1, 0);
+
+			Assert.Null(result);
+		}
+
 		// ── ValidateRange：查詢區間的界限 ────────────────────────────────────
 
 		/// <summary>

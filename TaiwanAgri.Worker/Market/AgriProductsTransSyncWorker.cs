@@ -243,17 +243,7 @@ namespace TaiwanAgri.Worker.Market
 					// 成功的那幾筆還是要存
 					await dbMarket.SaveChangesAsync(stoppingToken);
 
-					//ToDo: 先不強制推進，等未來十座發出警告通知再處理
-					// ★ 安全閥：如果這天已經超過 5 天還是有失敗，強制推進並記錄缺口
-					//var daysBehind = yesterdayDate.DayNumber - currentDate.DayNumber;
-					//if (daysBehind >= 5)
-					//{
-					//	_logger.LogWarning("{Date} 已落後 {Days} 天仍有失敗市場，強制推進 LastSyncedDate，資料存在缺口",
-					//		currentDate, daysBehind);
-					//	lastSyncState.LastSyncedDate = currentDate;
-					//	lastSyncState.UpdatedAt = DateTime.UtcNow;
-					//	await dbCore.SaveChangesAsync(stoppingToken);
-					//}
+					// 不設強制推進：會把上游持續失敗藏起來，還會留下補不回來的缺口
 
 					// 這裡不推進，先直接 return，停止這輪同步
 					return false; // 有失敗就停，不繼續跑後面的天
