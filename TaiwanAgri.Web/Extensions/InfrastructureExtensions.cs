@@ -10,6 +10,13 @@ namespace TaiwanAgri.Web.Extensions
 		public const string FrontendCorsPolicy = "FrontendCors";
 
 		/// <summary>
+		/// 結果被筆數上限截斷時加在回應上的標頭。
+		/// 跨網域時瀏覽器只讓前端讀到少數幾個基本標頭，自訂標頭要列進 CORS 的 ExposedHeaders 才讀得到——
+		/// 沒列的話後端照樣送出、伺服器端看不出異狀，前端只會一直以為「沒被截斷」
+		/// </summary>
+		public const string ResultTruncatedHeader = "X-Result-Truncated";
+
+		/// <summary>
 		/// 標記「這項檢查會碰外部資源」的標籤。只有 /health/ready 會跑帶這個標籤的檢查
 		/// </summary>
 		public const string ReadinessTag = "ready";
@@ -171,6 +178,7 @@ namespace TaiwanAgri.Web.Extensions
 					policy.WithOrigins(allowedOrigins)
 						  .AllowAnyMethod()
 						  .AllowAnyHeader()
+						  .WithExposedHeaders(ResultTruncatedHeader)
 						  .AllowCredentials();
 				});
 			});

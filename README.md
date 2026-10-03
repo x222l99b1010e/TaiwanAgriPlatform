@@ -445,7 +445,7 @@ TaiwanAgriPlatform/
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
 │   └── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 474 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 475 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -480,7 +480,7 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，474 個案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，475 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 168 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
 
@@ -615,7 +615,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 474 個測試案例）
+# 後端（xUnit + Moq，共 475 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -624,7 +624,7 @@ cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -658,6 +658,10 @@ npm test
 這個旗標而不是預設放行：「忘了填」與「刻意走同源 proxy」在設定檔裡長得一模一樣，程式無從分辨；
 把後者變成要寫下來的宣告之後，剩下的空白就只有「忘了填」一種解釋，這時候讓啟動失敗才是對的。
 `Development` 不套用這個檢查（本機走 proxy 是常態），只會記一則啟動警告。
+
+**自訂回應標頭也歸 CORS 管。** 跨來源時瀏覽器只讓前端讀到幾個基本標頭，其餘要列進 CORS 原則的
+`ExposedHeaders`。天災查詢在結果被筆數上限截斷時會帶 `X-Result-Truncated`，已經列進去；
+之後新增自訂標頭要一起加，否則後端照樣送出、前端讀到的永遠是空值，兩端都不會報錯。
 
 其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值），`Jwt:Issuer`／`Jwt:Audience`／
 `Jwt:ExpiresInDays` 三個也要帶上（本機的值多半在 `appsettings.Development.json` 或 User Secrets，
@@ -1357,4 +1361,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-10-02 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 474 測試、前端 168 測試全過*
+*最後更新：2026-10-03 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）、天災查詢的截斷標頭補進跨來源放行清單；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 475 測試、前端 168 測試全過*
