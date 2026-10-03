@@ -59,7 +59,9 @@ jobs:
           # ⚠ 不要改成不設這個變數：沒設等於本機漏設，行為要由 Worker 端判斷，而它對兩者一視同仁。
           RabbitMQ__HostName: ''
           DOTNET_ENVIRONMENT: Production
-        run: dotnet run --project TaiwanAgri.Worker/TaiwanAgri.Worker.csproj --configuration Release --no-build
+        # --no-launch-profile：dotnet run 預設會套用 Properties/launchSettings.json，
+        # 它把 DOTNET_ENVIRONMENT 設成 Development，而且會蓋掉上面這一行
+        run: dotnet run --project TaiwanAgri.Worker/TaiwanAgri.Worker.csproj --configuration Release --no-build --no-launch-profile
 
       - name: Upload worker log
         # 失敗時特別需要 log，成功時留著也方便對照同步了幾筆
@@ -67,6 +69,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: worker-log
-          path: TaiwanAgri.Worker/logs/
+          # dotnet run 的工作目錄是 repo 根目錄、不是專案資料夾，
+          # Worker 的記錄檔路徑 logs/ 是相對路徑，所以落在根目錄的 logs/
+          path: logs/
           if-no-files-found: warn
           retention-days: 7

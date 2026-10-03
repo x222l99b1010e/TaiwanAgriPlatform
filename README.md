@@ -875,8 +875,10 @@ npm test
    > ⚠ **`workflow_dispatch` 與 `schedule` 都只認預設分支上的 workflow 檔**，
    > 所以 `worker-sync.yml` 合併進 `main` 之前，Actions 頁面上按不到這一支。
    > 在那之前改用本機驗收同一段路：連線字串指向雲端、`$env:Worker__RunOnce = "true"`，
-   > 跑 `dotnet run --project TaiwanAgri.Worker --configuration Release`，
+   > 跑 `dotnet run --project TaiwanAgri.Worker --configuration Release --no-launch-profile`，
    > 確認結束碼是 0、而且摘要裡沒有任何一支同步失敗。
+   > `--no-launch-profile` 不能省：`dotnet run` 預設套用 `Properties/launchSettings.json`，以 Development 執行，
+   > 會讀到本機 User Secrets 裡的 RabbitMQ 主機；本機 RabbitMQ 沒開時，同步完發布事件會失敗，摘要多出一則假的同步失敗。
    > 兩者的差別只有「誰去連資料庫」——合併之後那一輪才會驗到防火牆。
 
 ### 停機
