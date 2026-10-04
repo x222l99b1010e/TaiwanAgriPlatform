@@ -85,9 +85,10 @@ namespace TaiwanAgri.Worker.Pet
 				await dbCore.SaveChangesAsync(stoppingToken);
 			}
 
-			// 這一輪要跑的日期區間：[上次同步完成的隔天, 昨天]
-			DateOnly startDate = lastSyncState.LastSyncedDate.AddDays(1);
+			// 這一輪要跑的日期區間：[上次同步完成的隔天與昨天往回 7 天取較早者, 昨天]。
+			// 往回重掃是因為走失啟事可能事後才登記（登記時填的遺失日期是幾天前），見 SyncWindow
 			DateOnly yesterdayDate = TaiwanTime.Today(_timeProvider).AddDays(-1);
+			DateOnly startDate = SyncWindow.StartDate(lastSyncState.LastSyncedDate, yesterdayDate);
 			// 只追到「昨天」、不含「今天」：今天的走失啟事可能還在陸續登記中，資料還不完整；
 			// 明天這支 Worker 再跑一次時，「今天」已經變成「昨天」，那時候抓到的資料才完整
 			// （跟 AnimalRecognitionSyncWorker 的 yesterdayDate 慣例一致）。
@@ -110,10 +111,7 @@ namespace TaiwanAgri.Worker.Pet
 				// 組出這一批要處理的日期清單。batchSize 是「這批最多同時打幾天」的上限，
 				// 不是「一定要湊滿才打」——d <= yesterdayDate 這個條件保證絕對不會超抓還沒發生
 				// 的「未來」天數。回填期間 startDate 跟 yesterdayDate 差了幾千天，所以每批理所當然
-				// 湊滿 batchSize；追平之後的日常運作 Interval=1 天，startDate 通常就等於
-				// yesterdayDate（只欠昨天），這裡實際只會跑出 1 天，不會憑空多打其他 batchSize-1 天。
-				// 這種多天一起打的情境只會在「曾經斷過超過 batchSize 天沒跑」時出現，
-				// 那正是設計本來要追平的情境。
+				// 湊滿 batchSize；追平之後的日常運作固定重掃最近 7 天（SyncWindow），batchSize 5 就是兩批。
 				var batchDates = new List<DateOnly>();
 				for (var d = batchStart; d <= yesterdayDate && batchDates.Count < batchSize; d = d.AddDays(1))
 					batchDates.Add(d);
@@ -193,7 +191,7 @@ namespace TaiwanAgri.Worker.Pet
 				// 才可以把 LastSyncedDate 推進到這批的最後一天並存檔。
 				// checkpoint 的粒度從「一天」變成「一批」，但保證的性質不變：
 				// 只會有「這批徹底做完」或「完全沒做完、例外往外炸」兩種結果，沒有模糊的中間狀態。
-				lastSyncState.LastSyncedDate = batchEnd;
+				lastSyncState.LastSyncedDate = SyncWindow.Advance(lastSyncState.LastSyncedDate, batchEnd);
 				lastSyncState.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
 				await dbCore.SaveChangesAsync(stoppingToken);
 

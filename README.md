@@ -445,7 +445,7 @@ TaiwanAgriPlatform/
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
 │   └── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 476 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 484 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -480,7 +480,7 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，476 個案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，484 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 168 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
@@ -615,7 +615,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 476 個測試案例）
+# 後端（xUnit + Moq，共 484 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -1178,6 +1178,7 @@ Cache-Aside 的呼叫端一行都不用改，代價只有「多個執行個體�
 
 **SyncState 模式取代 MAX(TransDate)**
 全市場休市日當天，`AgriProductsTrans` 表沒有記錄寫入，MAX 值卡死。改用 `SyncStates` 獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。
+推進之後每一輪仍往回重掃最近 7 天：農業部的資料會晚公布（實測週六的行情到週日上午還查不到，家禽也常晚一兩天），只靠游標的話，抓的當下還沒公布的那天會被當成無資料永久跳過；重抓到的舊資料靠鍵去重濾掉，不會重複寫入。農產品行情、毛豬、家禽、收容動物、走失啟事五支日期游標型 Worker 共用同一個 `SyncWindow`。
 
 **Task.WhenAll 併發 API 請求**
 `AgriProductsTransSyncWorker` 初版串行 4,500 次 HTTP 請求效能極差。改用 `Task.WhenAll` 讓同一天的所有市場 API 同時發出，`SemaphoreSlim(3)` 控制最大並發數。Task 只負責 HTTP，所有有狀態操作集中在主執行緒依序執行，規避執行緒安全問題。
@@ -1322,6 +1323,11 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 下一次排程會從同一天重抓——資料不會漏，只會晚一輪。不修的理由是這個結果本身可以接受，
 而把逾時也納入重試，要先決定「單次逾時」與「整體時間預算」怎麼分，那是另一件需要設計的事。
 
+**連假期間晚公布超過 7 天的資料仍會缺**——日期游標型的同步 Worker 每一輪往回重掃最近 7 天，接住晚公布的資料；
+公布延遲超過 7 天（例如春節長假）的那幾天，重掃範圍已經滑過去，就不會再抓。不把範圍拉長的理由是成本：
+農產品行情每多掃一天就要多打 52 次 API（每個市場一次），每天的排程都得付這筆。遇到長假之後要補，
+可以把該資料源在 `core.SyncStates` 的同步進度往回改，再跑一輪。
+
 **部署形態帶來的限制**——都是免費方案的條件，不是實作缺陷，但會決定這個服務能怎麼用：
 
 - **資料庫一個月只能「醒著」約 40–54 小時。** Azure SQL 免費方案的額度單位是 vCore 秒
@@ -1376,4 +1382,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-10-03 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）、天災查詢的截斷標頭補進跨來源放行清單；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 476 測試、前端 168 測試全過*
+*最後更新：2026-10-04 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）、天災查詢的截斷標頭補進跨來源放行清單、日期游標型同步每輪往回重掃 7 天接住晚公布的資料；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 484 測試、前端 168 測試全過*

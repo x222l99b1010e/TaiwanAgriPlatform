@@ -98,7 +98,6 @@ namespace TaiwanAgri.Worker.Market
 			// 取得同步狀態，若無則初始化
 			var lastSyncState = await dbCore.SyncStates
 				.FirstOrDefaultAsync(s => s.SyncKey == SyncKey, cancellationToken: stoppingToken);
-			// 從上次同步的下一天開始同步
 			if (lastSyncState == null)
 			{
 				// 情況一：資料不存在，建立新的
@@ -111,10 +110,11 @@ namespace TaiwanAgri.Worker.Market
 				dbCore.SyncStates.Add(lastSyncState);
 				await dbCore.SaveChangesAsync(stoppingToken);
 			}
-			DateOnly startDate = lastSyncState.LastSyncedDate.AddDays(1);
 			// 日界一律以台灣時區為準（來源資料的日期就是台灣日期，用 UTC 會在日界前後差一天）。
 			// 時區換算與時區物件快取都在 TaiwanTime 內，時鐘走 TimeProvider 注入以便測試固定時刻。
 			DateOnly yesterdayDate = TaiwanTime.Today(_timeProvider).AddDays(-1);
+			// 往回重掃最近幾天，接住晚公布的行情（見 SyncWindow）
+			DateOnly startDate = SyncWindow.StartDate(lastSyncState.LastSyncedDate, yesterdayDate);
 
 			//從 dbMarket 撈所有 MarketInfo
 			var marketInfos = await dbMarket.MarketInfos.ToListAsync(stoppingToken);
@@ -250,7 +250,7 @@ namespace TaiwanAgri.Worker.Market
 				}
 
 				// 當日所有市場處理完畢，一次性提交資料庫更改 (原子性操作)
-				lastSyncState.LastSyncedDate = currentDate;
+				lastSyncState.LastSyncedDate = SyncWindow.Advance(lastSyncState.LastSyncedDate, currentDate);
 				lastSyncState.UpdatedAt = DateTime.UtcNow;
 				await dbMarket.SaveChangesAsync(stoppingToken); // 先把 AgriProductsTrans 的新增寫入資料庫，確保資料已經存在了
 				await dbCore.SaveChangesAsync(stoppingToken);
