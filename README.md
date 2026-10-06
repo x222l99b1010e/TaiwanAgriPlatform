@@ -491,7 +491,7 @@ TaiwanAgriPlatform/
 ### 前置需求
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/)（含 ASP.NET 工作負載）
+- [Visual Studio 2026](https://visualstudio.microsoft.com/)（含「ASP.NET 與網頁程式開發」工作負載；.NET 10 要 2026 版）
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Node.js 22 LTS](https://nodejs.org/)（前端建置用）
 
