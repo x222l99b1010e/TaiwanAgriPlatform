@@ -131,14 +131,14 @@ namespace TaiwanAgri.Worker.Market
 				var rawResults = await Task.WhenAll(marketInfos.Select(async market =>
 				{
 					// 1. 控制併發數量，避免過度壓垮 API 或資料庫
-					// 改後：semaphore 等待用 default，不要跟 stoppingToken 綁
+					//    等名額不接 stoppingToken：停機時這一天已排隊的市場仍會抓完，再由後面帶 stoppingToken 的資料庫存取中斷
 					await semaphore.WaitAsync(CancellationToken.None);
 					// 2. 抓取 API 資料，並捕捉可能的例外（例如網路問題、API 異常等），確保即使某個市場失敗也不會影響整體流程
 					try
 					{
 						var url = $"{MoaApiEndpoints.AgriProductsTrans}?Start_time={DateHelper.FormatRocDate(currentDate)}&End_time={DateHelper.FormatRocDate(currentDate)}&MarketName={market.MarketName}";
-						// 改後：HTTP 請求用獨立的 timeout token，不跟 stoppingToken 綁
-						//using var httpTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+						// 每個請求自己的逾時計時器。具名 client 的 HttpClient.Timeout 是無限（MoaApiClientExtensions），
+						// 拿掉這個計時器，卡住的請求會永遠等下去。不接 stoppingToken：「停機」與「單一請求逾時」是兩件事
 						var httpTimeoutSeconds = _configuration.GetValue<int>("AgriProductsSyncWorker:HttpTimeoutSeconds", 90);
 						using var httpTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(httpTimeoutSeconds));
 						var json = await _httpClient.GetStringAsync(url, httpTimeoutCts.Token);
