@@ -29,7 +29,7 @@
 - 作物歷史價格圖 + 7 日移動平均線（Chart.js + computed 轉換層）
 - 天災事件垂直線疊加（inline Chart.js plugin，土石流 / 豪雨 / 颱風警戒）
 - Chip 多選篩選器（市場類型 / 作物 / 日期區間）
-- 休市日標記（排除統計陷阱）— 已完成（32,149 筆休市記錄同步完畢）
+- 休市日標記（排除統計陷阱）— 已完成（2026-04 首次同步 32,149 筆休市記錄，之後隨每日同步增量）
 - 數據 CSV 匯出（純函式 exportCsv.ts，含 UTF-8 BOM）
 - 毛豬行情查詢（多線折線圖、指標切換、市場下拉 computed 動態萃取）
 - 家禽行情查詢（W25）：白肉雞／雞蛋／紅羽土雞／黑羽土雞／肉鵝／番鴨／鴨蛋共 17 個指標分組勾選、多線折線圖、非常態報價明細表、CSV 與圖片匯出
@@ -455,7 +455,8 @@ TaiwanAgriPlatform/
     ├── Weather/                       # PesticideService 成分分組 / 劑型對照 / 已廢止與到期判定；
     │                                  #   NotificationService 分頁邊界 / 越權防護 / 導覽屬性投影
     ├── Pet/                           # PetService 篩選排序 + IsOwner + 越權防禦 + JSON enum 契約 + TimeProvider 時間戳
-    ├── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）
+    ├── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）；行情同步的事件發布；
+    │                                  #   往回重掃的起訖日（SyncWindow）；一次性模式的收工判斷（RunOnceCoordinator）
     └── Web/                           # Controller 層驗證與分頁契約（PagedQueryDto 界限、PagedResult 計算、
                                        #   PetController 授權判斷、MarketController 白名單與截斷標頭）
 ```
@@ -624,7 +625,7 @@ cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -1326,7 +1327,8 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 **呼叫農業部 API 的重試不涵蓋逾時**——共用的 HttpClient 以 Polly 重試 3 次、間隔 2 秒，
 但只處理連線失敗與 5xx／408；逾時由各支 Worker 自己的取消權杖控制（行情同步預設 90 秒），
 逾時拋出的 `TaskCanceledException` 不在重試範圍內。結果是該市場這一輪同步失敗、同步進度不往前推，
-下一次排程會從同一天重抓——資料不會漏，只會晚一輪。不修的理由是這個結果本身可以接受，
+下一次排程會從同一天重抓——資料不會漏，只會晚一輪（2026-10-07 回補時實際遇過：農業部 API 一度變慢，
+單一請求要 33–66 秒，台中市那一筆撞到 90 秒逾時；重跑時從那一天接著抓、補齊）。不修的理由是這個結果本身可以接受，
 而把逾時也納入重試，要先決定「單次逾時」與「整體時間預算」怎麼分，那是另一件需要設計的事。
 
 **連假期間晚公布超過 7 天的資料仍會缺**——日期游標型的同步 Worker 每一輪往回重掃最近 7 天，接住晚公布的資料；
@@ -1342,7 +1344,7 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 - **資料庫一個月只能「醒著」約 40–54 小時。** Azure SQL 免費方案的額度單位是 vCore 秒
   （用了幾顆 CPU × 幾秒），每月 100,000 秒；照規格表的下限 0.5 vCore 換算是 55.6 小時，
   但實測閒置時每分鐘計費 30.7–41 vCore 秒（記憶體用量會把計費墊高到下限之上），所以實際約 40–54 小時、
-  平均每天 1.3–1.8 小時；最後一次活動後約 16 分鐘就自動暫停（2026-09 多次實測）。
+  平均每天 1.3–1.8 小時；最後一次活動後約 16 分鐘就自動暫停（2026-09～10 多次實測）。
   **所以這個服務的預設狀態是關著的**，展示前再開（步驟見「雲端部署與重新部署」）。
   這條上限同時決定了 Worker 不做常駐部署（常駐需要約 1,296,000 vCore 秒，超額 13 倍），
   改成 GitHub Actions 每天排程觸發、跑完就退出。
