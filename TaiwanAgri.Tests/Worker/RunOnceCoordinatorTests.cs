@@ -188,6 +188,23 @@ namespace TaiwanAgri.Tests.Worker
 			Assert.False(stuck.FirstRoundAttempted.IsCompleted);
 		}
 
+		[Fact]
+		public async Task 外部停機不能被記成逾時()
+		{
+			// Ctrl+C 或平台送 SIGTERM：還沒等到上限就被停掉。記成「等了 N 分鐘仍未跑完」的話，
+			// 記錄檔會說出一個沒發生過的逾時，查問題的人會往錯的方向找
+			var stuck = new FakeSyncWorker();
+			await StartAsync(stuck);
+			var (coordinator, lifetime) = Build([stuck], TimeSpan.FromMinutes(10));
+
+			await coordinator.StartAsync(CancellationToken.None);
+			await coordinator.StopAsync(CancellationToken.None);
+			await coordinator.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(30));
+
+			Assert.Equal(0, coordinator.ResultExitCode);
+			Assert.False(lifetime.StopRequested);
+		}
+
 		/// <summary>
 		/// 卡在同步裡的 Worker 被停機取消時，訊號一定要亮——協調器就是在等這個訊號，
 		/// 不亮的話它會等一個永遠不會來的東西。

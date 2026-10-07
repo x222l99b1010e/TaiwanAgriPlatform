@@ -63,27 +63,26 @@ namespace TaiwanAgri.Worker
 				workers.Count, _timeout.TotalMinutes);
 
 			var allAttempted = Task.WhenAll(workers.Select(w => w.FirstRoundAttempted));
-			var timedOut = false;
+			var finished = await Task.WhenAny(allAttempted, Task.Delay(_timeout, stoppingToken));
 
-			try
+			// 外部先停掉了（Ctrl+C、平台送 SIGTERM），不是我們判斷的結果：記下還沒跑完的，直接讓它走。
+			// ⚠ 要用 stoppingToken 判斷，不能 catch OperationCanceledException——Task.WhenAny 不會因為
+			// 其中一個被取消而拋例外，它把那個已取消的 Delay 當成「先完成的」回傳，接著就會被誤判成逾時
+			if (finished != allAttempted && stoppingToken.IsCancellationRequested)
 			{
-				timedOut = await Task.WhenAny(allAttempted, Task.Delay(_timeout, stoppingToken)) != allAttempted;
-			}
-			catch (OperationCanceledException)
-			{
-				// 外部先停掉了（Ctrl+C、平台送 SIGTERM），不是我們判斷的結果，直接讓它走
+				_logger.LogWarning(
+					"[RunOnce] 外部要求停止（Ctrl+C 或平台停機），還沒跑完的有：{Pending}",
+					string.Join("、", PendingNames(workers)));
 				return;
 			}
 
+			var timedOut = finished != allAttempted;
+
 			if (timedOut)
 			{
-				var pending = workers
-					.Where(w => !w.FirstRoundAttempted.IsCompleted)
-					.Select(w => w.GetType().Name);
-
 				_logger.LogError(
 					"[RunOnce] 等了 {Minutes} 分鐘仍未跑完，未完成的有：{Pending}",
-					_timeout.TotalMinutes, string.Join("、", pending));
+					_timeout.TotalMinutes, string.Join("、", PendingNames(workers)));
 
 				// 逾時要讓整個工作是紅的。回 0 的話排程看起來每天都成功，
 				// 而實際上有幾支從來沒同步過——那是綠燈說謊
@@ -115,5 +114,8 @@ namespace TaiwanAgri.Worker
 			Environment.ExitCode = ResultExitCode;
 			_lifetime.StopApplication();
 		}
+
+		private static IEnumerable<string> PendingNames(IEnumerable<ScheduledSyncWorkerBase> workers)
+			=> workers.Where(w => !w.FirstRoundAttempted.IsCompleted).Select(w => w.GetType().Name);
 	}
 }

@@ -445,7 +445,7 @@ TaiwanAgriPlatform/
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
 │   └── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 484 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 485 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -480,7 +480,7 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，484 個案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，485 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 168 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
@@ -615,7 +615,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 484 個測試案例）
+# 後端（xUnit + Moq，共 485 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -1387,4 +1387,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-10-04 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）、天災查詢的截斷標頭補進跨來源放行清單、日期游標型同步每輪往回重掃 7 天接住晚公布的資料；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 484 測試、前端 168 測試全過*
+*最後更新：2026-10-04 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）、天災查詢的截斷標頭補進跨來源放行清單、日期游標型同步每輪往回重掃 7 天接住晚公布的資料；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 485 測試、前端 168 測試全過*
