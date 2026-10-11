@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using TaiwanAgri.Worker;
 
@@ -45,6 +47,7 @@ namespace TaiwanAgri.Tests.Worker
 		private sealed class FakeSyncWorker : ScheduledSyncWorkerBase
 		{
 			private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+			private readonly TaskCompletionSource _syncStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 			private readonly bool _throwOnSync;
 
 			public FakeSyncWorker(bool throwOnSync = false) : base(NullLogger.Instance)
@@ -57,8 +60,12 @@ namespace TaiwanAgri.Tests.Worker
 			/// <summary>讓測試決定這一輪同步什麼時候結束</summary>
 			public void FinishSync() => _release.TrySetResult();
 
+			/// <summary>已經進到同步裡，也就是 ExecuteAsync 真的跑起來了</summary>
+			public Task SyncStarted => _syncStarted.Task;
+
 			protected override async Task SyncAsync(CancellationToken stoppingToken)
 			{
+				_syncStarted.TrySetResult();
 				await _release.Task.WaitAsync(stoppingToken);
 				if (_throwOnSync)
 				{
@@ -81,8 +88,39 @@ namespace TaiwanAgri.Tests.Worker
 			}
 		}
 
+		/// <summary>
+		/// 記下協調器寫了哪些記錄，並在它開始等 Worker 的那一則出現時亮訊號。
+		/// <para>
+		/// ⚠ StartAsync 回來不代表 ExecuteAsync 已經開始：.NET 10 的 BackgroundService 是用
+		/// 帶著停機權杖的 Task.Run 起跑 ExecuteAsync，排程還沒輪到它就停機的話，ExecuteAsync 根本不會執行，
+		/// ExecuteTask 直接是 Canceled（StartAsync 後立刻 StopAsync，實測兩萬次裡近九成九是這樣）。
+		/// 要測「等待中被停機」，得先等這個訊號再停機，不能靠排程夠快
+		/// </para>
+		/// </summary>
+		private sealed class RecordingLogger : ILogger<RunOnceCoordinator>
+		{
+			private readonly TaskCompletionSource _waiting = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+			public ConcurrentQueue<(LogLevel Level, string Message)> Entries { get; } = new();
+			public Task Waiting => _waiting.Task;
+
+			public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+			public bool IsEnabled(LogLevel logLevel) => true;
+
+			public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+				Func<TState, Exception?, string> formatter)
+			{
+				var message = formatter(state, exception);
+				Entries.Enqueue((logLevel, message));
+				if (message.Contains("一次性執行模式"))
+				{
+					_waiting.TrySetResult();
+				}
+			}
+		}
+
 		private static (RunOnceCoordinator Coordinator, FakeLifetime Lifetime) Build(
-			IEnumerable<FakeSyncWorker> workers, TimeSpan? timeout = null)
+			IEnumerable<FakeSyncWorker> workers, TimeSpan? timeout = null, ILogger<RunOnceCoordinator>? logger = null)
 		{
 			var services = new ServiceCollection();
 			foreach (var worker in workers)
@@ -94,7 +132,7 @@ namespace TaiwanAgri.Tests.Worker
 			var coordinator = new RunOnceCoordinator(
 				services.BuildServiceProvider(),
 				lifetime,
-				NullLogger<RunOnceCoordinator>.Instance,
+				logger ?? NullLogger<RunOnceCoordinator>.Instance,
 				timeout ?? TimeSpan.FromSeconds(10));
 
 			return (coordinator, lifetime);
@@ -195,14 +233,19 @@ namespace TaiwanAgri.Tests.Worker
 			// 記錄檔會說出一個沒發生過的逾時，查問題的人會往錯的方向找
 			var stuck = new FakeSyncWorker();
 			await StartAsync(stuck);
-			var (coordinator, lifetime) = Build([stuck], TimeSpan.FromMinutes(10));
+			var logger = new RecordingLogger();
+			var (coordinator, lifetime) = Build([stuck], TimeSpan.FromMinutes(10), logger);
 
 			await coordinator.StartAsync(CancellationToken.None);
+			await logger.Waiting.WaitAsync(TimeSpan.FromSeconds(30));
 			await coordinator.StopAsync(CancellationToken.None);
 			await coordinator.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(30));
 
 			Assert.Equal(0, coordinator.ResultExitCode);
 			Assert.False(lifetime.StopRequested);
+			// 結束碼 0 在「根本沒跑」時也成立，所以還要確認走的是外部停機那一條、沒有記成逾時
+			Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("外部要求停止"));
+			Assert.DoesNotContain(logger.Entries, e => e.Level == LogLevel.Error);
 		}
 
 		/// <summary>
@@ -212,7 +255,8 @@ namespace TaiwanAgri.Tests.Worker
 		/// ⚠ StopAsync 回來不代表 ExecuteAsync 已經收尾：.NET 10 的 BackgroundService 實測起來，
 		/// StopAsync 回來當下 ExecuteTask 讀到的是 Canceled，而 ExecuteAsync 的 finally 還沒跑到。
 		/// 所以這裡只能等訊號本身，不能改成等 ExecuteTask（await 一個取消狀態的 Task 會直接拋）。
-		/// 逾時三十秒是看門狗、不是斷言的機制——讓它穩定的是 Worker 在測試執行緒之外起跑
+		/// 停機前先等它進到同步裡：ExecuteAsync 還沒開始就停機的話它根本不會執行，
+		/// 那就不是「卡在同步裡被取消」（理由同 RecordingLogger）。兩個三十秒都是看門狗、不是斷言的機制
 		/// </para>
 		/// </summary>
 		[Fact]
@@ -220,6 +264,7 @@ namespace TaiwanAgri.Tests.Worker
 		{
 			var worker = new FakeSyncWorker();
 			await StartAsync(worker);
+			await worker.SyncStarted.WaitAsync(TimeSpan.FromSeconds(30));
 
 			await worker.StopAsync(CancellationToken.None);
 
