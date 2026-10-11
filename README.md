@@ -1200,7 +1200,7 @@ Cache-Aside 的呼叫端一行都不用改，代價只有「多個執行個體�
 Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 Migration，長期維護下遷移歷史可讀性差。DbInitializer 以 `AnyAsync()` 做冪等保護，並在啟動時呼叫 `GetPendingMigrationsAsync()` 前置防護。
 
 **DisasterResponseDto：GroupBy 去重 + AffectedCounties 彙整**
-同一天災在 DB 對應多筆記錄（每縣市一筆）。Service 層以 `(DisasterName, AlertDate)` GroupBy 後，將同群的 County 彙整為 `AffectedCounties`（`Distinct().OrderBy()` 的 `List<string>`）。
+同一天災在 DB 對應多筆記錄（每條土石流潛勢溪流或每個大規模崩塌區一筆，同一天同一縣市就可能有上千筆）。Service 層以 `(DisasterName, AlertDate)` GroupBy 後，將同群的 County 彙整為 `AffectedCounties`（`Distinct().OrderBy()` 的 `List<string>`）。
 
 **DebrisAlertRecord：HasFilter(null) 解決 nullable UNIQUE Index 失效**
 `DebrisNo` 和 `LandslideID` 互斥為 null。EF Core 預設對 nullable 欄位的 UNIQUE Index 加 `WHERE ... IS NOT NULL`，此條件讓 UNIQUE Index 形同虛設。`.HasFilter(null)` 覆蓋預設行為。
@@ -1336,7 +1336,7 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 
 **連假期間晚公布超過 7 天的資料仍會缺**——日期游標型的同步 Worker 每一輪往回重掃最近 7 天，接住晚公布的資料；
 公布延遲超過 7 天（例如春節長假）的那幾天，重掃範圍已經滑過去，就不會再抓。不把範圍拉長的理由是成本：
-農產品行情每多掃一天就要多打 52 次 API（每個市場一次），每天的排程都得付這筆。遇到長假之後要補，
+農產品行情每多掃一天就要多打 25 次 API（每個市場一次），每天的排程都得付這筆。遇到長假之後要補，
 可以把該資料源在 `core.SyncStates` 的同步進度往回改，再跑一輪。
 2026-10 照這個方法補過一次：加上往回重掃之前，晚公布的日子都被永久跳過——2026 年 4–9 月的農產品行情有 17 天整天沒有、
 另有許多天只缺部分市場，家禽缺 4 天（農業部 API 現在都查得到）。把進度改回缺口前一天跑一輪（約 70 分鐘、資料庫計費 3,779.5 vCore 秒），
