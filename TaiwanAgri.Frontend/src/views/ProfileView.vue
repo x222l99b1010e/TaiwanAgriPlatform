@@ -3,7 +3,7 @@
     <PageHeader
       title="農場設定"
       title-en="FARM SETTINGS"
-      subtitle="設定所在縣市與顯示名稱，並管理密碼"
+      subtitle="設定農場所在縣市、類型與主要作物"
     />
 
     <!-- 個人管理相關的其他頁面入口放在這裡，

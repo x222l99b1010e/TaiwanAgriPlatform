@@ -233,7 +233,7 @@ const expiryLimits = computed(() => RULE_LIMITS.expiryDaysByRuleType[form.ruleTy
 // 同一件事寫兩處的話，日後只會有一處被改到
 const ruleTypeHint = computed(() =>
   isNumeric.value
-    ? '比對自動氣象站的即時觀測（氣溫、24 小時雨量），命中就通知。'
+    ? '比對自動氣象站的最新觀測（氣溫、24 小時雨量），命中就通知。'
     : '比對農業部發布的植物疫情警報，符合縣市與作物就通知。',
 )
 
