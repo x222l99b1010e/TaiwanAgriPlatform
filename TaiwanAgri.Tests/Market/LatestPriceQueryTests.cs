@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using TaiwanAgri.Modules.Market.Data;
@@ -24,7 +25,7 @@ namespace TaiwanAgri.Tests.Market
 		}
 
 		private static MarketService CreateService(MarketDbContext db)
-			=> new(db, new Mock<IDistributedCache>().Object, Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()), TimeProvider.System);
+			=> new(db, new Mock<IDistributedCache>().Object, Microsoft.Extensions.Options.Options.Create(new TaiwanAgri.Modules.Market.Constants.MarketQueryOptions()), TimeProvider.System, NullLogger<MarketService>.Instance);
 
 		private static AgriProductsTrans Row(string cropCode, string marketCode, DateOnly date, decimal avgPrice)
 			=> new()

@@ -18,6 +18,7 @@
 bin/
 obj/
 publish/
+publish.zip
 
 # Rider
 .idea/
@@ -56,8 +57,8 @@ _ReSharper*/
 *.key
 *.pem
 
-# Owner-local session bootstrap (hardcodes local docs-folder path, same "本機不進 repo" convention as SA/SD docx)
+# Owner-local session bootstrap (hardcodes a local docs-folder path; local-only, never committed)
 CLAUDE.md
 
-# Claude Code Browser 預覽工具設定（只有 AI 工具會用，owner 手動起服務不需要這個檔案）
-.claude/launch.json
+# Claude Code 本機設定：預覽工具設定、權限清單（含本機絕對路徑）、worktree 暫存區。只有 AI 工具會用，各台電腦各自一份
+.claude/

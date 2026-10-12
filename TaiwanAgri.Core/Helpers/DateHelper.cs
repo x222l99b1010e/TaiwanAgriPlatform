@@ -152,8 +152,7 @@ namespace TaiwanAgri.Core.Helpers
 			// 民國年必須為正數：西元年 = 民國年 + 1911，rocYear <= 0 代表資料本身有問題
 			if (rocYear <= 0) return null;
 
-			try { return new DateOnly(rocYear + 1911, month, day); }
-			catch { return null; }
+			return CreateDateOrNull(rocYear + 1911, month, day);
 		}
 
 		/// <summary>
@@ -168,8 +167,19 @@ namespace TaiwanAgri.Core.Helpers
 		/// <returns></returns>
 		public static DateOnly? ConvertRocRestDay(int rocYear, int month, int day)
 		{
-			try { return new DateOnly(rocYear + 1911, month, day); }
-			catch { return null; }
+			return CreateDateOrNull(rocYear + 1911, month, day);
+		}
+
+		/// <summary>
+		/// 年、月、日都在合法範圍內才建立 DateOnly，否則回傳 null。
+		/// DateOnly 沒有「用年月日嘗試建立」的 Try 版本，所以先自己檢查範圍，
+		/// 不靠建構子丟例外來判斷輸入——用 catch 接的話，程式本身的錯誤也會一起被吞成 null
+		/// </summary>
+		private static DateOnly? CreateDateOrNull(int year, int month, int day)
+		{
+			if (year is < 1 or > 9999 || month is < 1 or > 12) return null;
+			if (day < 1 || day > DateTime.DaysInMonth(year, month)) return null;
+			return new DateOnly(year, month, day);
 		}
 
 		/// <summary>

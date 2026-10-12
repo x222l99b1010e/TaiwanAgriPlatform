@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TaiwanAgri.Modules.Market.Constants;
 using TaiwanAgri.Modules.Market.Data;
@@ -15,12 +16,14 @@ namespace TaiwanAgri.Modules.Market.Services
 		private readonly IDistributedCache _cache;
 		private readonly MarketQueryOptions _options;
 		private readonly TimeProvider _timeProvider;
-		public MarketService(MarketDbContext context, IDistributedCache cache, IOptions<MarketQueryOptions> options, TimeProvider timeProvider)
+		private readonly ILogger<MarketService> _logger;
+		public MarketService(MarketDbContext context, IDistributedCache cache, IOptions<MarketQueryOptions> options, TimeProvider timeProvider, ILogger<MarketService> logger)
 		{
 			_context = context;
 			_cache = cache;
 			_options = options.Value;
 			_timeProvider = timeProvider;
+			_logger = logger;
 		}
 		public async Task<DateOnly?> GetLatestTransDateAsync(string marketCode, CancellationToken cancellationToken = default)
 		{
@@ -49,22 +52,29 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			// 3. Cache-Aside Step 1：查 Redis
 			//    命中（Hit）→ 直接反序列化回傳，跳過 DB 查詢
-			//    反序列化失敗不能往上拋：PriceResponseDto 改欄位後，舊部署留在 Redis 的 payload
-			//    會讓每個請求都炸掉，而且要等 25 小時 TTL 到期才會自己好。當成 miss 落回 DB
-			//    查詢並覆寫該 key，是唯一能自我修復的處理方式
-			var cached = await _cache.GetStringAsync(cacheKey);
-			if (cached != null)
+			//    這一段的任何失敗都不能往上拋，兩種失敗的理由不同但結論相同：
+			//    ・連線層失敗——快取是加速層、資料庫才是真相，所以快取不可用時正確的行為是
+			//      「慢一點」而不是「壞掉」。不接住的話整支查詢會跟著倒，而且
+			//      StackExchange.Redis 會把指令排進 backlog 等到逾時，使用者要先等數秒才看到錯誤
+			//    ・反序列化失敗——PriceResponseDto 改欄位後，舊部署留在 Redis 的 payload
+			//      會讓每個請求都炸掉，而且要等 25 小時 TTL 到期才會自己好
+			//    兩者都當成 miss 落回 DB 查詢並在 Step 3 覆寫該 key，是唯一能自我修復的處理方式。
+			//    接 Exception 而不是 RedisConnectionException：本模組只認識 IDistributedCache
+			//    這個抽象，為了接特定例外型別而加 Redis 套件參考，等於把「底下是哪個實作」
+			//    漏進不該知道的這一層。是哪一種失敗由 log 裡的例外型別分辨
+			try
 			{
-				try
+				var cached = await _cache.GetStringAsync(cacheKey);
+				if (cached != null)
 				{
 					var hit = JsonSerializer.Deserialize<List<PriceResponseDto>>(cached);
 					if (hit != null)
 						return hit;
 				}
-				catch (JsonException)
-				{
-					// 落下去走 DB 查詢，並在 Step 3 覆寫這個 key
-				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogWarning(ex, "[Market] 快取讀取失敗，改查資料庫：{CacheKey}", cacheKey);
 			}
 
 			// 4. Cache-Aside Step 2：Redis Miss，查 SQL
@@ -106,11 +116,21 @@ namespace TaiwanAgri.Modules.Market.Services
 			// 7. Cache-Aside Step 3：結果寫進 Redis，TTL 25 小時
 			//    農業部資料每天更新一次（昨天的歷史資料），25 小時確保跨天不提早過期
 			//    TTL 是保底機制；Worker 同步完成後會透過 RabbitMQ 主動 invalidation
+			//    寫入失敗同樣不能往上拋，而且這裡比 Step 1 更不能拋：結果已經查到手上了，
+			//    為了「沒能存進快取」而讓整支查詢失敗，是拿加速層的問題去砸掉已經成功的查詢
 			var cacheOptions = new DistributedCacheEntryOptions
 			{
 				AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(25)
 			};
-			await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), cacheOptions);
+
+			try
+			{
+				await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), cacheOptions);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogWarning(ex, "[Market] 快取寫入失敗，本次結果不進快取：{CacheKey}", cacheKey);
+			}
 
 			return result;
 		}
@@ -182,7 +202,7 @@ namespace TaiwanAgri.Modules.Market.Services
 
 			// 兩段式的 SQL 是固定的兩條獨立查詢，不會互相依賴，效能穩定。
 			// Step 1：先從 AgriProductsTrans 撈出該 TcType 下所有出現過的 CropCode
-			//         翻譯為：SELECT DISTINCT CropCode FROM AgriProductsTrans WHERE TcType = 'V'
+			//         翻譯為：SELECT DISTINCT CropCode FROM AgriProductsTrans WHERE TcType = 'N04'（蔬菜；水果 N05、花卉 N06）
 			var validCropCodes = await _context.AgriProductsTrans
 				.Where(a => a.TcType == tcType)
 				.Select(a => a.CropCode)
@@ -295,8 +315,9 @@ namespace TaiwanAgri.Modules.Market.Services
 				})
 				.ToListAsync(cancellationToken);
 
-			// DisplayName 在記憶體端補上：PoultryMetrics.DisplayNames 是 C# 字典，
-			// 放進 Select 會讓 EF 無法轉譯（比照 MapToResponseDto 的教訓）
+			// DisplayName 在記憶體端補上：PoultryMetrics.DisplayNames 是 C# 字典，資料庫裡沒有它。
+			// 寫進上面的 Select 不行——TryGetValue 的 out 變數在查詢運算式裡編不過，
+			// 改用索引子則會被 EF 以「投影引用了字典實例」為由在執行期拒絕
 			return rows.Select(p => new PoultryResponseDto
 			{
 				TransDate = p.TransDate,
@@ -375,7 +396,8 @@ namespace TaiwanAgri.Modules.Market.Services
 		/// <para>
 		/// 固定兩次查詢、不隨作物數成長：先取每個作物的最新交易日，再以其中最早的那個日期
 		/// 當下界撈回這段區間的資料，在記憶體端依各作物自己的最新日過濾後平均。
-		/// 不能寫成單一查詢裡的巢狀 g.Max（EF 無法翻譯），也不該逐作物查一次（那是 N+1）。
+		/// 不能在分組裡巢狀 g.Max：EF 會照翻成 AVG 裡套 MAX，但 SQL Server 不接受聚合函式巢狀；
+		/// 也不該逐作物查一次（那是 N+1）。
 		/// </para>
 		/// </summary>
 		private async Task<List<LatestPriceDto>> GetLatestCrossMarketPricesAsync(

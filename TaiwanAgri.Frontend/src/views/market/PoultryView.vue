@@ -183,6 +183,7 @@ import {
   seriesColor, seriesDash, pointBorderColor, exportBackground,
   lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -241,8 +242,8 @@ function clearAllMetrics() {
 }
 
 // ── 狀態 ──────────────────────────────────────────────────────────────────
-const today        = new Date().toISOString().split('T')[0]!
-const oneYearAgo    = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
+const today         = taiwanDateString()
+const oneYearAgo    = taiwanDateDaysAgo(365)
 const startDate     = ref(oneYearAgo)
 const endDate       = ref(today)
 const rawData       = ref<PoultryResponseDto[]>([])   // 查詢區間內「全部指標」的資料，不先篩

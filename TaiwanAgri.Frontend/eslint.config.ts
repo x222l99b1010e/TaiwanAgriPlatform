@@ -31,6 +31,22 @@ export default defineConfigWithVueTs(
     rules: { 'vue/multi-word-component-names': 'off' },
   },
 
+  // 「今天是哪一天」一律問 src/utils/taiwanDate。toISOString().split('T')[0] 拿到的是 UTC 日期，
+  // 台灣時間 00:00–08:00 之間會變成昨天，白天測試完全看不出來——所以交給 lint 擋，不靠記性。
+  {
+    name: 'app/dates-via-taiwan-date',
+    files: ['src/**/*.{vue,ts}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='split'][callee.object.callee.property.name='toISOString']",
+          message: '這是 UTC 日期，台灣凌晨會變成昨天。改用 @/utils/taiwanDate 的 taiwanDateString／taiwanDateDaysAgo。',
+        },
+      ],
+    },
+  },
+
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
   skipFormatting,

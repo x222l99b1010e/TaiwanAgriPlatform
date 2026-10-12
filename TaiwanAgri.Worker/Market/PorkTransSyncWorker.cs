@@ -52,10 +52,11 @@ namespace TaiwanAgri.Worker.Market
 				dbCore.SyncStates.Add(lastSyncState);
 				await dbCore.SaveChangesAsync(stoppingToken);
 			}
-			DateOnly startDate = lastSyncState.LastSyncedDate.AddDays(1);
 			// 日界一律以台灣時區為準（來源資料的日期就是台灣日期，用 UTC 會在日界前後差一天）。
 			// 時區換算與時區物件快取都在 TaiwanTime 內，時鐘走 TimeProvider 注入以便測試固定時刻。
 			DateOnly yesterdayDate = TaiwanTime.Today(_timeProvider).AddDays(-1);
+			// 往回重掃最近幾天，接住晚公布的行情（見 SyncWindow）
+			DateOnly startDate = SyncWindow.StartDate(lastSyncState.LastSyncedDate, yesterdayDate);
 
 			var allDtos = new List<PorkTransTypeDto>();
 			DateOnly lastSuccessfulDate = lastSyncState.LastSyncedDate;

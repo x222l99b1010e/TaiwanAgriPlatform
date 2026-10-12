@@ -3,8 +3,8 @@
     <div class="login-card">
       <!-- Logo 區 -->
       <div class="card-header">
-        <span class="mdi mdi-sprout logo-icon" />
-        <h1 class="card-title">台灣農業平台</h1>
+        <img class="logo-icon brand-mark" src="/favicon.svg" alt="" width="48" height="48">
+        <h1 class="card-title brand-name">田野‧農時</h1>
         <p class="card-subtitle">請登入以繼續</p>
       </div>
 
@@ -73,7 +73,7 @@
               class="form-control field-input"
               type="text"
               v-model="displayName"
-              placeholder="例如：信義區自耕農阿志頭"
+              placeholder="例如：大安區自耕農阿志頭"
               :disabled="isLoading"
             />
           </div>
@@ -231,11 +231,10 @@ async function handleSubmit() {
   margin-bottom: var(--space-8);
 }
 
+/* 網站標誌，跟分頁圖示是同一張（favicon.svg）。48px＝原稿 16 格的 3 倍，每條邊仍落在整數像素 */
 .logo-icon {
-  font-size: var(--text-3xl);
-  color: var(--color-brand);
   display: block;
-  margin-bottom: var(--space-3);
+  margin: 0 auto var(--space-3);
 }
 
 .card-title {
@@ -292,9 +291,12 @@ async function handleSubmit() {
 
 /* 提交按鈕：外觀走共用的 Btn，這裡只補登入卡片特有的滿寬與高度——
    登入頁只有一個動作，按鈕撐滿卡片寬度是這個版面的刻意設計，不是通用樣式。
-   高度也比一般動作按鈕高一階：它是整張卡片唯一的送出動作。 */
+   高度也比一般動作按鈕高一階：它是整張卡片唯一的送出動作。
+   圓鈕跟著按鈕加高放大；寬度扣掉圓鈕凸出的那一截，右緣才不會超出卡片。 */
 .login-submit {
-  width: 100%;
+  --btn-knob: 56px;
+  --btn-knob-overhang: 7px;
+  width: calc(100% - var(--btn-knob-overhang));
   min-height: 48px;
   margin-top: var(--space-2);
   font-size: var(--text-base);

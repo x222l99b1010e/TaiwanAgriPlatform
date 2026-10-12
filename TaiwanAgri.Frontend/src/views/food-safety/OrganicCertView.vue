@@ -13,7 +13,7 @@
         </span>
         <Btn
           v-if="hasAnyFilter"
-          variant="secondary"
+          variant="accent"
           icon="mdi-filter-remove-outline"
           @click="clearFilters"
         >清除條件</Btn>

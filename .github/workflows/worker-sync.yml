@@ -1,0 +1,76 @@
+# 每天叫 Worker 起來同步一輪，跑完就結束。
+#
+# 為什麼排程在這裡而不是讓 Worker 常駐：部署形態撐不起常駐服務。
+# Azure SQL 免費方案每月 100,000 vCore 秒，實測約夠醒著 40–54 小時；
+# 常駐會讓資料庫一直醒著，照規格下限（0.5 vCore）算一個月就要 0.5 × 86,400 秒 × 30 天 ＝ 1,296,000 vCore 秒，約是額度的 13 倍。
+# App Service F1 也沒有 Always On，常駐的 WebJob 會被回收。
+# 所以「什麼時候跑」改由這支 workflow 決定，Worker 只負責「跑一輪」。
+#
+# ⚠ 這支 workflow 需要兩個先決條件，缺一不可（設定步驟見 README「重新部署」一節）：
+#   1. secrets.WORKER_DB_CONNECTION——雲端資料庫的連線字串
+#   2. Azure SQL 的防火牆要放行 GitHub Actions 的執行器
+#      （runner 的 IP 不固定，做法與已知限制寫在 README）
+name: Worker Sync
+
+on:
+  schedule:
+    # UTC 20:00 ＝ 台灣時間隔天 04:00。挑清晨是因為這個時段就算資料庫被叫醒一小時，也不會跟白天的展示搶額度。
+    # 農業部的資料這時不一定齊（週末行情、家禽常晚一兩天），晚到的那幾天靠 Worker 每輪往回重掃 7 天接住
+    - cron: '0 20 * * *'
+  # 手動觸發：部署後的驗收、展示前的補資料，都用這個
+  workflow_dispatch:
+
+# 同一時間只跑一個。前一趟還沒跑完就疊上去的話，兩個程序會同時寫同一批表，
+# 而且資料庫的 vCore 秒會雙倍消耗
+concurrency:
+  group: worker-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Run one sync round
+    runs-on: ubuntu-latest
+    # 協調器自己的上限是 30 分鐘；這裡留 40 分鐘讓它有機會把逾時記進 log 再退出，
+    # 被 GitHub 直接砍掉的話什麼訊息都不會留下
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build worker
+        run: dotnet build TaiwanAgri.Worker/TaiwanAgri.Worker.csproj --configuration Release
+
+      - name: Run one sync round
+        env:
+          # 雙底線是 .NET 設定的巢狀分隔符：ConnectionStrings__DefaultConnection
+          # 對應設定檔裡的 ConnectionStrings:DefaultConnection
+          ConnectionStrings__DefaultConnection: ${{ secrets.WORKER_DB_CONNECTION }}
+          Worker__RunOnce: 'true'
+          Worker__RunOnceTimeoutMinutes: '30'
+          # 雲端不部署 RabbitMQ。空字串就是「這裡沒有 broker」的訊號，Worker 讀到之後跳過發布事件。
+          # 同步的資料一筆都不會少（發布排在同步成功之後，只用來讓 Web 端的快取提早失效，
+          # 而快取另有 25 小時 TTL 兜底）。
+          # ⚠ 不要改成不設這個變數：沒設等於本機漏設，行為要由 Worker 端判斷，而它對兩者一視同仁。
+          RabbitMQ__HostName: ''
+          DOTNET_ENVIRONMENT: Production
+        # --no-launch-profile：dotnet run 預設會套用 Properties/launchSettings.json，
+        # 它把 DOTNET_ENVIRONMENT 設成 Development，而且會蓋掉上面這一行
+        run: dotnet run --project TaiwanAgri.Worker/TaiwanAgri.Worker.csproj --configuration Release --no-build --no-launch-profile
+
+      - name: Upload worker log
+        # 失敗時特別需要 log，成功時留著也方便對照同步了幾筆
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-log
+          # Worker 的記錄檔路徑 logs/ 是相對於工作目錄；Worker SDK 讓 dotnet run 以專案資料夾為工作目錄
+          # （不是下指令的 repo 根目錄），所以記錄檔在 TaiwanAgri.Worker/logs/
+          path: TaiwanAgri.Worker/logs/
+          if-no-files-found: warn
+          retention-days: 7

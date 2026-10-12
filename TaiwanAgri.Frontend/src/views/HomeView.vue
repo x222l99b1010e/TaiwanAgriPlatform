@@ -40,8 +40,8 @@
 
       <template #cta>
         <RouterLink to="/market/prices" class="hero-cta">
-          開始查詢
-          <span class="mdi mdi-arrow-right" />
+          <span class="hero-cta__fill">開始查詢</span>
+          <span class="hero-cta__knob" aria-hidden="true"><span class="mdi mdi-arrow-right" /></span>
         </RouterLink>
       </template>
 
@@ -68,12 +68,17 @@
         <div class="stat-grid">
           <div class="stat-tile" v-for="s in statTiles" :key="s.key">
             <span class="stat-tile__label">{{ s.label }}</span>
+            <!-- 只有 ready 才畫數字；載入中、沒有資料、抓不到一律是「—」，說明交給下面那一行 -->
             <span class="stat-tile__value">
-              <template v-if="s.loading">—</template>
-              <template v-else>{{ s.display }}<span class="stat-tile__unit">{{ s.unit }}</span></template>
+              <template v-if="s.state === 'ready'">{{ s.value }}<span class="stat-tile__unit">{{ s.unit }}</span></template>
+              <template v-else>—</template>
             </span>
-            <span class="stat-tile__hint">{{ s.hint }}</span>
+            <span class="stat-tile__hint" :class="{ 'stat-tile__hint--error': s.state === 'error' }">{{ tileHint(s) }}</span>
           </div>
+        </div>
+        <!-- 模組清單也失敗時，下面那顆「重試」會連數字一起重抓，這裡就不再多放一顆 -->
+        <div v-if="hasFailedStat && !navStore.loadFailed" class="stats-retry">
+          <Btn variant="secondary" size="sm" icon="mdi-refresh" @click="reloadFailedStats">重新抓取數字</Btn>
         </div>
       </section>
 
@@ -83,7 +88,18 @@
       <section class="entry-screen">
         <p class="screen-eyebrow">EXPLORE</p>
         <h2 class="screen-title">四個模組，一次看懂一塊田</h2>
-        <div class="module-showcase">
+        <!-- 清單載不回來時這一區會是一整片空白，看起來像頁面壞掉一半。
+             首頁是冷啟動之後的第一個畫面，所以這裡比任何一頁都需要說話。 -->
+        <StateBlock
+          v-if="navStore.loadFailed"
+          state="error"
+          message="連不上伺服器，模組清單載不回來"
+          hint="伺服器可能正在啟動中，稍候片刻再重試。"
+          retryable
+          @retry="retryAll"
+        />
+
+        <div v-else class="module-showcase">
           <ShowcaseRow
             v-for="(m, i) in moduleCards"
             :key="m.route"
@@ -115,7 +131,10 @@ import { marketApi } from '@/api/market'
 import { weatherApi } from '@/api/weather'
 import { petApi } from '@/api/pet'
 import { useNavStore } from '@/stores/nav'
-import { useCountUp } from '@/composables/useCountUp'
+import { useStatTile } from '@/composables/useStatTile'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import Btn from '@/components/ui/Btn.vue'
 import { getTodaySolarTerm } from '@/utils/solarTerms'
 import { MODULE_NAME_EN, MODULE_LEAD, MODULE_EFFECT } from '@/constants/navCopy'
 
@@ -139,71 +158,74 @@ const moduleCards = computed(() =>
 )
 
 // ── 三個今日數字 ─────────────────────────────────────────────────────────
-interface StatTile {
-  key: string
-  label: string
-  unit: string
-  hint: string
-  loading: boolean
-  // reactive() 會把巢狀的 Ref 攤平成裸值，所以這裡的型別是 number 不是 Ref<number>——
-  // useCountUp() 回傳 Ref 是給元件外部用 .value 存取，包進 reactive() 之後模板直接讀
-  // s.display 就是最新值，不用再多一層 .value
-  display: number
-  start: ReturnType<typeof useCountUp>['start']
+// 每一格各自有狀態（見 useStatTile）：抓不到與沒有資料都顯示「—」加一句說明，不畫成 0。
+// 三格各自取值、互不等待——一格失敗不影響另外兩格。
+// reactive() 會把 useStatTile 回傳的 Ref 攤平，模板直接讀 s.state／s.value，不用再多一層 .value
+function makeTile(
+  key: string,
+  label: string,
+  unit: string,
+  hint: string,
+  fetchValue: () => Promise<number | null>,
+  options: { emptyHint?: string; decimals?: number } = {},
+) {
+  return reactive({
+    key,
+    label,
+    unit,
+    hint,
+    emptyHint: options.emptyHint ?? '目前沒有資料',
+    ...useStatTile(fetchValue, { decimals: options.decimals }),
+  })
 }
 
-function makeTile(key: string, label: string, unit: string, hint: string): StatTile {
-  const { value, start } = useCountUp()
-  return reactive({ key, label, unit, hint, loading: true, display: value, start })
-}
-
-const statTiles: StatTile[] = [
-  makeTile('egg', '今日雞蛋產地均價', '元', '公斤裝、農業部產地行情'),
-  makeTile('pest', '生效中病蟲害警報', '則', '全台縣市加總，不分等級'),
-  makeTile('pet', '全台在養動物', '隻', '收容所目前在養總數'),
-]
-
-async function loadStats() {
-  const [egg, pest, pet] = statTiles
-
+const statTiles = [
   // 雞蛋產地均價：抓最近 7 天，取最新一筆「正常報價」——蛋價不是每天都報，
-  // 抓區間再挑最新，比只查「今天」穩，跟 PoultryView 的容錯邏輯同一個道理
-  try {
-    const today = new Date().toISOString().split('T')[0]!
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-    const rows = await marketApi.getPoultry({ startDate: weekAgo, endDate: today })
-    const latest = rows
-      .filter(r => r.metricCode === 'Egg_Producer' && r.priceStatus === 'Normal' && r.price != null)
-      .sort((a, b) => b.transDate.localeCompare(a.transDate))[0]
-    egg!.loading = false
-    egg!.start(latest?.price ?? 0)
-  } catch {
-    egg!.loading = false
-  }
-
-  // 生效中的病蟲害警報則數：只要總筆數，pageSize=1 就夠，不用把資料本身撈回來
-  try {
-    const result = await weatherApi.getPestAlerts(undefined, 1, 1)
-    pest!.loading = false
-    pest!.start(result.totalCount)
-  } catch {
-    pest!.loading = false
-  }
-
+  // 抓區間再挑最新，比只查「今天」穩，跟 PoultryView 的容錯邏輯同一個道理。
+  // 7 天內一筆正常報價都沒有時回 null（沒有資料），不是 0 元
+  makeTile(
+    'egg', '今日雞蛋產地均價', '元', '公斤裝、農業部產地行情',
+    async () => {
+      const rows = await marketApi.getPoultry({ startDate: taiwanDateDaysAgo(7), endDate: taiwanDateString() })
+      const latest = rows
+        .filter(r => r.metricCode === 'Egg_Producer' && r.priceStatus === 'Normal' && r.price != null)
+        .sort((a, b) => b.transDate.localeCompare(a.transDate))[0]
+      return latest?.price ?? null
+    },
+    { emptyHint: '近 7 天沒有產地報價', decimals: 1 },
+  ),
+  // 生效中的病蟲害警報則數：只要總筆數，pageSize=1 就夠，不用把資料本身撈回來。0 則是真的 0
+  makeTile('pest', '生效中病蟲害警報', '則', '全台縣市加總，不分等級', async () =>
+    (await weatherApi.getPestAlerts(undefined, 1, 1)).totalCount,
+  ),
   // 全台在養動物總數：沿用收容動物地圖同一支聚合端點，summary 每列是一間收容所，
   // totalCount 加總即為全台在養總數
-  try {
-    const summaries = await petApi.getShelterAnimalSummary({})
-    pet!.loading = false
-    pet!.start(summaries.reduce((sum, s) => sum + s.totalCount, 0))
-  } catch {
-    pet!.loading = false
-  }
+  makeTile('pet', '全台在養動物', '隻', '收容所目前在養總數', async () =>
+    (await petApi.getShelterAnimalSummary({})).reduce((sum, s) => sum + s.totalCount, 0),
+  ),
+]
+
+function tileHint(tile: (typeof statTiles)[number]) {
+  if (tile.state === 'error') return '暫時抓不到資料'
+  if (tile.state === 'empty') return tile.emptyHint
+  return tile.hint
+}
+
+const hasFailedStat = computed(() => statTiles.some(t => t.state === 'error'))
+
+function reloadFailedStats() {
+  statTiles.filter(t => t.state === 'error').forEach(t => void t.load())
+}
+
+// 模組清單載不回來時，數字多半也一起失敗（同一台後端）——一顆重試兩邊都重抓
+function retryAll() {
+  navStore.loadModules()
+  reloadFailedStats()
 }
 
 onMounted(() => {
   navStore.loadModules()
-  loadStats()
+  statTiles.forEach(t => void t.load())
 })
 </script>
 
@@ -220,41 +242,63 @@ onMounted(() => {
 }
 
 /* ── hero：CTA 與節氣牌 ─────────────────────────────────────────────── */
-/* 形狀與高度跟 Btn 同一組 token：這顆是首頁的主要動作，跟內頁的「查詢」是同一種東西，
-   只是坐在深色底上。全站的分工是「方角＝動作按鈕、藥丸＝切換條件的 chip」，
-   所以它不是藥丸——原本的 --radius-full 是 P3 之前留下來的。
-   hover 不給陰影：陰影只留給真的浮在頁面上方的浮動層。 */
-/* 首頁主 CTA：綠底＋白字（橘色跟整屏綠調不搭、很突兀，維持綠色）。
-   用的是全站按鈕的同一個動作綠（--color-action），跟其他頁的按鈕一致；白字讓它在深色 hero
-   上一眼讀得到（白字對這個綠對比約 5.6，比原本的深字清楚很多——原本深字壓在綠上、綠又壓在
-   深底上，整顆才會糊掉）。再加一圈綠色光暈把按鈕從深背景浮起來，避免被吃掉。 */
+/* 首頁的主要動作，跟內頁的「查詢」是同一種東西，外形照 Btn 的主要變體手寫
+   （藥丸＋外框＋間隙＋左深右淺的漸層＋右端凸出的圓鈕；Btn 只對淺底調，見 Btn.vue 檔頭）。
+   深色底上照樣是「墨色外框 → 實心淡綠間隙 → 漸層」，跟淺底一模一樣：間隙若透出底色，
+   外框與綠色填色中間會多一圈黑，跟夜土混在一起，按鈕看起來像散開的兩道線。
+   墨色外框在深底上看不見，邊緣由淡綠間隙負責；所以不需要光暈——按鈕一律不用陰影。
+   比內頁的按鈕高一階（--control-h ＋ --space-2），圓鈕跟著放大：它是整屏唯一的主要動作。 */
 .hero-cta {
+  --cta-knob: 56px;
+  --cta-overhang: 7px;
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   min-height: calc(var(--control-h) + var(--space-2));
-  padding: 0 var(--space-8);
-  border-radius: var(--radius-md);
-  background: var(--color-action);
+  padding: var(--space-1);
+  margin-inline-end: var(--cta-overhang);
+  border: var(--control-line-w) solid var(--color-text);
+  border-radius: var(--radius-full);
+  background: var(--color-control-gap);
   color: var(--color-on-action);
   font-weight: var(--weight-bold);
   font-size: var(--text-base);
   letter-spacing: 0.02em;
+  line-height: 1;
   text-decoration: none;
-  box-shadow: 0 10px 30px rgb(47 143 107 / 0.4);
-  transition:
-    background var(--duration-fast) var(--ease-work),
-    box-shadow var(--duration-fast) var(--ease-work),
-    transform var(--duration-fast) var(--ease-work);
+  transition: transform var(--duration-fast) var(--ease-work);
 }
-.hero-cta:hover {
-  background: var(--color-brand);
-  box-shadow: 0 12px 38px rgb(47 143 107 / 0.55);
-  transform: translateY(-2px);
+.hero-cta__fill {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--space-8) calc(var(--cta-knob) - var(--cta-overhang) + var(--space-2));
+  border-radius: inherit;
+  background-image: var(--gradient-action);
+  background-size: var(--gradient-action-size);
 }
-.hero-cta:active { transform: translateY(0); }
+.hero-cta__knob {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: calc(var(--cta-overhang) * -1);
+  width: var(--cta-knob);
+  height: var(--cta-knob);
+  margin-block-start: calc(var(--cta-knob) / -2);
+  display: grid;
+  place-items: center;
+  border: var(--control-line-w) solid var(--color-text);
+  border-radius: 50%;
+  background: var(--color-control-gap);
+  color: var(--color-action);
+  font-size: var(--text-2xl);
+  transition: color var(--duration-fast) var(--ease-work);
+}
+/* 滑過的反光與 Btn 同一個規格：淺色那一頭從右往左滑過去一次 */
+.hero-cta:hover .hero-cta__fill {
+  background-image: var(--gradient-action-hover);
+  animation: action-sheen var(--duration-sheen) var(--ease-in-out) 1;
+}
+.hero-cta:hover .hero-cta__knob { color: var(--color-action-hover); }
+.hero-cta:active { transform: translateY(1px); }
 .hero-cta:focus-visible { outline: 2px solid var(--color-on-deep); outline-offset: 3px; }
-.hero-cta .mdi { font-size: var(--text-lg); }
 
 /* 節氣牌：往左移一點、不貼右緣；並跟深色 hero 拉開層次——
    ①頂部一層極淡的暖白光film＋②一道 1px 頂緣高光，讓卡片像被上方光線照到、浮起來；
@@ -331,6 +375,9 @@ onMounted(() => {
 }
 .stat-tile__unit { margin-left: var(--space-2); font-size: var(--text-lg); color: var(--color-text-dim); }
 .stat-tile__hint { display: block; margin-top: var(--space-3); font-size: var(--text-xs); color: var(--color-text-dim); }
+/* 抓不到資料時說明改用危險色：數字位置已經是「—」，說明要讓人一眼看出這格是壞的，不是沒事 */
+.stat-tile__hint--error { color: var(--danger-500); }
+.stats-retry { margin-top: var(--space-4); display: flex; justify-content: center; }
 
 /* ── 屏 3：只剩列與列之間的間距，列本身的排版在 ShowcaseRow ────────────── */
 .module-showcase { display: flex; flex-direction: column; gap: var(--space-8); }

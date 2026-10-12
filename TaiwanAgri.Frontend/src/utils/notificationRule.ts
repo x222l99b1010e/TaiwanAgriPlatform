@@ -234,7 +234,7 @@ export function describeEvaluationOutcome(
     return {
       tone: 'info',
       message:
-        '上次檢查之後還沒有新的氣象觀測落地（氣象站每小時更新一批），' +
+        '上次檢查之後還沒有新的氣象觀測落地，' +
         `數值門檻規則這一輪沒有資料可以比對。改條件不會回頭重算已經看過的觀測。${tail}`,
     }
   }
@@ -259,7 +259,7 @@ export function ruleTimingHint(ruleType: NotificationRuleType, isEditing: boolea
   if (ruleType === 'Numeric') {
     return isEditing
       ? '改條件只對之後才落地的觀測生效——已經檢查過的觀測不會用新條件重算，' +
-          '所以改完按「立即檢查」多半是 0 則，要等下一批觀測進來（每小時一批）。' +
+          '所以改完按「立即檢查」多半是 0 則，要等下一批觀測同步進來。' +
           '想立刻用新條件掃一次最近的觀測，請改為新增一條規則。'
       : '建立後從最近一批氣象觀測開始比對，可以馬上按「立即檢查」看結果；' +
           '之後只看新落地的觀測，不會回頭掃歷史。'

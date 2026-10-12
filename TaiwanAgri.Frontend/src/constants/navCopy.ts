@@ -83,7 +83,7 @@ export const CHILD_LEAD: Record<string, string> = {
   '/market/pork': '毛豬拍賣的成交均價、交易頭數與平均重量',
   '/market/poultry': '雞、鴨、鵝與雞蛋的產地價與批發價',
 
-  '/weather/station': '各地農業氣象站的即時溫度、濕度、風速與 24 小時累積雨量',
+  '/weather/station': '各地農業氣象站最新一筆的溫度、濕度、風速與 24 小時累積雨量',
   '/weather/rainfall': '指定縣市與區間內，各測站的 24 小時累積雨量走勢',
   '/weather/pest-alerts': '農業部發布的病蟲害警報，以縣市燈號地圖呈現',
   '/weather/pest-decade': '依害蟲名稱查詢各縣市鄉鎮的旬別通報紀錄',
