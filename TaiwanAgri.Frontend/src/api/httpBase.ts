@@ -6,6 +6,14 @@
 // 改一邊就會壞掉且不會有任何錯誤訊息。
 
 import axios, { type AxiosInstance } from 'axios'
+import { serverWake } from './serverWake'
+
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    /** serverWake 的追蹤：請求送出時登記，回應或失敗時呼叫這個函式結束 */
+    endWakeTracking?: () => void
+  }
+}
 
 /** JWT 在 localStorage 的 key。authClient 與 authStore 一律引用這個常數，不要各寫字面值 */
 export const TOKEN_STORAGE_KEY = 'token'
@@ -16,8 +24,12 @@ export const USER_STORAGE_KEY = 'user'
  * 單一請求的等待上限。沒有這個上限時，後端卡住（不是回錯，是不回應）
  * 會讓畫面永遠停在載入中——使用者看到的是「當掉」，而不是「失敗」，
  * 連重試都不知道要重試。
+ *
+ * 取 120 秒而不是常見的 10–30 秒：雲端後端閒置時會被平台收起來、資料庫也會自動暫停，
+ * 第一個訪客的請求要等冷啟動加上資料庫恢復（實測 85–97 秒），這段期間平台會把請求留著等它就緒。
+ * 上限比這段時間短，第一個訪客就一定先看到「連不上」。
  */
-const REQUEST_TIMEOUT_MS = 15_000
+const REQUEST_TIMEOUT_MS = 120_000
 
 /** 收到 401 時要做的事，由 app 啟動時註冊（放在這裡會與 router／store 互相 import） */
 let onUnauthorized: (() => void) | null = null
@@ -32,6 +44,22 @@ export function createHttpClient(options: { withAuth: boolean }): AxiosInstance 
     headers: { 'Content-Type': 'application/json' },
     timeout: REQUEST_TIMEOUT_MS,
   })
+
+  // 每個請求都登記給 serverWake：等超過幾秒時，畫面會說明現在卡在伺服器還是資料庫
+  client.interceptors.request.use(config => {
+    config.endWakeTracking = serverWake.requestStarted()
+    return config
+  })
+  client.interceptors.response.use(
+    response => {
+      response.config.endWakeTracking?.()
+      return response
+    },
+    (error: unknown) => {
+      if (axios.isAxiosError(error)) error.config?.endWakeTracking?.()
+      return Promise.reject(error)
+    },
+  )
 
   if (options.withAuth) {
     client.interceptors.request.use(config => {

@@ -14,11 +14,11 @@
     <div class="site-footer__inner">
       <div class="site-footer__brand">
         <div class="site-footer__logo">
-          <span class="mdi mdi-sprout" />
-          <span class="site-footer__logo-zh">台灣農業平台</span>
+          <img class="brand-mark" src="/favicon.svg" alt="" width="32" height="32">
+          <span class="site-footer__logo-zh brand-name">田野‧農時</span>
         </div>
-        <p class="site-footer__logo-en">TAIWAN AGRI PLATFORM · SINCE 2026</p>
-        <p class="site-footer__tagline">把政府開放資料，變成農民看得懂的今日數字。</p>
+        <p class="site-footer__logo-en">FIELD &amp; SEASON · TAIWAN AGRI OPEN DATA · SINCE 2026</p>
+        <p class="site-footer__tagline wrap-phrase">把政府開放資料，變成農民看得懂的今日數字。</p>
       </div>
 
       <nav class="site-footer__col">
@@ -42,7 +42,7 @@
     </div>
 
     <div class="site-footer__bar">
-      <span>© 2026 台灣農業平台　版權所有 · All rights reserved.</span>
+      <span>© 2026 田野‧農時　版權所有 · All rights reserved.</span>
       <span class="site-footer__bar-note">本站為個人專案作品，非官方網站。</span>
     </div>
   </footer>
@@ -78,7 +78,6 @@ const modules = computed(() => navStore.modules)
   border-bottom: var(--border-width) solid var(--color-deep-border);
 }
 .site-footer__logo { display: flex; align-items: center; gap: var(--space-2); }
-.site-footer__logo .mdi { font-size: var(--text-2xl); color: var(--color-action-on-deep); }
 .site-footer__logo-zh { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--color-on-deep); }
 .site-footer__logo-en {
   margin-top: var(--space-3);
@@ -87,9 +86,10 @@ const modules = computed(() => navStore.modules)
   letter-spacing: var(--tracking-label);
   color: var(--color-on-deep-dim);
 }
+/* 寬度上限 24em：標語 21 字排得下一排；欄位更窄時由 .wrap-phrase 在逗號處換行 */
 .site-footer__tagline {
   margin-top: var(--space-4);
-  max-width: 34ch;
+  max-width: 24em;
   font-size: var(--text-sm);
   line-height: var(--leading-loose);
 }

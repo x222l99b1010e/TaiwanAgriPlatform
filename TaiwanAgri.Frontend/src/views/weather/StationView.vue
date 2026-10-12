@@ -4,7 +4,7 @@
     <QueryLayout
       title="農場氣象"
       title-en="FIELD WEATHER"
-      subtitle="各地農業氣象站的即時溫度、濕度、風速與 24 小時累積雨量"
+      subtitle="各地農業氣象站最新一筆的溫度、濕度、風速與 24 小時累積雨量"
     >
       <template #actions>
         <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">

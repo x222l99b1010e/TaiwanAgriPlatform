@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Identity;
 using TaiwanAgri.Core.Infrastructure;
 using TaiwanAgri.Core.Infrastructure.Data;
 using TaiwanAgri.Modules.Pet.Data;
@@ -34,6 +35,19 @@ namespace TaiwanAgri.Web
 			if (Extensions.InfrastructureExtensions.IsCorsOriginsMissing(app.Configuration))
 			{
 				app.Logger.LogWarning(Extensions.InfrastructureExtensions.CorsOriginsMissingWarning);
+			}
+
+			// Redis 與 RabbitMQ 都是可選相依：沒設定時走降級路徑，但一定要留下痕跡。
+			// 靜默降級的問題不是「行為錯了」而是「行為對了卻查不出來」——
+			// 多執行個體部署時快取不共用、事件驅動失效沒在跑，兩者都只能靠這兩則警告回溯
+			if (!Extensions.InfrastructureExtensions.IsRedisConfigured(app.Configuration))
+			{
+				app.Logger.LogWarning(Extensions.InfrastructureExtensions.RedisNotConfiguredWarning);
+			}
+
+			if (!Extensions.InfrastructureExtensions.IsMessageBrokerConfigured(app.Configuration))
+			{
+				app.Logger.LogWarning(Extensions.InfrastructureExtensions.MessageBrokerNotConfiguredWarning);
 			}
 
 			// Seed 初始資料（角色、核心資料）
@@ -80,6 +94,18 @@ namespace TaiwanAgri.Web
 			// 日後若要改成「登入者額度較高」，分割鍵拿得到使用者
 			app.UseRateLimiter();
 			app.MapControllers();
+
+			// /health＝活著嗎（不跑任何檢查，也就不碰資料庫）：
+			//   給平台的存活探測與任何定時 ping 用。碰資料庫的話，Azure SQL serverless
+			//   會被 ping 一直叫醒，把每月的 vCore 秒額度燒光。
+			// /health/ready＝可以服務了嗎（跑 database 檢查）：
+			//   部署後的驗收入口，也是展示前的暖機入口——打一次就把 App Service 的
+			//   冷啟動與資料庫的喚醒都做完，不必讓第一個真實使用者去撞
+			app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+			app.MapHealthChecks("/health/ready", new HealthCheckOptions
+			{
+				Predicate = check => check.Tags.Contains(Extensions.InfrastructureExtensions.ReadinessTag)
+			});
 
 			app.Run();
 		}

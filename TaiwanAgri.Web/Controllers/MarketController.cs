@@ -147,9 +147,10 @@ namespace TaiwanAgri.Web.Controllers
 			var (items, isTruncated) = await _marketService.GetDisastersAsync(counties, start.Value, end.Value, cancellationToken);
 
 			// 結果被上限截斷時要讓呼叫端知道：截斷的清單看起來完整、實際殘缺
-			// （同一天災的 AffectedCounties 會少縣市），沒有訊號就無從察覺
+			// （同一天災的 AffectedCounties 會少縣市），沒有訊號就無從察覺。
+			// 標頭名稱取自 CORS 設定旁的常數，跨網域的前端才讀得到
 			if (isTruncated)
-				Response.Headers["X-Result-Truncated"] = "true";
+				Response.Headers[InfrastructureExtensions.ResultTruncatedHeader] = "true";
 
 			return Ok(items);
 		}

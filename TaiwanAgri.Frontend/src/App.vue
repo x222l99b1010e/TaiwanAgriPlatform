@@ -12,6 +12,7 @@
     <!-- 企業官網式頁尾：掛在這裡而不是各頁裡面，每一頁的底部才都有同一份頁尾。
          .main-content 是 flex:1，內容不夠長時會把頁尾推到視窗底部（sticky footer）。 -->
     <SiteFooter />
+    <ServerWakeNotice />
   </div>
 </template>
 
@@ -20,10 +21,14 @@ import { onMounted } from 'vue'
 import TopNav from '@/components/TopNav.vue'
 import VegPriceTicker from '@/components/VegPriceTicker.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
+import ServerWakeNotice from '@/components/ServerWakeNotice.vue'
 import { useNavStore } from '@/stores/nav'
 
 const navStore = useNavStore()
-onMounted(() => navStore.loadModules())
+// loadModules 自己吞掉失敗並把狀態留在 navStore.loadFailed，所以這裡不必接 rejection。
+// 反過來設計（讓它往上拋）在這裡沒有意義：onMounted 的回傳值沒有人接，
+// 拋出去只會變成主控台一句 unhandled rejection，畫面上什麼都不會發生
+onMounted(() => { navStore.loadModules() })
 </script>
 
 <style>
@@ -42,6 +47,7 @@ html { width: 100%; scrollbar-gutter: stable both-edges; }
    這個屬性從未真正生效過（.main-content 自己永遠沒有機會出現捲軸）。
    問題是 CSS 規格認定「有沒有 overflow」不看「現在有沒有捲軸」，只看這個屬性值——
    所以它雖然沒在做事，卻會讓底下任何 position: sticky 的元素改認它當捲動容器，
-   而它自己又不捲動，sticky 就整個失效（QueryLayout 的吸頂工具列查出這個坑）。 */
+   而它自己又不捲動，sticky 就整個失效——全站唯一在用 sticky 的是 base.css 的表格標頭，
+   受害的就是它。 */
 .main-content { flex: 1; background: var(--color-bg); }
 </style>

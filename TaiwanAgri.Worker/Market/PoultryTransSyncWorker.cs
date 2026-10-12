@@ -87,7 +87,7 @@ namespace TaiwanAgri.Worker.Market
 		/// 全歷史 20614 天實測沒有任何一年觸發 Next=true。年度邊界同時是 checkpoint：
 		/// 一年成功寫入才推進 SyncState，中途失敗則例外往外拋、由基底類記錄，下一輪從該年重跑
 		/// （重跑無害，InsertNewByKeyAsync 會濾掉已存在的鍵）。
-		/// 回填追平後，startDate 會逼近昨天，年度區間自然收斂成一兩天，
+		/// 回填追平後，startDate 固定落在「昨天往回 7 天」（SyncWindow），年度區間自然收斂成這一小段，
 		/// 不需要為「回填」與「日常增量」寫兩套分支。
 		/// </summary>
 		/// <param name="sourceName">來源識別，用於組 SyncKey 與日誌</param>
@@ -120,16 +120,10 @@ namespace TaiwanAgri.Worker.Market
 				await dbCore.SaveChangesAsync(stoppingToken);
 			}
 
-			var startDate = syncState.LastSyncedDate.AddDays(1);
 			// 只追到「昨天」：當天行情可能尚未公告完整，明天再跑時它已經是昨天
 			var yesterday = TaiwanTime.Today(_timeProvider).AddDays(-1);
-
-			if (startDate > yesterday)
-			{
-				_logger.LogInformation("{LogPrefix} {Source} 已同步至 {Last}，無新資料",
-					LogPrefix, sourceName, syncState.LastSyncedDate);
-				return;
-			}
+			// 往回重掃最近幾天：家禽常晚一兩天才公布，清晨跑時昨天常常還抓不到（見 SyncWindow）
+			var startDate = SyncWindow.StartDate(syncState.LastSyncedDate, yesterday);
 
 			for (var chunkStart = startDate; chunkStart <= yesterday;)
 			{
@@ -185,7 +179,7 @@ namespace TaiwanAgri.Worker.Market
 				}
 
 				// 走到這裡代表這一整塊都成功了，才推進游標
-				syncState.LastSyncedDate = chunkEnd;
+				syncState.LastSyncedDate = SyncWindow.Advance(syncState.LastSyncedDate, chunkEnd);
 				syncState.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
 				await dbCore.SaveChangesAsync(stoppingToken);
 

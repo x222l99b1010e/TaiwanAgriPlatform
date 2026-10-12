@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using TaiwanAgri.Core.Extensions;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
 
@@ -9,7 +9,7 @@ namespace TaiwanAgri.Web.Extensions
 		public static IServiceCollection AddWeatherModule(this IServiceCollection services,	IConfiguration configuration)
 		{
 			services.AddDbContext<WeatherDbContext>(options =>
-				options.UseSqlServer(
+				options.UseSqlServerWithRetry(
 					configuration.GetConnectionString("DefaultConnection")));
 
 			services.AddScoped<IWeatherService, WeatherService>();

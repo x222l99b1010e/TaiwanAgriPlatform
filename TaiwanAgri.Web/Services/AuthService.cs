@@ -22,14 +22,6 @@ namespace TaiwanAgri.Web.Services
 			_userManager = userManager;
 			_signInManager = signInManager;
 			_configuration = configuration;
-
-			// Fail-Fast：啟動時就檢查，而不是等到有人登入
-			_ = configuration["Jwt:SecretKey"]
-				?? throw new InvalidOperationException("Jwt:SecretKey 未設定");
-			_ = configuration["Jwt:ExpiresInDays"]
-				?? throw new InvalidOperationException("Jwt:ExpiresInDays 未設定");
-			_ = configuration["Jwt:Audience"]
-				?? throw new InvalidOperationException("Jwt:Audience 未設定");
 		}
 
 		public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)

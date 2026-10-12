@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 
 withDefaults(defineProps<{ startDate?: string; endDate?: string }>(), {
   startDate: '', endDate: '',
@@ -36,7 +37,7 @@ const emit = defineEmits<{
   'update:endDate': [value: string]
 }>()
 
-const today = computed(() => new Date().toISOString().split('T')[0])
+const today = computed(() => taiwanDateString())
 const shortcuts = [
   { label: '近 30 天', days: 30 },
   { label: '近 90 天', days: 90 },
@@ -48,12 +49,8 @@ const activeShortcut = ref<number | null>(null)
 
 function applyShortcut(days: number) {
   activeShortcut.value = days
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0] ?? ''
-  emit('update:endDate', fmt(end))
-  emit('update:startDate', fmt(start))
+  emit('update:endDate', taiwanDateString())
+  emit('update:startDate', taiwanDateDaysAgo(days))
 }
 </script>
 
@@ -105,9 +102,9 @@ function applyShortcut(days: number) {
 
 .shortcuts { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
-/* 快捷鍵是 chip 不是動作按鈕，所以維持藥丸形。
-   全站的分工：**方角（--radius-md）＝按下去會做事的動作按鈕，
-   藥丸（--radius-full）＝切換條件的 chip**——形狀本身就在說明它是哪一種東西。 */
+/* 快捷鍵是切換條件的 chip，不是動作按鈕。兩者都是藥丸形，分工靠描邊與字重：
+   **動作按鈕（Btn）＝外環＋內側細線的雙線描邊、粗體字；chip＝一道細框、一般字重、淡色字**
+   ——chip 比按鈕輕一階，「按下去會做事」與「切換條件」才分得出來。 */
 .shortcut-btn {
   min-height: var(--control-h-sm);
   padding: 0 var(--space-4);

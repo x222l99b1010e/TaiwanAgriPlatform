@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using TaiwanAgri.Core.Extensions;
+﻿using TaiwanAgri.Core.Extensions;
 using TaiwanAgri.Modules.FoodSafety.Data;
 using TaiwanAgri.Modules.FoodSafety.Services;
 
@@ -10,7 +9,7 @@ namespace TaiwanAgri.Web.Extensions
 		public static IServiceCollection AddFoodSafetyModule(this IServiceCollection services, IConfiguration configuration)
 		{
 			services.AddDbContext<FoodSafetyDbContext>(options =>
-				options.UseSqlServer(
+				options.UseSqlServerWithRetry(
 					configuration.GetConnectionString("DefaultConnection")));
 
 			// MoaApi Named Client 設定與 Worker 共用（TaiwanAgri.Core.Extensions）

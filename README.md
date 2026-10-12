@@ -1,7 +1,7 @@
-# 🌱 台灣農業開放資料整合平台
-### Taiwan Agricultural Open Data Integration Platform
+# 田野‧農時 Field & Season
+### 台灣農業開放資料整合平台 · Taiwan Agricultural Open Data Integration Platform
 
-> 把農業部 60 支 API 的孤島資料，串成一個對農民、消費者與研究者都友善的整合平台。
+> 把農業部開放資料平台上各自孤立的資料，串成一個對農民、消費者與研究者都友善的整合平台。
 
 [![CI](https://github.com/x222l99b1010e/TaiwanAgriPlatform/actions/workflows/ci.yml/badge.svg)](https://github.com/x222l99b1010e/TaiwanAgriPlatform/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
@@ -29,7 +29,7 @@
 - 作物歷史價格圖 + 7 日移動平均線（Chart.js + computed 轉換層）
 - 天災事件垂直線疊加（inline Chart.js plugin，土石流 / 豪雨 / 颱風警戒）
 - Chip 多選篩選器（市場類型 / 作物 / 日期區間）
-- 休市日標記（排除統計陷阱）— 已完成（32,149 筆休市記錄同步完畢）
+- 休市日標記（排除統計陷阱）— 已完成（2026-04 首次同步 32,149 筆休市記錄，之後隨每日同步增量）
 - 數據 CSV 匯出（純函式 exportCsv.ts，含 UTF-8 BOM）
 - 毛豬行情查詢（多線折線圖、指標切換、市場下拉 computed 動態萃取）
 - 家禽行情查詢（W25）：白肉雞／雞蛋／紅羽土雞／黑羽土雞／肉鵝／番鴨／鴨蛋共 17 個指標分組勾選、多線折線圖、非常態報價明細表、CSV 與圖片匯出
@@ -37,7 +37,7 @@
 
 ### 🌤️ 模組 2：智慧青農戰情室（後端已完成，前台已完成）
 
-面向返鄉青農，整合即時氣象、病蟲害警報與市場行情，透過規則引擎主動推播智慧提示。
+面向返鄉青農，整合氣象觀測、病蟲害警報與市場行情；使用者可自訂通知規則，命中時由站內通知告知。
 
 - 農場氣象面板（依縣市篩選測站，卡片式顯示溫濕度、風速、24h 雨量）
 - 雨量趨勢圖（Chart.js 折線圖，支援 3h/6h/12h/24h 指標切換）
@@ -52,10 +52,10 @@
 
 - ASP.NET Core Identity + JWT（SignInManager + UserManager + JwtSecurityTokenHandler）
 - 登入 / 註冊（後端驗證訊息中文翻譯）
-- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，目前 22 筆：4 個頂層模組 + 18 個子功能）
+- NavModule 自參照樹狀 Entity（頂層 + 子功能兩層，共 22 筆：4 個頂層模組 + 18 個子功能）
 - RoleModulePermission 複合 PK Entity（RoleId × ModuleId，Guest / Admin 各一列）
 - NavController `[AllowAnonymous]`：訪客直接取得 Guest 可見模組清單，無需 JWT
-- Vue 3 TopNav：頂層 tabs + hover dropdown 子功能渲染
+- Vue 3 TopNav：頂層 tabs + hover dropdown 子功能渲染；1240px 以下收成選單鈕，子功能直接攤開列出
 
 ### 👤 使用者個人化（W16~W18 完成）
 
@@ -110,20 +110,21 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    農業部 Open Data API                     │
-│              data.moa.gov.tw（60 支 REST API）              │
+│                     MOA Open Data API                       │
+│              data.moa.gov.tw  (60 REST APIs)                │
 └──────────────────────┬──────────────────────────────────────┘
                        │ HTTP / IHttpClientFactory
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      TaiwanAgri.Worker                      │
-│    .NET Worker Service + Serilog                            │
-│    17 支 SyncWorker 繼承 ScheduledSyncWorkerBase 排程外殼   │
-│    依模組分資料夾（Weather / Market / FoodSafety / Pet）    │
-│    落地共用 DbSyncHelper（InsertNewByKey / UpsertByKey）    │
+│   .NET Worker Service + Serilog                             │
+│   17 x SyncWorker : ScheduledSyncWorkerBase                 │
+│   by module: Weather / Market / FoodSafety / Pet            │
+│   DbSyncHelper (InsertNewByKey / UpsertByKey)               │
+│   RunOnceCoordinator  <- GitHub Actions cron (1 run/day)    │
 └──────────┬────────────────────────┬─────────────────────────┘
-           │ EF Core                │ RabbitMQ
-           │ (多 DbContext)         │
+           │ EF Core                │ RabbitMQ  (optional)
+           │ (multi DbContext)      │
      ┌─────┴────────────┐           │
      │ WeatherDbContext │           │
      │ MarketDbContext  │           ▼
@@ -141,28 +142,45 @@
      ┌─────┴──────┐         │            TaiwanAgri.Web            │
      │ SQL Server │         │   ASP.NET Core Web API               │
      │   2022     │         │   ApplicationDbContext               │
-     └────────────┘         │   （繼承 IdentityDbContext）         │
+     └────────────┘         │     : IdentityDbContext              │
                             │   GlobalExceptionMiddleware          │
-                            │   MarketController         8 支端點  │
-                            │   PetController           10 支端點  │
-                            │   FoodSafetyController     4 支端點  │
-                            │   NotificationController   4 支端點  │
-                            │   WeatherController        3 支端點  │
-                            │   PestController           3 支端點  │
-                            │   WatchlistController      3 支端點  │
-                            │   AuthController           2 支端點  │
-                            │   ProfileController        2 支端點  │
-                            │   NavController            1 支端點  │
+                            │   /health   /health/ready            │
+                            │                                      │
+                            │   Controller             endpoints   │
+                            │   PetController                 10   │
+                            │   MarketController               8   │
+                            │   NotificationRuleController     6   │
+                            │   FoodSafetyController           4   │
+                            │   NotificationController         4   │
+                            │   WeatherController              3   │
+                            │   PestController                 3   │
+                            │   WatchlistController            3   │
+                            │   AuthController                 2   │
+                            │   ProfileController              2   │
+                            │   NavController                  1   │
+                            │                        total    46   │
                             └──────────┬───────────────────────────┘
                                        │ Cache-Aside
                                        ▼
                       ┌─────────────────────────────────────┐
                       │ Redis TTL 25hr  |  Vue 3 Frontend   │
-                      │ StackExchange   |  Vite + Chart.js  │
-                      │                 |  TopNav dropdown  │
+                      │ (optional)      |  Vite + Chart.js  │
+                      │ StackExchange   |  TopNav dropdown  │
                       │                 |  Pinia stores     │
                       └─────────────────────────────────────┘
 ```
+
+資料流是單向的：Worker 從農業部 API 抓資料落地，Web API 從資料庫查出來回給前端。
+`RunOnceCoordinator` 是一次性執行模式——雲端部署時由 GitHub Actions 每天觸發一次，
+17 支 Worker 各跑完一輪就讓程序自己結束。標 `optional` 的 Redis 與 RabbitMQ 是可選相依：
+沒設定就走降級路徑（行程內記憶體快取／不註冊事件消費者），服務照常完整啟動。
+`endpoints` 欄是各 Controller 的端點數，合計 46 支；`/health` 與 `/health/ready` 不在其中。
+
+> **圖裡沒有中文是刻意的。** GitHub 的等寬字型堆疊不含中日韓字，中文會落到系統的備援字型，
+> 而備援字型的字寬不會剛好是等寬字型的兩倍——只要框線內有中文，那一行的右邊框就必定對不齊，
+> 不同機器上的偏移量還不一樣。所以框線內一律只放 ASCII，中文說明放到圖外。
+> 下方「Solution 結構」的目錄樹不受影響：它的中文只出現在 `#` 註解之後，
+> 也就是每一行的最尾端，後面沒有任何需要對齊的東西。
 
 ### Solution 結構
 
@@ -174,7 +192,7 @@ TaiwanAgriPlatform/
 │
 ├── TaiwanAgri.Core/                  # 共用 Interface / DTO / Enum / Entity
 │   ├── Constants/
-│   │   └── MoaApiEndpoints.cs        # 實際串接的 27 支端點路徑集中定義（含 3 支舊制 TransService 通道）
+│   │   └── MoaApiEndpoints.cs        # 實際串接的 26 支端點路徑集中定義（含 3 支舊制 TransService 通道）
 │   ├── Entities/
 │   │   ├── ApplicationUser.cs        # 繼承 IdentityUser，供各模組引用
 │   │   ├── NavModule.cs              # 自參照樹狀 Entity（ParentId 自參照 FK）
@@ -192,7 +210,8 @@ TaiwanAgriPlatform/
 │   │   ├── EnumMappingHelper.cs      # enum fallback 轉換的統一警告記錄
 │   │   └── MoaPagedFetcher.cs        # MOA 分頁抓取共用迴圈
 │   ├── Extensions/
-│   │   └── MoaApiClientExtensions.cs # AddMoaApiClient() Named Client 共用設定
+│   │   ├── MoaApiClientExtensions.cs # AddMoaApiClient() Named Client 共用設定
+│   │   └── SqlServerRetryExtensions.cs # UseSqlServerWithRetry：資料庫暫時性錯誤自動重試（Web 7 處、Worker 5 處註冊共用）
 │   └── Infrastructure/
 │       ├── Data/
 │       │   └── CoreDbContext.cs      # SyncStates + NavModules + RoleModulePermissions
@@ -250,7 +269,7 @@ TaiwanAgriPlatform/
 │   │   └── (PesticideViolation / OrganicCertification)
 │   ├── Dtos/                         # ViolationQueryDto 等統一查詢簽名
 │   └── Services/
-│       └── (IFoodSafetyService / FoodSafetyService)
+│       └── (IFoodSafetyService / FoodSafetyService、ITraceabilityService / TraceabilityService)
 │
 ├── TaiwanAgri.Modules.Pet/           # 模組 3：寵物模組（W22-23 完成）
 │   ├── Constants/
@@ -272,6 +291,8 @@ TaiwanAgriPlatform/
 │
 ├── TaiwanAgri.Worker/                # 入口層：17 支排程 Worker + DI 組裝（依模組分資料夾）
 │   ├── ScheduledSyncWorkerBase.cs    # 排程外殼基底（SyncAsync/Interval/LogPrefix + 0–30s 啟動 jitter）
+│   ├── RunOnceCoordinator.cs         # 一次性執行模式：17 支各跑完一輪就結束程序（GitHub Actions 每日排程用）
+│   ├── WorkerDbContextExtensions.cs  # 五個 DbContext 的註冊（帶暫時性錯誤重試，測試可直接檢查註冊結果）
 │   ├── Weather/ Market/ FoodSafety/  # 既有 14 支 Worker（Market 含 W25 的 PoultryTransSyncWorker，
 │   │                                 #   單一 Worker 服務四條獨立資料流、四組 SyncState）
 │   └── Pet/                          # AnimalRecognition / PetLoseList / LegalSpecificPet 三支
@@ -309,6 +330,7 @@ TaiwanAgriPlatform/
 │   │   ├── api/
 │   │   │   ├── auth.ts               # /api/auth/login、/api/auth/register
 │   │   │   ├── httpBase.ts           # 兩支 client 的共用底座（timeout、401 統一處理、儲存鍵常數）
+│   │   │   ├── serverWake.ts         # 請求等太久時判斷卡在伺服器還是資料庫（另打 /health、/health/ready），給畫面說明用
 │   │   │   ├── authClient.ts         # axios instance（有 token 才注入 Bearer header）
 │   │   │   ├── apiClient.ts          # axios instance（不帶 JWT，公開端點用）
 │   │   │   ├── pagination.ts         # 後端分頁契約共用型別（對應 Core 的 PagedResult<T>）
@@ -334,9 +356,10 @@ TaiwanAgriPlatform/
 │   │   ├── composables/
 │   │   │   ├── useLatestRequest.ts   # 請求序號防競態（vitest 覆蓋）
 │   │   │   ├── usePagination.ts      # 分頁邏輯共用（分頁視窗固定顯示 6 個頁碼，19 個 vitest 測試覆蓋；paginationWindow 純函式已抽出供巢狀多表重用）
-│   │   │   └── useCountUp.ts         # 數字滾動動畫（首頁今日三數字）
+│   │   │   ├── useCountUp.ts         # 數字滾動動畫（首頁今日三數字；可指定小數位，停下來的是原值）
+│   │   │   └── useStatTile.ts        # 首頁今日數字單格的四種狀態：載入中／有值／沒有資料／抓不到（vitest 覆蓋）
 │   │   ├── components/
-│   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺
+│   │   │   ├── TopNav.vue            # 頂層模組 tabs + hover dropdown + 通知鈴鐺；1240px 以下收成選單鈕
 │   │   │   ├── NotificationBell.vue  # 鈴鐺 + 未讀紅點 + Dropdown 無限捲動
 │   │   │   ├── NotificationRuleForm.vue # 通知規則新增／編輯表單（型態切換換掉一半欄位）
 │   │   │   ├── CitySelector.vue      # 縣市下拉（補 includeAll，寵物模組共用）
@@ -349,6 +372,7 @@ TaiwanAgriPlatform/
 │   │   │   ├── LostPetPostPhoto.vue  # 遺失啟事照片渲染（外部圖床連結，載入失敗時降級）
 │   │   │   ├── VegPriceTicker.vue    # 全站菜價輪播（今日菜價快覽用）
 │   │   │   ├── SiteFooter.vue        # 全站頁尾（P3 抽共用，掛在 App.vue 走 sticky footer）
+│   │   │   ├── ServerWakeNotice.vue  # 等超過 8 秒時畫面下方的「伺服器喚醒中／正在喚醒資料庫／仍在查詢中」（掛在 App.vue）
 │   │   │   ├── MonthCalendar.vue     # 休市日月曆（P3，取代原按月分組清單）
 │   │   │   ├── SeasonMotif.vue       # 節氣母題（首頁節氣牌，只進內容層不進 token）
 │   │   │   ├── ShowcaseRow.vue       # 左右交錯的特寫列（首頁模組列與模組入口頁子頁列共用，兩階尺寸；hover 特效依模組不同）
@@ -356,14 +380,14 @@ TaiwanAgriPlatform/
 │   │   │   │   ├── PageHeader.vue    # 頁首區塊（標題／英文副標／說明）
 │   │   │   │   ├── FilterCard.vue    # 查詢條件卡
 │   │   │   │   ├── StateBlock.vue    # 載入／空結果／錯誤三種狀態的統一呈現
-│   │   │   │   ├── Btn.vue           # 語意性動作按鈕（查詢／重試／送出／匯出）
+│   │   │   │   ├── Btn.vue           # 語意性動作按鈕（查詢／重試／送出／匯出／清除篩選）：藥丸＋雙線描邊，主要按鈕右端有凸出的圓鈕
 │   │   │   │   ├── HintBox.vue       # 提示框（info／success／warning 三階語意色）
 │   │   │   │   └── Bilingual.vue     # 中英並排排版（四個模組英文定譯全站唯一）
 │   │   │   └── layouts/              # 四個頁面樣板（P2.5 抽出，P3 套到 28 頁）
 │   │   │       ├── QueryLayout.vue   # 查詢頁樣板（篩選卡 + 結果區 + 分頁）
 │   │   │       ├── DetailLayout.vue  # 詳情頁樣板（可分享固定網址）
 │   │   │       ├── MapLayout.vue     # 地圖頁樣板（地圖 + 清單上下排）
-│   │   │       └── EntryLayout.vue   # 入口頁樣板（深色頁首帶 + 子頁卡片牆，四個模組入口頁與首頁 hero 共用同一支）
+│   │   │       └── EntryLayout.vue   # 入口頁樣板（深色頁首帶 + 下方內容插槽，四個模組入口頁與首頁 hero 共用同一支）
 │   │   ├── views/
 │   │   │   ├── HomeView.vue          # 全站首頁（P3 新建，`/` 直接掛此頁不再 redirect）
 │   │   │   ├── ModuleEntryView.vue   # 四個模組的入口頁（`/market`、`/weather`、`/food-safety`、`/pet` 共用一支，模組由路徑決定）
@@ -412,14 +436,17 @@ TaiwanAgriPlatform/
 │   │       ├── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
 │   │       ├── calendar.ts           # 休市日月曆計算（vitest 覆蓋）
 │   │       ├── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
+│   │       ├── taiwanDate.ts         # 以台灣時區算「今天」與「N 天前」的日期字串（vitest 覆蓋）
 │   │       ├── lostPetPost.ts        # 遺失啟事狀態對照與卡片渲染純函式（列表頁與詳情頁共用）
 │   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 36 個 vitest 案例）
 │   │       └── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup 與詳情頁共用）
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
-│   └── vite.config.ts                # server.proxy: /api → https://localhost:7147
+│   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
+│   └── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 423 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 485 個測試案例）
+    ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
     ├── User/                          # Watchlist 防重複 / 成功新增（InMemory DB）
@@ -428,7 +455,8 @@ TaiwanAgriPlatform/
     ├── Weather/                       # PesticideService 成分分組 / 劑型對照 / 已廢止與到期判定；
     │                                  #   NotificationService 分頁邊界 / 越權防護 / 導覽屬性投影
     ├── Pet/                           # PetService 篩選排序 + IsOwner + 越權防禦 + JSON enum 契約 + TimeProvider 時間戳
-    ├── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）
+    ├── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）；行情同步的事件發布；
+    │                                  #   往回重掃的起訖日（SyncWindow）；一次性模式的收工判斷（RunOnceCoordinator）
     └── Web/                           # Controller 層驗證與分頁契約（PagedQueryDto 界限、PagedResult 計算、
                                        #   PetController 授權判斷、MarketController 白名單與截斷標頭）
 ```
@@ -441,11 +469,11 @@ TaiwanAgriPlatform/
 |------|------|------|------|
 | 後端框架 | ASP.NET Core Web API | **10.0 LTS** | 主要後端框架 |
 | ORM | Entity Framework Core | **10.0** | Code First + Migration |
-| 資料庫 | SQL Server | 2022 | Window Functions、時序查詢 |
+| 資料庫 | SQL Server | 2022 | 七個 DbContext 各自一個 schema；本機用 Docker，雲端用 Azure SQL（serverless） |
 | 背景排程 | .NET Worker Service | 10.0 | 資料同步排程 |
 | 日誌 | Serilog | 10.x | Console + 滾動式檔案日誌（60 天保留） |
-| 訊息佇列 | RabbitMQ | 3.x | 非同步事件推播（Topic Exchange） |
-| 快取 | Redis + StackExchange.Redis | 7.x | Cache-Aside Pattern（TTL 25hr） |
+| 訊息佇列 | RabbitMQ | 3.x | 非同步事件推播（Topic Exchange）；**可選相依**，沒設定就不註冊消費者 |
+| 快取 | Redis + StackExchange.Redis | 7.x | Cache-Aside Pattern（TTL 25hr）；**可選相依**，沒設定就改用行程內記憶體快取 |
 | 身分驗證 | ASP.NET Core Identity + JWT | 10.0 | RBAC + JWT Bearer |
 | 前端 | Vue 3 + Vite + TypeScript | 最新穩定版 | SPA 前台 |
 | 狀態管理 | Pinia | 最新穩定版 | 全域狀態管理 |
@@ -453,9 +481,9 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，423 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面單元測試（`npm test`，11 檔 130 案例） |
-| HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，485 個案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 168 案例） |
+| HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
 ---
 
@@ -464,7 +492,7 @@ TaiwanAgriPlatform/
 ### 前置需求
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/)（含 ASP.NET 工作負載）
+- [Visual Studio 2026](https://visualstudio.microsoft.com/)（含「ASP.NET 與網頁程式開發」工作負載；.NET 10 要 2026 版）
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Node.js 22 LTS](https://nodejs.org/)（前端建置用）
 
@@ -476,7 +504,7 @@ TaiwanAgriPlatform/
 ### Step 1：複製專案
 
 ```bash
-git clone https://github.com/你的帳號/TaiwanAgriPlatform.git
+git clone https://github.com/x222l99b1010e/TaiwanAgriPlatform.git
 cd TaiwanAgriPlatform
 ```
 
@@ -505,31 +533,28 @@ cp TaiwanAgri.Worker/appsettings.example.json TaiwanAgri.Worker/appsettings.Deve
 它是「設定該長什麼樣」的唯一有版控來源，每個 key 的用途與預設值都寫在檔案裡的註解（.NET 的
 JSON 設定讀取器允許註解，複製後可以原樣保留）。含密碼的值也可以改放 User Secrets，兩個專案都已設定 `UserSecretsId`。
 
-必填的三項：`ConnectionStrings:DefaultConnection`（密碼同 `.env` 的 `SA_PASSWORD`）、
-`ConnectionStrings:Redis`、`Jwt:SecretKey`（至少 32 字元）。本機開發的 CORS 不必設定——
+必填的兩項：`ConnectionStrings:DefaultConnection`（密碼同 `.env` 的 `SA_PASSWORD`）與
+`Jwt:SecretKey`（至少 32 字元）；`Jwt` 其餘三個鍵（`Issuer`／`Audience`／`ExpiresInDays`）範本已附預設值，四個缺任何一個，服務在任何環境都會啟動失敗並列出缺哪幾個。`ConnectionStrings:Redis` 與 `RabbitMQ:HostName` 是**可選的**——
+留白時分散式快取改用行程內記憶體實作、事件消費者不註冊，服務照常完整啟動，只會各記一則啟動警告。
+本機開發的 CORS 不必設定——
 Vite dev server 用 proxy 把 `/api` 轉成同源請求，不經過 CORS，啟動時只會收到一則警告。
 **正式部署則必須設定，見下方「正式部署設定」。**
 
 ### Step 3：啟動基礎設施服務
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-等待約 30–60 秒，確認所有服務健康：
+等待約 30–60 秒再確認：
 
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
-預期看到：
-
-```
-NAME                                STATUS
-taiwanagriplatform-sqlserver-1      running (healthy)
-taiwanagriplatform-redis-1          running (healthy)
-taiwanagriplatform-rabbitmq-1       running (healthy)
-```
+預期三個容器的 STATUS 都是 `Up`，其中 `taiwanagriplatform-sqlserver-1` 會多一個 `(healthy)`——
+只有 SQL Server 設了健康檢查，Redis 與 RabbitMQ 沒有，所以不會出現這個標記。
+Redis 與 RabbitMQ 是可選相依，只開 SQL Server（`docker compose up -d sqlserver`）服務也能完整啟動。
 
 ### Step 4：執行 EF Core Migration
 
@@ -591,16 +616,16 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 423 個測試案例）
+# 後端（xUnit + Moq，共 485 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 130 個測試案例）
+# 前端（Vitest，共 168 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker / Web（Controller 層驗證、分頁界限、CORS 與限流啟動檢查、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 14 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 11 個測試檔共 130 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，26 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個——本專案唯一一支 store 測試）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點，10 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -635,8 +660,17 @@ npm test
 把後者變成要寫下來的宣告之後，剩下的空白就只有「忘了填」一種解釋，這時候讓啟動失敗才是對的。
 `Development` 不套用這個檢查（本機走 proxy 是常態），只會記一則啟動警告。
 
-其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值）、
-`ConnectionStrings` 指向正式資料庫與 Redis、`ASPNETCORE_ENVIRONMENT` 設為 `Production`
+**自訂回應標頭也歸 CORS 管。** 跨來源時瀏覽器只讓前端讀到幾個基本標頭，其餘要列進 CORS 原則的
+`ExposedHeaders`。天災查詢在結果被筆數上限截斷時會帶 `X-Result-Truncated`，已經列進去
+（2026-10-11 部署後實測：前端在 `pages.dev`、後端在 `azurewebsites.net`，查近一年全台會撞上限，
+回應帶 `Access-Control-Expose-Headers: X-Result-Truncated`，畫面出現截斷提示）；
+之後新增自訂標頭要一起加，否則後端照樣送出、前端讀到的永遠是空值，兩端都不會報錯。
+
+其餘部署前檢查：`Jwt:SecretKey` 換成正式金鑰（勿沿用開發用的值），`Jwt:Issuer`／`Jwt:Audience`／
+`Jwt:ExpiresInDays` 三個也要帶上（本機的值多半在 `appsettings.Development.json` 或 User Secrets，
+正式環境兩者都不讀；缺任何一個啟動就會失敗，訊息會列出缺哪幾個鍵）、
+`ConnectionStrings:DefaultConnection` 指向正式資料庫（`ConnectionStrings:Redis` 與
+`RabbitMQ:HostName` 留白即走降級路徑）、`ASPNETCORE_ENVIRONMENT` 設為 `Production`
 （Swagger UI 只在 `Development` 掛載，正式環境不會暴露 API 文件）。
 
 ### 速率限制
@@ -654,7 +688,237 @@ npm test
 ```
 
 > ⚠ 計數器是 in-memory 的。**多執行個體部署時每台各記各的**，實際上限會變成
-> 設定值乘以台數。要跨執行個體共用計數需改走 Redis，屬尚未處理的技術債。
+> 設定值乘以台數。本專案部署成單一執行個體，所以不成問題；要水平擴展時，計數才需要改放 Redis 共用。
+
+---
+
+## ☁️ 雲端部署與重新部署
+
+> **這一節是可照做的步驟，不是說明。** 目標是「**能停、能開、開起來還是好的**」——
+> 服務平常關著，要展示時照著這一節重新開起來，不靠記憶。
+> 概念解釋（部署是什麼、為什麼分成三個服務）在專案文件資料夾的
+> `部署入門_這個系統要部署什麼.md`。
+
+### 部署形態
+
+| 元件 | 平台 | 免費方案的關鍵限制 |
+|---|---|---|
+| 資料庫 | Azure SQL Database（serverless） | 每月 **100,000 vCore 秒**、資料 32 GB；閒置自動暫停 |
+| 後端 API | Azure App Service **F1** | CPU 60 分鐘／天、頻寬 **165 MB／天**、**無 Always On**、不支援自訂網域 |
+| 前端 | Cloudflare Pages | 靜態流量不計量，每月 500 次建置 |
+| 每日同步 | GitHub Actions（`.github/workflows/worker-sync.yml`） | 排程觸發，跑完即退出 |
+
+**Redis 與 RabbitMQ 不部署。** 兩者都是可選相依：沒設 `ConnectionStrings:Redis` 時
+分散式快取改用行程內記憶體實作（Cache-Aside 的程式碼不變，只是不跨執行個體共用）；
+沒設 `RabbitMQ:HostName` 時不註冊 `PriceUpdatedConsumer`。兩條降級路徑都會在啟動時記一則警告。
+
+### 一次性設定（只做一次）
+
+1. **建 Azure SQL Database（免費方案）**
+   - 從 Azure SQL hub（`aka.ms/azuresqlhub`）選「Start free」建立。
+     建立畫面要出現「**Free offer applied!／已套用免費供應項目**」橫幅才算走對入口；
+     沒有橫幅就是走成付費流程，退回去重走。⚠ 訂閱附的「12 個月免費服務」清單裡有一項
+     `SQL Database, Single Standard, S0 DTUs`，名字很像但**不是**這個，它 12 個月後開始計費。
+   - ⚠ **「超出免費額度時的行為」選「自動暫停到下個月」，不要選「繼續使用並計費」——
+     選了之後不能改回來。**
+   - ⚠ 免費方案的資料庫**不能**用還原備份或複製既有資料庫建立（官方不支援），
+     所以本機資料庫不能整包搬上去，只能建空的再灌。
+   - 防火牆：加入自己的 IP；若要讓 GitHub Actions 連得到，另需放行（見步驟 7）。
+     家用網路的 IP 會變（換地點、數據機重開），**每次要從自己電腦連資料庫之前先比對一次**：
+     `curl.exe -s https://api.ipify.org` 查出現在的 IP，不同就改掉同一條規則
+     （`az sql server firewall-rule update -g <資源群組> -s <伺服器> -n <規則名> --start-ip-address <IP> --end-ip-address <IP>`）。
+
+2. **建 App Service（先建空殼，不放程式）**
+   - 「建立資源」→「Web 應用程式」。資源群組與資料庫同一個、區域同一區。
+   - 發佈選**程式碼**、執行階段堆疊選 **.NET 10 (LTS)**、作業系統選 **Linux**
+     （第 6 步是框架相依發布，程式由平台裝好的這份 .NET 執行）。
+   - ⚠ 定價方案要選**免費 F1**；建立畫面的預設是按月收費的方案
+     （2026-09-22 實際看到的預設是「進階版 V4 P0V4」），要自己改。
+     F1 的容量分區域計算，選好區域後先確認下拉選單裡真的有 F1。
+   - 建好後到「概觀」頁**複製預設網域**，那就是後端網址，第 5 步要用。
+     以畫面顯示的為準、不要自己拼——勾了「唯一預設主機名稱」時網址會多一段隨機字串。
+
+   > **為什麼程式要晚一步才上**：後端啟動時要讀 `Cors__AllowedOrigins__0`（前端網址），
+   > 前端建置時要讀 `VITE_API_BASE_URL`（後端網址），兩個網址都得等資源建好才知道；
+   > 而後端在非 `Development` 環境沒填 CORS 會**直接啟動失敗**。
+   > 所以 CORS 的真值只能等前端建好才填。本節照「空殼 → 前端 → 回填環境變數 → 上傳」排列；
+   > 也可以在第 3 步建完表就先做第 6 步、CORS 暫填 `https://placeholder.invalid`，
+   > 上傳驗證完先把 App Service 停止，拿到前端網址再回頭換掉 CORS、啟動——
+   > 上傳與建表共用同一段資料庫醒著的時間，啟動問題也提早現形（第一次部署走的是這條）。
+   >
+   > **為什麼空殼排在建表與搬資料之前**：F1 免費層的容量是分區域計算的，而「下拉選單裡
+   > 列得出來」與「按下去真的建得起來」是兩件事。資料庫的區域一旦選定就鎖住該訂閱之後
+   > 所有免費資料庫，換不了；所以要在花掉任何 vCore 秒之前，先確認同一區真的建得出 F1。
+
+3. **建表**（在本機執行，指向雲端資料庫）
+   ```bash
+   dotnet ef database update -p TaiwanAgri.Web                -s TaiwanAgri.Web -c ApplicationDbContext --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Core               -s TaiwanAgri.Web -c CoreDbContext        --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.Weather    -s TaiwanAgri.Web -c WeatherDbContext     --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.Market     -s TaiwanAgri.Web -c MarketDbContext      --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.User       -s TaiwanAgri.Web -c UserDbContext        --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.FoodSafety -s TaiwanAgri.Web -c FoodSafetyDbContext  --connection "<雲端連線字串>"
+   dotnet ef database update -p TaiwanAgri.Modules.Pet        -s TaiwanAgri.Web -c PetDbContext         --connection "<雲端連線字串>"
+   ```
+   > `-s`（`--startup-project`）不能省。五個模組專案與 `TaiwanAgri.Core` 都是類別庫，
+   > 自己沒有主機組態，也沒有 `IDesignTimeDbContextFactory`，EF 只能靠啟動專案把 `DbContext`
+   > 建出來；少了它會停在「Unable to create a 'DbContext' of type ...」。`TaiwanAgri.Web`
+   > 七個 DbContext 全部有註冊，所以七行共用同一個啟動專案就好。
+   > （本機那段用的是 Visual Studio 的 `Update-Database`，它的 `-StartupProject` 本來就有寫。）
+   >
+   > 連線字串含密碼，**不要直接打在指令列**（整行會進 PowerShell 歷史紀錄）。先用
+   > `$pw = Read-Host -AsSecureString` 收密碼、組成變數 `$cs`，七行都寫 `--connection $cs`。
+   > ⚠ 資料庫若正在自動暫停，第一行的連線會把它叫醒，恢復要 30–60 秒（2026-09-27、10-01 實測）；
+   > 恢復期間的連線會拿到 `is not currently available`（錯誤碼 40613）。`-s TaiwanAgri.Web` 建出來的
+   > `DbContext` 帶著「遇到暫時性錯誤自動重試」的設定，所以第一行可能會先等一陣子才開始；
+   > 若仍然回 40613，等一下原樣重跑即可，已套用的 migration 會跳過。
+
+4. **搬資料**
+   ```powershell
+   # 先量成本：只搬一張中型表，看資料庫「計量」的 App CPU billed（每分鐘計費的 vCore 秒）
+   .\scripts\Copy-DataToAzureSql.ps1 -TargetServer <server>.database.windows.net `
+       -TargetUser <帳號> -Tables 'pet.OfficialLostPetPosts'
+
+   # 確認負擔得起再全量搬（以整張表為單位可重跑，已完成的表會跳過）
+   .\scripts\Copy-DataToAzureSql.ps1 -TargetServer <server>.database.windows.net -TargetUser <帳號>
+   ```
+   腳本開始前會先把暫停中的資料庫叫醒、連得上才開始搬。**搬到一半中斷的表不會自動接續**
+   （bcp 重送會從第一列開始、撞上已存在的主鍵）：腳本會略過它，最後印出清空雲端那張表的指令，
+   清掉之後再重跑。
+   **全量實測（2026-09-29）**：20 張表 7,760,230 列、約 2.3 GB，16.8 分鐘、1,760.6 vCore 秒（月額度 1.8%）。
+   先量一張中型表再外推的估計是 3,000–11,000 vCore 秒——小表的成本大半是連線與登入這類固定開銷，外推時被一起放大了。
+   量成本時別看「剩餘可用量」：它有延遲、刻度粗。資料庫醒著的每一分鐘都計費，
+   閒置時實測每分鐘 30–41 vCore 秒（2026-09-27／28），搬一張 3.9 萬列、16.7 MB 的表只多出約 10。
+   腳本只搬政府開放資料。帳號表與使用者資料不搬（雲端的測試帳號在網站上重新註冊），
+   種子資料（`NavModules`／`RoleModulePermissions`／`Shelters`）由服務啟動時自己建。
+   密碼不指定就會互動詢問；要免互動重跑，設環境變數 `TAIWANAGRI_SOURCE_PASSWORD`
+   與 `TAIWANAGRI_TARGET_PASSWORD`，**不要打在指令列的字串裡**（那一行會進 PowerShell 歷史紀錄）。
+
+5. **部署前端**
+   ```powershell
+   cd TaiwanAgri.Frontend
+   Set-Content .env.production "VITE_API_BASE_URL=https://<第 2 步複製的後端網址>" -Encoding ascii
+   npm ci
+   npm run build                    # 產出 dist/
+   (Select-String -Path dist\assets\*.js -Pattern '<後端網址的主機名>' -SimpleMatch).Count   # 要 ≥ 1
+   ```
+   > ⚠ Windows PowerShell 5.1 不要寫成 `echo "…" > .env.production`：它寫出的是 UTF-16，Vite 讀不到，
+   > **建置照樣成功、但後端網址是空的**，前端會把 `/api/…` 打到自己的網域、拿回一頁 HTML 當資料。
+   > 最後那行數的是建置成品裡出現幾次後端主機名——量最終產物，不是看建置有沒有報錯。
+   > bash 環境可寫成 `echo "VITE_API_BASE_URL=…" > .env.production && npm ci && npm run build`（5.1 不支援 `&&`）。
+
+   把 `dist/` 交給 Cloudflare Pages：控制台「Workers 和 Pages」→「建立應用程式」→ 頁底一行
+   「想要部署 Pages？開始使用」→「拖放您的檔案」→ 填專案名稱 → 拖入整個 `dist` 資料夾 →「部署網站」。
+   ⚠ 同一頁上的「Upload your static files」是 Workers、不是 Pages（網址會是 `*.workers.dev`）。
+   部署完**複製前端網址**（`https://<專案名>.pages.dev`；撞名會被加尾巴，同樣以畫面顯示的為準）。
+   **之後更新前端**：重新 build、數一次主機名 → Pages 專案頁右上「建立部署」→ 環境選「生產」→ 拖新的 `dist`。
+   > ⚠ `VITE_API_BASE_URL` 是**建置期**寫死進 JS 的，後端網址改了就要重新 build。
+   > 這時後端還沒上程式（或已上傳但處於停止），所以首頁的模組區會顯示「連不上伺服器」＋重試鈕。
+   > **那是對的**——代表前端確實照著建置時填的網址去找後端。
+
+6. **填環境變數，再上傳後端**
+
+   先在 **App Service →「設定」→「環境變數」** 填入七個：
+
+   | 名稱 | 值 |
+   |---|---|
+   | `ConnectionStrings__DefaultConnection` | 雲端資料庫連線字串（Portal 範本裡的 `Connection Timeout=30` 改成 `90`） |
+   | `Jwt__SecretKey` | 至少 32 字元的隨機字串（**不要沿用開發用的值**） |
+   | `Jwt__Issuer` | `TaiwanAgriPlatform` |
+   | `Jwt__Audience` | `TaiwanAgriPlatformUsers` |
+   | `Jwt__ExpiresInDays` | `7` |
+   | `Cors__AllowedOrigins__0` | 第 5 步複製的前端網址，例如 `https://xxx.pages.dev` |
+   | `ASPNETCORE_ENVIRONMENT` | `Production` |
+
+   > 雙底線是 .NET 設定的巢狀分隔符：`ConnectionStrings__DefaultConnection`
+   > 對應設定檔裡的 `ConnectionStrings:DefaultConnection`。
+   > `Jwt` 的後三個不是機密，但本機的值在 `appsettings.Development.json` 或 User Secrets，
+   > 正式環境兩者都不讀——`dotnet publish` 帶上去的只有 `appsettings.json`，所以要在這裡補。
+   > `Cors` 兩個鍵都留白時，非 `Development` 環境會**啟動失敗**——這是刻意的，
+   > 因為漏填的症狀只出現在使用者的瀏覽器裡、伺服器端沒有任何紀錄。
+   > `Connection Timeout` 是「開一條連線最多等幾秒」。資料庫從自動暫停中恢復要 30–60 秒，
+   > 範本的 30 秒不夠：網站開著、資料庫睡著時，第一個請求會等到逾時、回 500（2026-10-02 實測 4 次）。
+   > 第 7 步每日同步用的 `WORKER_DB_CONNECTION` 照同一個值。
+
+   再發布、打包、上傳。建立 App Service 時「基本驗證」是停用的，FTP 與發佈設定檔這類
+   固定帳密的上傳路都關著，所以上傳走 Microsoft 帳號：**先 `az login`**。
+   ```powershell
+   dotnet publish TaiwanAgri.Web -c Release -o ./publish
+   tar -a -c -f publish.zip -C publish .
+   az webapp deploy --resource-group <資源群組> --name <App Service 名稱> --src-path publish.zip --type zip
+   ```
+   > 框架相依發布：只打包程式本身，由平台裝好的 .NET 10 執行。平台會在網站根目錄找唯一的
+   > `*.runtimeconfig.json`，自己用 `dotnet TaiwanAgri.Web.dll` 啟動，**不需要設定啟動命令**；
+   > 程式聽 8080 埠，與平台期待的一致（2026-09-27 實測）。
+   > ⚠ **不要用 PowerShell 的 `Compress-Archive` 打包**：它產出的 zip 以反斜線當路徑分隔符，
+   > 在 Linux 上解開會把整個資料夾結構攤平成怪檔名。上面用的 `tar` 是 Windows 內建的；
+   > 上傳前用 `tar -tf publish.zip` 看一眼，路徑要是 `./` 開頭的正斜線、沒有多包一層 `publish/`。
+   > `publish/` 與 `publish.zip` 都在 `.gitignore` 裡（zip 會帶著本機的 `appsettings.json`）。
+   > 只想先上傳、不要啟動（例如 App Service 停著、資料庫在睡）時加 `--restart false`：平台照樣完成部署、網站維持停止；
+   > `az` 仍會一直印 `Starting the site...`，可直接 Ctrl+C。
+
+   上傳後驗證：
+   - App Service →「監視」→「App Service 記錄」先把「應用程式記錄」設成「**檔案系統**」
+     （不開的話「記錄資料流」看不到程式的輸出；存在 App Service 自己的空間，不另收費），
+     再到「記錄資料流」確認有 `Now listening on: http://[::]:8080`。
+   - `/health` 與 `/health/ready` 都回 `Healthy`；用不存在的帳號 `POST /api/auth/login` 應回 **401**。
+   > 記錄裡會有一則 `Failed to determine the https port for redirect` 警告，**是預期的**：
+   > 平台在前端解掉 HTTPS、以 HTTP 轉給程式，程式看不到 HTTPS 埠，所以自己不轉址；
+   > `http://` 轉 `https://` 由平台做（回 301，回應裡沒有程式會帶的 `Server: Kestrel`）。
+   > `az webapp deploy` 可能一直印 `Starting the site...`，即使網站早已啟動
+   > （實測平台 37 秒就啟動完成，指令仍輪詢超過 5 分鐘）。以 `/health` 或
+   > `az webapp troubleshoot status` 為準。
+
+7. **接上每日同步**
+   - GitHub repo → Settings → Secrets and variables → Actions →
+     新增 `WORKER_DB_CONNECTION`（雲端資料庫連線字串，跟第 6 步同一串、含 `Connection Timeout=90`；名字一個字都不能差，workflow 用這個名字取用）。
+   - Azure SQL 防火牆放行 GitHub Actions 的執行器（runner 的 IP 不固定，
+     最省事的做法是開啟「允許 Azure 服務存取」——範圍偏寬，屬已知限制）。
+   - 驗收：到 Actions 頁面手動觸發一次 `Worker Sync`。
+   > ⚠ **`workflow_dispatch` 與 `schedule` 都只認預設分支上的 workflow 檔**，
+   > 所以 `worker-sync.yml` 合併進 `main` 之前，Actions 頁面上按不到這一支。
+   > 在那之前改用本機驗收同一段路：連線字串指向雲端、`$env:Worker__RunOnce = "true"`，
+   > 跑 `dotnet run --project TaiwanAgri.Worker --configuration Release --no-launch-profile`，
+   > 確認結束碼是 0——但這只證明沒有例外：摘要的「同步失敗」只計程式丟出的例外，有幾支遇到上游異常是記一筆警告就停下；
+   > 同步進度表 `core.SyncStates` 記的也是「處理過哪一天」，不是「拿到了資料」。所以還要看記錄檔（本機在 `TaiwanAgri.Worker/logs/`，Actions 上是 `worker-log` 附件）
+   > 有沒有「API回應異常」「抓取失敗」，以及最近幾天每天「成功抓取 共 N 筆」的筆數。
+   > 2026-10-04 實測（補 9/11–10/3 共 23 天）：16 分 29 秒，資料庫計費 1,423.5 vCore 秒（含跑完後閒置到自動暫停）；
+   > 當時 10/3 的農產品行情與 10/2–10/3 的家禽農業部還沒公布、抓空——每輪往回重掃 7 天就是為此加的。
+   > 2026-10-06 第二輪（重掃 9/29–10/5）：4 分 50 秒，資料庫計費 1,018.1 vCore 秒；10/3 的行情補進 2,614 筆、家禽補齊 10/2–10/5——往回重掃接住了晚公布的資料。
+   > `--no-launch-profile` 不能省：`dotnet run` 預設套用 `Properties/launchSettings.json`，以 Development 執行，
+   > 會讀到本機 User Secrets 裡的 RabbitMQ 主機；本機 RabbitMQ 沒開時，同步完發布事件會失敗，摘要多出一則假的同步失敗。
+   > 兩者的差別只有「誰去連資料庫」——合併之後那一輪才會驗到防火牆。
+
+### 停機
+
+- **資料庫**：不用做任何事。閒置後會自動暫停，暫停期間不計費，**資料保留**。
+- **後端**：App Service →「停止」。
+- **前端**：不用停（靜態檔不計費）。
+- **每日同步**：Actions → `Worker Sync` → 停用 workflow（不停用的話它每天會叫醒資料庫）。
+
+### 重新開機（展示前照這個順序做）
+
+1. App Service →「啟動」。
+2. 打 `https://<後端>/health` → 應回 `Healthy`（這一支不碰資料庫，只確認程式活著）。
+3. 打 `https://<後端>/health/ready` → 應回 `Healthy`。
+   **程式啟動時會先寫種子資料，所以第 1 步一按「啟動」就會把暫停中的資料庫叫醒**。
+   恢復要 30–60 秒，程式啟動時這段期間的連線拿到的是 40613；程式的資料庫連線遇到這類暫時性錯誤會自動重試
+   （最多 6 次、指數退避），等資料庫醒來再繼續，所以第 2 步的 `/health` 要等 App Service 冷啟動
+   加上資料庫恢復才會第一次回應（2026-10-02 實測：按下「啟動」後 99 秒）。沒有這個重試時，程式會在寫種子資料那一步崩潰、被平台連續重開，
+   F1 方案還會因為超過配額被停到下一個整點（2026-10-01 實測）。
+4. 打開前端網址，確認首頁四個模組畫得出來。
+5. 要更新資料的話，到 Actions 手動觸發一次 `Worker Sync`。同步只補到昨天（今天的資料還沒公布）；
+   昨天的資料農業部若還沒公布，這一輪會抓空，下一輪往回重掃時補上。
+
+> **為什麼健康檢查有兩支**：`/health` 不碰資料庫，給平台的存活偵測與任何定時 ping 用；
+> `/health/ready` 才碰資料庫。若只有一支而且它會碰資料庫，
+> 任何定時 ping 都會一直把資料庫叫醒、把每月額度燒光——**而且不會有人發現，因為它一路都回 200**。
+
+### 停機後重開，資料還在嗎？
+
+**在。** Azure SQL 的自動暫停只停運算，儲存不動，資料與索引都保留。
+**但資料的「新鮮度」會停在最後一次同步的那天**——重開之後要更新到昨天為止的資料，
+手動觸發一次 `Worker Sync` 即可（見上面第 7 步；農業部晚公布的那幾天要等下一輪重掃）。
 
 ---
 
@@ -710,6 +974,18 @@ npm test
 |--------|-----|------|------|
 | GET | `/api/nav/modules` | 依登入狀態回傳可見模組清單（巢狀 DTO） | `[AllowAnonymous]` |
 
+### 健康檢查
+
+| Method | URL | 說明 | 認證 |
+|--------|-----|------|------|
+| GET | `/health` | 存活檢查。**不跑任何檢查、不碰資料庫**，只回答「程式活著嗎」 | 不需要 |
+| GET | `/health/ready` | 就緒檢查。實際連一次資料庫，回答「現在能不能服務請求」 | 不需要 |
+
+> **兩支分開是刻意的。** 存活檢查若也碰資料庫，任何定時 ping（平台探測、監控、UptimeRobot）
+> 都會一直去敲它——雲端部署的資料庫閒置會自動暫停、額度以 vCore 秒計算，
+> 敲一次就醒一次，額度會被悄悄燒光，**而且一路回 200，沒有人會發現**。
+> 反過來，`/health/ready` 也是展示前的暖機入口：打一次就把冷啟動與資料庫喚醒一起做完。
+
 ### 模組 4 — 天災與菜價關聯分析
 
 | Method | URL | 說明 | 認證 |
@@ -756,7 +1032,7 @@ npm test
 
 | Method | URL | 說明 | 認證 |
 |--------|-----|------|------|
-| GET | `/api/Weather/stations?cityName=臺北市` | 氣象站即時資料 | 不需要 |
+| GET | `/api/Weather/stations?cityName=臺北市` | 各測站最新一筆觀測 | 不需要 |
 | GET | `/api/Weather/rainfall?cityName=臺北市` | 雨量趨勢 | 不需要 |
 | GET | `/api/Pest/alerts?cityName=臺北市&page=1` | 病蟲害警報（分頁 20 筆） | 不需要 |
 | GET | `/api/Pest/pest-names` | 所有害蟲名稱清單 | 不需要 |
@@ -808,14 +1084,14 @@ npm test
 
 ## 🔌 農業部 API 說明
 
-本專案串接 [農業部開放資料平台](https://data.moa.gov.tw) 共 60 支 API。
+開發前盤點過 [農業部開放資料平台](https://data.moa.gov.tw) 的 60 支 API（實際串接哪些見本節末）：
 
 - **免費可用（53 支）**：涵蓋所有核心功能，MVP 開發不受限制
 - **Swagger 介面標示 api_key 參數（7 支）**：`SheepQuotation`、`WashedEggsTraceabilityType`、`LegalSpecificPet`、`PetFood`、`FeedAndAdditiveInputCertificate`、`FeedManagementInfo`、`MothSpecimenData`。實測這 7 支**同樣可以未登入呼叫**——api_key 的真正作用是分頁權限（見下方限制說明），不是存取權限
 
 > **重要限制**：免費帳號分頁 API 只回傳第一頁資料（每頁最多 1,000 筆）。程式碼中保留分頁迴圈，當 API 回傳 `RS: "ERROR"` 時會優雅地 `break`，不影響正常運作。
 
-本專案**實際串接的 27 支端點**路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
+本專案**實際串接的 26 支端點**路徑統一定義在：`TaiwanAgri.Core/Constants/MoaApiEndpoints.cs`
 （其中 3 支走農業部舊制 `TransService` 通道：土石流警戒、收容動物一次性回填、合法特定寵物業一次性回填）。
 探勘後判定不採用的候選端點，在該檔以註解記錄排除理由，避免日後重複探勘。
 
@@ -842,7 +1118,7 @@ npm test
 | W17 | 監看清單 | UserWatchlist Entity；IUserWatchlistService（防重複 + 409）；WatchlistController 批量刪除；WatchlistView.vue（PR #035–037） | ✅ 完成 |
 | W18 | 監看清單行情整合 | WatchlistEnrichedItemDto 跨模組聚合；Controller Pattern C；UserWatchlist 補 MarketType；均價顯示（PR #038） | ✅ 完成 |
 | W19 | 測試 Sprint | xUnit + Moq；MarketServiceCacheTests / UserWatchlistServiceTests / WatchlistControllerTests；共 12 個測試全數綠燈（PR #039） | ✅ 完成 |
-| W20 | DevOps | GitHub Actions CI（restore/build/test + badge，W20a）；GlobalExceptionMiddleware 全域例外攔截 + 標準化 JSON 錯誤回應（W20b）。全域搜尋與 Docker 打包延後至功能模組全部完成後統一處理 | ✅ 完成 |
+| W20 | DevOps | GitHub Actions CI（restore/build/test + badge，W20a）；GlobalExceptionMiddleware 全域例外攔截 + 標準化 JSON 錯誤回應（W20b）。全域搜尋與 Docker 打包當時延後——前者後來決定不做；後者不是部署的前提（App Service 直接吃 .NET 發布包） | ✅ 完成 |
 | W21 | 模組 1（食安） | FoodSafetyDbContext + 模組骨架；今日菜價快覽 + 全站菜價輪播（W21a）；農產品追溯查詢（W21b）；農藥違規警示牆 + PesticideViolationSyncWorker（W21c）；有機農產品驗證查詢 + OrganicCertificationSyncWorker（W21d）（GitHub PR #5–#8） | ✅ 完成 |
 | —（不掛週次） | Code Review 修正批次 | TimeProvider 時鐘注入 + 台灣時區日界；ScheduledSyncWorkerBase / DbSyncHelper / MoaPagedFetcher 抽共用；Watchlist N+1 批次化；分頁排序穩定性；(CropCode, MarketCode, TransDate DESC) 索引；前端 vitest 導入 + useLatestRequest/usePagination（PR #045–046，GitHub PR #10–#12） | ✅ 完成 |
 | W22–23 | 模組 3（寵物地圖） | **後端**：三支同步 Worker（收容動物回填 8187 筆 + 官方遺失啟事 + 合法業者 upsert）、五張資料表、33 間收容所座標種子、PetController 7 支端點、49→65 測試（PR #048）。**前端**：`ShelterMapView`（Leaflet + MarkerCluster，並依收容所座標分組渲染一所一標記）、`LostPetsView`（遺失啟事 CRUD、`IsOwner` 按鈕、地圖點選座標）、`LegalBusinessView`（五條件疊加篩選 + 三種排序 + 業務項目中文化），65→75 後端測試、8→27 前端測試（PR #049）。前端串接期間回頭修正後端四處介面不一致（`IsOwner`／`[FromBody]` enum／篩選排序／標記上限與截斷標頭）（原規劃於 W17-18，因模組 1/2/4 與身分驗證系列功能優先處理而順延） | ✅ 完成 |
@@ -865,7 +1141,7 @@ npm test
 每個業務模組有獨立的 DbContext，連線字串設定與啟動由入口層統一組裝，模組本身不感知執行環境。`CoreDbContext` 管理跨模組共用的基礎設施（`SyncStates`、`NavModules`、`RoleModulePermissions`）。
 
 **跨模組資料組合：Controller 層 Pattern C**
-`WatchlistController` 同時注入 `IUserWatchlistService`（User 模組）與 `IMarketService`（Market 模組），在 Controller 層做 foreach 聚合，而非把跨模組邏輯下沉到 Service 層。這讓各模組 Service 保持獨立，可分別測試，組合責任明確落在入口層。
+`WatchlistController` 同時注入 `IUserWatchlistService`（User 模組）與 `IMarketService`（Market 模組），在 Controller 層組合（先取監看清單，再用一次批次查詢取回所有作物的最新價，不逐筆呼叫），而非把跨模組邏輯下沉到 Service 層。這讓各模組 Service 保持獨立，可分別測試，組合責任明確落在入口層。
 
 **BackgroundService 生命週期管理**
 SyncWorker 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbContext` 是 Scoped。每次同步任務執行時透過 `IServiceScopeFactory.CreateScope()` 建立新 Scope，用完即釋放，避免 Change Tracker 持續累積狀態。
@@ -876,8 +1152,43 @@ SyncWorker 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbC
 **Redis Cache-Aside（GetPricesAsync）**
 Cache Key 格式：`market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}`。cropCodes 排序後 Join 確保任意排列命中同一 slot。TTL 設定 25 小時（農業部資料每天更新一次，跨天不提早過期）。Cache Key 前綴抽成 `CacheKeys.MarketPricesPrefix` 常數，為後續 RabbitMQ Cache Invalidation 預留介面。
 
+**外部相依可選化：不拋例外不等於降級**
+Redis 與 RabbitMQ 都是可選相依。沒設 `ConnectionStrings:Redis` 時分散式快取改註冊
+`AddDistributedMemoryCache`——那是 `IDistributedCache` 的另一個正式實作，不是關掉快取，
+Cache-Aside 的呼叫端一行都不用改，代價只有「多個執行個體之間不共用」；沒設 `RabbitMQ:HostName`
+時不註冊 `PriceUpdatedConsumer`。後者不是「少一個背景功能」的問題：該消費者在 `StartAsync` 裡
+建連線且不接例外，而 `IHostedService.StartAsync` 拋例外的語意是「整個 host 起不來」，
+實測指向不存在的主機時程序以未處理例外結束、HTTP 連接埠根本沒開。
+**真正的坑在「降級」的定義。** 只替快取存取包上 try/catch 之後，Redis 連不上時行情查詢確實從
+500 變成 200——但要 12.45 秒：StackExchange.Redis 斷線時把指令排進 backlog 等重連，
+而這支端點讀一次、寫一次，各等一輪逾時。12 秒的 200 跟壞掉沒有差別。補上
+`BacklogPolicy.FailFast`、`AbortOnConnectFail = false`、連線與指令逾時各 1 秒之後才降到
+1.45 秒（冷）／0.03 秒（暖）。**判準是量時間，不是看有沒有拋例外**——這幾個連線選項被改回
+預設值時不會有任何測試變紅、也不會有例外，症狀只有「慢」，所以另外寫測試釘住它們。
+
+**資料庫睡著時的連線：40613 重試、連線等久一點、前端也等久一點**
+雲端資料庫閒置會自動暫停，下一個連線把它叫醒、恢復要 30–60 秒。這段期間的連線有兩種失敗形狀：
+立刻拿到錯誤碼 40613（`is not currently available`），或卡在登入階段直到連線逾時（錯誤碼 -2）。
+- **40613 交給重試。** Web 7 處與 Worker 5 處的 `DbContext` 註冊統一走 `UseSqlServerWithRetry`
+  （EF Core 內建的暫時性錯誤清單含 40613，最多 6 次、最長 30 秒退避）。程式啟動時寫種子資料撞到的是這一種：
+  沒有重試時，從睡著的資料庫啟動 App Service 會在那一步崩潰、被平台連續重開，F1 方案還會因為超過配額被停到下一個整點
+  （2026-10-01 實測）；加上之後，4 次從睡著的資料庫啟動都在撞兩次 40613 之後成功（2026-10-02 實測）。
+  測試逐一檢查 Web 與 Worker 解析出的每個 `DbContext` 都帶著重試策略，另有一組對照確認少了重試會被抓到。
+- **連線逾時改從連線字串處理，不加進重試清單。** 網站開著、資料庫睡著時，第一個請求撞到的常是這一種
+  （2026-10-02 實測 4 次，回 500）。錯誤碼 -2 同時也代表「查詢跑太久」，加進重試清單會讓一個慢查詢整個重跑最多 6 次，
+  所以改成把連線字串的 `Connection Timeout` 從範本的 30 秒拉到 90 秒，讓連線等到資料庫醒來。
+  改了之後同一個情境從前端實測（2026-10-12）：首頁的請求在 52.7–57.9 秒之間全部回 200。
+- **前端的請求等待上限是 120 秒，等超過 8 秒就說明卡在哪一段。** 閒置之後的第一個訪客要等冷啟動加上資料庫恢復（實測 85–97 秒），
+  上限比這段時間短，第一個訪客就一定先看到「連不上」；但只拉長上限的話，畫面會無聲地轉圈一兩分鐘。
+  所以有請求等超過 8 秒時，前端另外問兩支健康檢查：`/health` 回不來＝「伺服器喚醒中」，
+  `/health` 回來但 `/health/ready` 還沒＝「正在喚醒資料庫」，兩支都回來＝「仍在查詢中」，顯示在畫面下方並附上已等待秒數。
+  健康檢查只在有請求等太久時才打（`/health/ready` 會碰資料庫），請求都回來就收起來。
+
+開了重試之後若要自己開交易，必須包在 `CreateExecutionStrategy().ExecuteAsync` 裡（2026-10-03 全專案沒有手動交易）。
+
 **SyncState 模式取代 MAX(TransDate)**
 全市場休市日當天，`AgriProductsTrans` 表沒有記錄寫入，MAX 值卡死。改用 `SyncStates` 獨立追蹤「已完成同步的最後一天」，不管那天有無資料寫入，日期都往前推進。
+推進之後每一輪仍往回重掃最近 7 天：農業部的資料會晚公布（實測週六的行情到週日上午還查不到，家禽也常晚一兩天），只靠游標的話，抓的當下還沒公布的那天會被當成無資料永久跳過；重抓到的舊資料靠鍵去重濾掉，不會重複寫入。農產品行情、毛豬、家禽、收容動物、走失啟事五支日期游標型 Worker 共用同一個 `SyncWindow`。
 
 **Task.WhenAll 併發 API 請求**
 `AgriProductsTransSyncWorker` 初版串行 4,500 次 HTTP 請求效能極差。改用 `Task.WhenAll` 讓同一天的所有市場 API 同時發出，`SemaphoreSlim(3)` 控制最大並發數。Task 只負責 HTTP，所有有狀態操作集中在主執行緒依序執行，規避執行緒安全問題。
@@ -889,7 +1200,7 @@ Cache Key 格式：`market:prices:{marketType}:{sortedCrops}:{marketCode}:{start
 Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 Migration，長期維護下遷移歷史可讀性差。DbInitializer 以 `AnyAsync()` 做冪等保護，並在啟動時呼叫 `GetPendingMigrationsAsync()` 前置防護。
 
 **DisasterResponseDto：GroupBy 去重 + AffectedCounties 彙整**
-同一天災在 DB 對應多筆記錄（每縣市一筆）。Service 層以 `(DisasterName, AlertDate)` GroupBy 後，將同群的 County 彙整為 `AffectedCounties`（`Distinct().OrderBy()` 的 `List<string>`）。
+同一天災在 DB 對應多筆記錄（每條土石流潛勢溪流或每個大規模崩塌區一筆，同一天同一縣市就可能有上千筆）。Service 層以 `(DisasterName, AlertDate)` GroupBy 後，將同群的 County 彙整為 `AffectedCounties`（`Distinct().OrderBy()` 的 `List<string>`）。
 
 **DebrisAlertRecord：HasFilter(null) 解決 nullable UNIQUE Index 失效**
 `DebrisNo` 和 `LandslideID` 互斥為 null。EF Core 預設對 nullable 欄位的 UNIQUE Index 加 `WHERE ... IS NOT NULL`，此條件讓 UNIQUE Index 形同虛設。`.HasFilter(null)` 覆蓋預設行為。
@@ -898,7 +1209,7 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 `api/` 負責 HTTP 封裝；`stores/`（Pinia）負責全域狀態；Vue 元件負責 UI 渲染。`authClient.ts` 以 axios interceptor 在每次請求自動注入 Bearer token。平鋪 prices → Chart.js datasets 的格式轉換放在 `PriceChart.vue` 的 `computed()`，純顯示格式轉換，不屬於業務邏輯。
 
 **GlobalExceptionMiddleware 標準化錯誤回應**
-所有未攔截例外統一在 Middleware 層轉為標準化 JSON 錯誤格式，Controller 不再散落 try-catch。開發環境回傳詳細訊息、正式環境只回傳通用訊息，避免內部細節外洩。
+所有未攔截例外統一在 Middleware 層轉為標準化 JSON 錯誤格式，Controller 不再散落 try-catch。回應一律是固定的通用訊息、不分環境，例外細節只寫進伺服器端 log，避免內部細節外洩。
 
 **台灣時區日界 + TimeProvider 時鐘注入**
 「今天」的定義統一為台灣時區（`TaiwanTime.Today(TimeProvider)`），查詢服務的時鐘一律走 `TimeProvider` 注入而非直接呼叫 `DateTime.Now`，讓日界邏輯可測試、跨時區部署不出錯。
@@ -945,8 +1256,8 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 **xUnit + Moq 三種隔離策略**
 Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistributedCache>`）；Service 層只依賴 DB 時用 InMemory（UserWatchlistService → InMemory UserDbContext）；Controller 層測試跨模組組合邏輯時同時 Mock 兩個 Service（WatchlistController）。Extension Method 無法被 Mock 攔截，須 Setup 底層介面方法（GetStringAsync → GetAsync）。
 
-**前端設計系統：token 三層 + 五個頁面樣板（前端視覺設計輪）**
-`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種顏色、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出五個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 5 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 5 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段）。**第二輪 code review 再把路由改成動態載入之後，首屏實際只需要 46.2 kB CSS（gzip 12.99 kB）**——其餘各頁的樣式跟著各自的 chunk 走，進到那一頁才下載。
+**前端設計系統：token 三層 + 四個頁面樣板（前端視覺設計輪）**
+`base.css` 原本 37 行、14 個顏色變數就停住，46 個畫面各自目測調值，累積出 5,051 行 scoped CSS（全域的 120 倍）、102 種 hex 色值（連 rgba 共 175 種）、20 種字級。問題不在配色而在「從來沒有設計系統這一層」，所以順序是先立「尺」再逐頁調，不是先去調配色。token 分三層：原始尺度／色階 → semantic 語意層（`--color-action`、`--hint-*` 等）→ 秋田主題色階，畫面一律引用語意層而非寫死色值，改一次全站一致。動效走 `--duration`／`--ease` token，並統一由 `prefers-reduced-motion` 一處歸零。再抽出四個頁面樣板（`QueryLayout` 查詢頁／`DetailLayout` 詳情頁／`MapLayout` 地圖頁／`EntryLayout` 入口頁與首頁 hero 共用），把「28 頁各自排版」收斂成「改 4 個樣板」——這也讓後續逐頁精修的成本從「改 46 個檔」降為「改 4 個檔」。CSS bundle 因此從 477 kB 降到 126 kB（P0–P1 階段）。**第二輪 code review 再把路由改成動態載入之後，首屏實際只需要 46.2 kB CSS（gzip 12.99 kB）**——其餘各頁的樣式跟著各自的 chunk 走，進到那一頁才下載。
 
 **新慣例確立時要回頭套用，否則它只是「那一次的寫法」**
 兩輪 code review 的共同頭號結論。第一輪的說法是「共用抽象建立後沒回頭替換舊寫法」，
@@ -954,6 +1265,8 @@ Service 層使用真實外部依賴時用 Mock（MarketService → `Mock<IDistri
 **偽裝成「專案有在進步」**、不會被當成問題。判準是：如果一條慣例只存在於最新寫的程式碼裡，
 它就不是慣例。做法是抽共用抽象或立新慣例的當下就 grep 舊寫法有幾處、把數字寫進 PR 描述，
 一次套完；套不完就逐處記成待辦，不能寫「其餘同理」。
+能交給工具擋的就交給 lint：台灣時區的日期工具 `taiwanDate.ts` 建立時，同一種 UTC 日期寫法
+全專案 8 個檔、15 處一次換掉，並加一條 ESLint 規則擋住下一處。
 
 **自動化檢查不得在通過的同時掩蓋問題**
 CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit code 0，而修正不會被 commit，
@@ -973,7 +1286,8 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 
 ## ⚠️ 已知限制
 
-以下項目是**探勘或查證之後決定不做**，不是尚未實作。
+以下項目分兩種，都附上理由：**探勘或查證之後決定不做**的（不是還沒實作），
+以及**免費方案本身的上限**（不是實作缺陷，但會決定這個服務能怎麼用）。
 
 **規則來源：樹木病蟲害（`TreePest`）不開放**——探勘後判定該資料源不適合驅動通知：
 它沒有時間戳與唯一識別欄位（無法判斷「新出現」也無法去重），且語意是歷史診斷案例而非即時警報，
@@ -998,12 +1312,66 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 **9 個查詢子頁在窄螢幕上是整頁縮放版，不是響應式**——`StationView`／`RainfallView`／
 `PestAlertsView`／`PestDecadeView`／`PricesView`／`RestDaysView`／`DisastersView`／
 `PoultryView`／`PorkView` 各自寫著 `min-width: 960px`，在 375px 的畫面上會橫向縮放。
-首頁與四個模組入口頁不受影響（那一層的寬度下限已經移除，是真正的響應式）。
+首頁與四個模組入口頁不受影響（那一層的寬度下限已經移除，是真正的響應式）；
+全站共用的導覽列在 1240px 以下收成一顆選單鈕（登入後的分頁列要 1196px 才排得下），子頁直接攤開列出。
 不處理的理由是這 9 頁都是資料表格加多欄篩選，**拿掉寬度下限只是第一步**，
 真正的工作是逐頁在窄螢幕重新決定欄位怎麼收、篩選器怎麼折疊並逐頁驗收，
 那是獨立的一件事，不是刪一行 CSS 就結束。
 **表格自己的 `min-width` 不屬於這一項**——違規牆 900px、合法業者 1100/1320px、
 收容所詳情 1020px 是欄位本身需要的寬度，配合容器的 `overflow-x` 橫向捲動是刻意的做法。
+
+**價格更新事件的訊息佇列只是骨架，沒有可靠投遞**——`PriceUpdatedConsumer` 宣告的是臨時佇列
+（不持久、只屬於這條連線、連線一斷就刪除）：Web 停機期間發出的事件沒有佇列接，
+處理到一半程式崩潰時，還沒確認的訊息會跟著佇列一起消失；處理失敗也不會退回重送或轉進死信佇列（DLQ）。
+不補的理由是它沒有承載任何實際工作：收到事件只記 log（快取失效沒有實作），
+行情快取靠 25 小時 TTL 自然過期，雲端部署也不含 RabbitMQ。要讓它承載實際流量時，
+需要改成具名的持久佇列、處理失敗時退回並設定死信佇列，快取失效也要同一次做。
+
+**呼叫農業部 API 的重試不涵蓋逾時**——共用的 HttpClient 以 Polly 重試 3 次、間隔 2 秒，
+但只處理連線失敗與 5xx／408；逾時由各支 Worker 自己的取消權杖控制（行情同步預設 90 秒），
+逾時拋出的 `TaskCanceledException` 不在重試範圍內。結果是該市場這一輪同步失敗、同步進度不往前推，
+下一次排程會從同一天重抓——資料不會漏，只會晚一輪（2026-10-07 回補時實際遇過：農業部 API 一度變慢，
+單一請求要 33–66 秒，台中市那一筆撞到 90 秒逾時；重跑時從那一天接著抓、補齊）。不修的理由是這個結果本身可以接受，
+而把逾時也納入重試，要先決定「單次逾時」與「整體時間預算」怎麼分，那是另一件需要設計的事。
+
+**連假期間晚公布超過 7 天的資料仍會缺**——日期游標型的同步 Worker 每一輪往回重掃最近 7 天，接住晚公布的資料；
+公布延遲超過 7 天（例如春節長假）的那幾天，重掃範圍已經滑過去，就不會再抓。不把範圍拉長的理由是成本：
+農產品行情每多掃一天就要多打 25 次 API（每個市場一次），每天的排程都得付這筆。遇到長假之後要補，
+可以把該資料源在 `core.SyncStates` 的同步進度往回改，再跑一輪。
+2026-10 照這個方法補過一次：加上往回重掃之前，晚公布的日子都被永久跳過——2026 年 4–9 月的農產品行情有 17 天整天沒有、
+另有許多天只缺部分市場，家禽缺 4 天（農業部 API 現在都查得到）。把進度改回缺口前一天跑一輪（約 70 分鐘、資料庫計費 3,779.5 vCore 秒），
+補回行情 84,449 筆、家禽 68 筆。
+
+**部署形態帶來的限制**——都是免費方案的條件，不是實作缺陷，但會決定這個服務能怎麼用：
+
+- **資料庫一個月只能「醒著」約 40–54 小時。** Azure SQL 免費方案的額度單位是 vCore 秒
+  （用了幾顆 CPU × 幾秒），每月 100,000 秒；照規格表的下限 0.5 vCore 換算是 55.6 小時，
+  但實測閒置時每分鐘計費 30.7–41 vCore 秒（記憶體用量會把計費墊高到下限之上），所以實際約 40–54 小時、
+  平均每天 1.3–1.8 小時；最後一次活動後約 16 分鐘就自動暫停（2026-09～10 多次實測）。
+  **所以這個服務的預設狀態是關著的**，展示前再開（步驟見「雲端部署與重新部署」）。
+  這條上限同時決定了 Worker 不做常駐部署（常駐需要約 1,296,000 vCore 秒，約是額度的 13 倍），
+  改成 GitHub Actions 每天排程觸發、跑完就退出。
+- **閒置之後的第一個訪客要等 1.5 分鐘左右。** F1 沒有 Always On，閒置一段時間平台會把程式收起來；
+  下一個請求要等冷啟動，資料庫若也睡著再加上恢復時間，實測 85–97 秒（2026-10-02，4 次）。
+  前端的請求等待上限因此是 120 秒，等待期間畫面下方會說明「伺服器喚醒中」或「正在喚醒資料庫」，而不是先顯示「連不上」。
+  從前端網址實測兩種情境（2026-10-11～12），首頁的請求都回 200、沒有出現「連不上」：
+  程式與資料庫都睡著時，第 8 秒出現「伺服器喚醒中」，89.6 秒起陸續回來；
+  程式醒著、只有資料庫睡著時，畫面說「正在喚醒資料庫」，52.7 秒起陸續回來。
+- **F1 會不定期把網站搬到別台機器。** 2026-10-02 開著的 12 小時裡換了 6 台，其中兩次發生在使用中，
+  各中斷約 1.5 分鐘；程式與平台記錄都沒有錯誤，平台也不寫原因。F1 是共用機器、沒有可用性保證。
+- **後端每天只有 165 MB 頻寬。** App Service F1 的限制。一次查一年的行情會回傳較大的 JSON，
+  連續大量查詢有可能撞到。前端放在 Cloudflare Pages（靜態流量不計量）就是為了不讓畫面的
+  流量吃掉這 165 MB。
+- **速率限制的計數器是 in-memory**（上面「速率限制」一節已說明）。
+  本專案採單一執行個體部署，所以不成問題；這也是 Redis 不部署時
+  改用行程內記憶體快取仍然正確的同一個前提。
+
+**Azure SQL 防火牆對 GitHub Actions 開放的範圍偏寬**——每日同步的 workflow 跑在
+GitHub 的執行器上，而執行器的 IP 不固定，因此採用「允許 Azure 服務存取」這個設定。
+它會放行任何 Azure 上的服務，範圍比實際需要的大。
+**收窄的正確做法**是改由 workflow 在執行前後動態增刪防火牆規則，
+但那需要在 GitHub 這一側再保管一組 Azure 認證——用一組更敏感的憑證去換一個較窄的網路範圍，
+在這個專案（資料全部是公開的政府開放資料、寫入端點都要登入）不划算。
 
 ---
 
@@ -1031,4 +1399,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-09-12 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 模組入口頁補做：四條模組路由改掛共用的 `ModuleEntryView`、子頁卡片牆與首頁模組列共用 `ShowcaseRow`、子頁清單為空時給明確狀態、移除模組外殼的寬度下限（前端 120→130；前一輪為 W26 通知規則管理）｜ 後端 423 測試、前端 130 測試全過*
+*最後更新：2026-10-12 ｜ 對應 SA/SD 文件版本 V36.1 ｜ 部署上線：Redis 與 RabbitMQ 改為可選相依並補上快取降級與連線快速失敗、後端沒起來時畫面改說「連不上」並給重試鈕、`WeatherService` 改以台灣時區日界為準、新增 `/health` 與 `/health/ready`、Worker 一次性執行模式＋GitHub Actions 每日排程、雲端部署與重新部署步驟與資料搬遷腳本、JWT 設定改在啟動時檢查、資料庫睡著時的連線（40613 自動重試、連線逾時 90 秒、前端等待上限 120 秒並說明卡在哪一段）、天災查詢的截斷標頭補進跨來源放行清單、日期游標型同步每輪往回重掃 7 天接住晚公布的資料（並補回重掃上線前的缺口）；前端上線 Cloudflare Pages，並改版按鈕、首頁數字的四種狀態、導覽列窄螢幕選單、查詢頁預設日期改台灣時區（含 lint 規則）、網站圖示與站名「田野‧農時」（前一輪為模組入口頁補做）｜ 後端 485 測試、前端 168 測試全過*

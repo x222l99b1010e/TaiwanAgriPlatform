@@ -1,4 +1,5 @@
-﻿using TaiwanAgri.Modules.Weather.Data;
+﻿using TaiwanAgri.Core.Helpers;
+using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Dtos.ApiResponses;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,14 +9,19 @@ namespace TaiwanAgri.Modules.Weather.Services
 	public class WeatherService : IWeatherService
 	{
 		private readonly WeatherDbContext _context;
-		public WeatherService(WeatherDbContext context)
+		private readonly TimeProvider _timeProvider;
+		public WeatherService(WeatherDbContext context, TimeProvider timeProvider)
 		{
 			_context = context;
+			_timeProvider = timeProvider;
 		}
 		public async Task<List<RainfallResponseDto>> GetRainfallByCityAsync(string cityName, DateOnly? startDate = null, DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{
-			DateOnly finalStart = startDate ?? DateOnly.FromDateTime(DateTime.Now.AddDays(-14));
-			DateOnly finalEnd = endDate ?? DateOnly.FromDateTime(DateTime.Now);
+			// 預設區間的「今天」＝台灣時區日界。DateTime.Now 是主機本地時區，
+			// 部署在 UTC 主機（Azure App Service 預設）時，台灣時間每天 08:00 之前
+			// 會停在前一天，整組區間跟著差一天
+			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
+			DateOnly finalStart = startDate ?? finalEnd.AddDays(-14);
 
 			var result = await _context.RainfallObservations
 				.Join(_context.RainfallStations,

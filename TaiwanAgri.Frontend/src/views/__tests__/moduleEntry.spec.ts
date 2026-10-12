@@ -38,13 +38,20 @@ const MARKET: NavModule = {
  * 每次都建一個新的 pinia，測試之間不共用 store——隔離是這裡保證的，
  * 不要改成靠 beforeEach，那樣會有兩個地方在做同一件事而其中一個是死的。
  * loaded 預設 false＝「還沒載回來」；要測「載完了但是空的」就自己傳 true。
+ * loadFailed 是另一個維度：失敗時 loaded 刻意維持 false，所以兩者要分開傳。
  */
-async function renderAt(path: string, modules: NavModule[], loaded = modules.length > 0) {
+async function renderAt(
+  path: string,
+  modules: NavModule[],
+  loaded = modules.length > 0,
+  loadFailed = false,
+) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const nav = useNavStore()
   nav.modules = modules
   nav.loaded = loaded
+  nav.loadFailed = loadFailed
 
   const app = createSSRApp({ render: () => h(ModuleEntryView) })
   const router = createRouter({
@@ -157,5 +164,23 @@ describe('ModuleEntryView', () => {
     expect(html).toContain('目前沒有可以瀏覽的模組')
     expect(html).not.toContain('載入模組中')
     expect(html).not.toContain('找不到這個模組')
+  })
+
+  it('請求根本沒回來時要說連不上並給重試鈕，不是永遠轉圈', async () => {
+    // 這是四種空狀態裡最晚被發現的一種：前三種都假設 API 有回應。
+    // 部署形態（主機無 Always On ＋ 資料庫自動暫停）讓它變成冷啟動後的常態。
+    const html = await renderAt('/market', [], false, true)
+    expect(html).toContain('連不上伺服器')
+    expect(html).toContain('state-block--error')
+    expect(html).toContain('重試')
+    expect(html).not.toContain('載入模組中')
+  })
+
+  it('判斷順序是先問失敗再問載完，不然失敗會被讀成還在載入', async () => {
+    // 失敗時 loaded 維持 false（為了讓下一次呼叫會重試），
+    // 所以 v-if 的順序一旦寫反，錯誤畫面永遠不會出現、症狀是轉圈轉到天荒地老
+    const html = await renderAt('/market', [], false, true)
+    expect(html.indexOf('連不上伺服器')).toBeGreaterThan(-1)
+    expect(html).not.toContain('state-spinner')
   })
 })

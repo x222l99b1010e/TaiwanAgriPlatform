@@ -97,8 +97,9 @@ namespace TaiwanAgri.Worker.Pet
 			else
 			{
 				// ===== 增量分支：從第一次 SyncState 建立後，每天都會走這裡 =====
-				DateOnly startDate = lastSyncState.LastSyncedDate.AddDays(1);
 				DateOnly yesterdayDate = TaiwanTime.Today(_timeProvider).AddDays(-1);
+				// 往回重掃最近幾天，接住晚公布的資料（見 SyncWindow）
+				DateOnly startDate = SyncWindow.StartDate(lastSyncState.LastSyncedDate, yesterdayDate);
 				// 只追到「昨天」為止、不含「今天」：今天的資料可能還在持續產生（收容所還在登打），
 				// 抓「今天」容易抓到不完整的一天，明天再抓「今天」（那時候它已經變成「昨天」）反而更準確。
 				// 這個邊界跟 AgriProductsTransSyncWorker 的 yesterdayDate 慣例一致。
@@ -148,7 +149,7 @@ namespace TaiwanAgri.Worker.Pet
 					// 6. 這一天處理完畢（不管有沒有新資料，只要沒拋例外就算成功）才推進 LastSyncedDate
 					//    這是整個 checkpoint 機制的關鍵：如果程式在第 3、4、5 步中途死掉，
 					//    這一行就不會執行到，currentDate 這天不會被標記完成，下次會重跑。
-					lastSyncState.LastSyncedDate = currentDate;
+					lastSyncState.LastSyncedDate = SyncWindow.Advance(lastSyncState.LastSyncedDate, currentDate);
 					lastSyncState.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
 					await dbCore.SaveChangesAsync(stoppingToken);
 

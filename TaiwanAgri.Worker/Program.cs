@@ -1,11 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Serilog;
 using TaiwanAgri.Core.Extensions;
-using TaiwanAgri.Core.Infrastructure.Data;
-using TaiwanAgri.Modules.FoodSafety.Data;
-using TaiwanAgri.Modules.Market.Data;
-using TaiwanAgri.Modules.Pet.Data;
-using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Services;
 using TaiwanAgri.Worker.Weather;
 using TaiwanAgri.Worker.Market;
@@ -33,23 +27,8 @@ namespace TaiwanAgri.Worker
 			builder.Logging.ClearProviders();
 			builder.Logging.AddSerilog();
 
-			//DbContext 註冊
-			builder.Services.AddDbContext<CoreDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-			builder.Services.AddDbContext<WeatherDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-
-			builder.Services.AddDbContext<MarketDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-			builder.Services.AddDbContext<FoodSafetyDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
-			builder.Services.AddDbContext<PetDbContext>(options =>
-				options.UseSqlServer(
-					builder.Configuration.GetConnectionString("DefaultConnection")));
+			// DbContext 註冊：連線設定（含遇到暫時性錯誤自動重試）與測試共用同一份
+			builder.Services.AddWorkerDbContexts(builder.Configuration);
 
 			// MoaApi Named Client 設定與 Web 共用（TaiwanAgri.Core.Extensions）
 			builder.Services.AddMoaApiClient();
@@ -78,6 +57,23 @@ namespace TaiwanAgri.Worker
 			builder.Services.AddHostedService<AnimalRecognitionSyncWorker>();
 			builder.Services.AddHostedService<PetLoseListSyncWorker>();
 			builder.Services.AddHostedService<LegalSpecificPetSyncWorker>();
+
+			// 一次性執行模式：跑完一輪就結束，給外部排程（GitHub Actions cron）觸發用。
+			// 常駐模式在部署形態上撐不起來——Azure SQL 免費方案每月 100,000 vCore 秒
+			// （實測約夠醒著 40–54 小時），一直開著照規格下限算也要約 1,296,000 vCore 秒，超額 13 倍以上；
+			// App Service F1 也沒有 Always On。詳細判斷見 RunOnceCoordinator 的註解。
+			// 協調器最後才註冊：它要等其他 Worker 亮燈，順序上放最後最不容易誤讀
+			if (builder.Configuration.GetValue<bool>("Worker:RunOnce"))
+			{
+				var timeout = TimeSpan.FromMinutes(
+					builder.Configuration.GetValue<int?>("Worker:RunOnceTimeoutMinutes") ?? 30);
+
+				builder.Services.AddHostedService(sp => new RunOnceCoordinator(
+					sp,
+					sp.GetRequiredService<IHostApplicationLifetime>(),
+					sp.GetRequiredService<ILogger<RunOnceCoordinator>>(),
+					timeout));
+			}
 
 			var host = builder.Build();
 			host.Run();

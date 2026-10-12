@@ -13,24 +13,23 @@ namespace TaiwanAgri.Tests.Web
 {
 	/// <summary>
 	/// AuthService 的登入、註冊與內部的 JWT 簽發。
-	/// 兩個主軸：一是「帳號不存在」與「密碼錯誤」必須給出完全相同的回應——
-	/// 兩者能被區分開來就等於提供了一支帳號列舉介面；
-	/// 二是建構子的 fail-fast——三個 JWT 設定缺任何一個都在建立服務時就失敗，
-	/// 而不是等到第一個使用者嘗試登入才炸
+	/// 主軸是「帳號不存在」與「密碼錯誤」必須給出完全相同的回應——
+	/// 兩者能被區分開來就等於提供了一支帳號列舉介面。
+	/// JWT 設定缺漏的檢查不在這裡：AuthService 是 Scoped，要到第一個登入請求才會被建立，
+	/// 在它身上檢查等於等使用者來發現，所以改在啟動時檢查（見 JwtConfigurationTests）
 	/// </summary>
 	public class AuthServiceTests
 	{
 		private const string SecretKey = "這是一組長度足夠給 HmacSha256 使用的測試用金鑰不會用在任何真實環境";
 
 		/// <summary>
-		/// 用真的 Configuration 而不是 Mock：被測程式碼讀了五個 key，
+		/// 用真的 Configuration 而不是 Mock：被測程式碼讀了四個 key，
 		/// 逐個 Setup 的 Mock 比一份記憶體設定檔更長也更容易漏
 		/// </summary>
-		private static IConfiguration CreateConfiguration(
-			string? secretKey = SecretKey, string? expiresInDays = "7") =>
+		private static IConfiguration CreateConfiguration(string? expiresInDays = "7") =>
 			new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
 			{
-				["Jwt:SecretKey"] = secretKey,
+				["Jwt:SecretKey"] = SecretKey,
 				["Jwt:ExpiresInDays"] = expiresInDays,
 				["Jwt:Issuer"] = "TaiwanAgri",
 				["Jwt:Audience"] = "TaiwanAgriUsers"
@@ -72,24 +71,6 @@ namespace TaiwanAgri.Tests.Web
 
 		private static LoginRequestDto LoginRequest(string email = "farmer@example.com") =>
 			new() { Email = email, Password = "P@ssw0rd!" };
-
-		// ── 建構子的 fail-fast ───────────────────────────────────────────────
-
-		/// <summary>
-		/// JWT 設定缺漏時在建立服務的當下就失敗，而不是等到有人登入。
-		/// 差別在於前者是部署時就發現，後者是第一個真實使用者發現——
-		/// 而那個使用者看到的只會是一個 500
-		/// </summary>
-		[Theory]
-		[InlineData(null, "7")]
-		[InlineData(SecretKey, null)]
-		public void 缺少JWT設定時在建構服務當下就失敗(string? secretKey, string? expiresInDays)
-		{
-			var (users, signIn) = CreateManagers();
-
-			Assert.Throws<InvalidOperationException>(
-				() => new AuthService(users.Object, signIn.Object, CreateConfiguration(secretKey, expiresInDays)));
-		}
 
 		// ── LoginAsync ───────────────────────────────────────────────────────
 
