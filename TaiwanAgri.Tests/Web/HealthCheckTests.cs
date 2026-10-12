@@ -14,10 +14,12 @@ namespace TaiwanAgri.Tests.Web
 	/// 健康檢查的註冊方式。這裡最要緊的一則不是「檢查會不會過」，
 	/// 而是<b>資料庫檢查有沒有被標成 readiness</b>。
 	/// <para>
-	/// 標籤掉了的後果不會有任何人發現：/health 仍然回 200，只是從此每一次
-	/// 存活探測都會去碰資料庫。而部署形態是 Azure SQL serverless——閒置自動暫停、
-	/// 每月只有 100,000 vCore 秒（實測約夠醒著 40–54 小時），
-	/// 被定時 ping 一直叫醒的話額度會在無人察覺的情況下被燒光
+	/// /health/ready 只跑帶這個標籤的檢查。標籤掉了的後果不會有任何人發現：
+	/// /health/ready 從此一項檢查都不跑、永遠回 200——部署後的驗收與展示前的暖機
+	/// 都碰不到資料庫，前端的等待說明也會在資料庫還在醒的時候說成「仍在查詢中」
+	/// </para>
+	/// <para>
+	/// /health 不碰資料庫是另一回事：它的篩選條件是「一項都不跑」，跟標籤無關（見 Program.cs）
 	/// </para>
 	/// </summary>
 	public class HealthCheckTests
@@ -48,7 +50,7 @@ namespace TaiwanAgri.Tests.Web
 		}
 
 		[Fact]
-		public void 資料庫檢查被標成readiness而不是跟著存活探測一起跑()
+		public void 資料庫檢查要帶readiness標籤否則就緒檢查一項都不跑()
 		{
 			Assert.Contains(InfrastructureExtensions.ReadinessTag, DatabaseRegistration().Tags);
 		}
