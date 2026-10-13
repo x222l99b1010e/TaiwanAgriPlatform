@@ -59,34 +59,11 @@ namespace TaiwanAgri.Worker.Market
 					break;
 				}
 			}
-			var entities = new List<MarketRestDay>();
-			foreach (var market in allDtos)
+			var (entities, duplicates) = FlattenToEntities(allDtos);
+			if (duplicates.Count > 0)
 			{
-				foreach (var type in market.MarketTypeList)
-				{
-					foreach (var year in type.YearList)
-					{
-						foreach (var month in year.MonthList)
-						{
-							string[] splitRestDay = month.RestDay.Split('、');
-							foreach (var dayStr in splitRestDay)
-							{
-								if(!int.TryParse(dayStr, out int day)) continue;
-
-								entities.Add(new MarketRestDay
-								{
-									MarketCode = market.MarketCode,
-									MarketName = market.MarketName,
-									MarketType = type.Type,
-									Year = year.Year,
-									Month = month.Month,
-									RestDay = day,
-									CreatedAt = DateTime.UtcNow
-								});
-							}
-						}
-					}
-				}
+				_logger.LogWarning("[MarketRestDaySync] 上游同一月份給了不只一個版本，{Count} 個重複日期各只留一筆：{Days}",
+					duplicates.Count, string.Join("、", duplicates));
 			}
 			// 撈出資料庫已存在的自然鍵
 			var existingKeys = db.MarketRestDays
@@ -106,6 +83,58 @@ namespace TaiwanAgri.Worker.Market
 			await db.SaveChangesAsync(stoppingToken);
 			_logger.LogInformation("[MarketRestDaySync] 新增 {Count} 筆休市日資料", toInsert.Count);
 
+		}
+
+		/// <summary>
+		/// 把「市場 → 類別 → 年 → 月 → 休市日字串」攤平成一天一筆，並排除同一批裡的重複。
+		/// <para>
+		/// 上游會在同一市場、同一月份同時給兩個版本（例：一筆「03、04、11…」、另一筆「04、10、11…」），
+		/// 兩版共有的日期攤平後會重複；不先排除，寫入時撞唯一索引，整批一筆都寫不進去。
+		/// 上游沒有標示哪一版較新，所以取兩版的聯集——這張表只新增、不刪除，聯集與這個寫入方式一致
+		/// </para>
+		/// </summary>
+		/// <returns>去重後的資料，以及被排除的重複日期（給呼叫端記警告）</returns>
+		internal static (List<MarketRestDay> Entities, List<string> Duplicates) FlattenToEntities(IEnumerable<MarketRestDayDto> markets)
+		{
+			var entities = new List<MarketRestDay>();
+			var duplicates = new List<string>();
+			var seen = new HashSet<(string MarketCode, string MarketType, int Year, int Month, int Day)>();
+
+			foreach (var market in markets)
+			{
+				foreach (var type in market.MarketTypeList)
+				{
+					foreach (var year in type.YearList)
+					{
+						foreach (var month in year.MonthList)
+						{
+							foreach (var dayStr in month.RestDay.Split('、'))
+							{
+								if (!int.TryParse(dayStr, out int day)) continue;
+
+								if (!seen.Add((market.MarketCode, type.Type, year.Year, month.Month, day)))
+								{
+									duplicates.Add($"{market.MarketCode}/{type.Type} {year.Year}-{month.Month:D2}-{day:D2}");
+									continue;
+								}
+
+								entities.Add(new MarketRestDay
+								{
+									MarketCode = market.MarketCode,
+									MarketName = market.MarketName,
+									MarketType = type.Type,
+									Year = year.Year,
+									Month = month.Month,
+									RestDay = day,
+									CreatedAt = DateTime.UtcNow
+								});
+							}
+						}
+					}
+				}
+			}
+
+			return (entities, duplicates);
 		}
 	}
 }
