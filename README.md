@@ -445,7 +445,9 @@ TaiwanAgriPlatform/
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
-│   └── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
+│   ├── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
+│   ├── Dockerfile                    # 整站模式的前端映像：Node 建置 → nginx（建置內容從 repo 根目錄送）
+│   └── nginx.conf                    # 送出建置結果；/api、/health 同源轉給後端容器
 │
 └── TaiwanAgri.Tests/                 # xUnit + Moq（後端 488 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
