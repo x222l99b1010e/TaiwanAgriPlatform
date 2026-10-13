@@ -1,3 +1,26 @@
+# 兩種用法，共用同一個資料庫資料卷：
+#   docker compose up -d                 只起基礎設施（SQL Server、Redis、RabbitMQ）；
+#                                        .NET 在本機用 Visual Studio 跑，可以下中斷點
+#   docker compose --profile app up -d   整個網站：再加上建表、後端、Worker、前端，
+#                                        瀏覽器開 http://localhost:8080
+# 設定值放在 .env（不進版控），範本見 .env.example。
+# ⚠ 整站模式不要跟 Visual Studio 裡的 Worker 同時開：兩支 Worker 會同時抓同一批資料。
+
+# 建表容器與後端共用的設定。容器之間用服務名稱互連，所以資料庫主機是 sqlserver 不是 localhost
+x-backend-env: &backend-env
+  ConnectionStrings__DefaultConnection: &db-connection "Server=sqlserver,1433;Database=TaiwanAgriPlatform;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+  # 預設空字串只是讓「只起基礎設施」時不必填；整站模式沒填，後端啟動時會列出缺哪一項並結束
+  Jwt__SecretKey: ${JWT_SECRET_KEY:-}
+  Jwt__Issuer: TaiwanAgriPlatform
+  Jwt__Audience: TaiwanAgriPlatformUsers
+  Jwt__ExpiresInDays: "7"
+
+# 容器裡沒有 appsettings.json，記錄等級全是預設的 Information：每一句 SQL、每一次對農業部的請求都會印出來
+# （Worker 一小時幾十萬行）。這兩類調到 Warning，只留出錯的
+x-log-levels: &log-levels
+  Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+  Logging__LogLevel__System.Net.Http.HttpClient: Warning
+
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -22,32 +45,82 @@ services:
     ports:
       - "5672:5672"     # AMQP 協議（應用程式連線用）
       - "15672:15672"   # Management UI（瀏覽器管理介面）
-  # ── 已停用：web / worker 服務 ─────────────────────────────────
-  # 這個 compose 檔只負責基礎設施（資料庫、Redis、RabbitMQ），.NET 應用程式跑在本機。
-  # 下面兩個區塊引用的 TaiwanAgri.Web/Dockerfile 與 TaiwanAgri.Worker/Dockerfile 都還不存在，
-  # 取消註解會讓 docker compose up 直接失敗。
-  # 重新啟用條件：補上那兩個 Dockerfile、改成容器化啟動之後。
-  # web:
-  #   build:
-  #     context: .
-  #     dockerfile: TaiwanAgri.Web/Dockerfile
-  #   environment:
-  #     - RabbitMQ__HostName=rabbitmq
-  #   depends_on:
-  #     - rabbitmq
-  #     - sqlserver
-  #     - redis
+    # 後端的事件消費者在啟動時就連 broker、連不上整個服務起不來，所以 web 要等它真的能接連線
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      retries: 6
+      start_period: 20s
 
-  # worker:
-  #   build:
-  #     context: .
-  #     dockerfile: TaiwanAgri.Worker/Dockerfile
-  #   environment:
-  #     - RabbitMQ__HostName=rabbitmq
-  #   depends_on:
-  #     - rabbitmq
-  #     - sqlserver
-  # ────────────────────────────────────────────────────────────────
+  # ── 以下只在 --profile app 時啟動 ──────────────────────────────────
+
+  # 套用七個 DbContext 的 migration 後結束；資料表已是最新時什麼都不做
+  migrate:
+    profiles: [app]
+    build:
+      context: .
+      target: migrator
+    environment:
+      <<: [*backend-env, *log-levels]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  web:
+    profiles: [app]
+    build:
+      context: .
+      target: web
+    environment:
+      <<: [*backend-env, *log-levels]
+      ASPNETCORE_ENVIRONMENT: Production
+      # 瀏覽器只跟前端的 nginx 講話、由它轉給這裡，屬於同源，不需要 CORS
+      Cors__SameOriginOnly: "true"
+      ConnectionStrings__Redis: redis:6379
+      RabbitMQ__HostName: rabbitmq
+      Logging__LogLevel__Microsoft.AspNetCore: Warning
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    # 種子資料在開始聽連線之前寫完，所以「/health 回 200」也代表種子已就緒，worker 靠這個排在後面。
+    # 映像裡沒有 curl，用 bash 內建的 /dev/tcp 直接送 HTTP 請求
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 5s
+      retries: 24
+      start_period: 10s
+
+  worker:
+    profiles: [app]
+    build:
+      context: .
+      target: worker
+    environment:
+      # Worker 的記錄走 Serilog，AddSerilog() 會替它加一條「全部放行」的專屬規則，蓋過通用的
+      # Logging__LogLevel__*；要指名 Serilog 這個 provider 才調得動
+      Logging__Serilog__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+      Logging__Serilog__LogLevel__System.Net.Http.HttpClient: Warning
+      ConnectionStrings__DefaultConnection: *db-connection
+      DOTNET_ENVIRONMENT: Production
+      RabbitMQ__HostName: rabbitmq
+    depends_on:
+      # 寵物資料有外鍵指向收容所，收容所是 web 啟動時寫入的種子
+      web:
+        condition: service_healthy
+
+  frontend:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: TaiwanAgri.Frontend/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - web
 
 volumes:
   sqlserver_data:
