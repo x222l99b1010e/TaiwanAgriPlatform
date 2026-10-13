@@ -24,6 +24,13 @@ x-log-levels: &log-levels
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    # 映像原本的進入點是一支 bash 啟動腳本：它把 sqlservr 放到背景、自己當第一號程序，收到停止訊號不會轉送，
+    # down／stop 只能等逾時後強制終止 SQL Server（等於拔電源，每次都要靠交易記錄做損毀復原）。
+    # 改由 Docker 內建的 init 當第一號程序、直接啟動 sqlservr，停止訊號才送得到；60 秒是留給寫回磁碟的時間。
+    # 略過的啟動腳本只印說明，或處理本專案沒用到的自訂初始化（MSSQL_DB、/mssql-server-setup-scripts.d）
+    init: true
+    entrypoint: ["/opt/mssql/bin/sqlservr"]
+    stop_grace_period: 60s
     environment:
       SA_PASSWORD: ${SA_PASSWORD}
       ACCEPT_EULA: "Y"
