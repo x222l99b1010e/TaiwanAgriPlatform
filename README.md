@@ -188,6 +188,8 @@
 TaiwanAgriPlatform/
 ├── TaiwanAgriPlatform.slnx
 ├── docker-compose.yml
+├── Dockerfile                        # 後端三個映像（web／worker／建表）共用，用 --target 選
+├── .dockerignore                     # 建置時不送本機產物與設定（appsettings.*.json、.env*）
 ├── .env                              # 敏感設定（不進版控）
 │
 ├── TaiwanAgri.Core/                  # 共用 Interface / DTO / Enum / Entity
