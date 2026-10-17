@@ -187,7 +187,9 @@
 ```
 TaiwanAgriPlatform/
 ├── TaiwanAgriPlatform.slnx
-├── docker-compose.yml
+├── docker-compose.yml                # 兩種模式：只起基礎設施／加 --profile app 起整站
+├── Dockerfile                        # 後端三個映像（web／worker／建表）共用，用 --target 選
+├── .dockerignore                     # 建置時不送本機產物與設定（appsettings.*.json、.env*）
 ├── .env                              # 敏感設定（不進版控）
 │
 ├── TaiwanAgri.Core/                  # 共用 Interface / DTO / Enum / Entity
@@ -443,9 +445,11 @@ TaiwanAgriPlatform/
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
-│   └── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
+│   ├── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
+│   ├── Dockerfile                    # 整站模式的前端映像：Node 建置 → nginx（建置內容從 repo 根目錄送）
+│   └── nginx.conf                    # 送出建置結果；/api、/health 同源轉給後端容器
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 485 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 488 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -456,7 +460,7 @@ TaiwanAgriPlatform/
     │                                  #   NotificationService 分頁邊界 / 越權防護 / 導覽屬性投影
     ├── Pet/                           # PetService 篩選排序 + IsOwner + 越權防禦 + JSON enum 契約 + TimeProvider 時間戳
     ├── Worker/                        # 食安 / 寵物 SyncWorker（MapToEntity 可測化 + InMemory DB）；行情同步的事件發布；
-    │                                  #   往回重掃的起訖日（SyncWindow）；一次性模式的收工判斷（RunOnceCoordinator）
+    │                                  #   往回重掃的起訖日（SyncWindow）；一次性模式的收工判斷（RunOnceCoordinator）；休市日的批次內去重
     └── Web/                           # Controller 層驗證與分頁契約（PagedQueryDto 界限、PagedResult 計算、
                                        #   PetController 授權判斷、MarketController 白名單與截斷標頭）
 ```
@@ -480,8 +484,8 @@ TaiwanAgriPlatform/
 | 圖表 | Chart.js | 4.x | 折線圖 / 移動平均線 / 天災垂直線 |
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
-| 容器化 | Docker Compose | 最新版 | 基礎設施服務（SQL Server / Redis / RabbitMQ） |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，485 個案例） |
+| 容器化 | Docker + Docker Compose | 最新版 | 預設只起基礎設施（SQL Server / Redis / RabbitMQ）；`--profile app` 起整站（建表、後端、Worker、前端 nginx），映像多階段建置、非 root 執行 |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，488 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 168 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
@@ -496,8 +500,49 @@ TaiwanAgriPlatform/
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Node.js 22 LTS](https://nodejs.org/)（前端建置用）
 
-> **架構決策說明**：Docker Compose 只負責啟動基礎設施服務（SQL Server、Redis、RabbitMQ）。
-> .NET 應用程式在 Windows 本機直接執行，保留 Visual Studio 完整的 F5 中斷點除錯能力。
+> **架構決策說明**：Docker Compose 有兩種模式。日常開發只起基礎設施服務（SQL Server、Redis、RabbitMQ），
+> .NET 應用程式在 Windows 本機直接執行，保留 Visual Studio 完整的 F5 中斷點除錯能力——下方 Step 1–8 是這條路。
+> 只想把整個網站跑起來看，用下一節的「一鍵起整站」。
+
+---
+
+### 一鍵起整站（只需要 Docker Desktop）
+
+不改程式、只想把整個網站跑起來看時走這條路：建表、後端、Worker、前端都在容器裡，不需要安裝 .NET SDK 與 Node.js。
+
+```bash
+git clone https://github.com/x222l99b1010e/TaiwanAgriPlatform.git
+cd TaiwanAgriPlatform
+```
+
+在 repo 根目錄建立 `.env`（不進版控，範本見 `.env.example`）：
+
+```env
+SA_PASSWORD=你的密碼
+JWT_SECRET_KEY=至少32個英數字
+```
+
+`SA_PASSWORD` 是 SQL Server 的 sa 密碼（至少 8 字元，含大小寫、數字、符號）；
+`JWT_SECRET_KEY` 是後端簽發登入憑證用的金鑰，沒填的話後端啟動時會列出缺哪一項並結束。
+
+```bash
+docker compose --profile app up -d --build
+```
+
+第一次要下載基底映像並建置，視網路需要幾分鐘。啟動順序由 compose 控制：
+SQL Server 健康 → `migrate` 套用七個 DbContext 的 migration 後結束 → `web` 啟動並寫入種子資料
+→ `worker` 開始同步；`frontend` 不等種子，`web` 一啟動就跟著起來。完成後瀏覽器開 **http://localhost:8080**。
+
+```bash
+docker compose --profile app ps -a
+```
+
+加 `-a` 才會連已經結束的容器一起列出。預期 `migrate` 是 `Exited (0)`（建表做完就結束，這是正常的），`sqlserver`、`rabbitmq`、`web` 帶 `(healthy)`。
+
+- **全新環境的資料要等 Worker 補**：一開始只有種子資料，其餘由 Worker 從農業部 API 抓，蔬菜行情要一天以上才會補到最近（見「已知限制」）。
+- **停止**：`docker compose --profile app down`——容器移除、資料卷保留，下次 `up` 資料還在；加 `-v` 才會連資料一起刪。
+- **與下方的開發模式共用同一個資料庫**（同一個資料卷）。⚠ 整站模式開著時，不要再從 Visual Studio 啟動 Worker：兩支 Worker 會同時抓同一批資料。
+- 容器裡的後端用正式環境設定（沒有 Swagger）。瀏覽器只跟前端的 nginx 講話、`/api` 由它轉給後端，屬於同源，所以不需要 CORS 設定。
 
 ---
 
@@ -516,8 +561,8 @@ cd TaiwanAgriPlatform
 SA_PASSWORD=你的密碼
 ```
 
-> `.env` 只有這一個值。`docker-compose.yml` 用它設定 SQL Server 的 sa 密碼，
-> 其餘連線字串與金鑰都走 `appsettings.Development.json`。
+> 開發模式的 `.env` 只需要這一個值，`docker-compose.yml` 用它設定 SQL Server 的 sa 密碼，
+> 其餘連線字串與金鑰都走 `appsettings.Development.json`（`JWT_SECRET_KEY` 只有整站模式用得到）。
 
 應用程式設定則從版控裡的兩份範本複製：
 
@@ -552,8 +597,8 @@ docker compose up -d
 docker compose ps
 ```
 
-預期三個容器的 STATUS 都是 `Up`，其中 `taiwanagriplatform-sqlserver-1` 會多一個 `(healthy)`——
-只有 SQL Server 設了健康檢查，Redis 與 RabbitMQ 沒有，所以不會出現這個標記。
+預期三個容器的 STATUS 都是 `Up`，其中 `taiwanagriplatform-sqlserver-1` 與 `taiwanagriplatform-rabbitmq-1`
+會多一個 `(healthy)`——Redis 沒有設健康檢查，所以不會出現這個標記。
 Redis 與 RabbitMQ 是可選相依，只開 SQL Server（`docker compose up -d sqlserver`）服務也能完整啟動。
 
 ### Step 4：執行 EF Core Migration
@@ -616,7 +661,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 485 個測試案例）
+# 後端（xUnit + Moq，共 488 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -625,7 +670,7 @@ cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行兩個 job：`build-and-test`（後端 restore → build → test）與 `frontend`（`npm ci` → lint → vitest → build），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 168 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓鈕與預設圖示、強調變體，31 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → test）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -1374,6 +1419,22 @@ GitHub 的執行器上，而執行器的 IP 不固定，因此採用「允許 Az
 **收窄的正確做法**是改由 workflow 在執行前後動態增刪防火牆規則，
 但那需要在 GitHub 這一側再保管一組 Azure 認證——用一組更敏感的憑證去換一個較窄的網路範圍，
 在這個專案（資料全部是公開的政府開放資料、寫入端點都要登入）不划算。
+
+**整站模式的全新環境，資料要等 Worker 慢慢補**——資料庫是空的時候只有種子資料，
+其餘全靠 Worker 從農業部 API 抓。實測（2026-10-13，全新資料卷跑約 70 分鐘）：毛豬、家禽、寵物三類已追到當天，
+蔬菜行情從同步起點 2018-06-30 往後補、一小時約 4 個月，照這個速度要一天以上才補到最近；
+這段期間首頁的今日行情顯示的是當時補到的那一天（實測畫面是 2018-10-26）。
+不另外提供示範資料：示範資料要另外決定範圍與灌入方式並持續維護，而展示用的環境本來就是同步好的資料庫。
+
+**整站模式的速率限制以 nginx 的位址計**——前端的 nginx 把 `/api` 轉給後端，後端看到的來源位址全部是 nginx，
+所有使用者共用同一組限流額度。整站模式是單機、單人使用的本機環境，所以不影響；
+要讓限流分辨使用者，需要後端信任 nginx 轉來的 `X-Forwarded-For`（啟用 Forwarded Headers 並只信任 nginx），
+這一層在本機環境沒有意義，因此沒做。
+
+**建表映像約 774 MB**——七個 DbContext 各打包成一支 migration bundle，每一支都帶著後端的完整相依
+（EF 打包時借用後端的啟動流程來建立 DbContext，所以打包階段也要提供連線字串與 JWT 設定的佔位值）。
+改成每個 DbContext 各寫一個設計階段用的建立工廠可以縮小，但那是為了建表工具去改應用程式碼；
+這個映像只在本機建置、不推送，大小不影響執行，所以維持現狀。
 
 ---
 

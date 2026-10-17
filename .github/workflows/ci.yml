@@ -64,3 +64,19 @@ jobs:
       - name: Build
         working-directory: TaiwanAgri.Frontend
         run: npm run build
+
+  docker-images:
+    name: Docker Images Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 只建置不推送：確認四個映像（建表、後端、Worker、前端）照 compose 的定義仍然建得起來。
+      # 沒有自動化跑過的 Dockerfile，壞了也不會有人發現
+      - name: Build images
+        run: docker compose --profile app build
+        env:
+          # 建置不會讀這個值；設了只是讓 compose 不印「變數未設定」的警告
+          SA_PASSWORD: not-used-at-build-time

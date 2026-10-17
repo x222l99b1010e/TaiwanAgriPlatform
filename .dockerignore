@@ -1,0 +1,31 @@
+# docker build 時「不送進建置環境」的檔案。後端與前端的映像都從 repo 根目錄建，共用這一份。
+# 排除兩類東西：
+# 1. 本機建置產物與快取——體積大，而且會讓「本機編譯的東西」混進映像
+# 2. 本機設定與機密——appsettings.*.json 有本機密碼、前端的 .env.production 是雲端後端網址；
+#    送進去就可能被烤進映像，或讓容器裡的前端改去打雲端。容器的設定一律走 compose 的環境變數
+
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/logs/
+**/coverage/
+**/.eslintcache
+**/*.tsbuildinfo
+**/*.user
+.git/
+.vs/
+.vscode/
+.idea/
+.claude/
+publish/
+publish.zip
+
+**/appsettings.json
+**/appsettings.*.json
+!**/appsettings.example.json
+**/.env
+**/.env.*
+
+TaiwanAgri.Tests/
+CLAUDE.md
