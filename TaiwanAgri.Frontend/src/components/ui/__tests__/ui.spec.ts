@@ -64,38 +64,46 @@ describe('Btn', () => {
     expect(html).toContain('disabled')
   })
 
-  it('主要按鈕的圖示放進右端圓鈕，而且只出現一次', async () => {
-    // 圖示若同時留在文字左邊，會變成一顆按鈕兩個放大鏡
+  it('主要按鈕的圖示放進左端圓盤，而且只出現一次', async () => {
+    // 圖示若同時留在文字旁邊，會變成一顆按鈕兩個放大鏡
     const html = await render(Btn, { icon: 'mdi-magnify' }, { default: '查詢' })
-    expect(html).toContain('btn-knob')
+    expect(html).toContain('btn-disk')
     expect(html.match(/mdi-magnify/g)).toHaveLength(1)
     expect(html).toContain('查詢')
   })
 
-  it('主要按鈕沒指定圖示時，圓鈕放預設箭頭', async () => {
-    // 全站主要按鈕長相一致：沒有圓鈕的主要按鈕會跟有圓鈕的並排在同一頁
+  it('主要按鈕沒指定圖示時，圓盤放預設箭頭', async () => {
+    // 全站主要按鈕長相一致：空的圓盤會跟有圖示的並排在同一頁
     const html = await render(Btn, {}, { default: '送出' })
-    expect(html).toContain('btn-knob')
+    expect(html).toContain('btn-disk')
     expect(html).toContain('mdi-arrow-right')
   })
 
-  it('圓鈕對螢幕閱讀器隱藏', async () => {
-    // 圓鈕是裝飾：按鈕的名字已經由文字說完，讀出「箭頭」只是雜訊
+  it('圓盤對螢幕閱讀器隱藏', async () => {
+    // 圓盤是裝飾：按鈕的名字已經由文字說完，讀出「箭頭」只是雜訊
     const html = await render(Btn, {}, { default: '送出' })
-    expect(html).toMatch(/class="btn-knob" aria-hidden="true"/)
+    expect(html).toMatch(/class="btn-disk" aria-hidden="true"/)
   })
 
-  it('載入中的主要按鈕，轉圈在圓鈕裡取代圖示', async () => {
+  it('載入中的主要按鈕，轉圈在圓盤裡取代圖示', async () => {
     const html = await render(Btn, { loading: true }, { default: '送出' })
     expect(html).toContain('mdi-loading')
     expect(html).not.toContain('mdi-arrow-right')
   })
 
-  it('非主要按鈕沒有 icon 時不渲染任何圖示元素，也沒有圓鈕', async () => {
+  it('載入中帶 btn--loading，外觀才能跟停用分開', async () => {
+    // 載入中也帶 disabled（防重複送出），但外觀要維持可點的綠；
+    // 停用的米色樣式靠 :not(.btn--loading) 排除，這個 class 掉了，載入中的按鈕就會變成灰的
+    const html = await render(Btn, { loading: true }, { default: '送出' })
+    expect(html).toContain('btn--loading')
+    expect(await render(Btn, { disabled: true }, { default: '送出' })).not.toContain('btn--loading')
+  })
+
+  it('非主要按鈕沒有 icon 時不渲染任何圖示元素，也沒有圓盤', async () => {
     for (const variant of ['secondary', 'danger', 'accent']) {
       const html = await render(Btn, { variant }, { default: '取消' })
       expect(html).not.toContain('btn-icon')
-      expect(html).not.toContain('btn-knob')
+      expect(html).not.toContain('btn-disk')
     }
   })
 

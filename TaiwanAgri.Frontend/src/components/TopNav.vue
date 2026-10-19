@@ -70,7 +70,7 @@
         <!-- 未登入：登入按鈕（窄螢幕也留在列上：它是訪客唯一的主要動作） -->
         <button v-else class="login-btn login-btn--primary" @click="router.push('/login')">
           <span class="login-btn__fill">登入</span>
-          <span class="login-btn__knob" aria-hidden="true"><span class="mdi mdi-login" /></span>
+          <span class="login-btn__disk" aria-hidden="true"><span class="mdi mdi-login" /></span>
         </button>
 
         <!-- 窄螢幕才出現：分頁列放不下時，改成一顆按鈕展開下面的選單 -->
@@ -260,66 +260,73 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 /* 深色列上的按鈕不共用 Btn 元件：Btn 的變體全部是對「淺底」調的，
    把深底塞進去等於讓那個元件同時背兩套底色系統。共用的是規格不是程式碼——
-   藥丸、雙線描邊、高度、字級與 Btn 同一組 token。
-   登入之後那三顆（農場設定／監看清單／登出）沒有主從之分，照次要變體的外環＋內側細線，
-   但留在深底上不填米白（三顆米白藥丸排在導覽列會比站名還搶眼），描邊因此改用米白系——
-   墨色線在夜土上看不見。 */
+   藥丸、高度、字級，以及主要按鈕的外框、圓盤、立體底邊，都跟 Btn 取同一組 token。
+   登入之後那三顆（農場設定／監看清單／登出）沒有主從之分：一道半透明米白線、不填色、不加底邊。
+   不照 Btn 的次要變體填米白——三顆米白藥丸排在導覽列會比站名還搶眼；線也不能是米色，夜土上看不見。 */
 .login-btn {
   display: inline-flex; align-items: center;
   min-height: var(--control-h-sm); padding: 0 var(--space-4);
   border-radius: var(--radius-full);
-  border: var(--control-ring-w-sm) solid var(--color-deep-border-strong);
-  box-shadow: inset 0 0 0 var(--control-line-w-sm) var(--color-on-deep-dim);
-  background: transparent; color: var(--color-on-deep);
+  border: var(--border-width) solid var(--color-deep-border-strong);
+  background-color: transparent; color: var(--color-on-deep);
   font-family: inherit; font-size: var(--text-sm); font-weight: var(--weight-bold);
   letter-spacing: 0.02em; line-height: 1; text-decoration: none; white-space: nowrap; cursor: pointer;
   transition:
-    background var(--duration-fast) var(--ease-work),
-    box-shadow var(--duration-fast) var(--ease-work);
+    background-color var(--duration-fast) var(--ease-work),
+    border-color var(--duration-fast) var(--ease-work);
 }
-.login-btn:hover { background: var(--white-a12); box-shadow: inset 0 0 0 var(--control-line-w-sm) var(--color-on-deep); }
+.login-btn:hover { background-color: var(--white-a12); border-color: var(--color-on-deep-dim); }
 .login-btn:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
 
-/* 未登入時「登入」是這一列唯一的主要動作，照主要變體：墨色外框 → 實心淡綠間隙 →
-   漸層填色 → 右端凸出的圓鈕（sm：按鈕 32px、圓鈕 38px）。間隙不能透出底色，
-   否則外框與填色中間多一圈黑、跟列的底色混在一起（同首頁「開始查詢」的說明）。 */
+/* 未登入時「登入」是這一列唯一的主要動作，照 Btn 的主要變體（sm）：
+   漸層外框 → 米白身體 → 左端圓盤，底下一條深綠的立體底邊，本體＋底邊＝ --control-h-sm。
+   深色底上不另外加框：米白身體本身就是列上最亮的面，再框一圈，外框與身體中間會透出夜土，像散開的兩道線。 */
 .login-btn--primary {
-  --login-knob: 38px;
-  --login-overhang: 5px;
+  --login-lip: var(--control-lip-sm);
+  --login-body: calc(var(--control-h-sm) - var(--login-lip));
   position: relative;
   align-items: stretch;
-  padding: 3px;
-  margin-inline-end: var(--login-overhang);
-  border: var(--control-line-w-sm) solid var(--color-text);
-  box-shadow: none;
-  background: var(--color-control-gap);
-  color: var(--color-on-action);
-}
-.login-btn--primary:hover { background: var(--color-control-gap); box-shadow: none; }
-.login-btn__fill {
-  display: inline-flex; align-items: center;
-  padding-inline: var(--space-4) calc(var(--login-knob) - var(--login-overhang) + var(--space-1));
-  border-radius: inherit;
+  min-height: var(--login-body);
+  margin-block-end: var(--login-lip);
+  padding: var(--control-ring-w-sm);
+  border: 0;
+  box-shadow: 0 var(--login-lip) 0 var(--color-action-lip);
   background-image: var(--gradient-action);
   background-size: var(--gradient-action-size);
+  color: var(--color-action-ink);
+  transition: transform var(--duration-fast) var(--ease-work), box-shadow var(--duration-fast) var(--ease-work);
 }
-.login-btn--primary:hover .login-btn__fill {
-  background-image: var(--gradient-action-hover);
-  animation: action-sheen var(--duration-sheen) var(--ease-in-out) 1;
+/* 滑過：外框與圓盤的亮帶從左往右掃一次、身體變淡綠、圓盤往右推 4px（同 Btn） */
+.login-btn--primary:hover { animation: action-sheen var(--duration-sheen) var(--ease-in-out) 1; }
+.login-btn--primary:active { transform: translateY(var(--login-lip)); box-shadow: 0 0 0 var(--color-action-lip); }
+.login-btn__fill {
+  position: relative;
+  z-index: 1;
+  display: inline-flex; align-items: center;
+  padding-inline: calc(var(--login-body) + var(--space-2)) var(--space-4);
+  border-radius: inherit;
+  background: var(--color-surface);
+  transition: background-color var(--duration-fast) var(--ease-work);
 }
-.login-btn__knob {
+.login-btn--primary:hover .login-btn__fill { background: var(--color-action-soft); }
+.login-btn__disk {
   position: absolute;
-  inset-block-start: 50%;
-  inset-inline-end: calc(var(--login-overhang) * -1);
-  width: var(--login-knob);
-  height: var(--login-knob);
-  margin-block-start: calc(var(--login-knob) / -2);
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--login-body);  /* 不用 aspect-ratio：絕對定位＋上下貼齊時推不推得出寬度要看瀏覽器版本 */
   display: grid; place-items: center;
-  border: var(--control-line-w-sm) solid var(--color-text);
   border-radius: 50%;
-  background: var(--color-control-gap);
-  color: var(--color-action);
-  font-size: var(--text-lg);
+  background-image: var(--gradient-disk-gloss), var(--gradient-action-disk);
+  background-size: 100% 100%, var(--gradient-action-disk-size);
+  box-shadow: inset 0 0 0 2px var(--white-a12);
+  color: var(--color-on-action);
+  font-size: var(--text-base);
+  transition: transform var(--duration-fast) var(--ease-work);
+}
+.login-btn--primary:hover .login-btn__disk {
+  transform: translateX(4px);
+  animation: action-sheen var(--duration-sheen) var(--ease-in-out) 1;
 }
 
 .user-name {
@@ -348,15 +355,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     place-items: center;
     width: var(--control-h);
     height: var(--control-h);
-    border: var(--control-ring-w-sm) solid var(--color-deep-border-strong);
+    border: var(--border-width) solid var(--color-deep-border-strong);
     border-radius: var(--radius-full);
     background: transparent;
     color: var(--color-on-deep);
     font-size: var(--text-xl);
     cursor: pointer;
-    transition: background var(--duration-fast) var(--ease-work);
+    transition:
+      background var(--duration-fast) var(--ease-work),
+      border-color var(--duration-fast) var(--ease-work);
   }
-  .nav-toggle:hover { background: var(--white-a12); }
+  .nav-toggle:hover { background: var(--white-a12); border-color: var(--color-on-deep-dim); }
   .nav-toggle:focus-visible { outline: 2px solid var(--color-action-on-deep); outline-offset: 2px; }
 
   /* 浮在頁面上方的一層，所以可以用 --shadow-float；高度超過一屏時選單自己捲，不帶著整頁捲 */

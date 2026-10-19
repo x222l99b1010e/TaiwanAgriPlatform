@@ -292,12 +292,12 @@ async function handleSubmit() {
 /* 提交按鈕：外觀走共用的 Btn，這裡只補登入卡片特有的滿寬與高度——
    登入頁只有一個動作，按鈕撐滿卡片寬度是這個版面的刻意設計，不是通用樣式。
    高度也比一般動作按鈕高一階：它是整張卡片唯一的送出動作。
-   圓鈕跟著按鈕加高放大；寬度扣掉圓鈕凸出的那一截，右緣才不會超出卡片。 */
+   高度改 Btn 的 --btn-h（本體＋立體底邊），不要直接寫 min-height：底邊會多出一截。
+   外框跟著加粗一階、圓盤跟著本體變大，跟首頁「開始查詢」同一個尺寸。 */
 .login-submit {
-  --btn-knob: 56px;
-  --btn-knob-overhang: 7px;
-  width: calc(100% - var(--btn-knob-overhang));
-  min-height: 48px;
+  --btn-h: calc(var(--control-h) + var(--space-2));
+  --btn-ring-w: var(--control-ring-w-lg);
+  width: 100%;
   margin-top: var(--space-2);
   font-size: var(--text-base);
 }
