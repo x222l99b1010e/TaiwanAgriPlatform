@@ -41,7 +41,7 @@
       <template #cta>
         <RouterLink to="/market/prices" class="hero-cta">
           <span class="hero-cta__fill">開始查詢</span>
-          <span class="hero-cta__knob" aria-hidden="true"><span class="mdi mdi-arrow-right" /></span>
+          <span class="hero-cta__disk" aria-hidden="true"><span class="mdi mdi-arrow-right" /></span>
         </RouterLink>
       </template>
 
@@ -243,61 +243,64 @@ onMounted(() => {
 
 /* ── hero：CTA 與節氣牌 ─────────────────────────────────────────────── */
 /* 首頁的主要動作，跟內頁的「查詢」是同一種東西，外形照 Btn 的主要變體手寫
-   （藥丸＋外框＋間隙＋左深右淺的漸層＋右端凸出的圓鈕；Btn 只對淺底調，見 Btn.vue 檔頭）。
-   深色底上照樣是「墨色外框 → 實心淡綠間隙 → 漸層」，跟淺底一模一樣：間隙若透出底色，
-   外框與綠色填色中間會多一圈黑，跟夜土混在一起，按鈕看起來像散開的兩道線。
-   墨色外框在深底上看不見，邊緣由淡綠間隙負責；所以不需要光暈——按鈕一律不用陰影。
-   比內頁的按鈕高一階（--control-h ＋ --space-2），圓鈕跟著放大：它是整屏唯一的主要動作。 */
+   （漸層外框 → 米白身體 → 左端圓盤＋深綠的立體底邊；Btn 只對淺底調，見 Btn.vue 檔頭）。
+   深色底上不另外加框：米白身體本身就是整屏最亮的一塊面，再框一圈，外框與身體中間會透出夜土，像散開的兩道線。
+   比內頁的按鈕高一階（--control-h ＋ --space-2，本體＋底邊），外框與圓盤跟著放大：它是整屏唯一的主要動作。
+   圓盤裡的箭頭就是「往右滑解鎖」的把手，指著要去的方向。 */
 .hero-cta {
-  --cta-knob: 56px;
-  --cta-overhang: 7px;
+  --cta-lip: var(--control-lip);
+  --cta-body: calc(var(--control-h) + var(--space-2) - var(--cta-lip));
   position: relative;
   display: inline-flex;
-  min-height: calc(var(--control-h) + var(--space-2));
-  padding: var(--space-1);
-  margin-inline-end: var(--cta-overhang);
-  border: var(--control-line-w) solid var(--color-text);
+  min-height: var(--cta-body);
+  margin-block-end: var(--cta-lip);
+  padding: var(--control-ring-w-lg);
   border-radius: var(--radius-full);
-  background: var(--color-control-gap);
-  color: var(--color-on-action);
+  box-shadow: 0 var(--cta-lip) 0 var(--color-action-lip);
+  background-image: var(--gradient-action);
+  background-size: var(--gradient-action-size);
+  color: var(--color-action-ink);
   font-weight: var(--weight-bold);
   font-size: var(--text-base);
   letter-spacing: 0.02em;
   line-height: 1;
   text-decoration: none;
-  transition: transform var(--duration-fast) var(--ease-work);
+  transition: transform var(--duration-fast) var(--ease-work), box-shadow var(--duration-fast) var(--ease-work);
 }
 .hero-cta__fill {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
-  padding-inline: var(--space-8) calc(var(--cta-knob) - var(--cta-overhang) + var(--space-2));
+  padding-inline: calc(var(--cta-body) + var(--space-2)) var(--space-8);
   border-radius: inherit;
-  background-image: var(--gradient-action);
-  background-size: var(--gradient-action-size);
+  background: var(--color-surface);
+  transition: background-color var(--duration-fast) var(--ease-work);
 }
-.hero-cta__knob {
+.hero-cta__disk {
   position: absolute;
-  inset-block-start: 50%;
-  inset-inline-end: calc(var(--cta-overhang) * -1);
-  width: var(--cta-knob);
-  height: var(--cta-knob);
-  margin-block-start: calc(var(--cta-knob) / -2);
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--cta-body);  /* 不用 aspect-ratio：絕對定位＋上下貼齊時推不推得出寬度要看瀏覽器版本 */
   display: grid;
   place-items: center;
-  border: var(--control-line-w) solid var(--color-text);
   border-radius: 50%;
-  background: var(--color-control-gap);
-  color: var(--color-action);
-  font-size: var(--text-2xl);
-  transition: color var(--duration-fast) var(--ease-work);
+  background-image: var(--gradient-disk-gloss), var(--gradient-action-disk);
+  background-size: 100% 100%, var(--gradient-action-disk-size);
+  box-shadow: inset 0 0 0 2px var(--white-a12);
+  color: var(--color-on-action);
+  font-size: var(--text-xl);
+  transition: transform var(--duration-fast) var(--ease-work);
 }
-/* 滑過的反光與 Btn 同一個規格：淺色那一頭從右往左滑過去一次 */
-.hero-cta:hover .hero-cta__fill {
-  background-image: var(--gradient-action-hover);
+/* 滑過與 Btn 同一個規格：外框與圓盤的亮帶從左往右掃一次、身體變淡綠、圓盤往右推 4px */
+.hero-cta:hover { animation: action-sheen var(--duration-sheen) var(--ease-in-out) 1; }
+.hero-cta:hover .hero-cta__fill { background: var(--color-action-soft); }
+.hero-cta:hover .hero-cta__disk {
+  transform: translateX(4px);
   animation: action-sheen var(--duration-sheen) var(--ease-in-out) 1;
 }
-.hero-cta:hover .hero-cta__knob { color: var(--color-action-hover); }
-.hero-cta:active { transform: translateY(1px); }
+.hero-cta:active { transform: translateY(var(--cta-lip)); box-shadow: 0 0 0 var(--color-action-lip); }
 .hero-cta:focus-visible { outline: 2px solid var(--color-on-deep); outline-offset: 3px; }
 
 /* 節氣牌：往左移一點、不貼右緣；並跟深色 hero 拉開層次——
