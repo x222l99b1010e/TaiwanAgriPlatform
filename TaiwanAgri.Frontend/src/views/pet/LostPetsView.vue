@@ -333,33 +333,38 @@ onMounted(fetchList)
 .sort-dir-btn:hover { border-color: var(--color-action); color: var(--color-action); }
 .sort-dir-btn:focus-visible { outline: none; border-color: var(--color-action); box-shadow: var(--shadow-focus); }
 
-/* 「我的協尋貼文」是換頁連結，外觀照 Btn 的次要變體手寫（藥丸＋外環＋內側細線）：
-   它跟主要按鈕「張貼協尋啟事」排在同一列，形狀、描邊、高度差一點都一眼看得出來。
+/* 「我的協尋貼文」是換頁連結，外觀照 Btn 的次要變體手寫（藥丸＋一道米色線＋米色立體底邊）：
+   它跟主要按鈕「張貼協尋啟事」排在同一列，形狀、框、底邊、高度差一點都一眼看得出來。
    不直接用 Btn：Btn 渲染的是 <button>，拿來換頁得自己接 router.push，
    就沒了連結該有的中鍵開新分頁與網址預覽。 */
 .my-posts-link {
   display: inline-flex; align-items: center; gap: var(--space-2);
-  min-height: var(--control-h); padding: 0 var(--space-5);
+  min-height: calc(var(--control-h) - var(--control-lip));
+  margin-block-end: var(--control-lip);
+  padding: 0 var(--space-5);
   border-radius: var(--radius-full);
-  border: var(--control-ring-w) solid var(--color-control-ring);
-  box-shadow: inset 0 0 0 var(--control-line-w) var(--color-text);
+  border: var(--border-width) solid var(--color-border-strong);
+  box-shadow: 0 var(--control-lip) 0 var(--color-border-strong);
   background: var(--color-surface);
   color: var(--color-text);
   font-size: var(--text-sm); font-weight: var(--weight-bold);
   letter-spacing: 0.02em; line-height: 1; text-decoration: none; white-space: nowrap;
   transition:
     background var(--duration-fast) var(--ease-work),
+    border-color var(--duration-fast) var(--ease-work),
     color var(--duration-fast) var(--ease-work),
-    box-shadow var(--duration-fast) var(--ease-work);
+    box-shadow var(--duration-fast) var(--ease-work),
+    transform var(--duration-fast) var(--ease-work);
 }
-.my-posts-link .mdi { font-size: 1.15em; color: var(--color-control-ring); }
+.my-posts-link .mdi { font-size: 1.15em; color: var(--color-text-dim); }
 .my-posts-link:hover {
   background: var(--color-action-soft);
+  border-color: var(--color-action);
   color: var(--color-action);
-  box-shadow: inset 0 0 0 var(--control-line-w) var(--color-action);
 }
 .my-posts-link:hover .mdi { color: inherit; }
-.my-posts-link:focus-visible { outline: none; box-shadow: inset 0 0 0 var(--control-line-w) var(--color-text), var(--shadow-focus); }
+.my-posts-link:active { transform: translateY(var(--control-lip)); box-shadow: 0 0 0 var(--color-border-strong); }
+.my-posts-link:focus-visible { outline: none; box-shadow: 0 var(--control-lip) 0 var(--color-border-strong), var(--shadow-focus); }
 .login-hint { font-size: var(--text-sm); color: var(--color-action); font-weight: var(--weight-medium); text-decoration: none; }
 .login-hint:hover { text-decoration: underline; }
 
