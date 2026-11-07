@@ -3,6 +3,10 @@
 
 > 把農業部開放資料平台上各自孤立的資料，串成一個對農民、消費者與研究者都友善的整合平台。
 
+- **線上展示**：https://taiwanagri.pages.dev
+  使用免費方案：資料庫閒置時會自動暫停，第一次開啟約需 1–2 分鐘；每月免費額度用完時，資料庫會暫停到下個月 1 號，這段期間網站查不到資料（細節見下方「已知限制」）。
+- **設計決策精選**：[docs/design-decisions.md](docs/design-decisions.md)——從開發紀錄挑出有取捨或證據的決策：當時有哪些選項、量到什麼、哪些判斷後來被推翻，每則附 PR 或 commit 連結。
+
 [![CI](https://github.com/x222l99b1010e/TaiwanAgriPlatform/actions/workflows/ci.yml/badge.svg)](https://github.com/x222l99b1010e/TaiwanAgriPlatform/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Vue](https://img.shields.io/badge/Vue-3.x-42b883?logo=vue.js)](https://vuejs.org/)
@@ -740,7 +744,7 @@ npm test
 ## ☁️ 雲端部署與重新部署
 
 > **這一節是可照做的步驟，不是說明。** 目標是「**能停、能開、開起來還是好的**」——
-> 服務平常關著，要展示時照著這一節重新開起來，不靠記憶。
+> 後端自 2026-10-04 起持續開著、資料庫閒置時自動暫停；停掉之後要再開起來，照著這一節做，不靠記憶。
 > 概念解釋（部署是什麼、為什麼分成三個服務）在專案文件資料夾的
 > `部署入門_這個系統要部署什麼.md`。
 
@@ -942,7 +946,7 @@ npm test
 - **前端**：不用停（靜態檔不計費）。
 - **每日同步**：Actions → `Worker Sync` → 停用 workflow（不停用的話它每天會叫醒資料庫）。
 
-### 重新開機（展示前照這個順序做）
+### 重新開機（停機之後照這個順序做）
 
 1. App Service →「啟動」。
 2. 打 `https://<後端>/health` → 應回 `Healthy`（這一支不碰資料庫，只確認程式活著）。
@@ -1001,7 +1005,7 @@ npm test
 >
 > **`PoultryTrans` 長表設計（W25）**：欄位固定為 `Id`（代理鍵 PK）/ `TransDate` / `MetricCode` / `Price`（`decimal?`）/ `PriceStatus` / `RawValue` / `SyncedAt`，`(TransDate, MetricCode)` 為 Unique Index 而非 PK。與 `PorkTrans` 的寬表刻意不同：家禽四支來源 API 的欄位集分別是 5/6/2/4 欄且互不相同，長表讓日後新增第五支來源不必改 Schema。價格欄位在原始 API 是字串且含 8 種非數值型態（休市／未報價／議價／區間報價等，佔全歷史 14.1%），因此拆成 `Price` + 7 態 `PriceStatus` + `RawValue` 原文兜底——`PriceStatus` 為 `Normal` 時 `RawValue` 為 null，反之存原始字串。
 
-完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V36.3.docx`（存放於專案文件資料夾，不進版控）。
+完整資料表設計請參考 SA/SD 文件 `TaiwanAgriPlatform_SA_SD_V36.6.docx`（存放於專案文件資料夾，不進版控）。
 
 ---
 
@@ -1408,7 +1412,8 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
   （用了幾顆 CPU × 幾秒），每月 100,000 秒；照規格表的下限 0.5 vCore 換算是 55.6 小時，
   但實測醒著而沒有查詢時每分鐘也計費 30.7–41 vCore 秒（記憶體用量會把計費墊高到下限之上），所以實際約 40–54 小時、
   平均每天 1.3–1.8 小時；最後一次活動後約 16 分鐘就自動暫停（2026-09～10 多次實測）。
-  **所以這個服務的預設狀態是關著的**，展示前再開（步驟見「雲端部署與重新部署」）。
+  **所以資料庫平常是暫停的**，有人開網站時才醒來（後端自 2026-10-04 起持續開著）。
+  額度用完時資料庫會暫停到下個月 1 號，這段期間網站查不到資料；超出免費額度時的行為設為「暫停」，不會產生費用。
   這條上限同時決定了 Worker 不做常駐部署（常駐需要約 1,296,000 vCore 秒，約是額度的 13 倍），
   改成 GitHub Actions 每天排程觸發、跑完就退出。
 - **閒置之後的第一個訪客要等 1.5 分鐘左右。** F1 沒有 Always On，閒置一段時間平台會把程式收起來；
@@ -1449,13 +1454,24 @@ GitHub 的執行器上，而執行器的 IP 不固定，因此採用「允許 Az
 改成每個 DbContext 各寫一個設計階段用的建立工廠可以縮小，但那是為了建表工具去改應用程式碼；
 這個映像只在本機建置、不推送，大小不影響執行，所以維持現狀。
 
+**前端相依套件有 `npm audit` 警告，沒有升級**——2026-11-04 量：全部 23 個（moderate 16、high 6、critical 1）。
+其中會打包進網站的相依（`npm audit --omit=dev`）是 4 個 high，分三類，都走不到瀏覽器裡的執行路徑：
+`vue`／`@vue/server-renderer` 的伺服器端渲染 XSS（這個網站沒有伺服器端渲染）；
+`follow-redirects` 在 Node.js 裡跟隨轉址時的標頭處理（axios 在瀏覽器裡用的是瀏覽器自己的請求機制，不經過它）；
+`source-map-js` 處理特製 source map 時的阻斷服務（只在建置時執行）。其餘 19 個是 ESLint、Vite 開發伺服器、Vitest 這類只在開發機上跑的工具與它們的相依。
+`package-lock.json` 自 2026-09-06 沒有變動，這些警告是弱點資料庫後來陸續更新才出現的，不是新加的相依帶進來的。
+那 4 個 high 都有不必跨大版本的修正版（開發工具那批有些要跨大版本）；
+不升級的理由是這些警告不影響網站的使用者，而升級之後要重新驗收並重新部署前端，收尾階段只處理會讓網站出錯的問題。
+
 ---
 
 ## 📁 相關文件
 
 | 文件 | 說明 |
 |------|------|
-| `TaiwanAgriPlatform_SA_SD_V36.3.docx` | SA/SD 完整設計文件（W1–W26 全部實戰開發紀錄 + 全專案 Code Review 兩輪 + 前端視覺設計輪 + Service 層測試補齊與行情端點界限 + 通知規則管理 + 模組入口頁補做 + 部署上線 + 容器化，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| [`docs/design-decisions.md`](docs/design-decisions.md) | 設計決策精選：從下面三份紀錄挑出有取捨或證據的決策，每則附 PR 或 commit 連結。三份紀錄的入口 |
+| `TaiwanAgriPlatform_SA_SD_V36.6.docx` | SA/SD 完整設計文件（W1–W26 全部實戰開發紀錄 + 全專案 Code Review 兩輪 + 前端視覺設計輪 + Service 層測試補齊與行情端點界限 + 通知規則管理 + 模組入口頁補做 + 部署上線 + 容器化，含架構決策日誌 §12 全系列；存放於專案文件資料夾，不進版控） |
+| PR 說明合集、開發學習紀錄 | 每支 PR 的完整說明（背景、設計決策與被否決的選項、驗收）與開發過程的學習紀錄，至 2026-10-20 分別是 69 篇與 397 則；存放於專案文件資料夾，不進版控 |
 
 ---
 
@@ -1475,4 +1491,4 @@ MIT License — 詳見 [LICENSE](LICENSE) 檔案。
 
 ---
 
-*最後更新：2026-10-14 ｜ 對應 SA/SD 文件版本 V36.3 ｜ 容器化：`docker compose --profile app` 一條指令起整站（後端一份 Dockerfile 三個 target、七個 DbContext 的建表容器、nginx 同源前端、健康檢查串起的啟動順序）、CI 建置四個映像但不推送、休市日同步先排除同一批裡的重複日期、SQL Server 收到停止要求時能正常關閉（前一輪為部署上線）｜ 後端 488 測試、前端 168 測試全過*
+*最後更新：2026-11-06 ｜ 對應 SA/SD 文件版本 V36.6 ｜ 收尾：設計決策精選放進 `docs/`、開頭加上線上網址與精選連結、按鈕改成左圓盤＋立體底邊（前一輪為容器化）｜ 後端 488 測試、前端 169 測試全過*
