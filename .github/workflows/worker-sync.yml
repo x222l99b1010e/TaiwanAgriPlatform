@@ -26,6 +26,11 @@ concurrency:
   group: worker-sync
   cancel-in-progress: false
 
+# 權杖只給讀取：這支只有建置與執行 Worker、上傳記錄檔（上傳 artifact 不需要 GITHUB_TOKEN 的寫入權限）。
+# 不寫的話，權限取決於 repo 設定頁的預設值（可能是可寫入），2026-11 總檢查資安 B5
+permissions:
+  contents: read
+
 jobs:
   sync:
     name: Run one sync round
