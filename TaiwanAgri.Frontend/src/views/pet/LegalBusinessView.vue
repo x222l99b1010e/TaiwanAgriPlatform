@@ -91,8 +91,8 @@
         v-else-if="store.legalSpecificPetsPage && store.legalSpecificPetsPage.items.length === 0"
         state="empty"
         icon="mdi-store-search-outline"
-        message="此縣市查無合法寵物業資料"
-        hint="可以把篩選條件放寬，或換一個縣市再看看"
+        :message="legalCounty ? '此縣市查無符合條件的合法寵物業資料' : '查無符合條件的合法寵物業資料'"
+        :hint="legalCounty ? '可以把篩選條件放寬，或換一個縣市再看看' : '可以把篩選條件放寬再看看'"
       />
 
       <div v-else-if="store.legalSpecificPetsPage" class="table-section">
@@ -214,8 +214,8 @@
         v-else-if="store.officialLostPetPostsPage && store.officialLostPetPostsPage.items.length === 0"
         state="empty"
         icon="mdi-clipboard-search-outline"
-        message="目前查無官方遺失啟事資料"
-        hint="可以把篩選條件放寬，或換一個縣市再看看"
+        :message="hasActiveOfficialFilters ? '查無符合條件的官方遺失啟事' : '目前查無官方遺失啟事資料'"
+        :hint="hasActiveOfficialFilters ? '可以把篩選條件放寬再看看' : undefined"
       />
 
       <div v-else-if="store.officialLostPetPostsPage" class="table-section">

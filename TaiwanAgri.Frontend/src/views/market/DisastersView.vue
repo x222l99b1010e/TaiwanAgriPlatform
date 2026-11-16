@@ -3,7 +3,7 @@
     <QueryLayout
       title="天災警戒紀錄"
       title-en="DISASTER ALERTS"
-      subtitle="農業部發布的土石流與土石流潛勢警戒，可依日期區間與縣市查詢"
+      subtitle="農業部發布的土石流與大規模崩塌警戒，可依日期區間與縣市查詢"
     >
       <template #actions>
         <Btn icon="mdi-magnify" :loading="isLoading" @click="handleQuery">
@@ -55,11 +55,11 @@
               <span class="stat-value">{{ groupedEvents.length }}</span>
             </div>
             <div class="stat-card">
-              <span class="stat-label">土石流</span>
+              <span class="stat-label">{{ alertTypeLabel('D') }}</span>
               <span class="stat-value stat-value--danger">{{ groupedEvents.filter(e => e.alertType === 'D').length }}</span>
             </div>
             <div class="stat-card">
-              <span class="stat-label">土石流潛勢</span>
+              <span class="stat-label">{{ alertTypeLabel('L') }}</span>
               <span class="stat-value stat-value--warning">{{ groupedEvents.filter(e => e.alertType !== 'D').length }}</span>
             </div>
           </div>
@@ -84,7 +84,7 @@
               <div class="event-body">
                 <div class="event-meta">
                   <span class="badge alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
-                    {{ event.alertType === 'D' ? '土石流' : '土石流潛勢' }}
+                    {{ alertTypeLabel(event.alertType) }}
                   </span>
                   <span class="event-name">{{ event.disasterName }}</span>
                 </div>
@@ -106,12 +106,14 @@
 import { ref, computed } from 'vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi } from '@/api/market'
+import { badRequestMessage } from '@/api/apiError'
 import type { DisasterResponseDto } from '@/api/market'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import HintBox from '@/components/ui/HintBox.vue'
 import Btn from '@/components/ui/Btn.vue'
 import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
+import { alertTypeLabel, groupDisasterEvents } from '@/utils/disasterEvents'
 
 const today = taiwanDateString()
 const oneYearAgo = taiwanDateDaysAgo(365)
@@ -133,36 +135,8 @@ const counties = [
   '臺東縣', '澎湖縣', '金門縣', '連江縣',
 ]
 
-const groupedEvents = computed(() => {
-  const map = new Map<string, {
-    disasterName: string; alertType: string
-    firstDate: string; lastDate: string; affectedCounties: Set<string>
-  }>()
-  for (const d of rawData.value) {
-    const existing = map.get(d.disasterName)
-    if (!existing) {
-      map.set(d.disasterName, {
-        disasterName: d.disasterName, alertType: d.alertType,
-        firstDate: d.alertDate, lastDate: d.alertDate,
-        affectedCounties: new Set(d.affectedCounties),
-      })
-    } else {
-      if (d.alertDate < existing.firstDate) existing.firstDate = d.alertDate
-      if (d.alertDate > existing.lastDate) existing.lastDate = d.alertDate
-      d.affectedCounties.forEach(c => existing.affectedCounties.add(c))
-    }
-  }
-  return Array.from(map.values())
-    .map(e => ({
-      ...e,
-      affectedCounties: Array.from(e.affectedCounties).sort(),
-      // 含頭含尾：同一天發布又解除也算警戒了一天，所以 +1
-      days: Math.round(
-        (Date.parse(e.lastDate) - Date.parse(e.firstDate)) / 86_400_000,
-      ) + 1,
-    }))
-    .sort((a, b) => b.firstDate.localeCompare(a.firstDate))
-})
+// 分組規則（名稱＋類別、跨年同名分開）在 utils/disasterEvents.ts，跟行情查詢頁共用；這一頁新到舊排
+const groupedEvents = computed(() => groupDisasterEvents(rawData.value).reverse())
 
 async function handleQuery() {
   errorMsg.value = ''
@@ -178,8 +152,9 @@ async function handleQuery() {
     })
     rawData.value = res.items
     isTruncated.value = res.isTruncated
-  } catch {
-    errorMsg.value = '查詢失敗，請稍後再試'
+  } catch (e) {
+    // 400 帶著後端的中文原因（日期反了、區間超過上限），照實顯示；其餘維持通用句
+    errorMsg.value = badRequestMessage(e) ?? '查詢失敗，請稍後再試'
   } finally {
     isLoading.value = false
   }

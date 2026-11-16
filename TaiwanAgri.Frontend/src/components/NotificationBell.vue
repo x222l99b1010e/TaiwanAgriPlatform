@@ -2,9 +2,15 @@
 <!-- 職責：鈴鐺圖示 + 未讀紅點 + 通知 dropdown -->
 
 <template>
-  <div class="bell-wrapper" ref="wrapperRef">
-    <!-- 鈴鐺按鈕 -->
-    <button class="bell-btn" @click="toggleDropdown">
+  <div class="bell-wrapper" ref="wrapperRef" @keydown.esc="isOpen = false">
+    <!-- 鈴鐺按鈕。只有圖示，所以要給一個念得出來的名稱（含未讀數），報讀軟體才知道它是什麼；
+         Esc 收起面板（掛在外層，焦點在面板裡的按鈕上也收得起來） -->
+    <button
+      class="bell-btn"
+      :aria-label="store.unreadCount > 0 ? `通知，${store.unreadCount} 則未讀` : '通知'"
+      :aria-expanded="isOpen"
+      @click="toggleDropdown"
+    >
       <span class="mdi mdi-bell bell-icon" />
       <span v-if="store.unreadCount > 0" class="bell-badge">
         {{ store.unreadCount > 99 ? '99+' : store.unreadCount }}
@@ -80,6 +86,11 @@ const bodyRef = ref<HTMLElement | null>(null)
 async function toggleDropdown() {
   isOpen.value = !isOpen.value
   if (isOpen.value) {
+    // 未讀數與列表一起重抓。只抓列表的話，紅點要等下一次六十秒輪詢才更新，
+    // 打開時會看到列表 9 則未讀、紅點還寫 7。
+    // 依序而不是同時：兩支共用同一個 errorMessage，成功時會清掉它；
+    // 列表排在後面，面板上顯示的錯誤才一定是列表自己的結果
+    await store.fetchUnreadCount()
     await store.fetchNotifications(true)
   }
 }
@@ -113,7 +124,8 @@ function formatTime(iso: string) {
   if (hours < 24)    return `${hours} 小時前`
   const days = Math.floor(hours / 24)
   if (days < 7)      return `${days} 天前`
-  return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })
+  // 日期一律以台灣時區顯示（全站的日界慣例，見 utils/taiwanDate.ts），不跟著看網頁的人所在的時區
+  return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', timeZone: 'Asia/Taipei' })
 }
 
 onMounted(() => {

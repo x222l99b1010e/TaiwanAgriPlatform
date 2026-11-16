@@ -14,20 +14,21 @@
         <button
           class="segmented__btn"
           :class="{ 'is-active': mode === 'login' }"
-          @click="mode = 'login'"
+          @click="switchMode('login')"
         >登入</button>
         <button
           class="segmented__btn"
           :class="{ 'is-active': mode === 'register' }"
-          @click="mode = 'register'"
+          @click="switchMode('register')"
         >註冊</button>
       </div>
 
       <!-- 表單 -->
       <div class="form-body">
         <div class="field-group">
-          <label class="field-label">電子信箱</label>
+          <label class="field-label" for="auth-email">電子信箱</label>
           <input
+            id="auth-email"
             class="form-control field-input"
             type="email"
             v-model="email"
@@ -37,22 +38,30 @@
         </div>
 
         <div class="field-group">
-          <label class="field-label">密碼</label>
+          <label class="field-label" for="auth-password">密碼</label>
           <input
+            id="auth-password"
             class="form-control field-input"
             type="password"
             v-model="password"
             placeholder="••••••••"
             :disabled="isLoading"
+            :aria-describedby="mode === 'register' ? 'auth-password-rules' : undefined"
             @keyup.enter="handleSubmit"
           />
+          <!-- 註冊時先講規則（後端 ASP.NET Core Identity 的預設密碼規則），
+               不然要送出被擋才知道，而且原本一次只說一條 -->
+          <p v-if="mode === 'register'" id="auth-password-rules" class="field-hint">
+            至少 6 個字元，要有大寫與小寫英文字母、數字和特殊符號（如 !@#$）
+          </p>
         </div>
 
         <!-- 註冊額外欄位 -->
         <template v-if="mode === 'register'">
           <div class="field-group">
-            <label class="field-label">確認密碼</label>
+            <label class="field-label" for="auth-confirm-password">確認密碼</label>
             <input
+              id="auth-confirm-password"
               class="form-control field-input"
               type="password"
               v-model="confirmPassword"
@@ -68,8 +77,9 @@
           </div>
 
           <div class="field-group">
-            <label class="field-label">顯示名稱（選填）</label>
+            <label class="field-label" for="auth-display-name">顯示名稱（選填）</label>
             <input
+              id="auth-display-name"
               class="form-control field-input"
               type="text"
               v-model="displayName"
@@ -79,8 +89,8 @@
           </div>
 
           <div class="field-group">
-            <label class="field-label">身份類型</label>
-            <select class="form-control field-input" v-model="userType" :disabled="isLoading">
+            <label class="field-label" for="auth-user-type">身份類型</label>
+            <select id="auth-user-type" class="form-control field-input" v-model="userType" :disabled="isLoading">
               <option value="Farmer">農民</option>
               <option value="Consumer">消費者</option>
               <option value="Researcher">研究員</option>
@@ -89,12 +99,10 @@
         </template>
 
         <!-- 錯誤訊息 -->
-        <div v-if="errorMsg" class="error-box">
+        <div v-if="errorLines.length > 0" class="error-box" role="alert">
           <span class="mdi mdi-alert-circle error-icon" />
           <div class="error-content">
-            <p v-for="(line, i) in errorMsg.split('.,').map(s => s.trim()).filter(Boolean)" :key="i">
-              {{ line.endsWith('.') ? line : line + '.' }}
-            </p>
+            <p v-for="(line, i) in errorLines" :key="i">{{ line }}</p>
           </div>
         </div>
 
@@ -115,25 +123,13 @@ import Btn from '@/components/ui/Btn.vue'
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { translateIdentityErrors } from '@/utils/identityErrors'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const route = useRoute()
 const redirect = (route.query.redirect as string) || '/'
-
-function translateIdentityError(msg: string): string {
-      if (msg.includes('already taken')) return '此 Email 已被註冊，請直接登入或使用其他信箱'
-      if (msg.includes('is invalid')) return 'Email 格式不正確'
-      if (msg.includes('least one non alphanumeric')) return '密碼需包含至少一個特殊符號（如 !@#$）'
-      if (msg.includes('least one digit')) return '密碼需包含至少一個數字'
-      if (msg.includes('least one uppercase')) return '密碼需包含至少一個大寫字母'
-      if (msg.includes('least one lowercase')) return '密碼需包含至少一個小寫字母'
-      if (msg.includes('least') && msg.includes('characters')) return '密碼長度不足，請至少輸入 6 個字元'
-      if (msg.includes('Invalid login attempt')) return '帳號或密碼錯誤，請重新確認'
-      if (msg.includes('locked out')) return '帳號已被鎖定，請稍後再試'
-      return msg  // 其他未知錯誤原樣顯示
-    }
 
 // ─── 表單狀態 ─────────────────────────────────────────
 const mode = ref<'login' | 'register'>('login')
@@ -143,17 +139,23 @@ const confirmPassword = ref('')
 const displayName = ref('')
 const userType = ref('Farmer')
 const isLoading = ref(false)
-const errorMsg = ref('')
+const errorLines = ref<string[]>([])
+
+/** 切換登入／註冊時清掉上一個分頁的錯誤，不然登入失敗的訊息會留在註冊表單上 */
+function switchMode(next: 'login' | 'register') {
+  mode.value = next
+  errorLines.value = []
+}
 
 // ─── 提交 ─────────────────────────────────────────────
 async function handleSubmit() {
-  errorMsg.value = ''
+  errorLines.value = []
 
   // 送出按鈕已經用 :disabled 擋掉這個情況，但 @keyup.enter 是直接呼叫這個函式、
   // 不會經過按鈕的 disabled 狀態，所以這裡要再擋一次，否則在確認密碼欄位按 Enter
   // 可以繞過畫面上的擋阻直接送出不一致的密碼
   if (mode.value === 'register' && password.value !== confirmPassword.value) {
-    errorMsg.value = '兩次輸入的密碼不一致，請重新確認'
+    errorLines.value = ['兩次輸入的密碼不一致，請重新確認']
     return
   }
 
@@ -183,14 +185,14 @@ async function handleSubmit() {
     ) {
       const data = (err.response as { data: unknown }).data
       if (typeof data === 'string' && data.trim()) {
-        errorMsg.value = translateIdentityError(data)
+        errorLines.value = translateIdentityErrors(data)
       } else {
-        errorMsg.value = '操作失敗，請稍後再試'
+        errorLines.value = ['操作失敗，請稍後再試']
       }
     } else if (err instanceof Error) {
-      errorMsg.value = err.message
+      errorLines.value = [err.message]
     } else {
-      errorMsg.value = '操作失敗，請稍後再試'
+      errorLines.value = ['操作失敗，請稍後再試']
     }
   } finally {
     isLoading.value = false
@@ -256,6 +258,14 @@ async function handleSubmit() {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* 欄位下方的說明（密碼規則） */
+.field-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-dim);
+  line-height: var(--leading-normal);
 }
 
 /* 錯誤訊息 */

@@ -15,6 +15,7 @@ import {
   type ChartDataset,
 } from 'chart.js'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
+import { groupDisasterEvents } from '@/utils/disasterEvents'
 import {
   seriesColor, seriesFill, seriesAccent, pointBorderColor, exportBackground,
   annotationColor, withAlpha, lineChartOptions, crosshairPlugin,
@@ -133,16 +134,13 @@ function buildChart() {
   if (!canvasRef.value || !chartData.value.labels.length) return
   chartInstance?.destroy()
 
-  // 把每個 disasterName 的最早日期取出，作為垂直線位置
-  const eventMap = new Map<string, string>()
-  for (const d of props.disasters) {
-    const existing = eventMap.get(d.disasterName)
-    if (!existing || d.alertDate < existing) {
-      eventMap.set(d.disasterName, d.alertDate)
-    }
-  }
-  const disasterLines = Array.from(eventMap.entries())
-    .map(([name, date]) => ({ name, date }))
+  // 每一場警戒的開始日期畫一條垂直線。分組規則跟下方的天災清單同一份（utils/disasterEvents.ts），
+  // 原本只依名稱取最早日期，跨年同名的兩場會被併成一條。
+  // 同一場豪雨的土石流與大規模崩塌是兩筆、開始日期常常同一天，同名同日只畫一條
+  const disasterLines = [...new Map(
+    groupDisasterEvents(props.disasters)
+      .map(e => [`${e.disasterName}\u0000${e.firstDate}`, { name: e.disasterName, date: e.firstDate }] as const),
+  ).values()]
 
   // Chart.js inline plugin：在指定日期畫垂直虛線
   const disasterPlugin = {
@@ -152,8 +150,11 @@ function buildChart() {
       const labels = data.labels as string[]
 
       disasterLines.forEach(({ name, date }) => {
-        const idx = labels.indexOf(date)
-        if (idx === -1) return   // 該日期不在 X 軸，跳過
+        // X 軸只有有交易的日期。警戒開始那天常常剛好休市（颱風天市場停止交易），
+        // 只比對同一天的話那幾場就不會出現，所以畫在當天或之後的第一個交易日；
+        // 之後都沒有交易日（落在查詢區間的尾巴之後）才不畫
+        const idx = labels.findIndex(l => l >= date)
+        if (idx === -1) return
 
         const x = scales['x']!.getPixelForValue(idx)
 

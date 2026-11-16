@@ -132,9 +132,10 @@ function toFormState(post: LostPetPostResponseDto | null): FormState {
   }
 }
 
-// 直接用 props.post 的當下值初始化即可，不需要 watch 同步：這個元件的呼叫端慣例是「開啟表單時
-// 掛載一個新的元件實例、關閉時整個卸載」（v-if 控制，不是常駐元件切換 post prop），
-// 所以每次看到的都是一個全新實例，不會有「同一個實例、post prop 中途換掉」需要響應的情境
+// 直接用 props.post 的當下值初始化，不 watch 同步：呼叫端的慣例是「開啟表單時掛載一個新的
+// 元件實例、關閉時整個卸載」。表單開著時可能換編輯對象的呼叫端（列表頁可以直接點另一篇的「編輯」）
+// 一定要加 :key="post?.id"——否則同一個實例沿用前一篇的欄位，送出時卻用新那篇的編號，
+// 把新那篇蓋成前一篇的內容
 const form = reactive<FormState>(toFormState(props.post))
 const formError = ref('')
 const panelRef = ref<HTMLElement | null>(null)

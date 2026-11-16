@@ -253,9 +253,13 @@ function onFilterChange() {
   store.fetchOrganicCertificationsDebounced(buildParams())
 }
 
+/**
+ * 只有「通過」標成有效。資料裡的狀態有通過、結束、終止、暫終（暫時終止）四種
+ * （2026-11 本機資料：594／376／76／6）；原本只排除終止與結束，暫終被標成綠色的有效。
+ * 用白名單而不是黑名單：上游哪天多一種狀態，寧可先顯示成灰色，也不要顯示成有效
+ */
 function statusClass(status: string) {
-  if (status === '終止' || status === '結束') return 'inactive'
-  return 'active'
+  return status === '通過' ? 'active' : 'inactive'
 }
 
 // 進頁面就自動查詢一次（顯示預設分頁列表），跟 ViolationWallView 刻意不自動查詢的理由不同：

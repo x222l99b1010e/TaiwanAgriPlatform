@@ -3,7 +3,7 @@
     <QueryLayout
       title="休市日查詢"
       title-en="MARKET CLOSURES"
-      subtitle="各農產品批發市場的休市日期，請先選擇市場再查詢"
+      subtitle="各農產品批發市場蔬菜交易的休市日期，請先選擇市場再查詢"
     >
       <template #actions>
         <Btn
@@ -87,6 +87,7 @@
 import { ref, computed, onMounted } from 'vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi } from '@/api/market'
+import { badRequestMessage } from '@/api/apiError'
 import type { RestDayResponseDto, MarketResponseDto } from '@/api/market'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
@@ -150,8 +151,9 @@ async function handleQuery() {
       startDate: startDate.value,
       endDate: endDate.value,
     })
-  } catch {
-    errorMsg.value = '查詢失敗，請稍後再試'
+  } catch (e) {
+    // 400 帶著後端的中文原因（日期反了、區間超過上限），照實顯示；其餘維持通用句
+    errorMsg.value = badRequestMessage(e) ?? '查詢失敗，請稍後再試'
   } finally {
     isLoading.value = false
   }

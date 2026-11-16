@@ -33,6 +33,12 @@ export interface RainfallResponseDto {
   hour24: number | null
 }
 
+/** GET /api/Pest/alerts/city-counts 的一列：某個縣市被幾則警報影響（縣市是正式寫法「臺」） */
+export interface PestAlertCityCountDto {
+  cityName: string
+  count: number
+}
+
 export interface PestAlertResponseDto {
   id: number
   subject: string
@@ -154,12 +160,19 @@ export const weatherApi = {
   },
 
   /** GET /api/Pest/alerts?cityName=臺北市&page=1&pageSize=20
-   *  cityName 可省略（省略 = 全台）；page 從 1 開始；
-   *  回傳 PagedResult，含總筆數與總頁數供分頁列使用
+   *  cityName 可省略（省略 = 全台），用正式寫法「臺」即可（舊資料的「台」由後端一起比對）；
+   *  page 從 1 開始、pageSize 1–100（超過後端回 400）；回傳 PagedResult，含總筆數與總頁數供分頁列使用
    */
   getPestAlerts(cityName?: string, page = 1, pageSize = 20): Promise<PagedResult<PestAlertResponseDto>> {
     return apiClient
       .get<PagedResult<PestAlertResponseDto>>('/api/Pest/alerts', { params: { cityName, page, pageSize } })
+      .then(res => res.data)
+  },
+
+  /** GET /api/Pest/alerts/city-counts：各縣市被幾則警報影響（縣市燈號用） */
+  getPestAlertCityCounts(): Promise<PestAlertCityCountDto[]> {
+    return apiClient
+      .get<PestAlertCityCountDto[]>('/api/Pest/alerts/city-counts')
       .then(res => res.data)
   },
 

@@ -24,37 +24,84 @@ function outcome(overrides: Partial<RuleEvaluationDto> = {}): RuleEvaluationDto 
   }
 }
 
+/** 預設「有一條啟用中的數值型規則」，跟 outcome() 的預設值（numericRulesEvaluated: 1）一致 */
+function describeOutcome(o: RuleEvaluationDto, activeNumericRules = 1) {
+  return describeEvaluationOutcome(o, NOW, activeNumericRules)
+}
+
 describe('describeEvaluationOutcome', () => {
   // 這一組守的是「沒有新通知」的四種成因不可以講成同一句話：
   // 使用者分不出「條件沒命中」與「資料太舊／沒有新資料」時，會一直調門檻，
   // 而真正的原因是同步 Worker 沒在跑、或掃描範圍本來就是空的，調到天亮也不會有通知
   it('有新通知時說產生了幾則並指向鈴鐺', () => {
-    const result = describeEvaluationOutcome(outcome({ notificationsCreated: 3 }), NOW)
+    const result = describeOutcome(outcome({ notificationsCreated: 3 }))
     expect(result.tone).toBe('success')
     expect(result.message).toContain('3 則')
     expect(result.message).toContain('鈴鐺')
   })
 
   it('條件沒命中時要說明是評估過了但沒有一條符合', () => {
-    const result = describeEvaluationOutcome(outcome(), NOW)
+    const result = describeOutcome(outcome())
     expect(result.tone).toBe('info')
     expect(result.message).toContain('沒有一條符合條件')
   })
 
   it('資料太舊時要說出最新觀測是幾天前', () => {
-    const result = describeEvaluationOutcome(
+    const result = describeOutcome(
       outcome({ hasFreshObservation: false, latestObservedAt: '2026-08-22T12:00:00Z' }),
-      NOW,
     )
     expect(result.tone).toBe('warning')
     expect(result.message).toContain('19 天前')
   })
 
-  it('完全沒有觀測資料時不說「幾天前」，那個數字算不出來', () => {
-    const result = describeEvaluationOutcome(
-      outcome({ hasFreshObservation: false, latestObservedAt: null }),
-      NOW,
+  it('資料太舊、同時有疫情規則時，疫情規則那幾條的結果要分開講', () => {
+    // 疫情規則跟氣象觀測無關，照樣比對過了；只說「尚無足夠新的資料可評估」等於說全部都沒評估
+    const result = describeOutcome(
+      outcome({ rulesEvaluated: 3, hasFreshObservation: false, latestObservedAt: '2026-08-22T12:00:00Z' }),
     )
+    expect(result.message).toContain('數值門檻規則')
+    expect(result.message).toContain('另外 2 條植物疫情規則')
+  })
+
+  it('只有疫情規則時不提氣象資料，不論氣象資料多舊', () => {
+    // 實測：只有一條疫情規則的帳號連按兩次立即檢查，第二次說「最新的氣象觀測是 34 天前」，
+    // 看起來像自己的規則壞了
+    const stale = describeOutcome(
+      outcome({
+        rulesEvaluated: 1,
+        numericRulesEvaluated: 0,
+        numericRulesWithNewObservations: 0,
+        hasFreshObservation: false,
+        latestObservedAt: '2026-08-22T12:00:00Z',
+      }),
+      0,
+    )
+    const empty = describeOutcome(
+      outcome({
+        rulesEvaluated: 1,
+        numericRulesEvaluated: 0,
+        numericRulesWithNewObservations: 0,
+        hasFreshObservation: false,
+        latestObservedAt: null,
+      }),
+      0,
+    )
+    for (const result of [stale, empty]) {
+      expect(result.message).not.toContain('氣象')
+      expect(result.message).toContain('沒有一條符合條件')
+    }
+  })
+
+  it('一條啟用中的規則都沒有時，先說這件事，不提氣象資料', () => {
+    const result = describeOutcome(
+      outcome({ rulesEvaluated: 0, numericRulesEvaluated: 0, hasFreshObservation: false }),
+      0,
+    )
+    expect(result.message).toContain('沒有啟用中的規則')
+  })
+
+  it('完全沒有觀測資料時不說「幾天前」，那個數字算不出來', () => {
+    const result = describeOutcome(outcome({ hasFreshObservation: false, latestObservedAt: null }))
     expect(result.tone).toBe('warning')
     expect(result.message).toContain('尚未同步')
     expect(result.message).not.toContain('天前')
@@ -66,27 +113,25 @@ describe('describeEvaluationOutcome', () => {
    * 改完條件按「立即檢查」得到 0 則，看起來像功能壞了，而正確的解讀是掃描範圍是空的。
    */
   it('數值型規則都沒有新觀測可比時要說是沒有新資料，不是條件沒命中', () => {
-    const result = describeEvaluationOutcome(
+    const result = describeOutcome(
       outcome({ rulesEvaluated: 1, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
-      NOW,
     )
     expect(result.message).toContain('還沒有新的氣象觀測落地')
     expect(result.message).not.toContain('沒有一條符合條件')
   })
 
   it('同時有事件型規則時，要把那幾條的結果分開講', () => {
-    const result = describeEvaluationOutcome(
+    const result = describeOutcome(
       outcome({ rulesEvaluated: 3, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
-      NOW,
     )
     expect(result.message).toContain('另外 2 條')
   })
 
   it('只要有一條數值型規則有新觀測，就回到「沒有一條符合條件」', () => {
     // 邊界：有新資料、只是沒命中，這時說「沒有新資料」會變成假訊息
-    const result = describeEvaluationOutcome(
+    const result = describeOutcome(
       outcome({ numericRulesEvaluated: 2, numericRulesWithNewObservations: 1 }),
-      NOW,
+      2,
     )
     expect(result.message).toContain('沒有一條符合條件')
   })
@@ -95,12 +140,11 @@ describe('describeEvaluationOutcome', () => {
     // 少了這條，把其中兩種寫成同一句話不會有任何測試變紅——
     // 而那正是這支函式唯一要解決的問題
     const messages = [
-      describeEvaluationOutcome(outcome(), NOW).message,
-      describeEvaluationOutcome(outcome({ hasFreshObservation: false }), NOW).message,
-      describeEvaluationOutcome(outcome({ rulesEvaluated: 0 }), NOW).message,
-      describeEvaluationOutcome(
+      describeOutcome(outcome()).message,
+      describeOutcome(outcome({ hasFreshObservation: false })).message,
+      describeOutcome(outcome({ rulesEvaluated: 0 }), 0).message,
+      describeOutcome(
         outcome({ rulesEvaluated: 1, numericRulesEvaluated: 1, numericRulesWithNewObservations: 0 }),
-        NOW,
       ).message,
     ]
     expect(new Set(messages).size).toBe(4)
@@ -110,7 +154,7 @@ describe('describeEvaluationOutcome', () => {
 describe('ruleTimingHint', () => {
   /**
    * 這一組守的是「兩種型態對改條件的反應相反」這件事不可以被寫成同一句話。
-   * 數值型有水位（只看新落地的觀測），事件型沒有（每次重掃全部警報）——
+   * 兩種型態平常都只看新落地的資料，但改條件時數值型不回頭重算、事件型會用新條件重新比對全部警報——
    * 共用一句話的版本正是實測時擋不住誤解的那一版。
    */
   it('數值型編輯時要說清楚改條件不會回頭重算，並給出可行的替代做法', () => {

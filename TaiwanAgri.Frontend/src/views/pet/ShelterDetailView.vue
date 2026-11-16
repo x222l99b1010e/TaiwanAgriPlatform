@@ -24,7 +24,7 @@
         <span v-if="store.isLoadingShelterAnimalsByShelter" class="loading-hint">
           <span class="loading-spinner-sm" />載入中...
         </span>
-        <span v-else-if="page" class="stat-text">共 {{ page.totalCount }} 隻在養動物</span>
+        <span v-else-if="page" class="stat-text">共 {{ page.totalCount }} 筆收容紀錄</span>
         <Btn
           v-if="hasActiveFilters"
           variant="accent"
@@ -76,13 +76,13 @@
           @retry="fetchPage"
         />
 
-        <!-- shelterId 打錯、或這間收容所目前剛好沒有在養動物、或篩選條件太窄，三種情況後端都回傳空頁；
+        <!-- shelterId 打錯、或這間收容所沒有收容紀錄、或篩選條件太窄，三種情況後端都回傳空頁；
              有沒有下篩選條件決定文案要不要提「調整篩選」這個出口 -->
         <StateBlock
           v-else-if="page && page.totalCount === 0"
           state="empty"
           icon="mdi-home-search-outline"
-          :message="hasActiveFilters ? '此篩選條件下查無在養動物' : '查無此收容所，或目前沒有在養動物資料'"
+          :message="hasActiveFilters ? '此篩選條件下查無收容紀錄' : '查無此收容所，或沒有收容動物資料'"
           :hint="hasActiveFilters ? '可以按上方的「清除篩選」看全部' : undefined"
         />
 
@@ -191,7 +191,7 @@ watch(page, (p) => {
 const kind = ref<AnimalKind | ''>('')
 const sex = ref<AnimalSex | ''>('')
 const sortBy = ref<ShelterAnimalSortByValue>('CreatedTime')
-const sortDescending = ref(true) // 預設維持後端既有行為：最新拾獲的在前
+const sortDescending = ref(true) // 預設維持後端既有行為：最新建檔的在前
 
 const kindOptions: { value: AnimalKind | ''; label: string }[] = [
   { value: '',      label: '全部種類' },
@@ -207,7 +207,8 @@ const sexOptions: { value: AnimalSex | ''; label: string }[] = [
   { value: 'Unknown', label: '不明' },
 ]
 const sortByOptions: { value: ShelterAnimalSortByValue; label: string }[] = [
-  { value: 'CreatedTime', label: '依拾獲時間' },
+  // CreatedTime 是資料的建檔日期（表格那一欄的表頭也是「建檔日期」），不是拾獲時間
+  { value: 'CreatedTime', label: '依建檔日期' },
   { value: 'AnimalSubId', label: '依編號' },
 ]
 

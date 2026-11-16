@@ -122,20 +122,24 @@ export const marketApi = {
       .then(res => res.data)
   },
 
-  /** GET /api/market/disasters?counties=台北市&counties=新北市&... */
-  // 更新 getDisasters（counties 選填，不傳 = 全台）
-  getDisasters: async (params: {
-    startDate: string
-    endDate: string
-    counties?: string[]
-  }): Promise<{ items: DisasterResponseDto[]; isTruncated: boolean }> => {
-    const res = await apiClient.get<DisasterResponseDto[]>('/api/market/disasters', { params })
+  /** GET /api/market/disasters?counties=臺北市&counties=新北市&...（counties 選填，不傳＝全台） */
+  getDisasters: async (
+    params: GetDisastersParams,
+  ): Promise<{ items: DisasterResponseDto[]; isTruncated: boolean }> => {
+    // counties 是陣列，跟 getPrices 一樣要用 URLSearchParams 逐一 append：
+    // 直接把陣列交給 axios 會送成 counties[]=臺東縣（帶中括號），後端不認，縣市條件整個被忽略
+    const searchParams = new URLSearchParams()
+    searchParams.append('startDate', params.startDate)
+    searchParams.append('endDate', params.endDate)
+    params.counties?.forEach(county => searchParams.append('counties', county))
+
+    const res = await apiClient.get<DisasterResponseDto[]>('/api/market/disasters', { params: searchParams })
     // 後端在結果被上限截斷時加這個標頭。截斷的清單看起來完整、實際上同一天災的
     // 受影響縣市會少幾個——不把它傳下去顯示，等於後端白加了這個訊號
     return { items: res.data, isTruncated: res.headers['x-result-truncated'] === 'true' }
   },
 
-  /** GET /api/market/restdays?marketCode=101&startDate=...&endDate=... */
+  /** GET /api/market/rest-days?marketCode=101&startDate=...&endDate=... */
   getRestDays(params: GetRestDaysParams): Promise<RestDayResponseDto[]> {
     return apiClient
       .get<RestDayResponseDto[]>('/api/market/rest-days', { params })

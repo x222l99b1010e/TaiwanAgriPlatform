@@ -6,6 +6,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { foodSafetyApi } from '@/api/foodSafety'
 import { useLatestRequest } from '@/composables/useLatestRequest'
+import { badRequestMessage } from '@/api/apiError'
 import type { PriceResponseDto } from '@/api/market'
 import type { TraceabilityResponseDto, ViolationResult, PagedResult } from '@/api/foodSafety'
 import type { OrganicCertificationResult, OrganicCertificationQueryParams} from '@/api/foodSafety'
@@ -102,7 +103,8 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
         violationsPage.value = result
       } catch (e) {
         if (!violationsRequest.isLatest(mySeq)) return
-        violationsError.value = '載入農藥違規資料失敗，請稍後再試'
+        // 400 帶著後端的原因（例如天數超過上限），照實顯示
+        violationsError.value = badRequestMessage(e) ?? '載入農藥違規資料失敗，請稍後再試'
         console.error(e)
       } finally {
         if (violationsRequest.isLatest(mySeq)) {

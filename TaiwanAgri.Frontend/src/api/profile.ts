@@ -24,9 +24,9 @@ export interface UpsertFarmProfileRequest {
 export const profileApi = {
   getFarmProfile: async (): Promise<FarmProfileResponse | null> => {
     const res = await authClient.get('/api/profile/farm')
-    return res.data
-    // 後端回 200 + null 時，res.data 就是 null
-    // 代表使用者還沒有設定過農場資料
+    // 還沒設定過農場資料時，後端回 204（沒有內容；Ok(null) 會被框架轉成 204），
+    // axios 拿到的 data 是空字串，這裡統一換成 null
+    return res.status === 204 || !res.data ? null : res.data
   },
 
   upsertFarmProfile: async (request: UpsertFarmProfileRequest): Promise<void> => {
