@@ -48,7 +48,7 @@
 - 病蟲害警報牆（依縣市過濾，可展開查看內文與防治處方）
 - 旬密度查詢（害蟲旬別密度折線圖，支援城市多線切換）
 - 通知規則管理（W26）：使用者自訂通知規則的建立／查詢／修改／刪除，每人上限 7 條。數值門檻型比對自動氣象站觀測（氣溫、24 小時雨量），事件型比對植物疫情警報；規則頁另有「立即檢查」可手動觸發一次評估（限流，且只評估自己的規則）
-- 智慧病蟲害提示：規則引擎每天評估一次啟用中的規則，命中就產生通知。數值門檻型只比對「上次評估之後才落地」的觀測（評估水位），同一條規則對同一筆來源資料只通知一次
+- 智慧病蟲害提示：規則引擎每天評估一次啟用中的規則，命中就產生通知。兩種規則都只比對「上次評估之後才落地」的資料（評估水位：數值門檻型看氣象觀測、事件型看疫情警報），同一條規則對同一筆來源資料只通知一次；事件型改了條件之後，會用新條件重新比對全部警報
 - 通知鈴鐺：未讀紅點 + Dropdown 無限捲動 + 一鍵全部已讀
 - 農藥查詢（W24）：輸入成分俗名／英文名查詢許可證狀態、適用作物與安全採收期，即時打農業部 API 不落地
 
@@ -310,8 +310,9 @@ TaiwanAgriPlatform/
 │   │   ├── MarketController.cs       # 8 支端點（含 /pork、/poultry、/poultry/metrics）
 │   │   ├── NavController.cs          # [AllowAnonymous] GET /api/nav/modules
 │   │   ├── NotificationController.cs # [Authorize] 通知列表 / 未讀數 / 標記單筆已讀 / 全部已讀（4 支端點）
+│   │   ├── NotificationRuleController.cs # [Authorize] 通知規則 CRUD＋「立即檢查」（限流）
 │   │   ├── PetController.cs          # 寵物模組 10 支端點（GET 公開，CRUD [Authorize]）
-│   │   ├── PestController.cs         # 病蟲害警報 / 旬密度 / 害蟲清單
+│   │   ├── PestController.cs         # 病蟲害警報 / 各縣市警報數 / 旬密度 / 害蟲清單
 │   │   ├── ProfileController.cs      # [Authorize] GET + PUT /api/profile/farm
 │   │   ├── WatchlistController.cs    # [Authorize] GET / POST / DELETE /api/watchlist
 │   │   └── WeatherController.cs      # 氣象站 / 雨量 / 農藥查詢（3 支端點）
@@ -322,6 +323,7 @@ TaiwanAgriPlatform/
 │   │   ├── InfrastructureExtensions.cs # Redis / CORS / RabbitMQ Consumer
 │   │   ├── MarketModuleExtensions.cs
 │   │   ├── PetModuleExtensions.cs
+│   │   ├── RateLimitingExtensions.cs # 速率限制：公開查詢、登入與註冊、立即檢查三個策略
 │   │   ├── UserModuleExtensions.cs
 │   │   └── WeatherModuleExtensions.cs
 │   ├── Middlewares/
@@ -444,7 +446,7 @@ TaiwanAgriPlatform/
 │   │       ├── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
 │   │       ├── taiwanDate.ts         # 以台灣時區算「今天」與「N 天前」的日期字串（vitest 覆蓋）
 │   │       ├── lostPetPost.ts        # 遺失啟事狀態對照與卡片渲染純函式（列表頁與詳情頁共用）
-│   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 36 個 vitest 案例）
+│   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 39 個 vitest 案例）
 │   │       └── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup 與詳情頁共用）
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
@@ -453,7 +455,7 @@ TaiwanAgriPlatform/
 │   ├── Dockerfile                    # 整站模式的前端映像：Node 建置 → nginx（建置內容從 repo 根目錄送）
 │   └── nginx.conf                    # 送出建置結果；/api、/health 同源轉給後端容器
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 488 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 538 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -489,8 +491,8 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker + Docker Compose | 最新版 | 預設只起基礎設施（SQL Server / Redis / RabbitMQ）；`--profile app` 起整站（建表、後端、Worker、前端 nginx），映像多階段建置、非 root 執行 |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，488 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 169 案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，538 個案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，20 檔 196 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
 ---
@@ -665,16 +667,16 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 488 個測試案例）
+# 後端（xUnit + Moq，共 538 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 169 個測試案例）
+# 前端（Vitest，共 196 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 169 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → test）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個、回應的時間欄位一律標成 UTC 3 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個、行情依交易資料的類別查詢與市場清單 6 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個、疫情規則的評估水位 4 個、病蟲害警報的縣市兩種寫法、翻頁穩定、分頁上限與同步時去重 12 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個、有機驗證有則更新 2 個、規則引擎等相依的同步試過第一輪再評估 3 個、一筆壞資料只略過那一筆與超長字串截到欄位上限 6 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 20 個測試檔共 196 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，39 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`apiError`（從 400 回應取出後端說的原因，6 個）、`identityErrors`（註冊錯誤逐條翻成中文，4 個）、`cropAutocomplete`（作物自動完成的建議與鍵盤選取，7 個）、`disasterEvents`（同一場豪雨的兩種警戒分開列、跨年同名不合併，5 個）、`lostPetPost`（啟事日期以台灣時區顯示，2 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → test）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -724,14 +726,21 @@ npm test
 
 ### 速率限制
 
-行情端點免登入，因此套上依來源位址計算的速率限制，預設每分鐘 60 次；
+免登入的查詢端點（行情、病蟲害、寵物、食安、氣象、導覽六支控制器）套上依來源位址計算的速率限制，
+**每個模組各自計數**（`/api/market`、`/api/pest`……各一份），預設每分鐘 60 次；
+登入與註冊另有一組依來源位址的額度，預設每分鐘 10 次（登入另有帳號鎖定：同一個帳號連錯 5 次鎖 5 分鐘）；
+「立即檢查」依使用者計數，預設每分鐘 5 次。
 超過時回 `429` 並帶 `Retry-After`。要調整就覆寫這個區段：
 
 ```json
 {
   "RateLimiting": {
     "PermitLimit": 60,
-    "WindowSeconds": 60
+    "WindowSeconds": 60,
+    "AuthPermitLimit": 10,
+    "AuthWindowSeconds": 60,
+    "RuleEvaluationPermitLimit": 5,
+    "RuleEvaluationWindowSeconds": 60
   }
 }
 ```
@@ -1084,7 +1093,8 @@ npm test
 |--------|-----|------|------|
 | GET | `/api/Weather/stations?cityName=臺北市` | 各測站最新一筆觀測 | 不需要 |
 | GET | `/api/Weather/rainfall?cityName=臺北市` | 雨量趨勢 | 不需要 |
-| GET | `/api/Pest/alerts?cityName=臺北市&page=1` | 病蟲害警報（分頁 20 筆） | 不需要 |
+| GET | `/api/Pest/alerts?cityName=臺北市&page=1&pageSize=20` | 病蟲害警報（分頁，預設每頁 20 筆、最多 100） | 不需要 |
+| GET | `/api/Pest/alerts/city-counts` | 各縣市被幾則警報影響（警報頁的縣市燈號用） | 不需要 |
 | GET | `/api/Pest/pest-names` | 所有害蟲名稱清單 | 不需要 |
 | GET | `/api/Pest/decade-density?pestName=東方果實蠅` | 旬密度歷史資料 | 不需要 |
 | GET | `/api/Weather/pesticides?keyword=亞滅培` | 農藥查詢（中英文名擇一或併用，含 includeRevoked 參數） | 不需要 |
@@ -1436,7 +1446,7 @@ GitHub 的執行器上，而執行器的 IP 不固定，因此採用「允許 Az
 它會放行任何 Azure 上的服務，範圍比實際需要的大。
 **收窄的正確做法**是改由 workflow 在執行前後動態增刪防火牆規則，
 但那需要在 GitHub 這一側再保管一組 Azure 認證——用一組更敏感的憑證去換一個較窄的網路範圍，
-在這個專案（資料全部是公開的政府開放資料、寫入端點都要登入）不划算。
+在這個專案（資料絕大部分是公開的政府開放資料，另有少量使用者資料——帳號、通知規則、農場設定、走失啟事的聯絡方式——由資料庫帳密保護；寫入端點都要登入）不划算。
 
 **整站模式的全新環境，資料要等 Worker 慢慢補**——資料庫是空的時候只有種子資料，
 其餘全靠 Worker 從農業部 API 抓。實測（2026-10-13，全新資料卷跑約 70 分鐘）：毛豬、家禽、寵物三類已追到當天，
