@@ -155,14 +155,14 @@ namespace TaiwanAgri.Tests.Market
 				.ReturnsAsync((byte[]?)null);
 
 			// 2. 建立 InMemory DB 並塞入假資料
-			//    Cache Miss 時程式會做三表 JOIN，三張表都必須有對應資料
+			//    Cache Miss 時程式會 JOIN 作物主檔取名稱，兩張表都必須有對應資料
 			//    key 必須能對上：
 			//      AgriProductsTrans.CropCode   ←→  CropInfo.CropCode
-			//      AgriProductsTrans.MarketCode ←→  MarketInfo.MarketCode
 			//    where 條件也必須符合：
-			//      MarketInfo.MarketType == "Veg"
+			//      AgriProductsTrans.TcType == "N04"（Veg 對應的交易類別；類別看交易資料，不看市場主檔）
 			//      AgriProductsTrans.CropCode 在 cropCodes 裡
 			//      TransDate 在 finalStart ~ finalEnd 範圍內
+			//    市場主檔那一筆留著：它不影響結果，正好證明查詢不再依賴主檔的類別
 			var options = new DbContextOptionsBuilder<MarketDbContext>()
 				.UseInMemoryDatabase("TestDb_CacheMiss")
 				.Options;
@@ -191,7 +191,7 @@ namespace TaiwanAgri.Tests.Market
 				LowerPrice = 11.0m,
 				AvgPrice = 13.0m,
 				TransQuantity = 100m,
-				TcType = "A"
+				TcType = "N04"
 			});
 
 			await dbContext.SaveChangesAsync();
@@ -283,7 +283,7 @@ namespace TaiwanAgri.Tests.Market
 				LowerPrice = 11.0m,
 				AvgPrice = 13.0m,
 				TransQuantity = 100m,
-				TcType = "A"
+				TcType = "N04"
 			});
 
 			await dbContext.SaveChangesAsync();

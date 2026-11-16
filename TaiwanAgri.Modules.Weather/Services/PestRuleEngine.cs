@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.Weather.Constants;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Entities;
@@ -94,6 +95,9 @@ namespace TaiwanAgri.Modules.Weather.Services
 				.MaxAsync(w => (DateTime?)w.SyncedAt, cancellationToken);
 			var latestObservedAt = await db.WeatherObservations
 				.MaxAsync(w => (DateTime?)w.ObservedAt, cancellationToken);
+			// 事件型的掃描上界，道理同上：評估期間才落地的警報留給下一輪
+			var alertsScanUpTo = await db.PestAlerts
+				.MaxAsync(p => (DateTime?)p.SyncedAt, cancellationToken);
 
 			var created = 0;
 			var numericEvaluated = 0;
@@ -112,7 +116,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 						}
 						break;
 					case NotificationRule.Types.Event:
-						created += await EvaluateEventAsync(db, rule, now, cancellationToken);
+						created += await EvaluateEventAsync(db, rule, now, alertsScanUpTo, cancellationToken);
 						break;
 					default:
 						_logger.LogWarning("[PestRuleEngine] 未知的 RuleType: {RuleType}", rule.RuleType);
@@ -224,9 +228,19 @@ namespace TaiwanAgri.Modules.Weather.Services
 			return new NumericRuleResult(created, true, hadNewObservations);
 		}
 
-		/// <summary>事件型：比對植物疫情警報。</summary>
+		/// <summary>
+		/// 事件型：比對植物疫情警報。
+		/// <para>
+		/// 水位比的是警報的落地時刻（PestAlert.SyncedAt）：第一次評估（水位為 null，含改過條件之後）比對全部警報，
+		/// 符合條件的舊警報都要通知；之後只看上次評估之後才落地的警報。
+		/// 原本事件型沒有水位、只靠「那則通知還在不在」去重，通知過期被刪掉之後，下一輪同一則舊警報又符合條件，
+		/// 會再通知一次——預設保留 30 天，等於每 30 天重發一次（2026-11 總檢查 3-B1）。
+		/// 第一次評估不像數值型那樣只退到最後一批：警報每三四天才新增一兩筆，退到最後一批的話，
+		/// 建完規則要等好幾天才收得到第一則；使用者要限制範圍，用的是自己選的起日
+		/// </para>
+		/// </summary>
 		private async Task<int> EvaluateEventAsync(
-			WeatherDbContext db, PestRuleConfig rule, DateTime now, CancellationToken cancellationToken)
+			WeatherDbContext db, PestRuleConfig rule, DateTime now, DateTime? alertsScanUpTo, CancellationToken cancellationToken)
 		{
 			if (rule.SourceTable != NotificationRule.SourceTables.PlantEpidemic)
 			{
@@ -237,12 +251,20 @@ namespace TaiwanAgri.Modules.Weather.Services
 				return 0;
 			}
 
+			// 表裡一則警報都沒有：沒有東西可比，水位也不動
+			if (alertsScanUpTo == null)
+				return 0;
+			var upTo = alertsScanUpTo.Value;
+
 			var query = db.PestAlerts.AsNoTracking().AsQueryable();
+			query = rule.LastEvaluatedAt is { } watermark
+				? query.Where(p => p.SyncedAt > watermark && p.SyncedAt <= upTo)
+				: query.Where(p => p.SyncedAt <= upTo);
 
 			if (!string.IsNullOrWhiteSpace(rule.FilterCity))
 			{
 				// 縣市用相等比對（值來自前端固定清單），台／臺兩種寫法都試
-				var (primary, alternate) = CityNameVariants(rule.FilterCity);
+				var (primary, alternate) = TaiwanCityName.Variants(rule.FilterCity);
 				query = query.Where(p => p.Cities.Any(c => c.CityName == primary || c.CityName == alternate));
 			}
 			if (!string.IsNullOrWhiteSpace(rule.FilterPlantName))
@@ -277,6 +299,8 @@ namespace TaiwanAgri.Modules.Weather.Services
 				created++;
 			}
 
+			// 水位推到本輪的掃描上界（沒命中的那些也已經看過了），跟通知在同一次 SaveChanges 寫回
+			rule.LastEvaluatedAt = upTo;
 			_logger.LogInformation("[PestRuleEngine] 規則 {RuleId}（事件型）比對 {Matched} 筆、新增 {Created} 則通知",
 				rule.Id, matched.Count, created);
 			return created;
@@ -291,20 +315,13 @@ namespace TaiwanAgri.Modules.Weather.Services
 			=> db.UserNotifications.AnyAsync(
 				n => n.PestRuleConfigId == ruleId && n.SourceRecordId == sourceRecordId, cancellationToken);
 
-		/// <summary>
-		/// 縣市名稱的台／臺兩種寫法。疫情那側的來源全部用「台」、氣象那側全部用「臺」，
-		/// 而使用者存的只有一種，不兩種都試就會靜默比不到任何一筆（不會報錯）。
-		/// 候選值在這裡先算好再進 Where，翻成 SQL 是 IN (@p0, @p1)；
-		/// 若寫成 w.CityName.Replace(...) 會翻成 SQL 的 REPLACE()，欄位被包在函式裡就用不到索引。
-		/// </summary>
-		private static (string Primary, string Alternate) CityNameVariants(string cityName)
-			=> (cityName, cityName.Contains('臺') ? cityName.Replace('臺', '台') : cityName.Replace('台', '臺'));
-
+		// 縣市的台／臺兩種寫法都要試（見 TaiwanCityName）：疫情那側的舊資料是「台」、氣象那側是「臺」，
+		// 使用者存的只有一種，不兩種都試就會靜默比不到任何一筆（不會報錯）
 		private static IQueryable<WeatherObservation> ApplyCityFilter(IQueryable<WeatherObservation> query, string? cityName)
 		{
 			if (string.IsNullOrWhiteSpace(cityName))
 				return query;
-			var (primary, alternate) = CityNameVariants(cityName);
+			var (primary, alternate) = TaiwanCityName.Variants(cityName);
 			return query.Where(w => w.CityName == primary || w.CityName == alternate);
 		}
 

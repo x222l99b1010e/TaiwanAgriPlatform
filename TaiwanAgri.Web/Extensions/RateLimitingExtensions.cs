@@ -5,15 +5,24 @@ using System.Threading.RateLimiting;
 namespace TaiwanAgri.Web.Extensions
 {
 	/// <summary>
-	/// API 的請求速率限制。兩個策略，擋的東西不同。
+	/// API 的請求速率限制。三個策略，擋的東西不同。
 	///
 	/// <para>
-	/// <b>公開查詢（行情類端點）</b>：這些端點刻意設計成免登入（資料本身是公開的，
+	/// <b>公開查詢（免登入的查詢端點）</b>：這些端點刻意設計成免登入（資料本身是公開的，
 	/// 原始來源也不需要驗證），但「不需要身分」不等於「可以無限次呼叫」。沒有限流時，
 	/// 一支腳本就能持續打同一組端點；而 GetPricesAsync 的快取鍵包含使用者可控的
 	/// 作物代碼組合與日期區間，所以受害的不只是資料庫負載，
 	/// 還包括被任意參數組合灌滿的 Redis——快取層本身變成攻擊面。
 	/// 沒有身分可以分割，只能用來源位址：擋得住單一來源的腳本，擋不住分散來源。
+	/// 原本只掛在行情控制器上，病蟲害、寵物、食安、氣象、導覽這幾支同樣免登入的控制器沒有掛
+	/// （追溯碼與農藥查詢每打一次就對農業部送好幾個請求，2026-11 總檢查資安 A5、B1）；
+	/// 現在五個免登入的控制器都掛。計數以「來源位址＋模組」分開（/api/market、/api/pest……各一份），
+	/// 一個模組的額度跟擴大範圍之前的行情端點一樣，正常瀏覽在幾個模組之間切換不會互相吃掉額度。
+	/// </para>
+	///
+	/// <para>
+	/// <b>登入與註冊</b>：以來源位址計數、額度最緊。登入另有帳號鎖定（同一個帳號連錯 5 次鎖 5 分鐘），
+	/// 但鎖定擋不住「每個帳號試幾次」的撒網，也擋不住腳本大量註冊帳號
 	/// </para>
 	///
 	/// <para>
@@ -38,6 +47,20 @@ namespace TaiwanAgri.Web.Extensions
 		/// <summary>手動觸發規則評估的限流策略名稱</summary>
 		public const string RuleEvaluationPolicy = "rule-evaluation";
 
+		/// <summary>登入與註冊的限流策略名稱</summary>
+		public const string AuthPolicy = "auth";
+
+		/// <summary>
+		/// 公開查詢的計數分割鍵：來源位址＋路徑的模組段（/api/Market/prices → market）。
+		/// 大小寫不分：路由不分大小寫，分大小寫的話換個寫法就多一份額度
+		/// </summary>
+		public static string PublicQueryPartitionKey(string? remoteIp, PathString path)
+		{
+			var segments = (path.Value ?? string.Empty).Split('/', StringSplitOptions.RemoveEmptyEntries);
+			var module = segments.Length >= 2 ? segments[1].ToLowerInvariant() : string.Empty;
+			return $"{remoteIp ?? "unknown"}|{module}";
+		}
+
 		public static IServiceCollection AddApiRateLimiting(
 			this IServiceCollection services, IConfiguration configuration)
 		{
@@ -54,9 +77,9 @@ namespace TaiwanAgri.Web.Extensions
 
 				limiter.AddPolicy(PublicQueryPolicy, context =>
 					RateLimitPartition.GetFixedWindowLimiter(
-						// 免登入端點沒有使用者身分可以分割，只能用來源位址。
+						// 免登入端點沒有使用者身分可以分割，只能用來源位址（再依模組分開，見 PublicQueryPartitionKey）。
 						// 這擋得住單一來源的腳本，擋不住分散來源——後者需要的是另一個層級的防護
-						partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+						partitionKey: PublicQueryPartitionKey(context.Connection.RemoteIpAddress?.ToString(), context.Request.Path),
 						factory: _ => new FixedWindowRateLimiterOptions
 						{
 							PermitLimit = options.PermitLimit,
@@ -77,6 +100,16 @@ namespace TaiwanAgri.Web.Extensions
 						{
 							PermitLimit = options.RuleEvaluationPermitLimit,
 							Window = TimeSpan.FromSeconds(options.RuleEvaluationWindowSeconds),
+							QueueLimit = 0
+						}));
+
+				limiter.AddPolicy(AuthPolicy, context =>
+					RateLimitPartition.GetFixedWindowLimiter(
+						partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+						factory: _ => new FixedWindowRateLimiterOptions
+						{
+							PermitLimit = options.AuthPermitLimit,
+							Window = TimeSpan.FromSeconds(options.AuthWindowSeconds),
 							QueueLimit = 0
 						}));
 
@@ -122,5 +155,14 @@ namespace TaiwanAgri.Web.Extensions
 
 		/// <summary>手動觸發規則評估：時間窗長度（秒）</summary>
 		public int RuleEvaluationWindowSeconds { get; set; } = 60;
+
+		/// <summary>
+		/// 登入與註冊（合計）：一個時間窗內允許的次數。正常使用一分鐘頂多登入、打錯重試幾次；
+		/// 十次留了餘裕，又讓腳本一分鐘只能試十組帳密、建十個帳號
+		/// </summary>
+		public int AuthPermitLimit { get; set; } = 10;
+
+		/// <summary>登入與註冊：時間窗長度（秒）</summary>
+		public int AuthWindowSeconds { get; set; } = 60;
 	}
 }

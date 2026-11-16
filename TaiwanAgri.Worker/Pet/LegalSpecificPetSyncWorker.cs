@@ -138,8 +138,9 @@ namespace TaiwanAgri.Worker.Pet
 			string logPrefix,
 			CancellationToken stoppingToken)
 		{
-			var incoming = dtos
-				.Select(dto => MapToEntity(dto, timeProvider, logger))
+			// 一筆格式不對（許可證效期）只略過那一筆，不讓這個縣市整批失敗（見 SyncMapping）
+			var incoming = SyncMapping.MapSkippingMalformed(
+					dtos, dto => MapToEntity(dto, timeProvider, logger), dto => dto.ID, logger, logPrefix)
 				.DistinctBy(x => x.ExternalId)
 				.ToList();
 

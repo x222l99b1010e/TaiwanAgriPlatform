@@ -153,6 +153,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 		private static void ApplyRequest(PestRuleConfig rule, NotificationRuleRequestDto request)
 		{
 			var isNumeric = request.RuleType == NotificationRule.Types.Numeric;
+			var typeChanged = rule.RuleType != request.RuleType; // 新建的規則 RuleType 是空字串，算換過
 
 			rule.RuleName = request.RuleName.Trim();
 			rule.RuleType = request.RuleType;
@@ -175,11 +176,12 @@ namespace TaiwanAgri.Modules.Weather.Services
 			rule.Comparison = isNumeric ? request.Comparison : null;
 			rule.Threshold = isNumeric ? request.Threshold : null;
 
-			// 水位是數值型專用欄位，非數值型一律為 null。
-			// 同型態內改條件時水位不動——重置等於往前追，把已經看過的觀測重新灌成一批通知，
-			// 而那正是水位要解決的問題。改成事件型再改回來時水位是 null，
-			// 下次評估退到最後一批，是兩者之中較保守的那一邊
-			rule.LastEvaluatedAt = isNumeric ? rule.LastEvaluatedAt : null;
+			// 水位（兩種型態各自的意義見 PestRuleConfig.LastEvaluatedAt）：
+			// ・數值型改條件時不動——重置等於往前追，把已經看過的觀測重新灌成一批通知，而那正是水位要解決的問題
+			// ・事件型改條件時清掉——下次評估用新條件重新比對全部警報，把符合新條件的舊警報補上通知
+			//   （畫面上的說明也是這樣講，見前端 utils/notificationRule.ts 的 ruleTimingHint）
+			// ・換型態時一律清掉——另一種型態的水位是另一張表的落地時刻，對這一種沒有意義
+			rule.LastEvaluatedAt = isNumeric && !typeChanged ? rule.LastEvaluatedAt : null;
 		}
 
 		/// <summary>空白字串與 null 在這裡是同一件事（都代表「不限這個條件」），統一存成 null。</summary>

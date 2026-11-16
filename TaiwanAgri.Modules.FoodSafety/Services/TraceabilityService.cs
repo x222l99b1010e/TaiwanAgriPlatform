@@ -11,12 +11,25 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 	/// 與模組 2 的 PesticideService 同一形態（該類別的註解即以本功能為對照）。
 	///
 	/// 四支來源（農產品、生產者、洗選蛋、禽肉）並行查詢，各自以 SafeFetch 包住，
-	/// 單支失敗以無資料處理、不影響其餘來源。
+	/// 單支失敗以無資料處理、不影響其餘來源；**四支全部失敗時丟例外**，使用者拿到「查詢失敗」，
+	/// 不是「查無資料」——後者在這種情況是一句謊話（實際上是我們沒查成功，PesticideService 第一層同一個理由，
+	/// 2026-11 總檢查 G-B1）。
+	/// <para>
+	/// 使用者輸入一律經過 Uri.EscapeDataString 才接進網址：原本直接字串內插，送 1%26%24top%3D9999 就能替後端
+	/// 加上任意查詢參數（2026-11 總檢查資安 A5）。每一支來源另有自己的逾時（共用的 MoaApi client 是無限逾時，
+	/// 給同步程式用），並帶著呼叫端的取消權杖——前端放棄等待時，這四支請求跟著取消
+	/// </para>
 	/// </summary>
 	public class TraceabilityService : ITraceabilityService
 	{
 		private readonly HttpClient _httpClient;
 		private readonly ILogger<TraceabilityService> _logger;
+
+		/// <summary>
+		/// 每一支來源最多等多久（含 Polly 的重試）。上游正常時幾秒內就回；超過就當這個來源失敗，
+		/// 其餘來源照常回傳。前端自己等 120 秒，這裡要比它短，使用者才拿得到結果而不是前端逾時
+		/// </summary>
+		internal static readonly TimeSpan SourceTimeout = TimeSpan.FromSeconds(30);
 
 		public TraceabilityService(IHttpClientFactory httpClientFactory, ILogger<TraceabilityService> logger)
 		{
@@ -30,21 +43,23 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			// 每個 Task 各自打一支 API，四個同時跑
 			// 用 SafeFetch 包住，確保單支失敗不影響其他支
 
+			var escapedCode = Uri.EscapeDataString(traceCode);
+
 			var productTask = SafeFetch<AgriProductApiResponse>(
-				$"{MoaApiEndpoints.AgriProductInfo}?TraceCode={traceCode}");
+				$"{MoaApiEndpoints.AgriProductInfo}?TraceCode={escapedCode}", cancellationToken);
 
 			var producerTask = SafeFetch<AgriProducerApiResponse>(
-				$"{MoaApiEndpoints.AgriProducerInfo}?TraceCode={traceCode}");
+				$"{MoaApiEndpoints.AgriProducerInfo}?TraceCode={escapedCode}", cancellationToken);
 
 			// 洗選蛋 / 禽肉：用比 traceCode 小的起始值讓目標批次出現在結果裡
 			// API 的 Traceno_Start 參數是「>= 過濾」，後端再做區間包含比對
-			var tracenoStartParam = NormalizeTracenoStart(traceCode);
+			var tracenoStartParam = Uri.EscapeDataString(NormalizeTracenoStart(traceCode));
 
 			var eggTask = SafeFetch<WashedEggApiResponse>(
-				$"{MoaApiEndpoints.WashedEggs}?Traceno_Start={tracenoStartParam}");
+				$"{MoaApiEndpoints.WashedEggs}?Traceno_Start={tracenoStartParam}", cancellationToken);
 
 			var poultryTask = SafeFetch<PoultryApiResponse>(
-				$"{MoaApiEndpoints.DomesticPoultry}?Traceno_Start={tracenoStartParam}");
+				$"{MoaApiEndpoints.DomesticPoultry}?Traceno_Start={tracenoStartParam}", cancellationToken);
 
 			// ── 2. 等四支全部回來 ────────────────────────────────────────
 			// Task.WhenAll：同時等待，總時間 = 最慢那支，不是四支加總
@@ -55,6 +70,13 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 			var producerResp = producerTask.Result;
 			var eggResp = eggTask.Result;
 			var poultryResp = poultryTask.Result;
+
+			// 四支都失敗＝我們沒查成功，不是查不到，讓例外往上拋（GlobalExceptionMiddleware 回 500）
+			if (productResp is null && producerResp is null && eggResp is null && poultryResp is null)
+			{
+				_logger.LogError("[Traceability] 四個來源全部失敗，回報查詢失敗而不是查無資料");
+				throw new HttpRequestException("追溯碼查詢失敗：四個來源都沒有回應");
+			}
 
 			// ── 4. 組裝回傳給前端的 DTO ─────────────────────────────────
 			return new TraceabilityResponseDto
@@ -143,11 +165,14 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 		}
 
 		// ── 私有輔助方法：安全打 API，失敗回傳 null 而非拋例外 ──────────
-		private async Task<T?> SafeFetch<T>(string url) where T : class
+		private async Task<T?> SafeFetch<T>(string url, CancellationToken cancellationToken) where T : class
 		{
+			// 呼叫端的取消（前端放棄等待）＋這一支自己的逾時，任一個先到就停
+			using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+			timeout.CancelAfter(SourceTimeout);
 			try
 			{
-				var response = await _httpClient.GetAsync(url);
+				var response = await _httpClient.GetAsync(url, timeout.Token);
 				if (!response.IsSuccessStatusCode)
 				{
 					_logger.LogWarning("[Traceability] 外部 API 回應非 2xx（{StatusCode}），該來源以無資料處理：{Url}",
@@ -155,7 +180,12 @@ namespace TaiwanAgri.Modules.FoodSafety.Services
 					return null;
 				}
 
-				return await response.Content.ReadFromJsonAsync<T>();
+				return await response.Content.ReadFromJsonAsync<T>(timeout.Token);
+			}
+			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+			{
+				// 呼叫端自己取消的（使用者離開、請求中斷）：照實往上拋，不當成「這個來源沒資料」
+				throw;
 			}
 			catch (Exception ex)
 			{

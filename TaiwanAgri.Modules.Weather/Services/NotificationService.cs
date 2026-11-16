@@ -16,9 +16,12 @@ namespace TaiwanAgri.Modules.Weather.Services
 			// 多取一筆用來判斷還有沒有下一頁，回傳前砍掉。
 			// 這樣 HasMore 是「真的還有資料」而不是「這頁剛好滿」——後者在總筆數是
 			// 每頁筆數倍數時會多給一次載入更多，點了拿到空陣列
+			// Id 當第二排序鍵：同一輪評估產生的通知觸發時間完全相同（實測 7 則只有 1 個相異時間），
+			// 只比觸發時間的話翻頁時同一則可能出現兩次或漏掉
 			var rows = await _dbContext.UserNotifications
 				.Where(x => x.UserId == userId)
 				.OrderByDescending(x => x.TriggeredAt)
+				.ThenByDescending(x => x.Id)
 				.Skip((page - 1) * INotificationService.PageSize)
 				.Take(INotificationService.PageSize + 1)
 				.Select(x => new UserNotificationResponseDto

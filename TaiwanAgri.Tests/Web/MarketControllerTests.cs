@@ -15,11 +15,17 @@ namespace TaiwanAgri.Tests.Web
 	/// </summary>
 	public class MarketControllerTests
 	{
+		/// <summary>固定的「今天」：台灣 2026-09-08。沒帶迄日的查詢拿它當迄日檢查區間上限</summary>
+		private sealed class FixedTimeProvider : TimeProvider
+		{
+			public override DateTimeOffset GetUtcNow() => new(2026, 9, 8, 4, 0, 0, TimeSpan.Zero);
+		}
+
 		private static MarketController CreateController(Mock<IMarketService> service)
 		{
 			// 上限改走強型別選項後，測試不必再組一份假設定，直接給值即可
 			var options = Options.Create(new MarketQueryOptions { CropCodesMaxCount = 5 });
-			return new MarketController(service.Object, options)
+			return new MarketController(service.Object, options, new FixedTimeProvider())
 			{
 				ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
 			};
@@ -164,7 +170,8 @@ namespace TaiwanAgri.Tests.Web
 			var service = new Mock<IMarketService>();
 			var controller = new MarketController(
 				service.Object,
-				Options.Create(new MarketQueryOptions { CropCodesMaxCount = 5, MaxQueryRangeDays = 7 }))
+				Options.Create(new MarketQueryOptions { CropCodesMaxCount = 5, MaxQueryRangeDays = 7 }),
+				new FixedTimeProvider())
 			{
 				ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
 			};
@@ -189,6 +196,35 @@ namespace TaiwanAgri.Tests.Web
 			var controller = CreateController(service);
 
 			Assert.IsType<OkObjectResult>(await controller.GetPork());
+		}
+
+		/// <summary>
+		/// 只帶起日、不帶迄日也要受上限約束：服務層會把迄日補成今天，
+		/// 原本這種請求整個不檢查，毛豬帶 2009-01-01 一次回 14 MB（2026-11 總檢查 3-A6）。
+		/// 三支日期選填的端點都要擋，而且擋在控制器、不呼叫服務層
+		/// </summary>
+		[Fact]
+		public async Task 只帶起日時也要受區間上限約束()
+		{
+			var service = new Mock<IMarketService>();
+			var controller = CreateController(service);
+			const string 很早 = "2009-01-01";
+
+			Assert.IsType<BadRequestObjectResult>(await controller.GetPork(startDate: 很早));
+			Assert.IsType<BadRequestObjectResult>(await controller.GetPoultry(startDate: 很早));
+			Assert.IsType<BadRequestObjectResult>(await controller.GetPrices("Veg", ["C1"], startDate: 很早));
+			service.Verify(s => s.GetPorkAsync(It.IsAny<string?>(), It.IsAny<DateOnly?>(), It.IsAny<DateOnly?>(), It.IsAny<CancellationToken>()), Times.Never);
+		}
+
+		[Fact]
+		public async Task 只帶起日而且在上限內時照常查詢()
+		{
+			var service = new Mock<IMarketService>();
+			service.Setup(s => s.GetPorkAsync(It.IsAny<string?>(), It.IsAny<DateOnly?>(), null, It.IsAny<CancellationToken>()))
+				.ReturnsAsync([]);
+			var controller = CreateController(service);
+
+			Assert.IsType<OkObjectResult>(await controller.GetPork(startDate: "2025-09-08"));
 		}
 	}
 }

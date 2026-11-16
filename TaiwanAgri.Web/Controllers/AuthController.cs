@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using TaiwanAgri.Web.Extensions;
 using TaiwanAgri.Web.Dtos;
 using TaiwanAgri.Web.Services;
 
@@ -6,6 +8,8 @@ namespace TaiwanAgri.Web.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
+	// 登入與註冊以來源位址限流（見 RateLimitingExtensions.AuthPolicy）
+	[EnableRateLimiting(RateLimitingExtensions.AuthPolicy)]
 	public class AuthController : ControllerBase
 	{
 		private readonly IAuthService _authService;
