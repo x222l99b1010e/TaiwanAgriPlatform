@@ -364,6 +364,7 @@ CI 在 W20 才建（[#1][pr1]），不是一開始就有。W19 的測試 Sprint 
 - **發現**（2026-06，code review）：蔬菜的選單裡出現花卉。直接查資料庫才看到市場代號是跨類別共用的——代號 400 同時是台中的蔬菜市場與花卉市場，用市場代號篩類別必然混進別的類別。真正代表類別的是 `TcType` 欄位，而它沒有索引，水果的查詢因此全表掃描、30 秒逾時。「選單被汙染」與「逾時」是同一個根因。
 - **改了什麼**：改用 `TcType` 篩選並補上索引。2026-09 回頭查證，原本的機制本身也不成立：兩邊同為 `nvarchar`、只差宣告長度，SQL Server 不會因此放棄索引（會的是 `varchar` 欄位配 `nvarchar` 參數）。
 - **教訓**：診斷停在第一個看起來合理的解釋。
+- **後續**（2026-11，全專案總檢查）：同一個根因還留在價格查詢與市場清單——兩者仍拿市場主檔的類別篩，而主檔把代號 109（台北一）記成蔬菜市場，水果行情就漏掉它的交易。這兩處也改成看交易資料的 `TcType`（[`4e37817`][c-4e37817]）。當時修的是看到症狀的那一處，沒有回頭找同一個根因的其他用處。
 
 ### 7.2 強制推進的安全閥，13 天後拿掉（[`5a54aaa`][c-5a54aaa] → [`88a4be3`][c-88a4be3]）
 
@@ -454,6 +455,7 @@ CI 在 W20 才建（[#1][pr1]），不是一開始就有。W19 的測試 Sprint 
 | [`2b5e35a`][c-2b5e35a] | 外部停止不再誤記成逾時 |
 | [`8772ebd`][c-8772ebd] | 休市日同步先排除同一批裡的重複 |
 | [`241915d`][c-241915d] | 本文件規模數字的量測基準 |
+| [`4e37817`][c-4e37817] | 價格查詢與市場清單也改看交易資料的 `TcType`（2026-11 全專案總檢查） |
 
 [pr1]: https://github.com/x222l99b1010e/TaiwanAgriPlatform/pull/1
 [pr10]: https://github.com/x222l99b1010e/TaiwanAgriPlatform/pull/10
@@ -486,3 +488,4 @@ CI 在 W20 才建（[#1][pr1]），不是一開始就有。W19 的測試 Sprint 
 [c-f1b8d82]: https://github.com/x222l99b1010e/TaiwanAgriPlatform/commit/f1b8d82
 [c-76e8d2f]: https://github.com/x222l99b1010e/TaiwanAgriPlatform/commit/76e8d2f
 [c-8772ebd]: https://github.com/x222l99b1010e/TaiwanAgriPlatform/commit/8772ebd
+[c-4e37817]: https://github.com/x222l99b1010e/TaiwanAgriPlatform/commit/4e37817
