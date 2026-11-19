@@ -145,6 +145,7 @@ import {
 } from 'chart.js'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import { marketApi, type PorkResponseDto } from '@/api/market'
+import { badRequestMessage } from '@/api/apiError'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
@@ -307,8 +308,9 @@ async function handleQuery() {
       startDate: startDate.value,
       endDate: endDate.value,
     })
-  } catch {
-    errorMsg.value = '查詢失敗，請稍後再試'
+  } catch (e) {
+    // 400 帶著後端的中文原因（日期反了、區間超過上限），照實顯示；其餘維持通用句
+    errorMsg.value = badRequestMessage(e) ?? '查詢失敗，請稍後再試'
   } finally {
     isLoading.value = false
   }

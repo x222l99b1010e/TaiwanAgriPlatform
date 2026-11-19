@@ -100,7 +100,9 @@ function toNullableNumber(raw: string): number | null {
    一整條分頁列因此是同一個高度，不再是「按鈕 32、輸入框 27、下拉 26」各自為政。 */
 .pagination-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
 .pagination-info { font-size: var(--text-xs); color: var(--color-text-dim); font-variant-numeric: tabular-nums; }
-.pagination-controls { display: flex; align-items: center; gap: var(--space-1); }
+/* 要能換行：頁碼視窗固定 6 個，加上前後四顆箭頭至少 356px，手機寬 375 扣掉頁面留白只剩 311px，
+   不換行的話這一列會把整頁撐出水平捲動（2026-11 總檢查 2-B6：合法寵物業那頁寬到 551px） */
+.pagination-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-1); }
 
 .page-btn {
   min-width: var(--control-h-sm); height: var(--control-h-sm);

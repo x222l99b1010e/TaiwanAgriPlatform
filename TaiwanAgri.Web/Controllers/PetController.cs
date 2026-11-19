@@ -1,14 +1,18 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using TaiwanAgri.Modules.Pet.Dtos.ApiRequests;
 using TaiwanAgri.Modules.Pet.Dtos.Queries;
 using TaiwanAgri.Modules.Pet.Services;
+using TaiwanAgri.Web.Extensions;
 
 namespace TaiwanAgri.Web.Controllers
 {
 	[Route("api/pet")]
 	[ApiController]
+	// 免登入的查詢：掛公開查詢限流（掛在類別上，新增端點自動涵蓋；見 RateLimitingExtensions）
+	[EnableRateLimiting(RateLimitingExtensions.PublicQueryPolicy)]
 	public class PetController(IPetService petService) : ControllerBase
 	{
 		// ── 查詢層：三支 Worker 同步進來的資料，未登入即可查（唯讀） ──────────

@@ -30,7 +30,7 @@ namespace TaiwanAgri.Tests.FoodSafety
 
 			protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
 			{
-				var url = request.RequestUri!.ToString();
+				var url = request.RequestUri!.AbsoluteUri; // AbsoluteUri 保留編碼（ToString 會把部分 %xx 解回字元），才驗得出輸入有沒有編碼
 				RequestedUrls.Add(url);
 
 				foreach (var (pathContains, respond) in _routes)
@@ -153,6 +153,38 @@ namespace TaiwanAgri.Tests.FoodSafety
 			Assert.Null(result.AgriProducts);
 			Assert.NotNull(result.WashedEgg);
 			Assert.Equal("甲洗選場", result.WashedEgg!.SelName);
+		}
+
+		/// <summary>
+		/// 四個來源都失敗＝沒查成功，要讓例外往上拋（使用者看到「查詢失敗」），
+		/// 不能回一份全部是 null 的結果——那在畫面上就是「查無資料」，一句謊話（2026-11 總檢查 G-B1）
+		/// </summary>
+		[Fact]
+		public async Task 四個來源全部失敗時丟例外而不是回查無資料()
+		{
+			var handler = new RouteHandler();
+			foreach (var path in new[] { "ProductInfo", "ProducerInfo", "WashedEggsTraceabilityType", "DomesticPoultryTraceabilityType" })
+				handler.When(path, () => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+			var service = CreateService(handler);
+
+			await Assert.ThrowsAsync<HttpRequestException>(() => service.SearchTraceabilityAsync("2411010012345"));
+		}
+
+		/// <summary>
+		/// 使用者輸入要編碼後才接進網址。原本直接字串內插，送「1&$top=9999」就能替後端
+		/// 加上任意查詢參數（2026-11 總檢查資安 A5）。Controller 另外有字元白名單，這裡測服務本身這一層
+		/// </summary>
+		[Fact]
+		public async Task 追溯碼要編碼後才接進上游網址()
+		{
+			var handler = new RouteHandler();
+			var service = CreateService(handler);
+
+			await service.SearchTraceabilityAsync("1&$top=9999");
+
+			var productUrl = handler.RequestedUrls.Single(u => u.Contains("ProductInfo"));
+			Assert.Contains("TraceCode=1%26%24top%3D9999", productUrl);
+			Assert.DoesNotContain("&$top=", productUrl);
 		}
 
 		[Fact]

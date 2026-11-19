@@ -189,11 +189,17 @@ export type EvaluationTone = 'info' | 'success' | 'warning'
  * 使用者會一直調門檻，而真正的原因分別是同步 Worker 沒在跑、與掃描範圍是空的
  * ——兩種都調到天亮也不會有通知。
  *
+ * 「氣象資料太舊／還沒同步」只在使用者有啟用中的數值門檻規則時才講：植物疫情規則比對的是
+ * 疫情警報，跟氣象觀測無關，只有疫情規則的人看到「最新的氣象觀測是 34 天前」，會以為是自己的規則出了問題。
+ * 有沒有數值型規則由呼叫端給（activeNumericRules），不從回應推算：氣象表是空的時候引擎會跳過
+ * 全部數值型規則、回傳的 numericRulesEvaluated 是 0，從回應本身分不出「沒有數值型規則」與「有、但被跳過」。
+ *
  * now 由呼叫端傳入而不是在這裡讀時鐘，測試才不必配合真實時間。
  */
 export function describeEvaluationOutcome(
   outcome: RuleEvaluationDto,
   now: Date,
+  activeNumericRules: number,
 ): { tone: EvaluationTone; message: string } {
   if (outcome.notificationsCreated > 0) {
     return {
@@ -202,21 +208,7 @@ export function describeEvaluationOutcome(
     }
   }
 
-  if (outcome.latestObservedAt === null) {
-    return {
-      tone: 'warning',
-      message: '氣象觀測資料尚未同步，數值門檻規則這一輪無法評估。',
-    }
-  }
-
-  if (!outcome.hasFreshObservation) {
-    const days = daysBetween(new Date(outcome.latestObservedAt), now)
-    return {
-      tone: 'warning',
-      message: `目前最新的氣象觀測是 ${days} 天前，尚無足夠新的資料可評估。`,
-    }
-  }
-
+  // 放在資料新鮮度之前：一條規則都沒有的時候，資料新不新跟使用者無關
   if (outcome.rulesEvaluated === 0) {
     return {
       tone: 'info',
@@ -224,13 +216,30 @@ export function describeEvaluationOutcome(
     }
   }
 
+  if (activeNumericRules > 0) {
+    const tail = eventRulesTail(outcome.rulesEvaluated - activeNumericRules)
+
+    if (outcome.latestObservedAt === null) {
+      return {
+        tone: 'warning',
+        message: `氣象觀測資料尚未同步，數值門檻規則這一輪無法評估。${tail}`,
+      }
+    }
+
+    if (!outcome.hasFreshObservation) {
+      const days = daysBetween(new Date(outcome.latestObservedAt), now)
+      return {
+        tone: 'warning',
+        message: `目前最新的氣象觀測是 ${days} 天前，數值門檻規則尚無足夠新的資料可評估。${tail}`,
+      }
+    }
+  }
+
   // 數值型規則全都沒有新觀測可比：這一輪的掃描範圍是空的，不是條件太嚴。
   // 這種情況最常發生在「剛改完條件立刻檢查」與「連按兩次檢查」，而它跟「條件沒命中」
   // 講成同一句話的話，使用者會去調門檻——調到天亮也不會有通知
   if (outcome.numericRulesEvaluated > 0 && outcome.numericRulesWithNewObservations === 0) {
-    const eventRules = outcome.rulesEvaluated - outcome.numericRulesEvaluated
-    const tail =
-      eventRules > 0 ? `另外 ${eventRules} 條植物疫情規則已比對過，沒有符合條件的。` : ''
+    const tail = eventRulesTail(outcome.rulesEvaluated - outcome.numericRulesEvaluated)
     return {
       tone: 'info',
       message:
@@ -245,6 +254,11 @@ export function describeEvaluationOutcome(
   }
 }
 
+/** 同一輪裡植物疫情規則的結果另外補一句；沒有疫情規則就不講 */
+function eventRulesTail(eventRules: number): string {
+  return eventRules > 0 ? `另外 ${eventRules} 條植物疫情規則已比對過，沒有符合條件的。` : ''
+}
+
 /**
  * 表單上方那句「改了之後會發生什麼事」。
  *
@@ -252,8 +266,9 @@ export function describeEvaluationOutcome(
  * 表單底部寫一句共用的說明，實際使用時擋不住誤解——改完數值門檻的條件按「立即檢查」
  * 得到 0 則，看起來就像功能壞了。
  *
- * 差別的根源是水位：數值型只比對「上次檢查之後才落地」的觀測，改條件不重置水位；
- * 事件型沒有水位，每次都重新比對全部疫情警報，只靠去重擋掉已經通知過的那幾則。
+ * 差別的根源是水位：兩種型態平常都只看「上次檢查之後才落地」的資料，但改條件時——
+ * 數值型不重置水位（重置會把看過的觀測重新灌成一批通知），
+ * 事件型會清掉水位、下次用新條件重新比對全部疫情警報（警報量小，補上符合新條件的舊警報才是使用者要的）。
  */
 export function ruleTimingHint(ruleType: NotificationRuleType, isEditing: boolean): string {
   if (ruleType === 'Numeric') {
@@ -266,9 +281,9 @@ export function ruleTimingHint(ruleType: NotificationRuleType, isEditing: boolea
   }
 
   return isEditing
-    ? '改條件後按「立即檢查」就會補上符合新條件的疫情警報——' +
-        '事件型每次都重新比對全部警報，只有已經通知過的那幾則不會再來一次。'
-    : '建立後會比對全部疫情警報，符合條件的都會通知；同一則警報只通知一次。'
+    ? '改條件後按「立即檢查」就會用新條件重新比對全部疫情警報，補上符合的那幾則' +
+        '（通知還留著的不會再來一次）；之後只看新同步進來的警報。'
+    : '建立後會比對全部疫情警報，符合條件的都會通知；之後只看新同步進來的警報，同一則警報只通知一次。'
 }
 
 /** 相差幾天，無條件捨去；同一天內回 0 */

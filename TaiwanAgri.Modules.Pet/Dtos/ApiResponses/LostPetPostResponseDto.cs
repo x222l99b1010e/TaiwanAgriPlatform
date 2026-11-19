@@ -1,3 +1,5 @@
+using TaiwanAgri.Core.Helpers;
+
 namespace TaiwanAgri.Modules.Pet.Dtos.ApiResponses
 {
 	/// <summary>
@@ -19,8 +21,12 @@ namespace TaiwanAgri.Modules.Pet.Dtos.ApiResponses
 		public decimal? Latitude { get; set; }
 		public decimal? Longitude { get; set; }
 		public string Status { get; set; } = string.Empty;
-		public DateTime CreatedAt { get; set; }
-		public DateTime UpdatedAt { get; set; }
+		// 兩個都存 UTC，讀回來不帶標記，在這裡補上（原因見 UtcTimestamp）。
+		// 前端只取日期，沒有標記的話台灣 00:00–08:00 張貼的會顯示成前一天
+		private DateTime _createdAt;
+		private DateTime _updatedAt;
+		public DateTime CreatedAt { get => _createdAt; set => _createdAt = UtcTimestamp.MarkUtc(value); }
+		public DateTime UpdatedAt { get => _updatedAt; set => _updatedAt = UtcTimestamp.MarkUtc(value); }
 
 		/// <summary>目前登入者是否為本篇作者；未登入時一律 false。前端只需依此顯示編輯／刪除按鈕，不做任何比對</summary>
 		public bool IsOwner { get; set; }

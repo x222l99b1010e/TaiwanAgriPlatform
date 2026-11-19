@@ -111,21 +111,49 @@ namespace TaiwanAgri.Tests.Helpers
 
 		// ── ValidateRange：查詢區間的界限 ────────────────────────────────────
 
+		/// <summary>測試用的「今天」：ValidateRange 拿它當沒帶迄日時的迄日（服務層補的就是今天）</summary>
+		private static readonly DateOnly Today = new(2026, 9, 8);
+
 		/// <summary>
-		/// 任一端沒有值就不構成可檢查的區間。多數端點的日期是選填的，
-		/// 把「沒有指定」當成違規會讓不帶參數的查詢全部回 400
+		/// 沒帶起日時，服務層補的預設起日（迄日往前一年）一定在上限內，不必檢查。
+		/// 多數端點的日期是選填的，把「沒有指定」當成違規會讓不帶參數的查詢全部回 400
 		/// </summary>
 		[Theory]
 		[InlineData(null, "2026-09-01")]
-		[InlineData("2026-09-01", null)]
 		[InlineData(null, null)]
-		public void 區間任一端未指定時不做檢查(string? start, string? end)
+		public void 沒帶起日時不做檢查(string? start, string? end)
 		{
 			var result = DateHelper.ValidateRange(
 				start == null ? null : DateOnly.Parse(start),
-				end == null ? null : DateOnly.Parse(end));
+				end == null ? null : DateOnly.Parse(end),
+				Today);
 
 			Assert.Null(result);
+		}
+
+		/// <summary>
+		/// 只帶起日時，服務層會把迄日補成今天，所以要拿今天當迄日檢查。
+		/// 原本任一端沒帶就放行——這條測試以前寫成「只帶起日不做檢查」，等於把漏洞寫成了規格：
+		/// 只帶一個很早的起日（2009-01-01）就一次撈回整張表（2026-11 總檢查 3-A6）
+		/// </summary>
+		[Fact]
+		public void 只帶起日時拿今天當迄日檢查上限()
+		{
+			Assert.Null(DateHelper.ValidateRange(Today.AddYears(-1), null, Today));
+
+			var result = DateHelper.ValidateRange(new DateOnly(2009, 1, 1), null, Today);
+			Assert.NotNull(result);
+			Assert.Contains("1096", result);
+			Assert.Contains("查到今天", result);
+		}
+
+		[Fact]
+		public void 只帶起日而且晚於今天要回錯誤訊息()
+		{
+			var result = DateHelper.ValidateRange(Today.AddDays(1), null, Today);
+
+			Assert.NotNull(result);
+			Assert.StartsWith("開始日期不得晚於結束日期", result);
 		}
 
 		/// <summary>
@@ -135,7 +163,7 @@ namespace TaiwanAgri.Tests.Helpers
 		[Fact]
 		public void 起日晚於迄日要回傳錯誤訊息()
 		{
-			var result = DateHelper.ValidateRange(new DateOnly(2026, 9, 10), new DateOnly(2026, 9, 1));
+			var result = DateHelper.ValidateRange(new DateOnly(2026, 9, 10), new DateOnly(2026, 9, 1), Today);
 
 			Assert.Equal("開始日期不得晚於結束日期", result);
 		}
@@ -147,7 +175,7 @@ namespace TaiwanAgri.Tests.Helpers
 		public void 起迄同一天是合法區間()
 		{
 			Assert.Null(DateHelper.ValidateRange(
-				new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 1), maxRangeDays: 1));
+				new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 1), Today, maxRangeDays: 1));
 		}
 
 		/// <summary>
@@ -159,8 +187,8 @@ namespace TaiwanAgri.Tests.Helpers
 		{
 			var start = new DateOnly(2026, 9, 1);
 
-			Assert.Null(DateHelper.ValidateRange(start, new DateOnly(2026, 9, 10), maxRangeDays: 10));
-			Assert.NotNull(DateHelper.ValidateRange(start, new DateOnly(2026, 9, 11), maxRangeDays: 10));
+			Assert.Null(DateHelper.ValidateRange(start, new DateOnly(2026, 9, 10), Today, maxRangeDays: 10));
+			Assert.NotNull(DateHelper.ValidateRange(start, new DateOnly(2026, 9, 11), Today, maxRangeDays: 10));
 		}
 
 		/// <summary>
@@ -171,7 +199,7 @@ namespace TaiwanAgri.Tests.Helpers
 		public void 超過上限的訊息要同時說出上限與實際天數()
 		{
 			var result = DateHelper.ValidateRange(
-				new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 11), maxRangeDays: 10);
+				new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 11), Today, maxRangeDays: 10);
 
 			Assert.Contains("10", result);
 			Assert.Contains("11", result);
@@ -184,10 +212,8 @@ namespace TaiwanAgri.Tests.Helpers
 		[Fact]
 		public void 預設上限容得下一年區間但擋得掉兩百年()
 		{
-			var today = new DateOnly(2026, 9, 8);
-
-			Assert.Null(DateHelper.ValidateRange(today.AddYears(-1), today));
-			Assert.NotNull(DateHelper.ValidateRange(new DateOnly(1900, 1, 1), new DateOnly(2100, 1, 1)));
+			Assert.Null(DateHelper.ValidateRange(Today.AddYears(-1), Today, Today));
+			Assert.NotNull(DateHelper.ValidateRange(new DateOnly(1900, 1, 1), new DateOnly(2100, 1, 1), Today));
 		}
 	}
 }

@@ -5,6 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
+import { badRequestMessage, unauthorizedMessage } from '@/api/apiError'
 import { petApi } from '@/api/pet'
 import { useLatestRequest } from '@/composables/useLatestRequest'
 import type {
@@ -59,12 +60,15 @@ export const usePetStore = defineStore('pet', () => {
   const shelterAnimalDetail = ref<ShelterAnimalResponseDto | null>(null)
   const isLoadingShelterAnimalDetail = ref(false)
   const shelterAnimalDetailError = ref<string | null>(null)
+  /** 404：這筆不存在。畫面不給「重試」——重試一個不存在的東西不會成功 */
+  const shelterAnimalDetailNotFound = ref(false)
   const shelterAnimalDetailRequest = useLatestRequest()
 
   async function fetchShelterAnimalById(id: number) {
     const mySeq = shelterAnimalDetailRequest.next()
     isLoadingShelterAnimalDetail.value = true
     shelterAnimalDetailError.value = null
+    shelterAnimalDetailNotFound.value = false
     shelterAnimalDetail.value = null
     try {
       const result = await petApi.getShelterAnimalById(id)
@@ -72,7 +76,8 @@ export const usePetStore = defineStore('pet', () => {
       shelterAnimalDetail.value = result
     } catch (e) {
       if (!shelterAnimalDetailRequest.isLatest(mySeq)) return
-      shelterAnimalDetailError.value = axios.isAxiosError(e) && e.response?.status === 404
+      shelterAnimalDetailNotFound.value = axios.isAxiosError(e) && e.response?.status === 404
+      shelterAnimalDetailError.value = shelterAnimalDetailNotFound.value
         ? '找不到這隻動物的資料，可能已經離開收容所（例如已被領養）'
         : '載入動物資料失敗，請稍後再試'
       console.error(e)
@@ -199,12 +204,15 @@ export const usePetStore = defineStore('pet', () => {
   const lostPetPostDetail = ref<LostPetPostResponseDto | null>(null)
   const isLoadingLostPetPostDetail = ref(false)
   const lostPetPostDetailError = ref<string | null>(null)
+  /** 404：這篇不存在或已刪除。畫面不給「重試」 */
+  const lostPetPostDetailNotFound = ref(false)
   const lostPetPostDetailRequest = useLatestRequest()
 
   async function fetchLostPetPostById(id: number) {
     const mySeq = lostPetPostDetailRequest.next()
     isLoadingLostPetPostDetail.value = true
     lostPetPostDetailError.value = null
+    lostPetPostDetailNotFound.value = false
     lostPetPostDetail.value = null // 切換到不同 id 時先清空，避免短暫顯示上一筆的舊內容
     try {
       const result = await petApi.getLostPetPostById(id)
@@ -213,7 +221,8 @@ export const usePetStore = defineStore('pet', () => {
     } catch (e) {
       if (!lostPetPostDetailRequest.isLatest(mySeq)) return
       // 404（貼文不存在或已被刪除）跟其他錯誤分開講，訊息才不會誤導使用者去重試一個不會成功的請求
-      lostPetPostDetailError.value = axios.isAxiosError(e) && e.response?.status === 404
+      lostPetPostDetailNotFound.value = axios.isAxiosError(e) && e.response?.status === 404
+      lostPetPostDetailError.value = lostPetPostDetailNotFound.value
         ? '找不到這篇協尋啟事，可能已被刪除'
         : '載入協尋啟事失敗，請稍後再試'
       console.error(e)
@@ -231,9 +240,8 @@ export const usePetStore = defineStore('pet', () => {
     try {
       return await petApi.createLostPetPost(request)
     } catch (e) {
-      saveLostPetPostError.value = axios.isAxiosError(e) && e.response?.status === 400
-        ? '電話與 Email 至少填一項，才能讓拾獲者聯絡到你'
-        : '新增失敗，請稍後再試'
+      // 400 照實顯示後端的原因：除了「電話與 Email 至少填一項」，還有照片網址、座標等欄位驗證
+      saveLostPetPostError.value = badRequestMessage(e) ?? unauthorizedMessage(e) ?? '新增失敗，請稍後再試'
       console.error(e)
       return null
     } finally {
@@ -254,9 +262,9 @@ export const usePetStore = defineStore('pet', () => {
       // 實務上 404 幾乎都是「這篇剛剛被刪掉了」，訊息要照這個情境寫才不會誤導
       const status = axios.isAxiosError(e) ? e.response?.status : undefined
       saveLostPetPostError.value =
-        status === 400 ? '電話與 Email 至少填一項，才能讓拾獲者聯絡到你'
-        : status === 404 ? '這篇貼文已不存在（可能已被刪除），請重新整理清單'
-        : '更新失敗，請稍後再試'
+        badRequestMessage(e)
+        ?? unauthorizedMessage(e)
+        ?? (status === 404 ? '這篇貼文已不存在（可能已被刪除），請重新整理清單' : '更新失敗，請稍後再試')
       console.error(e)
       return false
     } finally {
@@ -272,7 +280,7 @@ export const usePetStore = defineStore('pet', () => {
       await petApi.deleteLostPetPost(id)
       return true
     } catch (e) {
-      saveLostPetPostError.value = '刪除失敗，請稍後再試（可能不是你的貼文）'
+      saveLostPetPostError.value = unauthorizedMessage(e) ?? '刪除失敗，請稍後再試（可能不是你的貼文）'
       console.error(e)
       return false
     } finally {
@@ -290,6 +298,7 @@ export const usePetStore = defineStore('pet', () => {
     shelterAnimalDetail,
     isLoadingShelterAnimalDetail,
     shelterAnimalDetailError,
+    shelterAnimalDetailNotFound,
     fetchShelterAnimalById,
     // 收容所詳情頁
     shelterAnimalsByShelterPage,
@@ -317,6 +326,7 @@ export const usePetStore = defineStore('pet', () => {
     lostPetPostDetail,
     isLoadingLostPetPostDetail,
     lostPetPostDetailError,
+    lostPetPostDetailNotFound,
     fetchLostPetPostById,
     createLostPetPost,
     updateLostPetPost,

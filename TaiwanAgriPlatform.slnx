@@ -3,6 +3,7 @@
     <File Path="docker-compose.yml" />
   </Folder>
   <Project Path="TaiwanAgri.Core/TaiwanAgri.Core.csproj" />
+  <Project Path="TaiwanAgri.IntegrationTests/TaiwanAgri.IntegrationTests.csproj" />
   <Project Path="TaiwanAgri.Modules.FoodSafety/TaiwanAgri.Modules.FoodSafety.csproj" />
   <Project Path="TaiwanAgri.Modules.Market/TaiwanAgri.Modules.Market.csproj" />
   <Project Path="TaiwanAgri.Modules.Pet/TaiwanAgri.Modules.Pet.csproj" />

@@ -21,10 +21,12 @@ namespace TaiwanAgri.Web.Controllers
 		private const string InvalidMarketTypeMessage = "marketType 必須為 Veg、Fruit 或 Flower";
 		private readonly IMarketService _marketService;
 		private readonly MarketQueryOptions _options;
-		public MarketController(IMarketService marketService, IOptions<MarketQueryOptions> options)
+		private readonly TimeProvider _timeProvider;
+		public MarketController(IMarketService marketService, IOptions<MarketQueryOptions> options, TimeProvider timeProvider)
 		{
 			_marketService = marketService;
 			_options = options.Value;
+			_timeProvider = timeProvider;
 		}
 
 		/// <summary>
@@ -32,7 +34,7 @@ namespace TaiwanAgri.Web.Controllers
 		/// 逐支重抄一次的話漏掉其中一支不會有任何訊號——沒有界限的端點看起來就跟正常端點一樣
 		/// </summary>
 		private BadRequestObjectResult? ValidateDateRange(DateOnly? start, DateOnly? end)
-			=> DateHelper.ValidateRange(start, end, _options.MaxQueryRangeDays) is { } error
+			=> DateHelper.ValidateRange(start, end, TaiwanTime.Today(_timeProvider), _options.MaxQueryRangeDays) is { } error
 				? BadRequest(error)
 				: null;
 

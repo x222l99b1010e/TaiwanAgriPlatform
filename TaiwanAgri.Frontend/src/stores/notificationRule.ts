@@ -10,15 +10,14 @@ import {
   type NotificationRuleRequest,
   type RuleEvaluationDto,
 } from '@/api/notificationRule'
+import { responseMessage } from '@/api/apiError'
 import { RULE_LIMITS } from '@/utils/notificationRule'
 import { useNotificationStore } from '@/stores/notification'
 
 /**
- * 後端的 400 有兩種形狀，都帶著寫給使用者看的中文訊息，所以要抓出來顯示，
+ * 後端的錯誤回應帶著寫給使用者看的中文訊息（形狀見 api/apiError.ts），要抓出來顯示，
  * 不要一律換成「操作失敗，請稍後再試」——那會把「已達規則數上限 7 條」
  * 這種講得清清楚楚的原因蓋掉，使用者只能重試到放棄。
- *   ① [ApiController] 的請求驗證：{ errors: { 欄位: ["訊息"] } }
- *   ② 服務層的業務規則：回應本體直接是一個字串
  */
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (!axios.isAxiosError(error)) return fallback
@@ -30,15 +29,7 @@ function extractErrorMessage(error: unknown, fallback: string): string {
     return '按太快了，這一次沒有送出檢查。等幾秒再按一次。'
   }
 
-  const data = error.response?.data
-  if (typeof data === 'string' && data.trim() !== '') return data
-
-  if (data !== null && typeof data === 'object' && 'errors' in data) {
-    const messages = Object.values((data as { errors: Record<string, string[]> }).errors).flat()
-    if (messages.length > 0) return messages.join('；')
-  }
-
-  return fallback
+  return responseMessage(error) ?? fallback
 }
 
 export const useNotificationRuleStore = defineStore('notificationRule', () => {

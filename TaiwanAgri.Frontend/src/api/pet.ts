@@ -215,7 +215,7 @@ export const petApi = {
   },
 
   /**
-   * GET /api/pet/shelters/{shelterId}/animals — 收容所詳情頁用，分頁列出該所全部在養動物。
+   * GET /api/pet/shelters/{shelterId}/animals — 收容所詳情頁用，分頁列出該所全部收容動物紀錄（同步只新增、不移除已被領養的，所以不等於在養）。
    * 與 getShelterAnimals（地圖用、不分頁、跨收容所）刻意分開：這支端點是「查一間」，
    * 真正做 Skip/Take 分頁，不會像 popup 那樣被 POPUP_ANIMAL_LIMIT 這種前端常數截斷。
    */

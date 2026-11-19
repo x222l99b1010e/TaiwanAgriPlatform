@@ -2,6 +2,7 @@
 using System.Text;//Encoding.UTF8
 using System.Text.Json;
 using TaiwanAgri.Core.Constants;
+using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.Weather.Data;
 using TaiwanAgri.Modules.Weather.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -90,9 +91,7 @@ namespace TaiwanAgri.Worker.Weather
 				.ToListAsync(stoppingToken))
 				.ToHashSet();
 
-			var newPestAlerts = incoming
-				.Where(p => !existingHashes.Contains(p.SourceHash))
-				.ToList();
+			var newPestAlerts = SelectNewAlerts(incoming, existingHashes);
 
 			if ( newPestAlerts.Count == 0)
 			{
@@ -106,6 +105,31 @@ namespace TaiwanAgri.Worker.Weather
 				newPestAlerts.Count, 
 				incoming.Count - newPestAlerts.Count);
 		}
+
+		/// <summary>
+		/// 這一批裡要寫入的警報：資料庫還沒有的，而且同一批裡 SourceHash（標題＋發布日）相同的只留第一筆。
+		/// SourceHash 有唯一索引，同一批送兩筆進去會撞索引、整批寫不進去，隔天重抓同一批又失敗，
+		/// 會每天卡住（2026-11 總檢查 3-B8）。專案其他同步程式的慣例就是「落地前先在批次內去重」
+		/// </summary>
+		internal static List<PestAlert> SelectNewAlerts(IEnumerable<PestAlert> incoming, ISet<string> existingHashes)
+			=> incoming
+				.Where(p => !existingHashes.Contains(p.SourceHash))
+				.DistinctBy(p => p.SourceHash)
+				.ToList();
+
+		/// <summary>
+		/// 來源的縣市欄位是逗號分隔的字串。寫入時就換成正式寫法「臺」（來源用簡寫「台」，見 TaiwanCityName），
+		/// 同一則裡重複的縣市只留一列、空白項（例如結尾多一個逗號）不寫
+		/// </summary>
+		internal static List<PestAlertCity> ParseCities(string? raw)
+			=> string.IsNullOrWhiteSpace(raw)
+				? new List<PestAlertCity>()
+				: raw.Split(',')
+					.Select(c => TaiwanCityName.Normalize(c.Trim()))
+					.Where(c => c.Length > 0)
+					.Distinct()
+					.Select(c => new PestAlertCity { CityName = c })
+					.ToList();
 
 		private PestAlert? MapToEntity(PestAlertDto dto)
 		{
@@ -128,9 +152,7 @@ namespace TaiwanAgri.Worker.Weather
 				SourceHash = ComputeHash(dto.Subject + "|" + dto.PubDate),
 				SyncedAt = DateTime.UtcNow,
 
-				Cities = string.IsNullOrWhiteSpace(dto.City)
-					? new List<PestAlertCity>()
-					: dto.City.Split(',').Select(c => new PestAlertCity { CityName = c.Trim() }).ToList(),
+				Cities = ParseCities(dto.City),
 				//如果 PlantName 是空白或 null，則不建立任何 Crop 實體，直接給予一個空的 List，避免產生一筆 CropName 為空字串的資料。
 				Crops = string.IsNullOrWhiteSpace(dto.PlantName) 
 					? new List<PestAlertCrop>() 

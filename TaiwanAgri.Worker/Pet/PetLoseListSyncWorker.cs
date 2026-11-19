@@ -146,10 +146,12 @@ namespace TaiwanAgri.Worker.Pet
 				// DistinctBy 用 KeyNo（官方序號，全域唯一）去重：理論上不同日期的資料不會撞號，
 				// 但比照專案既有慣例（曾踩過的坑：InsertNewByKeyAsync 只過濾「DB 已存在的鍵」，
 				// 不處理本批次內部的重複），落地前一律自己先去重，不依賴外部資料一定乾淨。
-				var incoming = responses
-					.Where(r => r?.RS == "OK" && r.Data != null && r.Data.Count > 0)
-					.SelectMany(r => r!.Data)
-					.Select(dto => MapToEntity(dto, _timeProvider, _logger))
+				// 一筆格式不對（遺失日期）只略過那一筆，不讓整批失敗（見 SyncMapping）
+				var incoming = SyncMapping.MapSkippingMalformed(
+						responses
+							.Where(r => r?.RS == "OK" && r.Data != null && r.Data.Count > 0)
+							.SelectMany(r => r!.Data),
+						dto => MapToEntity(dto, _timeProvider, _logger), dto => dto.KeyNo, _logger, LogPrefix)
 					.DistinctBy(x => x.KeyNo)
 					.ToList();
 

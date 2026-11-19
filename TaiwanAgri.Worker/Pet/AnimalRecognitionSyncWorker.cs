@@ -57,8 +57,9 @@ namespace TaiwanAgri.Worker.Pet
 					MoaApiEndpoints.AnimalRecognitionLegacy, httpTimeoutCts.Token) ?? new List<ShelterAnimalDto>();
 
 				// 2. 映射成 Entity
-				var incoming = legacyDtos
-					.Select(dto => MapToEntity(dto, _timeProvider, _logger))
+				//    一筆格式不對（日期）只略過那一筆，不讓整批失敗（見 SyncMapping）
+				var incoming = SyncMapping.MapSkippingMalformed(
+						legacyDtos, dto => MapToEntity(dto, _timeProvider, _logger), dto => dto.AnimalSubId, _logger, LogPrefix)
 					.DistinctBy(x => new { x.ShelterPkId, x.AnimalSubId })
 					.ToList();
 
@@ -132,8 +133,9 @@ namespace TaiwanAgri.Worker.Pet
 						await EnsureSheltersExistAsync(dbPet, response.Data, _logger, LogPrefix, stoppingToken);
 
 						// 4. 映射成 Entity（跟回填分支共用同一個 MapToEntity，不重複寫轉換邏輯）
-						var incoming = response.Data
-							.Select(dto => MapToEntity(dto, _timeProvider, _logger))
+						//    一筆格式不對（日期）只略過那一筆，不讓這一天整批失敗（見 SyncMapping）
+						var incoming = SyncMapping.MapSkippingMalformed(
+								response.Data, dto => MapToEntity(dto, _timeProvider, _logger), dto => dto.AnimalSubId, _logger, LogPrefix)
 							.DistinctBy(x => new { x.ShelterPkId, x.AnimalSubId })
 							.ToList();
 

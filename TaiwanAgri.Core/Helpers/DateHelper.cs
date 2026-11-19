@@ -192,8 +192,12 @@ namespace TaiwanAgri.Core.Helpers
 		/// <summary>
 		/// 驗證日期區間，通過回傳 null、不通過回傳可直接當作 400 內容的訊息。
 		/// <para>
-		/// 兩件事：起日不得晚於迄日、區間長度不得超過上限。任一端為 null 代表沒有指定，
-		/// 兩端都要有值才構成一個可以檢查的區間。
+		/// 兩件事：起日不得晚於迄日、區間長度不得超過上限。null 代表沒有指定，檢查的是
+		/// 「服務層補完預設值之後」實際要查的區間：
+		/// 沒帶迄日＝查到今天（<paramref name="today"/>，台灣日期），照樣要檢查；
+		/// 沒帶起日＝服務層補「迄日往前一年」（雨量 14 天），一定在預設上限之內，所以不檢查。
+		/// 原本任一端沒帶就整個放行，而服務層會替沒帶的迄日補上今天——只帶一個很早的起日
+		/// 就完全不受上限約束（毛豬帶 2009-01-01 一次回 14 MB，2026-11 總檢查 3-A6）。
 		/// </para>
 		/// <para>
 		/// 上限的用途不是業務規則而是防止單一請求掃全表——沒有它的話，
@@ -202,15 +206,19 @@ namespace TaiwanAgri.Core.Helpers
 		/// 擋得住手動操作，擋不住直接打 API
 		/// </para>
 		/// </summary>
-		public static string? ValidateRange(DateOnly? start, DateOnly? end, int maxRangeDays = DefaultMaxRangeDays)
+		public static string? ValidateRange(DateOnly? start, DateOnly? end, DateOnly today, int maxRangeDays = DefaultMaxRangeDays)
 		{
-			if (start == null || end == null) return null;
-			if (start > end) return "開始日期不得晚於結束日期";
+			if (start == null) return null;
+
+			var effectiveEnd = end ?? today;
+			// 沒帶迄日時講清楚是拿「今天」比的，不然使用者看不懂自己沒填的結束日期是哪一天
+			var endNote = end == null ? "（沒有指定結束日期時查到今天）" : "";
+			if (start > effectiveEnd) return $"開始日期不得晚於結束日期{endNote}";
 
 			// 兩端都含在區間內，所以同一天的區間長度算 1 天
-			var days = end.Value.DayNumber - start.Value.DayNumber + 1;
+			var days = effectiveEnd.DayNumber - start.Value.DayNumber + 1;
 			return days > maxRangeDays
-				? $"查詢區間不得超過 {maxRangeDays} 天，目前為 {days} 天"
+				? $"查詢區間不得超過 {maxRangeDays} 天，目前為 {days} 天{endNote}"
 				: null;
 		}
 	}

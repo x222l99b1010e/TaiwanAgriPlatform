@@ -47,6 +47,14 @@ namespace TaiwanAgri.Modules.Market.Services
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
 			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
 
+			// 類別一律看交易資料自己的 TcType（Veg→N04、Fruit→N05、Flower→N06），不看市場主檔的類別：
+			// 主檔以（代碼、名稱）為鍵，同時賣蔬菜與水果的市場只記在先同步的蔬菜底下，
+			// 原本用主檔篩，水果只剩 3 個市場、只算到 6–8% 的交易（2026-11 總檢查 3-A2）。
+			// 作物清單（GetCropsAsync）早就是這樣做，這裡與市場清單當時沒有跟著改
+			var tcType = MarketTypeMapping.ToTcType(marketType);
+			if (tcType == null)
+				return new List<PriceResponseDto>();
+
 			// 2. 組裝 Cache Key（cropCodes 排序確保任意排列命中同一 slot）
 			var cacheKey = BuildPricesCacheKey(marketType, cropCodes, marketCode, finalStart, finalEnd);
 
@@ -78,15 +86,14 @@ namespace TaiwanAgri.Modules.Market.Services
 			}
 
 			// 4. Cache-Aside Step 2：Redis Miss，查 SQL
-			//    三表 JOIN：AgriProductsTrans + CropInfos + MarketInfos
+			//    AgriProductsTrans JOIN CropInfos（取作物名稱）。類別用交易資料的 TcType 篩，
+			//    不再 JOIN 市場主檔（理由見上面 tcType 那段）
 			var baseQuery = from t in _context.AgriProductsTrans
 							join c in _context.CropInfos
 								on t.CropCode equals c.CropCode
-							join m in _context.MarketInfos
-								on t.MarketCode equals m.MarketCode
 							where t.TransDate >= finalStart
 							   && t.TransDate <= finalEnd
-							   && m.MarketType == marketType
+							   && t.TcType == tcType
 							   && cropCodes.Contains(t.CropCode)
 							select new { t, c.CropName };
 
@@ -175,12 +182,15 @@ namespace TaiwanAgri.Modules.Market.Services
 			if (isTruncated)
 				groupedRaw = groupedRaw.Take(limit).ToList();
 
+			// 分組要含類別：同一場豪雨同一天常同時有土石流（D）與大規模崩塌（L）兩種警戒
+			// （2026-11 本機資料 38 組「事件＋日期」裡 23 組兩種都有），原本只取第一筆的類別，
+			// 另一種的縣市被併進來、類別也是隨機的
 			var items = groupedRaw
-				.GroupBy(d => new { d.DisasterName, d.AlertDate })
+				.GroupBy(d => new { d.DisasterName, d.AlertDate, d.AlertType })
 				.Select(g => new DisasterResponseDto
 				{
 					DisasterName = g.Key.DisasterName,
-					AlertType = g.First().AlertType,
+					AlertType = g.Key.AlertType,
 					AlertDate = g.Key.AlertDate.ToString("yyyy-MM-dd"),
 					AffectedCounties = g.Select(x => x.County)
 										.Distinct()
@@ -222,19 +232,53 @@ namespace TaiwanAgri.Modules.Market.Services
 				.ToListAsync(cancellationToken);
 		}
 
+		/// <summary>
+		/// 某個類別（蔬菜／水果／花卉）近一年實際有交易的市場。
+		/// <para>
+		/// 「這個類別有哪些市場」看交易資料自己的類別（TcType），不看市場主檔的類別：主檔以（代碼、名稱）為鍵，
+		/// 同時賣蔬菜與水果的市場只記在先同步的蔬菜底下，原本水果下拉只有 3 個市場，
+		/// 交易量前四大的市場都選不到（2026-11 總檢查 3-A2）。
+		/// </para>
+		/// <para>
+		/// 只看近一年：已經停止交易的舊市場代碼不列（2026-11 本機資料：水果歷來 17 個代碼、近一年 13 個）；
+		/// 日期條件也讓查詢走 (TransDate, TcType, …) 索引的範圍，不必掃整張交易表（本機實測整表 1.2 秒、近一年 0.09 秒）
+		/// </para>
+		/// </summary>
 		public async Task<List<MarketResponseDto>> GetMarketsAsync(string marketType, CancellationToken cancellationToken = default)
 		{
-			return await _context.MarketInfos
-				.Where(m => m.MarketType == marketType)
-				//MarketResponseDto 的 Select 只做一件事——把欄位值搬過去。
-				//SELECT MarketCode, MarketName FROM MarketInfos WHERE MarketType = 'Veg'
-				//SQL 完全理解「取這兩個欄位的值」。
+			var tcType = MarketTypeMapping.ToTcType(marketType);
+			if (tcType == null)
+				return new List<MarketResponseDto>();
+
+			var since = TaiwanTime.Today(_timeProvider).AddDays(-365);
+			var codes = await _context.AgriProductsTrans
+				.Where(t => t.TransDate >= since && t.TcType == tcType)
+				.Select(t => t.MarketCode)
+				.Distinct()
+				.ToListAsync(cancellationToken);
+
+			// 名稱從主檔取。同一個代碼在主檔可能有兩筆（例如 400 是蔬菜的「台中市」與花卉的「台中市場」，
+			// 兩個市場共用代碼）：優先取同類別的那一筆，沒有就取蔬菜的，再沒有就依名稱取第一筆。
+			// 主檔裡找不到名稱的代碼不列——下拉選單上只有一串數字沒有用
+			var infos = await _context.MarketInfos
+				.AsNoTracking()
+				.Where(m => codes.Contains(m.MarketCode))
+				.Select(m => new { m.MarketCode, m.MarketName, m.MarketType })
+				.ToListAsync(cancellationToken);
+
+			return infos
+				.GroupBy(m => m.MarketCode)
+				.Select(g => g
+					.OrderBy(m => m.MarketType == marketType ? 0 : m.MarketType == "Veg" ? 1 : 2)
+					.ThenBy(m => m.MarketName, StringComparer.Ordinal)
+					.First())
+				.OrderBy(m => m.MarketCode, StringComparer.Ordinal)
 				.Select(m => new MarketResponseDto
 				{
 					MarketCode = m.MarketCode,
 					MarketName = m.MarketName
 				})
-				.ToListAsync(cancellationToken);
+				.ToList();
 		}
 
 		public async Task<List<RestDayResponseDto>> GetRestDaysAsync(string marketCode, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default)
@@ -243,11 +287,17 @@ namespace TaiwanAgri.Modules.Market.Services
 			// MarketRestDays 用民國年/月/日三欄儲存，
 			// EF Core 無法在 SQL 層將三欄組合為 DateOnly 再做精確範圍比較，
 			// 但可以先用民國「年」粗篩，把撈回記憶體的筆數從全表縮到查詢區間附近
+			//
+			// 只取蔬菜（V）那一份：同一個市場代碼底下，蔬菜、水果、花卉（V／F／L）各有一份休市表。
+			// 原本全部一起回，同一天被算兩三次（台北一 2026 年統計卡 158 天、月曆實際 79 天），
+			// 共用代碼的花卉市場（400 台中市場）的休市日也會標到蔬菜市場的月曆上（2026-11 總檢查 3-A3）。
+			// 休市日頁的市場清單本來就是蔬菜市場（前端 getMarkets('Veg')），所以取 V
 			var rocYearStart = startDate.Year - 1911;
 			var rocYearEnd = endDate.Year - 1911;
 			var records = await _context.MarketRestDays
 				.AsNoTracking()
 				.Where(r => r.MarketCode == marketCode
+						 && r.MarketType == RestDayVegType
 						 && r.Year >= rocYearStart
 						 && r.Year <= rocYearEnd)
 				.ToListAsync(cancellationToken);
@@ -259,9 +309,16 @@ namespace TaiwanAgri.Modules.Market.Services
 				.Where(d => d.HasValue)
 				.Select(d => d!.Value)
 				.Where(d => d >= startDate && d <= endDate)
+				// 去重與排序不能省：唯一鍵含類別，只靠上面的類別條件保證不重複太脆弱；
+				// 統計卡的天數就是這份清單的長度
+				.Distinct()
+				.OrderBy(d => d)
 				.Select(d => new RestDayResponseDto { RestDate = d })
 				.ToList();
 		}
+
+		/// <summary>休市日資料表裡「蔬菜」的類別代碼（另有 F 水果、L 花卉）</summary>
+		private const string RestDayVegType = "V";
 
 		public async Task<List<PorkResponseDto>> GetPorkAsync(string? marketName = null, DateOnly? startDate = null, DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{

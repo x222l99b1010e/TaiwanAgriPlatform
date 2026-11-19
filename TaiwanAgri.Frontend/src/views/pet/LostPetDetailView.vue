@@ -43,7 +43,7 @@
         v-else-if="store.lostPetPostDetailError"
         state="error"
         :message="store.lostPetPostDetailError"
-        retryable
+        :retryable="!store.lostPetPostDetailNotFound"
         @retry="fetchDetail"
       />
 

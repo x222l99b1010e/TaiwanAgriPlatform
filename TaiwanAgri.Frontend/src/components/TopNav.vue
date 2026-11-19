@@ -21,12 +21,17 @@
           </router-link>
         </div>
 
+        <!-- 下拉在滑鼠滑過、或鍵盤焦點進到這一格時打開（Tab 到模組分頁，再按 Tab 就進到子頁清單），
+             焦點離開這一格或按 Esc 時收起。原本只接滑鼠，用鍵盤開不了 -->
         <div
           v-for="mod in navStore.modules"
           :key="mod.route"
           class="tab-wrapper"
           @mouseenter="hoveredRoute = mod.route"
           @mouseleave="hoveredRoute = null"
+          @focusin="hoveredRoute = mod.route"
+          @focusout="onTabFocusOut($event, mod.route)"
+          @keydown.esc="hoveredRoute = null"
         >
           <router-link :to="mod.route" class="tab" :class="{ active: isActive(mod.route) }">
             <span :class="`mdi ${mod.icon}`" />
@@ -143,6 +148,13 @@ const route = useRoute()
 const navStore = useNavStore()
 const authStore = useAuthStore()
 const hoveredRoute = ref<string | null>(null)
+
+/** 焦點移到這一格以外（例如 Tab 走過最後一個子頁）才收起；在格子裡面移動不算離開 */
+function onTabFocusOut(e: FocusEvent, modRoute: string) {
+  const wrapper = e.currentTarget as HTMLElement
+  if (wrapper.contains(e.relatedTarget as Node | null)) return
+  if (hoveredRoute.value === modRoute) hoveredRoute.value = null
+}
 const menuOpen = ref(false)
 
 function isActive(moduleRoute: string) {

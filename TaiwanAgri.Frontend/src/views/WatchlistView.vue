@@ -27,39 +27,27 @@
 
         <!-- 作物搜尋 Autocomplete -->
         <div class="field-group">
-          <label class="field-label">作物</label>
-          <div class="autocomplete-wrapper">
-            <input
-              v-model="cropSearchText"
-              @input="onCropInput"
-              @blur="onBlur"
-              class="form-control field-input"
-              placeholder="輸入作物名稱，例如：番茄"
-            />
-            <div v-if="selectedCrop" class="selected-crop-tag">
-              {{ selectedCrop.cropName }}
-              <button :aria-label="`取消選取 ${selectedCrop.cropName}`" @click="clearCrop">
-                <span class="mdi mdi-close" />
-              </button>
-            </div>
-            <div class="autocomplete-dropdown" v-if="showCropDropdown">
-              <div
-                v-for="crop in filteredCrops"
-                :key="crop.cropCode"
-                class="autocomplete-item"
-                @mousedown="selectCrop(crop)"
-              >
-                {{ crop.cropName }}
-                <span class="crop-code">{{ crop.cropCode }}</span>
-              </div>
-            </div>
+          <label class="field-label" for="watchlist-crop-search">作物</label>
+          <CropAutocomplete
+            class="field-input"
+            input-id="watchlist-crop-search"
+            :options="currentCrops"
+            :disabled="optionsError"
+            placeholder="輸入作物名稱，例如：番茄"
+            @select="selectCrop"
+          />
+          <div v-if="selectedCrop" class="selected-crop-tag">
+            {{ selectedCrop.cropName }}
+            <button :aria-label="`取消選取 ${selectedCrop.cropName}`" @click="clearCrop">
+              <span class="mdi mdi-close" />
+            </button>
           </div>
         </div>
 
         <!-- 市場選擇 -->
         <div class="field-group">
-          <label class="field-label">市場（選填）</label>
-          <select v-model="selectedMarketCode" class="form-control field-select">
+          <label class="field-label" for="watchlist-market">市場（選填）</label>
+          <select id="watchlist-market" v-model="selectedMarketCode" class="form-control field-select">
             <option :value="null">全台均價</option>
             <option
               v-for="m in markets"
@@ -72,7 +60,7 @@
         <Btn
           class="btn-add"
           icon="mdi-plus"
-          :disabled="!selectedCrop"
+          :disabled="!selectedCrop || optionsError"
           :loading="store.isSaving"
           @click="handleAdd"
         >
@@ -80,6 +68,11 @@
         </Btn>
       </div>
 
+      <!-- 作物或市場清單載不回來時，新增區不能用，但下面「我的監看清單」照樣顯示 -->
+      <p v-if="optionsError" class="error-msg">
+        作物或市場清單載入失敗，暫時不能新增。
+        <button type="button" class="link-btn" @click="loadOptions(selectedMarketType)">重新載入</button>
+      </p>
       <p v-if="store.errorMessage" class="error-msg">{{ store.errorMessage }}</p>
     </section>
 
@@ -98,6 +91,13 @@
       </div>
 
       <div v-if="store.isLoading" class="hint">載入中...</div>
+      <StateBlock
+        v-else-if="store.loadError"
+        state="error"
+        :message="store.loadError"
+        retryable
+        @retry="store.fetchItems"
+      />
       <div v-else-if="store.items.length === 0" class="hint">尚無監看項目，請從上方新增</div>
 
       <div v-else class="item-list">
@@ -123,8 +123,9 @@
           </div>
           <!-- 動態價格區 -->
           <div class="item-price">
+            <!-- 單位寫「元」，跟其他頁的價格一致（原本前面是「$」） -->
             <span class="price-value" v-if="item.avgPrice !== null">
-              ${{ item.avgPrice?.toFixed(1) }}
+              {{ item.avgPrice?.toFixed(1) }}<span class="price-unit">元</span>
             </span>
             <span class="price-value no-data" v-else>--</span>
             <span class="price-date" v-if="item.transDate">{{ item.transDate }}</span>
@@ -143,6 +144,8 @@ import { marketApi } from '@/api/market'
 import type { CropResponseDto, MarketResponseDto } from '@/api/market'
 import type { MarketType } from '@/api/watchlist'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import CropAutocomplete from '@/components/CropAutocomplete.vue'
 
 const store = useWatchlistStore()
 
@@ -162,51 +165,41 @@ function marketTypeLabel(type: MarketType): string {
 const cropsByType = ref<Record<MarketType, CropResponseDto[]>>({
   Veg: [], Fruit: [], Flower: []
 })
-const cropSearchText = ref('')
-const showCropDropdown = ref(false)
 const selectedCrop = ref<CropResponseDto | null>(null)
 
 // 目前類別的作物清單
 const currentCrops = computed(() => cropsByType.value[selectedMarketType.value])
 
-const filteredCrops = computed(() => {
-  if (!cropSearchText.value.trim()) return []
-  return currentCrops.value
-    .filter(c => c.cropName.includes(cropSearchText.value.trim()))
-    .slice(0, 10)
-})
+// 作物與市場清單（新增區的選項）載入失敗時，只停用新增區
+const optionsError = ref(false)
+
+async function loadOptions(type: MarketType) {
+  optionsError.value = false
+  try {
+    // 作物清單載過就不重抓；市場清單跟著類別換
+    if (cropsByType.value[type].length === 0) {
+      cropsByType.value[type] = await marketApi.getCrops(type)
+    }
+    markets.value = await marketApi.getMarkets(type)
+  } catch {
+    optionsError.value = true
+  }
+}
 
 async function handleTabChange(type: MarketType) {
   selectedMarketType.value = type
   selectedCrop.value = null
-  cropSearchText.value = ''
-  // 若該類別尚未載入才去 fetch
-  if (cropsByType.value[type].length === 0) {
-    cropsByType.value[type] = await marketApi.getCrops(type)
-  }
-  // 市場清單也跟著換
-  markets.value = await marketApi.getMarkets(type)
   selectedMarketCode.value = null
-}
-
-function onCropInput() {
-  showCropDropdown.value = filteredCrops.value.length > 0
-}
-
-function onBlur() {
-  setTimeout(() => { showCropDropdown.value = false }, 150)
+  await loadOptions(type)
 }
 
 function selectCrop(crop: CropResponseDto) {
   selectedCrop.value = crop
-  cropSearchText.value = ''
-  showCropDropdown.value = false
   store.errorMessage = null
 }
 
 function clearCrop() {
   selectedCrop.value = null
-  cropSearchText.value = ''
   store.errorMessage = null
 }
 
@@ -254,11 +247,11 @@ async function handleRemove() {
 }
 
 // ─── 初始化 ──────────────────────────────────────────────────────────────────
-onMounted(async () => {
-  // 預設載入蔬菜類別
-  cropsByType.value['Veg'] = await marketApi.getCrops('Veg')
-  markets.value = await marketApi.getMarkets('Veg')
-  await store.fetchItems()
+onMounted(() => {
+  // 清單與選項互不相依，同時發出、各自處理失敗。原本先等作物與市場清單，
+  // 那兩支一失敗，清單就不載了，畫面顯示「尚無監看項目」——看起來像清單被清空
+  void store.fetchItems()
+  void loadOptions('Veg') // 預設蔬菜類別
 })
 </script>
 
@@ -283,9 +276,7 @@ onMounted(async () => {
 .field-input,
 .field-select { min-width: 200px; }
 
-/* ── Autocomplete ── */
-.autocomplete-wrapper { position: relative; }
-
+/* ── 已選作物（自動完成本身的樣式在 CropAutocomplete 元件裡） ── */
 .selected-crop-tag {
   display: inline-flex; align-items: center; gap: var(--space-2);
   margin-top: var(--space-2);
@@ -306,30 +297,16 @@ onMounted(async () => {
 .selected-crop-tag button:hover { opacity: 1; background: var(--seed-200); }
 .selected-crop-tag button:focus-visible { outline: 2px solid var(--color-action); outline-offset: 1px; }
 
-/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（浮動層是陰影的唯一例外） */
-.autocomplete-dropdown {
-  position: absolute; top: calc(100% + var(--space-1)); left: 0; right: 0;
-  background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-float);
-  z-index: var(--z-dropdown); max-height: 240px; overflow-y: auto;
-  padding: var(--space-1);
-}
-
-.autocomplete-item {
-  display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  cursor: pointer; font-size: var(--text-sm); color: var(--color-text);
-}
-.autocomplete-item:hover { background: var(--color-action-soft); }
-.crop-code { font-family: var(--font-num); font-size: var(--text-xs); color: var(--color-text-dim); }
 
 /* 新增按鈕改用共用的 Btn，這裡只留它在篩選列裡的位置 */
 .btn-add { align-self: flex-end; }
 
 .error-msg { font-size: var(--text-sm); color: var(--danger-700); margin-top: var(--space-3); }
+.link-btn {
+  background: none; border: none; padding: 0;
+  color: var(--color-action); font: inherit; text-decoration: underline; cursor: pointer;
+}
+.link-btn:focus-visible { outline: 2px solid var(--color-action); outline-offset: 2px; }
 
 /* ── 清單區 ── */
 .list-section {
@@ -384,5 +361,10 @@ onMounted(async () => {
   font-variant-numeric: tabular-nums;
 }
 .price-value.no-data { color: var(--color-text-dim); font-weight: var(--weight-normal); }
+.price-unit {
+  margin-inline-start: var(--space-1);
+  font-family: var(--font-body); font-size: var(--text-xs);
+  font-weight: var(--weight-normal); color: var(--color-text-dim);
+}
 .price-date { font-family: var(--font-num); font-size: var(--text-2xs); color: var(--color-text-dim); }
 </style>

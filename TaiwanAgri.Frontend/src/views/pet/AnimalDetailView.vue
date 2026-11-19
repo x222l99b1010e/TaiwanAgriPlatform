@@ -35,7 +35,7 @@
         v-else-if="store.shelterAnimalDetailError"
         state="error"
         :message="store.shelterAnimalDetailError"
-        retryable
+        :retryable="!store.shelterAnimalDetailNotFound"
         @retry="fetchDetail"
       />
 

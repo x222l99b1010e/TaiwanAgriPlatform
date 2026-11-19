@@ -5,8 +5,8 @@
       title="農藥違規警示牆"
       title-en="VIOLATION WALL"
       :subtitle="hasSearched
-        ? `近 ${appliedDays} 天農產品農藥殘留抽檢違規紀錄`
-        : '農產品農藥殘留抽檢的違規紀錄，可依查詢區間與抽檢結果篩選'"
+        ? `近 ${appliedDays} 天農產品農藥殘留抽檢的${appliedResultLabel}`
+        : '農產品農藥殘留抽檢的違規（不合格）紀錄；切到「全部」可以看包含合格的所有抽檢'"
     >
       <template #actions>
         <Btn icon="mdi-magnify" @click="triggerSearch">查詢</Btn>
@@ -34,6 +34,7 @@
                 v-model.number="customDaysInput"
                 type="number"
                 min="1"
+                :max="MAX_DAYS"
                 class="custom-days-input"
                 placeholder="自訂"
                 aria-label="自訂查詢天數"
@@ -78,8 +79,10 @@
           v-else-if="store.violationsPage && store.violationsPage.items.length === 0"
           state="empty"
           icon="mdi-shield-check-outline"
-          message="此區間查無違規紀錄"
-          hint="沒有紀錄是好消息；要看更長的期間可以把查詢區間拉大"
+          :message="appliedResult === '不合格' ? '此區間查無違規紀錄' : '此區間查無符合條件的抽檢紀錄'"
+          :hint="appliedResult === '不合格'
+            ? '沒有紀錄是好消息；要看更長的期間可以把查詢區間拉大'
+            : '要看更長的期間可以把查詢區間拉大'"
         />
 
         <!-- 資料表格 -->
@@ -153,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useFoodSafetyStore } from '@/stores/foodSafety'
 import { usePagination } from '@/composables/usePagination'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
@@ -170,13 +173,18 @@ const selectedDays = ref(90)
 // 所以型別要寫成 `number | ''`——宣告成 `number | null` 會讓型別檢查看著一個假型別放行
 const customDaysInput = ref<number | ''>('')
 
-const selectedResult = ref<string | undefined>(undefined)
+// 預設只看「不合格」：頁名是違規警示牆，而全部抽檢紀錄裡合格的佔九成八，
+// 預設「全部」的話，一進來看到的幾乎都是合格紀錄，頁名與內容對不上
+const selectedResult = ref<string | undefined>('不合格')
 const resultOptions: { label: string; value: string | undefined }[] = [
-  { label: '全部', value: undefined },
   { label: '不合格', value: '不合格' },
   { label: '標示合格', value: '標示合格' },
   { label: '合格', value: '合格' },
+  { label: '全部', value: undefined },
 ]
+
+/** 自訂天數的上限，跟後端（FoodSafetyController）同一個數字 */
+const MAX_DAYS = 3650
 
 // 是否已經執行過查詢
 const hasSearched = ref(false)
@@ -203,14 +211,23 @@ function handlePageSize(size: number) {
   setPageSize(size, hasSearched.value)
 }
 
-// 查詢當下實際套用的天數（顯示在頁首說明用，跟輸入框當下的值分開）
+// 查詢當下實際套用的天數與抽檢結果（顯示在頁首說明用，跟輸入框當下的值分開）
 const appliedDays = ref(90)
+const appliedResult = ref<string | undefined>(selectedResult.value)
+const appliedResultLabel = computed(() =>
+  appliedResult.value === '不合格' ? '違規紀錄'
+    : appliedResult.value ? `「${appliedResult.value}」紀錄`
+      : '全部紀錄（含合格）',
+)
 
 // ─── 邏輯 ───────────────────────────────────────────────────
 
 /** 計算目前生效的天數：優先用自訂輸入框的值，沒填就用預設按鈕的值 */
 function resolveDays(): number {
   if (daysMode.value === 'custom' && customDaysInput.value && customDaysInput.value > 0) {
+    // 超過上限時直接用上限查，並把輸入框改成實際用的數字——原本照送，
+    // 後端回 400，畫面只說「載入失敗，請稍後再試」，使用者不知道是數字太大
+    if (customDaysInput.value > MAX_DAYS) customDaysInput.value = MAX_DAYS
     return customDaysInput.value
   }
   return selectedDays.value
@@ -242,6 +259,7 @@ function triggerSearch() {
 }
 
 function doFetch() {
+  appliedResult.value = selectedResult.value
   store.fetchViolations(appliedDays.value, selectedResult.value, currentPage.value, pageSize.value)
 }
 

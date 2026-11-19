@@ -2,7 +2,7 @@
   <div class="page shelter-map-view">
     <PageHeader title="收容動物地圖" title-en="SHELTER MAP">
       <template #subtitle>
-        全台收容所在養動物。一個標記代表一間收容所，點開可看該所目前的在養動物；
+        全台收容所的收容動物紀錄。一個標記代表一間收容所，點開可看該所的動物明細；
         相鄰的收容所會自動聚合成數字圓圈，拉近後展開
       </template>
     </PageHeader>

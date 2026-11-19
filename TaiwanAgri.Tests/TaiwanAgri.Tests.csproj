@@ -13,6 +13,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.11" />
+    <!-- 直接參考修正版，蓋過上面 Mvc.Core 2.3.11 帶進來的 2.3.9（GHSA-6527-9fp8-r4x6，2026-11-10 公告）。
+         只在測試專案、不進正式發佈，為的是建置 0 警告 -->
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.3.14" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.9" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageReference Include="Moq" Version="4.20.72" />

@@ -41,6 +41,7 @@ const LostPetDetailView = () => import('@/views/pet/LostPetDetailView.vue')
 const LegalBusinessView = () => import('@/views/pet/LegalBusinessView.vue')
 const MyLostPetsView = () => import('@/views/pet/MyLostPetsView.vue')
 const NotificationRulesView = () => import('@/views/weather/NotificationRulesView.vue')
+const NotFoundView = () => import('@/views/NotFoundView.vue')
 
 // ── 路由定義 ───────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -143,6 +144,9 @@ const router = createRouter({
       component: NotificationRulesView,
       meta: { requiresAuth: true },
     },
+    // 兜底：對不到任何路由的網址（含模組底下打錯的子路徑，例如 /market/no-such-child）。
+    // 一定要排最後；沒有它的話中間是一片空白
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
   ]
 })
 

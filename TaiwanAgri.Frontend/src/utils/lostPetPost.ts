@@ -3,6 +3,7 @@
 // 避免同一段判斷邏輯在兩個地方各寫一次、日後改一邊忘了改另一邊（避免重蹈「只寫不讀」的教訓）
 
 import type { LostPetPostStatusValue } from '@/api/pet'
+import { taiwanDateString } from '@/utils/taiwanDate'
 
 export const lostPetPostStatusOptions: { value: LostPetPostStatusValue | ''; label: string }[] = [
   { value: '',          label: '全部' },
@@ -19,9 +20,13 @@ export function lostPetPostStatusClass(status: LostPetPostStatusValue): string {
   return { Searching: 'searching', Found: 'found', Withdrawn: 'withdrawn' }[status]
 }
 
-/** "2026-08-05T12:00:00" -> "2026-08-05" */
+/**
+ * 張貼／更新時間 → 台灣的日期。"2026-08-04T17:00:00Z" -> "2026-08-05"
+ * 後端回的是帶 Z 的 UTC 時間，直接切前 10 個字是 UTC 的日期，
+ * 台灣 00:00–08:00 張貼的會顯示成前一天，所以先換成台灣日期
+ */
 export function formatLostPetPostDate(iso: string): string {
-  return iso.slice(0, 10)
+  return taiwanDateString(new Date(iso))
 }
 
 /**
