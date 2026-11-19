@@ -1,12 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
-import { badRequestMessage, responseMessage } from '@/api/apiError'
+import { badRequestMessage, responseMessage, unauthorizedMessage } from '@/api/apiError'
 
 function axiosError(status: number, data: unknown): AxiosError {
   const config = { headers: new AxiosHeaders() }
   const response = { status, data, statusText: '', headers: {}, config } as AxiosResponse
   return new AxiosError('failed', String(status), config, null, response)
 }
+
+describe('unauthorizedMessage', () => {
+  it('401 說登入已過期，不說「請稍後再試」：要先重新登入，重按幾次都一樣', () => {
+    expect(unauthorizedMessage(axiosError(401, ''))).toBe('登入已過期，請重新登入後再試')
+  })
+
+  it('其他狀態碼回 null，讓呼叫端用自己的句子', () => {
+    expect(unauthorizedMessage(axiosError(403, ''))).toBeNull()
+    expect(unauthorizedMessage(axiosError(500, ''))).toBeNull()
+  })
+})
 
 describe('badRequestMessage', () => {
   it('400 的本體是字串時原樣取出（日期區間的檢查訊息）', () => {

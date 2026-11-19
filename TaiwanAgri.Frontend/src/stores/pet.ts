@@ -5,7 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
-import { badRequestMessage } from '@/api/apiError'
+import { badRequestMessage, unauthorizedMessage } from '@/api/apiError'
 import { petApi } from '@/api/pet'
 import { useLatestRequest } from '@/composables/useLatestRequest'
 import type {
@@ -241,7 +241,7 @@ export const usePetStore = defineStore('pet', () => {
       return await petApi.createLostPetPost(request)
     } catch (e) {
       // 400 照實顯示後端的原因：除了「電話與 Email 至少填一項」，還有照片網址、座標等欄位驗證
-      saveLostPetPostError.value = badRequestMessage(e) ?? '新增失敗，請稍後再試'
+      saveLostPetPostError.value = badRequestMessage(e) ?? unauthorizedMessage(e) ?? '新增失敗，請稍後再試'
       console.error(e)
       return null
     } finally {
@@ -263,6 +263,7 @@ export const usePetStore = defineStore('pet', () => {
       const status = axios.isAxiosError(e) ? e.response?.status : undefined
       saveLostPetPostError.value =
         badRequestMessage(e)
+        ?? unauthorizedMessage(e)
         ?? (status === 404 ? '這篇貼文已不存在（可能已被刪除），請重新整理清單' : '更新失敗，請稍後再試')
       console.error(e)
       return false
@@ -279,7 +280,7 @@ export const usePetStore = defineStore('pet', () => {
       await petApi.deleteLostPetPost(id)
       return true
     } catch (e) {
-      saveLostPetPostError.value = '刪除失敗，請稍後再試（可能不是你的貼文）'
+      saveLostPetPostError.value = unauthorizedMessage(e) ?? '刪除失敗，請稍後再試（可能不是你的貼文）'
       console.error(e)
       return false
     } finally {

@@ -32,3 +32,13 @@ export function badRequestMessage(error: unknown): string | null {
   if (!axios.isAxiosError(error) || error.response?.status !== 400) return null
   return responseMessage(error)
 }
+
+/**
+ * 401 的訊息：登入已過期。公開頁上的寫入動作（張貼、編輯、刪除協尋啟事）用這個——
+ * 公開頁收到 401 時人會留在原頁（見 utils/authRedirect），通用句「請稍後再試」會讓人一直重按，
+ * 實際上要先重新登入。401 的本體不是寫給使用者看的，所以這裡用固定的句子
+ */
+export function unauthorizedMessage(error: unknown): string | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 401) return null
+  return '登入已過期，請重新登入後再試'
+}
