@@ -25,6 +25,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 整合測試要一台真的 SQL Server（映像同 docker-compose.yml）。最先啟動，開機的十幾秒跟還原、建置重疊。
+      # 密碼每一輪現場隨機產生、在記錄裡遮掉，不寫進 repo；容器跟著執行器一起消失
+      - name: Start SQL Server for integration tests
+        run: |
+          SA_PASSWORD="It$(openssl rand -hex 16)!"
+          echo "::add-mask::$SA_PASSWORD"
+          docker run -d --name it-sql -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$SA_PASSWORD" -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+          echo "IT_SQL_PASSWORD=$SA_PASSWORD" >> "$GITHUB_ENV"
+          echo "INTEGRATION_TEST_SQL=Server=localhost,1433;User Id=sa;Password=$SA_PASSWORD;TrustServerCertificate=True" >> "$GITHUB_ENV"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -38,6 +48,21 @@ jobs:
 
       - name: Test
         run: dotnet test TaiwanAgri.Tests/TaiwanAgri.Tests.csproj --no-build --no-restore --configuration Release --verbosity normal
+
+      - name: Wait for SQL Server
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec it-sql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$IT_SQL_PASSWORD" -C -Q "SELECT 1" > /dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs it-sql
+          exit 1
+
+      # 環境變數 CI=true（GitHub Actions 一律會設）時，整合測試在沒有資料庫的情況下會失敗而不是略過
+      - name: Integration tests (SQL Server)
+        run: dotnet test TaiwanAgri.IntegrationTests/TaiwanAgri.IntegrationTests.csproj --no-build --no-restore --configuration Release --verbosity normal
 
   frontend:
     name: Frontend Build and Test
