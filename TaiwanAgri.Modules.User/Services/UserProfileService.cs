@@ -55,7 +55,7 @@ namespace TaiwanAgri.Modules.User.Services
 
 				// 作物清單：全刪全插（選 A）
 				// 理由：農民種 3-10 種作物，數量少，全刪全插比 diff 比對簡單可靠
-				// 前提假設：單一用戶作物數量有上限（API 層限制最多 5 個 cropCode）
+				// 前提假設：單一用戶作物數量有上限（請求 DTO 的 [MaxLength] 限制最多 5 項，見 UpsertFarmProfileRequestDto）
 				// 若未來開放大量作物，應改為 diff 比對策略
 				context.UserFarmCrops.RemoveRange(existing.Crops);
 

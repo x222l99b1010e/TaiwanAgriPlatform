@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.User.Dtos.ApiRequests;
 using TaiwanAgri.Modules.User.Services;
 
@@ -26,9 +27,9 @@ namespace TaiwanAgri.Web.Controllers
 
 			if (profile is null)
 			{
-				// 第一次進來，還沒有農場設定
-				// 回 200 + null，不回 404
-				// 理由：「沒有設定」是正常情況，不是錯誤
+				// 第一次進來，還沒有農場設定：不回 404，「沒有設定」是正常情況，不是錯誤。
+				// 注意 Ok(null) 實際送出的是 204（沒有內容）：ASP.NET Core 的輸出格式化器
+				// 遇到 null 物件會改回 204，不是「200＋null」——前端 api/profile.ts 照 204 處理
 				return Ok(null);
 			}
 
@@ -36,8 +37,9 @@ namespace TaiwanAgri.Web.Controllers
 			{
 				profile.FarmCity,
 				profile.FarmType,
-				profile.CreatedAt,
-				profile.UpdatedAt,
+				// 存的是 UTC，讀回來不帶標記（原因見 UtcTimestamp）
+				CreatedAt = UtcTimestamp.MarkUtc(profile.CreatedAt),
+				UpdatedAt = UtcTimestamp.MarkUtc(profile.UpdatedAt),
 				Crops = profile.Crops.Select(c => new
 				{
 					c.CropCode,

@@ -20,13 +20,23 @@
       <span class="mdi mdi-chevron-right" />
     </RouterLink>
 
-    <div v-if="profileStore.isLoading" class="loading">載入中...</div>
+    <!-- 載入失敗時不顯示表單：後端是整份取代，空白的表單一按儲存就會把既有設定蓋掉 -->
+    <StateBlock
+      v-if="profileStore.loadError"
+      class="load-error"
+      state="error"
+      :message="profileStore.loadError"
+      hint="為了不把你既有的設定蓋掉，載入成功之前不能儲存"
+      retryable
+      @retry="loadProfile"
+    />
+    <div v-else-if="!profileLoaded" class="loading">載入中...</div>
 
     <div v-else class="profile-form">
       <!-- 農場縣市 -->
       <div class="form-group">
-        <label>農場所在縣市</label>
-        <select v-model="farmCity" class="form-control">
+        <label for="profile-farm-city">農場所在縣市</label>
+        <select id="profile-farm-city" v-model="farmCity" class="form-control">
           <option :value="null">請選擇</option>
           <option v-for="city in cityOptions" :key="city" :value="city">
             {{ city }}
@@ -36,8 +46,8 @@
 
       <!-- 農場類型 -->
       <div class="form-group">
-        <label>農場類型</label>
-        <select v-model="farmType" class="form-control">
+        <label for="profile-farm-type">農場類型</label>
+        <select id="profile-farm-type" v-model="farmType" class="form-control">
           <option :value="null">請選擇</option>
           <option v-for="type in farmTypeOptions" :key="type" :value="type">
             {{ type }}
@@ -47,7 +57,7 @@
 
       <!-- 主要作物（Autocomplete） -->
       <div class="form-group">
-        <label>主要作物</label>
+        <label for="profile-crop-search">主要作物（最多 {{ MAX_FARM_CROPS }} 項）</label>
 
         <!-- 已選作物標籤 -->
         <div class="crop-tags" v-if="selectedCrops.length > 0">
@@ -63,27 +73,22 @@
           </div>
         </div>
 
-        <!-- 搜尋輸入框 + 下拉 -->
-        <div class="autocomplete-wrapper">
-          <input
-            v-model="cropSearchText"
-            @input="onCropInput"
-            @blur="onBlur"
-            placeholder="輸入作物名稱搜尋，例如：番茄"
-            class="form-control crop-search-input"
-          />
-          <div class="autocomplete-dropdown" v-if="showDropdown">
-            <div
-              v-for="crop in filteredCrops"
-              :key="crop.cropCode"
-              class="autocomplete-item"
-              @mousedown="selectCrop(crop)"
-            >
-              {{ crop.cropName }}
-              <span class="crop-code">{{ crop.cropCode }}</span>
-            </div>
-          </div>
-        </div>
+        <!-- 作物清單（三支行情 API）載不回來只影響「新增作物」，已選的照樣顯示、照樣能存 -->
+        <p v-if="cropPoolError" class="crop-note crop-note--error">
+          作物清單載入失敗，暫時不能新增作物（已選的不受影響）。
+          <button type="button" class="link-btn" @click="loadCropPool">重新載入</button>
+        </p>
+        <p v-else-if="selectedCrops.length >= MAX_FARM_CROPS" class="crop-note">
+          已選滿 {{ MAX_FARM_CROPS }} 項，要換別的作物請先移除一項
+        </p>
+        <CropAutocomplete
+          v-else
+          input-id="profile-crop-search"
+          :options="cropSearchPool"
+          :exclude-codes="selectedCrops.map(c => c.cropCode)"
+          placeholder="輸入作物名稱搜尋，例如：番茄"
+          @select="selectCrop"
+        />
       </div>
 
       <!-- 訊息顯示 -->
@@ -103,33 +108,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useProfileStore } from '../stores/profile'
 import type { CropItem } from '../api/profile'
 import { getAllCrops } from '../api/cropApi'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Btn from '@/components/ui/Btn.vue'
+import StateBlock from '@/components/ui/StateBlock.vue'
+import CropAutocomplete from '@/components/CropAutocomplete.vue'
 
 const profileStore = useProfileStore()
+
+/** 主要作物的上限，跟後端的請求驗證（UpsertFarmProfileRequestDto）同一個數字 */
+const MAX_FARM_CROPS = 5
 
 // 表單本地狀態
 const farmCity = ref<string | null>(null)
 const farmType = ref<string | null>(null)
 const selectedCrops = ref<CropItem[]>([])
 
-
-
-// Autocomplete 狀態
-const cropSearchText = ref('')
-const showDropdown = ref(false)
-
-// 縣市選項
+// 縣市選項：用「臺」，跟全站其他頁的縣市清單（CitySelector）一致
 const cityOptions = [
-  '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市',
+  '臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市',
   '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣',
   '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣',
-  '台東縣', '澎湖縣', '金門縣', '連江縣'
+  '臺東縣', '澎湖縣', '金門縣', '連江縣'
 ]
+
+/**
+ * 舊版的選項用「台」，之前存下來的設定是「台北市」這種寫法，對不到現在的選項，
+ * 下拉會變回「請選擇」、一存就把縣市清掉。讀進來時先換成「臺」
+ */
+function normalizeCity(city: string | null): string | null {
+  return city ? city.replace(/^台/, '臺') : city
+}
 
 // 農場類型選項
 const farmTypeOptions = ['蔬菜', '果樹', '花卉', '雜糧', '特用作物']
@@ -137,56 +149,46 @@ const farmTypeOptions = ['蔬菜', '果樹', '花卉', '雜糧', '特用作物']
 // ProfileView 自己存三份作物清單
 const cropSearchPool = ref<CropItem[]>([])
 
-// 依搜尋文字過濾，排除已選的
-const filteredCrops = computed(() => {
-  if (!cropSearchText.value.trim()) return []
-  return cropSearchPool.value
-    .filter(c =>
-      c.cropName.includes(cropSearchText.value.trim()) &&
-      !selectedCrops.value.some(s => s.cropCode === c.cropCode)
-    )
-    .slice(0, 10) // 最多顯示 10 筆，避免下拉太長
-})
+// ── 載入：既有設定與作物清單分開處理失敗 ─────────────────────────────
+// 原本先等作物清單、再載設定，任何一支失敗（被限流、冷啟動逾時）後面就不跑了，
+// 畫面是空白表單，一按儲存就把既有設定蓋成空白（2026-11 實測過）
+const profileLoaded = ref(false)
+const cropPoolError = ref(false)
 
-onMounted(async () => {
-  // 直接呼叫 API，不透過 store
-  cropSearchPool.value = await getAllCrops()
+async function loadProfile() {
+  profileLoaded.value = false
+  if (!(await profileStore.fetchFarmProfile())) return
+  const profile = profileStore.farmProfile
+  farmCity.value = normalizeCity(profile?.farmCity ?? null)
+  farmType.value = profile?.farmType ?? null
+  selectedCrops.value = profile ? [...profile.crops] : []
+  profileLoaded.value = true
+}
 
-  // 載入農場設定
-  await profileStore.fetchFarmProfile()
-  if (profileStore.farmProfile) {
-    farmCity.value = profileStore.farmProfile.farmCity
-    farmType.value = profileStore.farmProfile.farmType
-    selectedCrops.value = [...profileStore.farmProfile.crops]
+async function loadCropPool() {
+  cropPoolError.value = false
+  try {
+    cropSearchPool.value = await getAllCrops()
+  } catch {
+    cropPoolError.value = true
   }
+}
+
+onMounted(() => {
+  // 兩個互不相依，同時發出
+  void loadProfile()
+  void loadCropPool()
 })
 
-// 選取作物
-function selectCrop(crop: { cropCode: string; cropName: string }) {
-  selectedCrops.value.push({
-    cropCode: crop.cropCode,
-    cropName: crop.cropName
-  })
-  cropSearchText.value = ''
-  showDropdown.value = false
+// 選取作物（已選的不會出現在建議裡，所以不用再檢查重複）
+function selectCrop(crop: CropItem) {
+  if (selectedCrops.value.length >= MAX_FARM_CROPS) return
+  selectedCrops.value.push({ cropCode: crop.cropCode, cropName: crop.cropName })
 }
 
 // 移除作物
 function removeCrop(index: number) {
   selectedCrops.value.splice(index, 1)
-}
-
-// 輸入時顯示下拉
-function onCropInput() {
-  showDropdown.value = filteredCrops.value.length > 0
-}
-
-// 點外部關閉下拉
-function onBlur() {
-  // 延遲關閉，讓 click 事件先觸發
-  setTimeout(() => {
-    showDropdown.value = false
-  }, 150)
 }
 
 // 儲存
@@ -205,6 +207,7 @@ async function handleSave() {
 /* 單欄表單：頁面容器維持 .page 的統一寬度，內容自己限寬並靠左 */
 .section-link,
 .loading,
+.load-error,
 .profile-form { max-width: var(--container-sm); }
 
 .loading {
@@ -303,45 +306,18 @@ label {
 .crop-tag button:hover { opacity: 1; background: var(--seed-200); }
 .crop-tag button:focus-visible { outline: 2px solid var(--color-action); outline-offset: 1px; }
 
-/* ── Autocomplete ── */
-.autocomplete-wrapper { position: relative; }
-.crop-search-input { width: 100%; box-sizing: border-box; }
-
-/* 這一層是真的浮在頁面上方的浮動層，所以准用陰影（浮動層是陰影的唯一例外） */
-.autocomplete-dropdown {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  left: 0;
-  right: 0;
-  background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-float);
-  z-index: var(--z-dropdown);
-  max-height: 240px;
-  overflow-y: auto;
-  padding: var(--space-1);
-}
-
-.autocomplete-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+/* 作物清單載不回來、已選滿上限時，取代搜尋框的那一行說明 */
+.crop-note {
+  margin: 0;
   font-size: var(--text-sm);
-  color: var(--color-text);
-}
-
-.autocomplete-item:hover { background: var(--color-action-soft); }
-
-.crop-code {
-  font-family: var(--font-num);
-  font-size: var(--text-xs);
   color: var(--color-text-dim);
 }
+.crop-note--error { color: var(--danger-700); }
+.link-btn {
+  background: none; border: none; padding: 0;
+  color: var(--color-action); font: inherit; text-decoration: underline; cursor: pointer;
+}
+.link-btn:focus-visible { outline: 2px solid var(--color-action); outline-offset: 2px; }
 
 /* 儲存按鈕改用共用的 Btn，這裡只留它在表單裡的位置 */
 .save-btn { margin-top: var(--space-2); align-self: flex-start; }

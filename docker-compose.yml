@@ -34,8 +34,11 @@ services:
     environment:
       SA_PASSWORD: ${SA_PASSWORD}
       ACCEPT_EULA: "Y"
+    # 埠一律只綁本機（127.0.0.1）：不寫的話 Docker 發佈在所有網路介面，同一個 Wi-Fi 的任何裝置都連得到
+    # （SQL Server 用 sa、Redis 沒有密碼、RabbitMQ 是預設帳密，2026-11 總檢查資安 A1）。
+    # 容器之間走 compose 內部網路、本機開發連 localhost，兩者都不受影響
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
     healthcheck:
@@ -46,12 +49,12 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"   # 只綁本機，理由見 sqlserver 的 ports
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672"     # AMQP 協議（應用程式連線用）
-      - "15672:15672"   # Management UI（瀏覽器管理介面）
+      - "127.0.0.1:5672:5672"     # AMQP 協議（應用程式連線用）；只綁本機，理由見 sqlserver 的 ports
+      - "127.0.0.1:15672:15672"   # Management UI（瀏覽器管理介面）
     # 後端的事件消費者在啟動時就連 broker、連不上整個服務起不來，所以 web 要等它真的能接連線
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
@@ -125,7 +128,7 @@ services:
       context: .
       dockerfile: TaiwanAgri.Frontend/Dockerfile
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"   # 只綁本機，理由見 sqlserver 的 ports
     depends_on:
       - web
 

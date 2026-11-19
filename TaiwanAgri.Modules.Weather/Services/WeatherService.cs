@@ -31,6 +31,10 @@ namespace TaiwanAgri.Modules.Weather.Services
 				.Where(x => x.sta.CityName == cityName
 						 && DateOnly.FromDateTime(x.obs.ObservedAt) >= finalStart
 						 && DateOnly.FromDateTime(x.obs.ObservedAt) <= finalEnd)
+				// 明細表直接照這個順序列：時間由舊到新、同一時刻依測站名稱。
+				// 原本沒有指定，順序由資料庫決定，換一次執行計畫就可能變
+				.OrderBy(x => x.obs.ObservedAt)
+				.ThenBy(x => x.sta.StationName)
 				.Select(x => new RainfallResponseDto
 				{
 					StationName = x.sta.StationName,

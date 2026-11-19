@@ -51,14 +51,39 @@ namespace TaiwanAgri.Worker.FoodSafety
 				return;
 			}
 
-			// 資料庫既有去重：跟批次內去重（DistinctBy）是不同層次的重複，兩者都要做才完整。
-			// 既有鍵維持全撈：本表以 CertOrganicSn 為鍵、無日期視窗可用，且量小（數千筆）
-			await DbSyncHelper.InsertNewByKeyAsync(
+			// 有則更新、沒有才新增：證書狀態（通過、結束、終止、暫終）在同步之後會變，
+			// 原本只新增、證號已存在就整筆略過，狀態變了資料庫不會跟著改
+			// （2026-11 本機實測：1,006 張共有的證書裡 32 張狀態跟上游不同，總檢查 3-B6）。
+			// 跟合法寵物業同一個理由、同一個做法；批次內去重（上面的 DistinctBy）照樣要先做
+			var incomingSns = incoming.Select(x => x.CertOrganicSn).ToList();
+			await DbSyncHelper.UpsertByKeyAsync(
 				db,
-				db.OrganicCertifications.Select(x => x.CertOrganicSn),
+				db.OrganicCertifications.Where(x => incomingSns.Contains(x.CertOrganicSn)),
 				incoming,
 				x => x.CertOrganicSn,
+				ApplyUpdate,
 				_logger, "[OrganicCertificationSync]", stoppingToken);
+		}
+
+		/// <summary>
+		/// existing 是被 EF 追蹤的既有實體（要修改的對象），incoming 是這批新抓到的資料（值的來源）。
+		/// 證號是業務鍵、不覆寫；Id 是技術主鍵、不覆寫。EF 只會對真的有變動的欄位產生 UPDATE
+		/// </summary>
+		internal static void ApplyUpdate(OrganicCertification existing, OrganicCertification incoming)
+		{
+			existing.Name = incoming.Name;
+			existing.Address = incoming.Address;
+			existing.Tel = incoming.Tel;
+			existing.Products = incoming.Products;
+			existing.BehaviorType = incoming.BehaviorType;
+			existing.CompanyName = incoming.CompanyName;
+			existing.EffectiveDate = incoming.EffectiveDate;
+			existing.Status = incoming.Status;
+			existing.ContainCrops = incoming.ContainCrops;
+			existing.MailingAddress = incoming.MailingAddress;
+			existing.OldCertOrganicSn = incoming.OldCertOrganicSn;
+			existing.IsMultiCertSource = incoming.IsMultiCertSource;
+			existing.SyncedAt = incoming.SyncedAt;
 		}
 
 		/// <summary>

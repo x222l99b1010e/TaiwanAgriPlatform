@@ -132,5 +132,57 @@ namespace TaiwanAgri.Tests.Web
 			Assert.True(options.RuleEvaluationPermitLimit * 4 <= options.PermitLimit,
 				$"規則評估額度 {options.RuleEvaluationPermitLimit} 與公開查詢 {options.PermitLimit} 不在不同量級");
 		}
+
+		/// <summary>
+		/// 免登入的控制器全部要掛公開查詢限流。原本只有行情掛，病蟲害、寵物、食安、氣象、導覽沒有
+		/// （追溯碼與農藥查詢每打一次就對農業部送好幾個請求，2026-11 總檢查資安 A5、B1）。
+		/// 列在這裡的是「類別上沒有 [Authorize]」的控制器；新增一支免登入的控制器時，這條測試要跟著加
+		/// </summary>
+		[Theory]
+		[InlineData(typeof(MarketController))]
+		[InlineData(typeof(PestController))]
+		[InlineData(typeof(PetController))]
+		[InlineData(typeof(FoodSafetyController))]
+		[InlineData(typeof(WeatherController))]
+		[InlineData(typeof(NavController))]
+		public void 免登入的控制器都要套用公開查詢限流策略(Type controller)
+		{
+			var attribute = controller.GetCustomAttribute<EnableRateLimitingAttribute>();
+
+			Assert.NotNull(attribute);
+			Assert.Equal(RateLimitingExtensions.PublicQueryPolicy, attribute.PolicyName);
+		}
+
+		[Fact]
+		public void 登入與註冊要套用登入限流策略()
+		{
+			var attribute = typeof(AuthController).GetCustomAttribute<EnableRateLimitingAttribute>();
+
+			Assert.NotNull(attribute);
+			Assert.Equal(RateLimitingExtensions.AuthPolicy, attribute.PolicyName);
+		}
+
+		/// <summary>
+		/// 公開查詢的計數依「來源位址＋模組」分開：在幾個模組之間切換的正常瀏覽，
+		/// 不會因為擴大限流範圍而比以前更容易被擋；同一個模組不分大小寫是同一份
+		/// </summary>
+		[Fact]
+		public void 公開查詢的計數依來源位址與模組分開()
+		{
+			var market = RateLimitingExtensions.PublicQueryPartitionKey("1.2.3.4", "/api/Market/prices");
+
+			Assert.Equal(market, RateLimitingExtensions.PublicQueryPartitionKey("1.2.3.4", "/api/market/crops"));
+			Assert.NotEqual(market, RateLimitingExtensions.PublicQueryPartitionKey("1.2.3.4", "/api/Pest/alerts"));
+			Assert.NotEqual(market, RateLimitingExtensions.PublicQueryPartitionKey("5.6.7.8", "/api/Market/prices"));
+		}
+
+		[Fact]
+		public void 登入限流的預設額度比公開查詢緊()
+		{
+			var options = new RateLimitOptions();
+
+			Assert.True(options.AuthPermitLimit > 0);
+			Assert.True(options.AuthPermitLimit < options.PermitLimit);
+		}
 	}
 }

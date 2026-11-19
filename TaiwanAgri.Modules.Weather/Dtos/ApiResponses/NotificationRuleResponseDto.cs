@@ -1,3 +1,5 @@
+using TaiwanAgri.Core.Helpers;
+
 namespace TaiwanAgri.Modules.Weather.Dtos.ApiResponses
 {
 	/// <summary>
@@ -14,7 +16,9 @@ namespace TaiwanAgri.Modules.Weather.Dtos.ApiResponses
 		public string SourceTable { get; set; } = string.Empty;
 		public bool IsActive { get; set; }
 		public int ExpiryDays { get; set; }
-		public DateTime CreatedAt { get; set; }
+		// 存的是 UTC，讀回來不帶標記，在這裡補上（原因見 UtcTimestamp）
+		private DateTime _createdAt;
+		public DateTime CreatedAt { get => _createdAt; set => _createdAt = UtcTimestamp.MarkUtc(value); }
 
 		public string? FilterCity { get; set; }
 		public string? FilterPlantName { get; set; }

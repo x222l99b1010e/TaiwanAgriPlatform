@@ -1,12 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TaiwanAgri.Core.Helpers;
 using TaiwanAgri.Modules.Weather.Dtos.Queries;
 using TaiwanAgri.Modules.Weather.Services;
+using TaiwanAgri.Web.Extensions;
 
 namespace TaiwanAgri.Web.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
+	// 免登入的查詢：掛公開查詢限流（掛在類別上，新增端點自動涵蓋；見 RateLimitingExtensions）
+	[EnableRateLimiting(RateLimitingExtensions.PublicQueryPolicy)]
 	public class WeatherController : ControllerBase
 	{
 		/// <summary>關鍵字長度上限。上游是 contains 比對，超長字串不可能命中，先擋下省一次外部呼叫。</summary>
@@ -14,10 +18,12 @@ namespace TaiwanAgri.Web.Controllers
 
 		private readonly IWeatherService _weatherService;
 		private readonly IPesticideService _pesticideService;
-		public WeatherController(IWeatherService weatherService, IPesticideService pesticideService)
+		private readonly TimeProvider _timeProvider;
+		public WeatherController(IWeatherService weatherService, IPesticideService pesticideService, TimeProvider timeProvider)
 		{
 			_weatherService = weatherService;
 			_pesticideService = pesticideService;
+			_timeProvider = timeProvider;
 		}
 		[HttpGet("rainfall")]
 		public async Task<IActionResult> GetRainfallByCity(
@@ -44,8 +50,8 @@ namespace TaiwanAgri.Web.Controllers
 			}
 
 			// 雨量觀測每十分鐘一筆，密度比行情資料高一個數量級，
-			// 所以區間無上限時單一請求能撈到的量也更大
-			if (DateHelper.ValidateRange(start, end) is { } rangeError)
+			// 所以區間無上限時單一請求能撈到的量也更大。沒帶迄日時服務層查到今天，用今天檢查
+			if (DateHelper.ValidateRange(start, end, TaiwanTime.Today(_timeProvider)) is { } rangeError)
 			{
 				return BadRequest(rangeError);
 			}

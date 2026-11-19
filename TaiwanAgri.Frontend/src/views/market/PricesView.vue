@@ -34,8 +34,8 @@
               >清空作物</Btn>
             </div>
           </div>
-          <p v-if="validationMsg" class="validation-msg">
-            <span class="mdi mdi-alert-circle-outline" />{{ validationMsg }}
+          <p v-if="visibleValidationMsg" class="validation-msg">
+            <span class="mdi mdi-alert-circle-outline" />{{ visibleValidationMsg }}
           </p>
         </div>
       </template>
@@ -80,7 +80,7 @@
                 </div>
                 <div class="disaster-name">
                   <span class="badge alert-badge" :class="event.alertType === 'D' ? 'red' : 'orange'">
-                    {{ event.alertType === 'D' ? '土石流' : '土石流潛勢' }}
+                    {{ alertTypeLabel(event.alertType) }}
                   </span>
                   {{ event.disasterName }}
                 </div>
@@ -95,18 +95,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import MarketFilter from '@/components/MarketFilter.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import PriceChart from '@/components/PriceChart.vue'
 import { useMarketStore } from '@/stores/market'
 import { marketApi } from '@/api/market'
+import { badRequestMessage } from '@/api/apiError'
 import type { PriceResponseDto, DisasterResponseDto } from '@/api/market'
 import { exportPricesToCsv } from '@/utils/exportCsv'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
+import { alertTypeLabel, groupDisasterEvents } from '@/utils/disasterEvents'
 
 const store = useMarketStore()
 const today = taiwanDateString()
@@ -122,29 +124,8 @@ const hasQueried = ref(false)
 // 分不出是真的沒有資料還是請求失敗。改成跟其他頁一樣走 StateBlock 的錯誤狀態。
 const errorMsg = ref('')
 
-const disasterEvents = computed(() => {
-  const map = new Map<string, {
-    disasterName: string; alertType: string
-    firstDate: string; lastDate: string; affectedCounties: Set<string>
-  }>()
-  for (const d of rawDisasters.value) {
-    const existing = map.get(d.disasterName)
-    if (!existing) {
-      map.set(d.disasterName, {
-        disasterName: d.disasterName, alertType: d.alertType,
-        firstDate: d.alertDate, lastDate: d.alertDate,
-        affectedCounties: new Set(d.affectedCounties)
-      })
-    } else {
-      if (d.alertDate < existing.firstDate) existing.firstDate = d.alertDate
-      if (d.alertDate > existing.lastDate) existing.lastDate = d.alertDate
-      d.affectedCounties.forEach(c => existing.affectedCounties.add(c))
-    }
-  }
-  return Array.from(map.values())
-    .map(e => ({ ...e, affectedCounties: Array.from(e.affectedCounties).sort() }))
-    .sort((a, b) => a.firstDate.localeCompare(b.firstDate))
-})
+// 分組規則（名稱＋類別、跨年同名分開）在 utils/disasterEvents.ts，跟天災警戒頁共用；這一頁舊到新排
+const disasterEvents = computed(() => groupDisasterEvents(rawDisasters.value))
 
 const validationMsg = computed(() => {
   if (store.selectedCropCodes.length === 0) return '請至少選擇一種作物'
@@ -152,6 +133,16 @@ const validationMsg = computed(() => {
   if (startDate.value > endDate.value) return '開始日期不能晚於結束日期'
   return ''
 })
+
+// validationMsg 用來擋查詢；畫面上顯示的是這一個。還沒選過任何作物之前，
+// 「請至少選擇一種作物」不顯示成紅字——一進頁面就看到錯誤，訪客會以為自己做錯了什麼。
+// 那時查詢鈕本來就停用、結果區也有「請選擇作物與日期區間後按下查詢」的提示；
+// 選過再清空（例如按了「清空作物」）才提醒
+const hasPickedCrop = ref(store.selectedCropCodes.length > 0)
+watch(() => store.selectedCropCodes.length, n => { if (n > 0) hasPickedCrop.value = true })
+const visibleValidationMsg = computed(() =>
+  store.selectedCropCodes.length === 0 && !hasPickedCrop.value ? '' : validationMsg.value,
+)
 
 async function handleQuery() {
   if (validationMsg.value) return
@@ -177,7 +168,8 @@ async function handleQuery() {
     rawDisasters.value = disasterResult.items
   } catch (e) {
     console.error('查詢失敗', e)
-    errorMsg.value = '查詢失敗，請稍後再試'
+    // 400 帶著後端的中文原因（例如區間超過上限），照實顯示；其餘維持通用句
+    errorMsg.value = badRequestMessage(e) ?? '查詢失敗，請稍後再試'
   } finally {
     isLoading.value = false
   }

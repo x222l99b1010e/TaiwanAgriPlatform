@@ -161,10 +161,16 @@ const isFormOpen = ref(false)
 const editingRule = ref<NotificationRuleDto | null>(null)
 const pendingDeleteId = ref<number | null>(null)
 
+// 「氣象資料太舊」那句話只對有數值門檻規則的人講（見 describeEvaluationOutcome）。
+// 立即檢查完 store 會重讀規則，所以這裡的清單跟剛才評估的是同一批
+const activeNumericRules = computed(
+  () => store.rules.filter(r => r.isActive && r.ruleType === 'Numeric').length,
+)
+
 const evaluationSummary = computed(() =>
   store.evaluationResult === null
     ? null
-    : describeEvaluationOutcome(store.evaluationResult, new Date()),
+    : describeEvaluationOutcome(store.evaluationResult, new Date(), activeNumericRules.value),
 )
 
 function openCreateForm() {
@@ -198,6 +204,9 @@ async function confirmDelete(id: number) {
   const deleted = await store.deleteRule(id)
   if (!deleted) return
   pendingDeleteId.value = null
+  // 刪掉的正是編輯表單開著的那一條時，表單一起關掉：留著的話，之後按儲存會對一條
+  // 已經不存在的規則送出修改，只拿到一句通用的失敗訊息（走失啟事頁的刪除也是同一個做法）
+  if (editingRule.value?.id === id) closeForm()
   // 通知被連帶刪掉了，紅點要跟著降。不重抓的話它會停在舊數字，
   // 直到下一次六十秒輪詢——而使用者會以為刪除只刪了一半
   notificationStore.fetchUnreadCount()

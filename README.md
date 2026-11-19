@@ -48,7 +48,7 @@
 - 病蟲害警報牆（依縣市過濾，可展開查看內文與防治處方）
 - 旬密度查詢（害蟲旬別密度折線圖，支援城市多線切換）
 - 通知規則管理（W26）：使用者自訂通知規則的建立／查詢／修改／刪除，每人上限 7 條。數值門檻型比對自動氣象站觀測（氣溫、24 小時雨量），事件型比對植物疫情警報；規則頁另有「立即檢查」可手動觸發一次評估（限流，且只評估自己的規則）
-- 智慧病蟲害提示：規則引擎每天評估一次啟用中的規則，命中就產生通知。數值門檻型只比對「上次評估之後才落地」的觀測（評估水位），同一條規則對同一筆來源資料只通知一次
+- 智慧病蟲害提示：規則引擎每天評估一次啟用中的規則，命中就產生通知。兩種規則都只比對「上次評估之後才落地」的資料（評估水位：數值門檻型看氣象觀測、事件型看疫情警報），同一條規則對同一筆來源資料只通知一次；事件型改了條件之後，會用新條件重新比對全部警報
 - 通知鈴鐺：未讀紅點 + Dropdown 無限捲動 + 一鍵全部已讀
 - 農藥查詢（W24）：輸入成分俗名／英文名查詢許可證狀態、適用作物與安全採收期，即時打農業部 API 不落地
 
@@ -310,8 +310,9 @@ TaiwanAgriPlatform/
 │   │   ├── MarketController.cs       # 8 支端點（含 /pork、/poultry、/poultry/metrics）
 │   │   ├── NavController.cs          # [AllowAnonymous] GET /api/nav/modules
 │   │   ├── NotificationController.cs # [Authorize] 通知列表 / 未讀數 / 標記單筆已讀 / 全部已讀（4 支端點）
+│   │   ├── NotificationRuleController.cs # [Authorize] 通知規則 CRUD＋「立即檢查」（限流）
 │   │   ├── PetController.cs          # 寵物模組 10 支端點（GET 公開，CRUD [Authorize]）
-│   │   ├── PestController.cs         # 病蟲害警報 / 旬密度 / 害蟲清單
+│   │   ├── PestController.cs         # 病蟲害警報 / 各縣市警報數 / 旬密度 / 害蟲清單
 │   │   ├── ProfileController.cs      # [Authorize] GET + PUT /api/profile/farm
 │   │   ├── WatchlistController.cs    # [Authorize] GET / POST / DELETE /api/watchlist
 │   │   └── WeatherController.cs      # 氣象站 / 雨量 / 農藥查詢（3 支端點）
@@ -322,6 +323,7 @@ TaiwanAgriPlatform/
 │   │   ├── InfrastructureExtensions.cs # Redis / CORS / RabbitMQ Consumer
 │   │   ├── MarketModuleExtensions.cs
 │   │   ├── PetModuleExtensions.cs
+│   │   ├── RateLimitingExtensions.cs # 速率限制：公開查詢、登入與註冊、立即檢查三個策略
 │   │   ├── UserModuleExtensions.cs
 │   │   └── WeatherModuleExtensions.cs
 │   ├── Middlewares/
@@ -336,6 +338,7 @@ TaiwanAgriPlatform/
 │   │   ├── api/
 │   │   │   ├── auth.ts               # /api/auth/login、/api/auth/register
 │   │   │   ├── httpBase.ts           # 兩支 client 的共用底座（timeout、401 統一處理、儲存鍵常數）
+│   │   │   ├── apiError.ts           # 從失敗的請求取出寫給使用者看的原因（400 的驗證訊息、401 說登入已過期）
 │   │   │   ├── serverWake.ts         # 請求等太久時判斷卡在伺服器還是資料庫（另打 /health、/health/ready），給畫面說明用
 │   │   │   ├── authClient.ts         # axios instance（有 token 才注入 Bearer header）
 │   │   │   ├── apiClient.ts          # axios instance（不帶 JWT，公開端點用）
@@ -371,8 +374,9 @@ TaiwanAgriPlatform/
 │   │   │   ├── CitySelector.vue      # 縣市下拉（補 includeAll，寵物模組共用）
 │   │   │   ├── MarketFilter.vue      # 市場類型 Tab + 市場下拉 + 作物 Chip 多選
 │   │   │   ├── DateRangePicker.vue   # 日期區間選擇 + 快捷按鈕
+│   │   │   ├── CropAutocomplete.vue  # 作物自動完成（農場設定與監看清單共用；可用鍵盤上下選、Enter 確定、Esc 收起）
 │   │   │   ├── PriceChart.vue        # Chart.js 折線圖 + 7 日均線 + 天災垂直線
-│   │   │   ├── PagerBar.vue          # 共用分頁列（寵物模組查詢頁與收容所詳情頁共用）
+│   │   │   ├── PagerBar.vue          # 共用分頁列（11 個查詢頁共用；手機寬時換成兩行）
 │   │   │   ├── LeafletCoordinatePicker.vue # 地圖點選座標（遺失啟事表單用）
 │   │   │   ├── LostPetPostForm.vue   # 遺失啟事新增/編輯共用表單（以單一 post prop 判斷模式）
 │   │   │   ├── LostPetPostPhoto.vue  # 遺失啟事照片渲染（外部圖床連結，載入失敗時降級）
@@ -397,6 +401,7 @@ TaiwanAgriPlatform/
 │   │   ├── views/
 │   │   │   ├── HomeView.vue          # 全站首頁（P3 新建，`/` 直接掛此頁不再 redirect）
 │   │   │   ├── ModuleEntryView.vue   # 四個模組的入口頁（`/market`、`/weather`、`/food-safety`、`/pet` 共用一支，模組由路徑決定）
+│   │   │   ├── NotFoundView.vue      # 對不到任何路由時的 404 頁（路由最後一條兜底）
 │   │   │   ├── auth/
 │   │   │   │   └── LoginView.vue     # 登入 / 註冊 Tab + 錯誤中文翻譯
 │   │   │   ├── food-safety/
@@ -438,22 +443,28 @@ TaiwanAgriPlatform/
 │   │   │   ├── chartTheme.ts         # 全站圖表共用主題（P2 收斂 5 份重複色盤成單一來源）
 │   │   │   └── navCopy.ts            # 模組與子頁的展示文案＋各模組的 hover 特效對照（首頁與模組入口頁共用，以路由字串為 key）
 │   │   └── utils/
+│   │       ├── authRedirect.ts       # 登入過期時要不要帶去登入頁（只有要登入的頁面才帶，公開頁留在原地）
+│   │       ├── cropAutocomplete.ts   # 作物自動完成的建議與鍵盤選取（純函式）
+│   │       ├── disasterEvents.ts     # 天災警戒分組：同一場豪雨的土石流與大規模崩塌分開列、跨年同名不合併
 │   │       ├── exportCsv.ts          # CSV 匯出（UTF-8 BOM）
+│   │       ├── identityErrors.ts     # 註冊錯誤逐條翻成中文
 │   │       ├── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
 │   │       ├── calendar.ts           # 休市日月曆計算（vitest 覆蓋）
 │   │       ├── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
 │   │       ├── taiwanDate.ts         # 以台灣時區算「今天」與「N 天前」的日期字串（vitest 覆蓋）
 │   │       ├── lostPetPost.ts        # 遺失啟事狀態對照與卡片渲染純函式（列表頁與詳情頁共用）
-│   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 36 個 vitest 案例）
+│   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 39 個 vitest 案例）
 │   │       └── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup 與詳情頁共用）
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
 │   ├── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
 │   ├── Dockerfile                    # 整站模式的前端映像：Node 建置 → nginx（建置內容從 repo 根目錄送）
-│   └── nginx.conf                    # 送出建置結果；/api、/health 同源轉給後端容器
+│   └── nginx.conf                    # 送出建置結果（index.html 每次向伺服器確認、帶雜湊的資源長期快取）；/api、/health 同源轉給後端容器
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 488 個測試案例）
+├── TaiwanAgri.IntegrationTests/      # 整合測試：真的 SQL Server＋完整 HTTP 管線（WebApplicationFactory，5 個案例）
+│
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 538 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -489,8 +500,8 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker + Docker Compose | 最新版 | 預設只起基礎設施（SQL Server / Redis / RabbitMQ）；`--profile app` 起整站（建表、後端、Worker、前端 nginx），映像多階段建置、非 root 執行 |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，488 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，15 檔 169 案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，538 個案例）＋整合測試（真的 SQL Server＋完整 HTTP 管線，5 個案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，21 檔 201 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
 ---
@@ -665,16 +676,25 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端（xUnit + Moq，共 488 個測試案例）
+# 後端單元測試（xUnit + Moq，共 538 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
-# 前端（Vitest，共 169 個測試案例）
+# 後端整合測試（真的 SQL Server＋完整 HTTP 管線，5 個案例；要一台 SQL Server，見下方）
+cd TaiwanAgri.IntegrationTests
+dotnet test
+
+# 前端（Vitest，共 201 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；前端 15 個測試檔共 169 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，36 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → test）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
+整合測試要一台 SQL Server：把環境變數 `INTEGRATION_TEST_SQL` 設成連得到它的連線字串（不必含資料庫名稱），
+例如整站模式那台（`docker compose up -d sqlserver`）是 `Server=localhost,1433;User Id=sa;Password=<.env 的 SA_PASSWORD>;TrustServerCertificate=True`。
+測試會在那台 SQL Server 上建一個名稱帶時間戳的新資料庫、跑完刪掉，不碰既有的資料庫；沒有設定時本機列成略過（Skipped），
+CI 則另外起一個 SQL Server 容器跑，少了資料庫是失敗、不是略過。
+
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個、回應的時間欄位一律標成 UTC 3 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個、行情依交易資料的類別查詢與市場清單 6 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個、疫情規則的評估水位 4 個、病蟲害警報的縣市兩種寫法、翻頁穩定、分頁上限與同步時去重 12 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個、有機驗證有則更新 2 個、規則引擎等相依的同步試過第一輪再評估 3 個、一筆壞資料只略過那一筆與超長字串截到欄位上限 6 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；另有整合測試 5 個（`TaiwanAgri.IntegrationTests`），在真的 SQL Server 上走完整的 HTTP 管線，釘的是單元測試抓不到的幾種錯：SQL Server 讀回來的時間不帶時區標記（回應要標成 UTC）、疫情規則的縣市兩種寫法與評估水位、病蟲害警報同一天的翻頁與每頁上限、行情依交易資料的類別、只帶起日的區間上限，5 個都在修正前的程式上實測過會失敗；前端 21 個測試檔共 201 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，39 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`apiError`（從 400 回應取出後端說的原因、401 說登入已過期，8 個）、`authRedirect`（登入過期時只有要登入的頁面才帶去登入頁，3 個）、`identityErrors`（註冊錯誤逐條翻成中文，4 個）、`cropAutocomplete`（作物自動完成的建議與鍵盤選取，7 個）、`disasterEvents`（同一場豪雨的兩種警戒分開列、跨年同名不合併，5 個）、`lostPetPost`（啟事日期以台灣時區顯示，2 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → 單元測試 → 另起一個 SQL Server 容器跑整合測試）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -724,14 +744,21 @@ npm test
 
 ### 速率限制
 
-行情端點免登入，因此套上依來源位址計算的速率限制，預設每分鐘 60 次；
+免登入的查詢端點（行情、病蟲害、寵物、食安、氣象、導覽六支控制器）套上依來源位址計算的速率限制，
+**每個模組各自計數**（`/api/market`、`/api/pest`……各一份），預設每分鐘 60 次；
+登入與註冊另有一組依來源位址的額度，預設每分鐘 10 次（登入另有帳號鎖定：同一個帳號連錯 5 次鎖 5 分鐘）；
+「立即檢查」依使用者計數，預設每分鐘 5 次。
 超過時回 `429` 並帶 `Retry-After`。要調整就覆寫這個區段：
 
 ```json
 {
   "RateLimiting": {
     "PermitLimit": 60,
-    "WindowSeconds": 60
+    "WindowSeconds": 60,
+    "AuthPermitLimit": 10,
+    "AuthWindowSeconds": 60,
+    "RuleEvaluationPermitLimit": 5,
+    "RuleEvaluationWindowSeconds": 60
   }
 }
 ```
@@ -1084,7 +1111,8 @@ npm test
 |--------|-----|------|------|
 | GET | `/api/Weather/stations?cityName=臺北市` | 各測站最新一筆觀測 | 不需要 |
 | GET | `/api/Weather/rainfall?cityName=臺北市` | 雨量趨勢 | 不需要 |
-| GET | `/api/Pest/alerts?cityName=臺北市&page=1` | 病蟲害警報（分頁 20 筆） | 不需要 |
+| GET | `/api/Pest/alerts?cityName=臺北市&page=1&pageSize=20` | 病蟲害警報（分頁，預設每頁 20 筆、最多 100） | 不需要 |
+| GET | `/api/Pest/alerts/city-counts` | 各縣市被幾則警報影響（警報頁的縣市燈號用） | 不需要 |
 | GET | `/api/Pest/pest-names` | 所有害蟲名稱清單 | 不需要 |
 | GET | `/api/Pest/decade-density?pestName=東方果實蠅` | 旬密度歷史資料 | 不需要 |
 | GET | `/api/Weather/pesticides?keyword=亞滅培` | 農藥查詢（中英文名擇一或併用，含 includeRevoked 參數） | 不需要 |
@@ -1279,7 +1307,7 @@ Schema 歸 Migration，Data 歸 DbInitializer。`HasData` 的修改需要新增 
 「今天」的定義統一為台灣時區（`TaiwanTime.Today(TimeProvider)`），查詢服務的時鐘一律走 `TimeProvider` 注入而非直接呼叫 `DateTime.Now`，讓日界邏輯可測試、跨時區部署不出錯。
 
 **Worker 排程外殼與落地流水線抽象**
-17 支排程 Worker（16 支資料同步 + `PestRuleEngineWorker` 規則引擎）統一繼承 `ScheduledSyncWorkerBase`（只需實作 SyncAsync / Interval / LogPrefix，基底含 0–30 秒啟動 jitter 錯開啟動風暴）；資料落地共用 `DbSyncHelper.InsertNewByKeyAsync`（以既有鍵視窗掃描防重複）與 `DbSyncHelper.UpsertByKeyAsync`（來源資料會變動時用）；MOA 分頁抓取共用 `MoaPagedFetcher`。Worker 檔案依模組分資料夾（Weather / Market / FoodSafety / Pet）。新 Worker 依此慣例撰寫。
+17 支排程 Worker（16 支資料同步 + `PestRuleEngineWorker` 規則引擎）統一繼承 `ScheduledSyncWorkerBase`（只需實作 SyncAsync / Interval / LogPrefix，基底含 0–30 秒啟動 jitter 錯開啟動風暴）；資料落地的 `DbSyncHelper`（`InsertNewByKeyAsync` 以既有鍵視窗掃描防重複、`UpsertByKeyAsync` 用在來源資料會變動時）與 MOA 分頁抓取的 `MoaPagedFetcher` 是開發後期抽出來的共用元件，之後新寫的同步程式都用它們；抽出之前寫的維持各自的寫法、沒有回頭替換（2026-11 量：16 支資料同步裡落地用 `DbSyncHelper` 的 6 支，9 支分頁型來源裡用 `MoaPagedFetcher` 的 3 支）——要替換的話每一支都得重新確認是「只新增」還是「有則更新」，改的是每天在跑的同步。Worker 檔案依模組分資料夾（Weather / Market / FoodSafety / Pet）。新 Worker 依此慣例撰寫。
 
 **同一批資料的新舊兩條 API 路徑：按「執行次數」拆分**
 農業部部分資料集同時存在官方文件登記的新制端點（有分頁上限）與未登記文件的舊制端點（無限制、一次拿完）。兩者不是二選一，而是按時間維度拆開：**一次性的初始回填走舊制**（效率最高），**長期每日增量走新制**（穩定性有文件保障）。這讓舊制「可能被默默關掉」的風險從長期生產風險降級為一次性風險——回填當下若失敗，重跑即可，不影響任何已上線的排程。
@@ -1406,6 +1434,19 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 另有許多天只缺部分市場，家禽缺 4 天（這些日子事後問農業部 API 都查得到）。把進度改回缺口前一天跑一輪（約 70 分鐘、資料庫計費 3,779.5 vCore 秒），
 補回行情 84,449 筆、家禽 68 筆。
 
+**帳號機制只有最基本的一層**——開放註冊、不驗證信箱、沒有「忘記密碼」；登入憑證（JWT）存在瀏覽器的 localStorage，
+在有效期內無法個別撤銷（登出只是瀏覽器把它丟掉）。登入另有帳號鎖定（同一個帳號連錯 5 次鎖 5 分鐘）與依來源位址的次數限制。
+不補的理由：驗證信箱與重設密碼都要接寄信服務（另一個外部帳號與費用）；個別撤銷要在伺服器端記錄撤銷過的憑證、每個請求都查一次，
+而這個專案的資料庫是閒置會暫停、依用量計費的免費方案，每個請求多查一次資料庫就多一次喚醒。
+
+**走失啟事沒有審核與管理介面**——登入的使用者張貼之後立刻公開，聯絡方式（電話、Email）所有訪客都看得到；
+沒有檢舉與審核，也沒有管理員介面，不當的內容要直接從資料庫移除。不做的理由：要做的是「管理員可以刪任何一篇」的端點加畫面，
+屬於營運功能，而這個展示站沒有人在營運。
+
+**農場設定與註冊時的身份類型只做儲存**——農場設定（縣市、類型、主要作物）與註冊時選的身份類型（農民、消費者、研究員）
+存得進去、改得了，但沒有任何功能依它們篩選或個人化（例如氣象、行情頁預設帶入農場的縣市）。
+不做的理由：個人化要先決定每一頁帶入什麼、帶入之後怎麼改回來，是一個要先定規格的新功能。
+
 **部署形態帶來的限制**——都是免費方案的條件，不是實作缺陷，但會決定這個服務能怎麼用：
 
 - **資料庫一個月只能「醒著」約 40–54 小時。** Azure SQL 免費方案的額度單位是 vCore 秒
@@ -1436,7 +1477,7 @@ GitHub 的執行器上，而執行器的 IP 不固定，因此採用「允許 Az
 它會放行任何 Azure 上的服務，範圍比實際需要的大。
 **收窄的正確做法**是改由 workflow 在執行前後動態增刪防火牆規則，
 但那需要在 GitHub 這一側再保管一組 Azure 認證——用一組更敏感的憑證去換一個較窄的網路範圍，
-在這個專案（資料全部是公開的政府開放資料、寫入端點都要登入）不划算。
+在這個專案（資料絕大部分是公開的政府開放資料，另有少量使用者資料——帳號、通知規則、農場設定、走失啟事的聯絡方式——由資料庫帳密保護；寫入端點都要登入）不划算。
 
 **整站模式的全新環境，資料要等 Worker 慢慢補**——資料庫是空的時候只有種子資料，
 其餘全靠 Worker 從農業部 API 抓。實測（2026-10-13，全新資料卷跑約 70 分鐘）：毛豬、家禽、寵物三類已追到當天，
@@ -1453,6 +1494,11 @@ GitHub 的執行器上，而執行器的 IP 不固定，因此採用「允許 Az
 （EF 打包時借用後端的啟動流程來建立 DbContext，所以打包階段也要提供連線字串與 JWT 設定的佔位值）。
 改成每個 DbContext 各寫一個設計階段用的建立工廠可以縮小，但那是為了建表工具去改應用程式碼；
 這個映像只在本機建置、不推送，大小不影響執行，所以維持現狀。
+
+**相依套件的弱點沒有會擋下合併的自動檢查**——後端還原套件時，.NET 的 NuGet Audit 會把已公告的弱點列成建置警告
+（2026-11-17 補上兩個套件的修正版之後，乾淨環境建置 0 警告），但 CI 不會因為警告而失敗；前端的 `npm audit` 是人工在標註的日期量測（見下一項）。
+不把弱點檢查設成 CI 失敗的理由：新的公告一出來，沒改任何程式的 CI 也會變紅，收尾階段的展示專案每次合併前都得先處理套件；
+要自動得知新公告，可以在 GitHub 的 repo 設定開啟 Dependabot 通知（只通知、不會自動改程式）。
 
 **前端相依套件有 `npm audit` 警告，沒有升級**——2026-11-04 量：全部 23 個（moderate 16、high 6、critical 1）。
 其中會打包進網站的相依（`npm audit --omit=dev`）是 4 個 high，分三類，都走不到瀏覽器裡的執行路徑：

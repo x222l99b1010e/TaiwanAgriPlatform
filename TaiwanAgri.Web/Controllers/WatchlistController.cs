@@ -60,6 +60,10 @@ namespace TaiwanAgri.Web.Controllers
 			var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 			if (userId is null) return Unauthorized();
 
+			// 類別要在白名單內：之後查價格是用它對到交易資料的類別，亂填的值只會讓這一筆永遠查不到價格
+			if (!MarketTypeMapping.IsValidMarketType(request.MarketType))
+				return BadRequest("marketType 必須為 Veg、Fruit 或 Flower");
+
 			var success = await userWatchlistService.AddWatchlistItemAsync(userId, request, cancellationToken);
 			if (!success) return Conflict("此作物與市場組合已在監看清單中");
 

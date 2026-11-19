@@ -1,13 +1,17 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TaiwanAgri.Modules.FoodSafety.Dtos.Queries;
 using TaiwanAgri.Modules.FoodSafety.Services;
 using TaiwanAgri.Modules.Market.Dtos.ApiResponses;
 using TaiwanAgri.Modules.Market.Services;
+using TaiwanAgri.Web.Extensions;
 
 namespace TaiwanAgri.Web.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
+	// 免登入的查詢：掛公開查詢限流（掛在類別上，新增端點自動涵蓋；見 RateLimitingExtensions）
+	[EnableRateLimiting(RateLimitingExtensions.PublicQueryPolicy)]
 	public class FoodSafetyController : ControllerBase
 	{
 		private readonly IMarketService _marketService;
@@ -46,15 +50,26 @@ namespace TaiwanAgri.Web.Controllers
 
 		}
 
+		/// <summary>
+		/// 追溯碼是英數字（範例 0101000005、洗選蛋與禽肉的批號 2411010012345）。格式不對直接擋下，省掉四支對外請求
+		/// （每打一次這支，後端就對農業部送 4 個請求；限流掛在類別上，2026-11 總檢查資安 A5）
+		/// </summary>
 		[HttpGet("traceability")]
 		public async Task<IActionResult> SearchTraceability([FromQuery] string traceCode, CancellationToken cancellationToken = default)
 		{
 			if (string.IsNullOrWhiteSpace(traceCode))
 				return BadRequest("追溯碼為必填");
 
-			var result = await _traceabilityService.SearchTraceabilityAsync(traceCode.Trim(), cancellationToken);
+			var code = traceCode.Trim();
+			if (code.Length > MaxTraceCodeLength || !code.All(char.IsAsciiLetterOrDigit))
+				return BadRequest($"追溯碼只能是英文字母與數字，最多 {MaxTraceCodeLength} 碼");
+
+			var result = await _traceabilityService.SearchTraceabilityAsync(code, cancellationToken);
 			return Ok(result);
 		}
+
+		/// <summary>追溯碼長度上限：實際的碼是 10–13 碼，留一些餘裕</summary>
+		private const int MaxTraceCodeLength = 30;
 
 		[HttpGet("violations")]
 		public async Task<IActionResult> GetViolations([FromQuery] ViolationQueryDto queryDto, CancellationToken cancellationToken = default)

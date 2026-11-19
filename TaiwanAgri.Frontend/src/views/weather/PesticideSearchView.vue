@@ -287,7 +287,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import axios from 'axios'
+import { badRequestMessage } from '@/api/apiError'
 import { weatherApi, type PesticideSearchResult, type PesticideUsage } from '@/api/weather'
 import { useLatestRequest } from '@/composables/useLatestRequest'
 import { paginationWindow } from '@/composables/usePagination'
@@ -451,11 +451,7 @@ async function handleSearch() {
     result.value = null
     // 後端的 400 帶著可以直接顯示給使用者的中文訊息（關鍵字過廣、英文名格式錯誤等），
     // 一律代換成「查詢失敗」會把「你只要把關鍵字打完整就好」這個資訊丟掉
-    if (axios.isAxiosError(e) && e.response?.status === 400 && typeof e.response.data === 'string') {
-      searchError.value = e.response.data
-    } else {
-      searchError.value = '查詢失敗，請稍後再試'
-    }
+    searchError.value = badRequestMessage(e) ?? '查詢失敗，請稍後再試'
     console.error(e)
   } finally {
     if (searchRequest.isLatest(mySeq)) isSearching.value = false

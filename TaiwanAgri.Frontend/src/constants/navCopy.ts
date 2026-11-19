@@ -94,7 +94,7 @@ export const CHILD_LEAD: Record<string, string> = {
   '/food-safety/pest-violation': '農產品農藥殘留抽檢的違規紀錄',
   '/food-safety/organic-certifications': '有機農產品驗證證書的有效狀態、驗證機構與品項範圍',
 
-  '/pet/shelter-map': '全台收容所在養動物的地圖，點標記看該所現況',
+  '/pet/shelter-map': '全台收容所的收容動物紀錄地圖，點標記看該所明細',
   '/pet/lost-pets': '使用者自行張貼的走失／拾獲協尋',
   '/pet/legal-business': '合法寵物業者評鑑資料與官方遺失啟事',
 }

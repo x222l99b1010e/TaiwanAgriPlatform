@@ -151,6 +151,8 @@ import {
   type ChartDataset,
 } from 'chart.js'
 import { weatherApi, type RainfallResponseDto } from '@/api/weather'
+import { badRequestMessage } from '@/api/apiError'
+import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 import CitySelector from '@/components/CitySelector.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 import QueryLayout from '@/components/layouts/QueryLayout.vue'
@@ -178,8 +180,10 @@ const activeMetric = ref<MetricKey>('hour24')
 
 // ── 狀態 ─────────────────────────────────────────────
 const selectedCity = ref('臺北市')
-const startDate    = ref('')
-const endDate      = ref('')
+// 預設近 30 天（日期選擇器的第一個快速鍵）：跟其他查詢頁一樣，一進來按查詢就有結果。
+// 原本預設空白、按查詢時只設了錯誤訊息，而樣板先判斷「還沒查過」，訊息永遠不會出現——畫面完全沒反應
+const startDate    = ref(taiwanDateDaysAgo(30))
+const endDate      = ref(taiwanDateString())
 const records      = ref<RainfallResponseDto[]>([])
 const isLoading    = ref(false)
 const hasQueried   = ref(false)
@@ -227,12 +231,15 @@ const chartData = computed(() => {
     new Set(records.value.map(r => r.observedAt.replace('T', ' ').slice(0, 16)))
   ).sort()
 
-  // 按測站分組
-  const groups: Record<string, Record<string, number>> = {}
+  // 按測站分組。沒有觀測值（null）就是沒有資料，不能當成 0 mm 畫——0 是「沒下雨」，意思完全不同。
+  // null 的點由 spanGaps 跳過（線直接連到下一個有值的點）而不是斷線：各測站的觀測時間不對齊
+  // （整點、10 分、20 分……都有），X 軸是所有測站時間的聯集，每條線本來就有大量空格，
+  // 斷線的話每條線會碎成一點一點
+  const groups: Record<string, Record<string, number | null>> = {}
   for (const r of records.value) {
     const time = r.observedAt.replace('T', ' ').slice(0, 16)
     if (!groups[r.stationName]) groups[r.stationName] = {}
-    groups[r.stationName]![time] = r[metric] ?? 0
+    groups[r.stationName]![time] = r[metric] ?? null
   }
 
   const datasets = Object.entries(groups).map(([station, timeMap], i) => {
@@ -325,6 +332,9 @@ function rainLevel(val: number | null) {
 
 async function handleQuery() {
   if (!startDate.value || !endDate.value) {
+    // hasQueried 要一起設，樣板才會走到錯誤那一格（它排在「還沒查過」的提示之後）
+    hasQueried.value = true
+    records.value = []
     errorMsg.value = '請選擇開始與結束日期'
     return
   }
@@ -339,8 +349,9 @@ async function handleQuery() {
       endDate.value
     )
     currentPage.value = 1   // 新查詢回到第一頁，否則會停在上次的頁碼看不到資料
-  } catch {
-    errorMsg.value = '查詢失敗，請稍後再試'
+  } catch (e) {
+    // 400 帶著後端的中文原因（日期反了、區間超過上限），照實顯示；其餘維持通用句
+    errorMsg.value = badRequestMessage(e) ?? '查詢失敗，請稍後再試'
   } finally {
     isLoading.value = false
   }

@@ -54,7 +54,7 @@
           v-else-if="alerts.length === 0"
           state="empty"
           message="查無警報資料"
-          hint="這個縣市目前沒有生效中的病蟲害警報，可切換縣市或改看全台"
+          hint="這個縣市沒有已發布的病蟲害警報，可切換縣市或改看全台"
         />
 
         <div v-else>
@@ -185,7 +185,7 @@ async function fetchAlerts() {
   expandedId.value = null
   try {
     alertsPage.value = await weatherApi.getPestAlerts(
-      selectedCity.value ? toBackendCityName(selectedCity.value) : undefined,
+      selectedCity.value || undefined,
       currentPage.value,
       pageSize.value
     )
@@ -205,7 +205,7 @@ watch(selectedCity, () => {
 // ── 地圖：縣市燈號 ───────────────────────────────────────────────────────
 // DTO 只有 cities: string[]（這則警報影響哪些縣市），沒有現成的「嚴重度」欄位，
 // 後端也沒有「依縣市統計筆數」的端點（設計決策：不改後端）。
-// 燈號的等級用「目前生效中、影響該縣市的警報則數」當代理指標——
+// 燈號的等級用「影響該縣市的警報則數」當代理指標（警報沒有到期日，數的是已同步的全部則數）——
 // 這是前端自己定的分級，不是後端給的語意，量級門檻見 LEVELS。
 const TAIWAN_CENTER: L.LatLngTuple = [23.7, 121.0]
 const DEFAULT_ZOOM = 7
@@ -241,23 +241,8 @@ const CITY_COORDS: Record<string, L.LatLngTuple> = {
   '連江縣': [26.1608, 119.9297],
 }
 
-/** 「台」是「臺」的簡寫，農業部資料兩種都會出現，查表前先統一 */
-function normalizeCity(city: string): string {
-  return city.replace(/^台/, '臺')
-}
-
-/**
- * ⚠ 這裡查出一個跟地圖無關、原本就存在的資料問題：後端 `GetPestAlertsByCityAsync`
- * 是 `CityName == cityName` 精確比對（PestService.cs），而農業部原始資料裡
- * 臺中／臺南／臺東這三個縣市實際存的是「台」的簡寫，不是 CitySelector 選單用的
- * 正式寫法「臺」。所以只要選這三個縣市查詢，後端永遠回傳 0 筆——這個
- * bug 在地圖加進來之前就存在，只是沒人選過這三個縣市去查才沒被發現。
- * 顯示（下拉選單、篩選字條、地圖提示）一律維持「臺」的正式寫法，
- * 只在送出查詢參數的這一刻換成「台」，兩邊各自的正確用途不用互相遷就。
- */
-function toBackendCityName(city: string): string {
-  return city.replace(/^臺/, '台')
-}
+// 縣市一律用正式寫法「臺」：農業部警報資料的簡寫「台」由後端處理（寫入時換掉、查詢時兩種都比、
+// 回傳時換成「臺」，見後端 TaiwanCityName），這一頁不必再自己換字
 
 type Level = 1 | 2 | 3
 const LEVELS: { level: Level; label: string; range: string }[] = [
@@ -278,20 +263,14 @@ function toggleLevel(lv: Level) {
   visibleLevels.value = next
 }
 
-// 縣市燈號要看「全部生效中的警報」，跟右側清單目前選了哪個縣市、第幾頁無關，
-// 所以獨立打一次不篩城市、大 pageSize 的請求，只在掛載時抓一次
+// 縣市燈號要看「全部警報」，跟右側清單目前選了哪個縣市、第幾頁無關，只在掛載時抓一次。
+// 後端直接回各縣市的則數。原本用 pageSize=500 把全部警報（含長篇內文）抓回來自己數，
+// 靠的是分頁沒有上限——分頁補上每頁 100 的上限之後，那個請求會被擋成 400
 const cityCounts = ref<Record<string, number>>({})
 async function fetchCityCounts() {
   try {
-    const all = await weatherApi.getPestAlerts(undefined, 1, 500)
-    const counts: Record<string, number> = {}
-    for (const item of all.items) {
-      for (const raw of item.cities) {
-        const city = normalizeCity(raw)
-        counts[city] = (counts[city] ?? 0) + 1
-      }
-    }
-    cityCounts.value = counts
+    const rows = await weatherApi.getPestAlertCityCounts()
+    cityCounts.value = Object.fromEntries(rows.map(r => [r.cityName, r.count]))
   } catch {
     // 燈號讀不到不影響清單本身能不能用，安靜失敗即可，不用另開一個錯誤狀態
     cityCounts.value = {}
@@ -316,7 +295,7 @@ function rebuildMarkers() {
 
   for (const [city, coord] of Object.entries(CITY_COORDS)) {
     const count = cityCounts.value[city]
-    if (!count) continue   // 這個縣市目前沒有生效中的警報，不畫點
+    if (!count) continue   // 這個縣市沒有警報，不畫點
 
     const lv = levelOf(count)
     const color = levelToken(lv)
@@ -328,7 +307,7 @@ function rebuildMarkers() {
       fillOpacity: 0.85,
       weight: 1.5,
     })
-    dot.bindTooltip(`${city}・生效中警報 ${count} 則`, { direction: 'top' })
+    dot.bindTooltip(`${city}・已發布警報 ${count} 則`, { direction: 'top' })
     dot.on('click', () => {
       selectedCity.value = city
       currentPage.value = 1
@@ -371,7 +350,7 @@ function applyLevelVisibility() {
 function highlightSelected() {
   if (!map) return
   if (highlightMarker) { map.removeLayer(highlightMarker); highlightMarker = null }
-  const coord = selectedCity.value ? CITY_COORDS[normalizeCity(selectedCity.value)] : undefined
+  const coord = selectedCity.value ? CITY_COORDS[selectedCity.value] : undefined
   if (!coord) return
   highlightMarker = L.circleMarker(coord, {
     radius: 15,

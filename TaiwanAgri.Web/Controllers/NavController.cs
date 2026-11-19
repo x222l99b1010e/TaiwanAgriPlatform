@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using TaiwanAgri.Core.Services;
+using TaiwanAgri.Web.Extensions;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -9,6 +11,8 @@ namespace TaiwanAgri.Web.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]
+	// 免登入的查詢：掛公開查詢限流（掛在類別上，新增端點自動涵蓋；見 RateLimitingExtensions）
+	[EnableRateLimiting(RateLimitingExtensions.PublicQueryPolicy)]
 	public class NavController : ControllerBase
 	{
 		private readonly INavService _navService;

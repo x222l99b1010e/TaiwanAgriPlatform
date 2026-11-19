@@ -68,8 +68,17 @@
 
       <template #results>
         <!-- 新增／編輯表單：抽成共用元件 LostPetPostForm，詳情頁與個人管理頁也用同一份
-             （共用，不是三處各刻一份表單邏輯） -->
-        <LostPetPostForm v-if="isFormOpen" :post="editingPost" @saved="handleFormSaved" @cancel="closeForm" />
+             （共用，不是三處各刻一份表單邏輯）。
+             :key 不能省：表單開著時再點另一篇的「編輯」，isFormOpen 一直是 true，沒有 key 的話
+             元件不會重建，欄位還是前一篇的內容，送出卻用後點那一篇的編號——會把那一篇蓋掉
+             （通知規則頁的表單同一個做法） -->
+        <LostPetPostForm
+          v-if="isFormOpen"
+          :key="editingPost?.id ?? 'create'"
+          :post="editingPost"
+          @saved="handleFormSaved"
+          @cancel="closeForm"
+        />
 
         <!-- 清單 -->
         <StateBlock v-if="store.isLoadingLostPetPosts" state="loading" message="資料載入中..." />
@@ -372,8 +381,10 @@ onMounted(fetchList)
 
 /* ── 狀態容器（載入中／錯誤／空清單） ── */
 /* ── 貼文卡片格線 ── */
+/* min(400px, 100%)：容器比 400 窄時（手機寬 375）單欄撐滿容器，
+   不讓 400 的最小寬把整頁撐出水平捲動 */
 .post-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: var(--space-5);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr)); gap: var(--space-5);
   margin-bottom: var(--space-6);
 }
 
