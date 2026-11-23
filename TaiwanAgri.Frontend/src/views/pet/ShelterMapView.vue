@@ -174,8 +174,12 @@ function rebuildMarkers() {
     // popup 內容改用 function 延遲建立：只有真的打開那一間才組 DOM，
     // 不必在建標記當下就先產生約 30 份含摘要的節點
     marker.bindPopup(() => buildShelterPopupContent(summary), { maxWidth: 360 })
-    // 滑過即可看到是哪一間、有幾隻，不必先點開
-    marker.bindTooltip(`${summary.shelterName}・${summary.totalCount} 隻`, { direction: 'top' })
+    // 滑過即可看到是哪一間、有幾隻，不必先點開。
+    // 傳元素不傳字串：Leaflet 拿到字串會當成 HTML 塞進去，收容所名稱來自政府開放資料、不可信任
+    // （理由同上面的 popup；2026-11 總檢查資安 C1）
+    const tooltip = document.createElement('span')
+    tooltip.textContent = `${summary.shelterName}・${summary.totalCount} 隻`
+    marker.bindTooltip(tooltip, { direction: 'top' })
     return marker
   })
 

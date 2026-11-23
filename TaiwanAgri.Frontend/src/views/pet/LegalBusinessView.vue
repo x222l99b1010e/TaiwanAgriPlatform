@@ -238,8 +238,8 @@
             <tbody>
               <tr v-for="item in store.officialLostPetPostsPage.items" :key="item.id">
                 <td class="cell-name">{{ item.petName || '未提供' }}</td>
-                <td>{{ categoryLabel(item.category) }}</td>
-                <td>{{ sexLabel(item.sex) }}</td>
+                <td>{{ animalKindLabel(item.category) }}</td>
+                <td>{{ animalSexLabel(item.sex) }}</td>
                 <td>{{ item.variety || '—' }}</td>
                 <td>{{ item.coat || '—' }}</td>
                 <td class="cell-date">{{ item.lostTime }}</td>
@@ -247,7 +247,7 @@
                 <td>{{ item.feederName || '—' }}</td>
                 <td class="cell-mono">{{ item.phoneNum || '—' }}</td>
                 <td>
-                  <a v-if="isUrl(item.pictureUrl)" :href="item.pictureUrl" target="_blank" rel="noopener noreferrer"
+                  <a v-if="isHttpUrl(item.pictureUrl)" :href="item.pictureUrl" target="_blank" rel="noopener noreferrer"
                     class="picture-link"><span class="mdi mdi-image-outline" /> 查看</a>
                   <span v-else class="cell-muted">—</span>
                 </td>
@@ -281,6 +281,8 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import FilterCard from '@/components/ui/FilterCard.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import { animalKindLabel, animalSexLabel } from '@/utils/shelterAnimal'
+import { isHttpUrl } from '@/utils/url'
 import type {
   LegalPetAnimalType, LegalPetRankGrade, LegalPetStateFlag, LegalSpecificPetSortByValue,
   AnimalKind, OfficialLostPetPostSortByValue,
@@ -486,16 +488,6 @@ const hasActiveOfficialFilters = computed(() =>
 function clearOfficialFilters() {
   officialCategory.value = ''
   officialSex.value = ''
-}
-
-function categoryLabel(c: string): string {
-  return { Dog: '狗', Cat: '貓', Other: '其他' }[c] ?? c
-}
-function sexLabel(s: string): string {
-  return { Male: '公', Female: '母', Other: '其他', Unknown: '不明' }[s] ?? s
-}
-function isUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value)
 }
 
 onMounted(fetchLegal)

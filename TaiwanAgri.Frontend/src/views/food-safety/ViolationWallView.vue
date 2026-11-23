@@ -110,7 +110,7 @@
                   <td>{{ item.producerName }}</td>
                   <td class="cell-location">
                     <a
-                      v-if="isUrl(item.samplingLocation)"
+                      v-if="isHttpUrl(item.samplingLocation)"
                       :href="item.samplingLocation"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -163,6 +163,7 @@ import QueryLayout from '@/components/layouts/QueryLayout.vue'
 import PagerBar from '@/components/PagerBar.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import { isHttpUrl } from '@/utils/url'
 
 const store = useFoodSafetyStore()
 
@@ -267,11 +268,6 @@ function resultClass(result: string) {
   if (result === '不合格') return 'fail'
   if (result === '標示合格') return 'warn'
   return 'pass'
-}
-
-/** 判斷欄位內容是否為網址（部分農業部資料會誤填成銷售頁連結） */
-function isUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value)
 }
 
 // ── 注意：這裡刻意不用 onMounted 自動查詢，符合「未查詢前顯示等待」的需求 ──

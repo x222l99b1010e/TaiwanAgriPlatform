@@ -110,7 +110,7 @@
               <a
                 v-if="post.latitude != null && post.longitude != null"
                 class="coord-badge"
-                :href="`https://www.google.com/maps?q=${post.latitude},${post.longitude}`"
+                :href="googleMapsLink(post.latitude, post.longitude)"
                 target="_blank"
                 rel="noopener noreferrer"
                 title="在 Google 地圖開啟走失／拾獲地點"
@@ -191,6 +191,7 @@ import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
 import {
   lostPetPostStatusOptions, lostPetPostStatusLabel, lostPetPostStatusClass, formatLostPetPostDate,
+  googleMapsLink,
 } from '@/utils/lostPetPost'
 import type { LostPetPostResponseDto, LostPetPostStatusValue, LostPetPostSortByValue } from '@/api/pet'
 
