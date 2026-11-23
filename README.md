@@ -327,9 +327,10 @@ TaiwanAgriPlatform/
 │   │   ├── UserModuleExtensions.cs
 │   │   └── WeatherModuleExtensions.cs
 │   ├── Middlewares/
-│   │   └── GlobalExceptionMiddleware.cs # 全域例外攔截 + 標準化 JSON 錯誤回應
+│   │   └── GlobalExceptionMiddleware.cs # 全域例外攔截 + 標準化 JSON 錯誤回應（記錄帶方法、路徑與 traceId，500 回應帶同一個 traceId）
 │   ├── Services/
 │   │   ├── AuthService.cs            # JWT 發行（HMAC-SHA256）
+│   │   ├── RegistrationRejectedException.cs # 註冊被 Identity 擋下（訊息給使用者看、回 400；其他例外回 500，原文不外流）
 │   │   └── PriceUpdatedConsumer.cs   # RabbitMQ Consumer 骨架
 │   └── Program.cs
 │
@@ -441,30 +442,35 @@ TaiwanAgriPlatform/
 │   │   ├── main.ts
 │   │   ├── constants/
 │   │   │   ├── chartTheme.ts         # 全站圖表共用主題（P2 收斂 5 份重複色盤成單一來源）
-│   │   │   └── navCopy.ts            # 模組與子頁的展示文案＋各模組的 hover 特效對照（首頁與模組入口頁共用，以路由字串為 key）
+│   │   │   ├── navCopy.ts            # 模組與子頁的展示文案＋各模組的 hover 特效對照（首頁與模組入口頁共用，以路由字串為 key）
+│   │   │   └── taiwanCities.ts       # 22 縣市的正式名稱（一律用「臺」；縣市下拉、天災頁、農場設定、病蟲害地圖共用）
 │   │   └── utils/
 │   │       ├── authRedirect.ts       # 登入過期時要不要帶去登入頁（只有要登入的頁面才帶，公開頁留在原地）
 │   │       ├── cropAutocomplete.ts   # 作物自動完成的建議與鍵盤選取（純函式）
 │   │       ├── disasterEvents.ts     # 天災警戒分組：同一場豪雨的土石流與大規模崩塌分開列、跨年同名不合併
-│   │       ├── exportCsv.ts          # CSV 匯出（UTF-8 BOM）
+│   │       ├── exportCsv.ts          # CSV 匯出：欄位有逗號、引號、換行時加引號跳脫，加 UTF-8 BOM（行情、毛豬、家禽三頁共用）
 │   │       ├── identityErrors.ts     # 註冊錯誤逐條翻成中文
+│   │       ├── loginForm.ts          # 登入／註冊表單還不能送出的原因（按鈕停用與按 Enter 共用一份條件）
 │   │       ├── leafletIconFix.ts     # Leaflet 預設圖示在 Vite 打包環境的 404 修正
 │   │       ├── calendar.ts           # 休市日月曆計算（vitest 覆蓋）
 │   │       ├── solarTerms.ts         # 二十四節氣計算（vitest 覆蓋）
 │   │       ├── taiwanDate.ts         # 以台灣時區算「今天」與「N 天前」的日期字串（vitest 覆蓋）
 │   │       ├── lostPetPost.ts        # 遺失啟事狀態對照與卡片渲染純函式（列表頁與詳情頁共用）
 │   │       ├── notificationRule.ts   # 規則顯示標籤／輸入界限／表單驗證／組請求／評估結果措辭（純函式，含 39 個 vitest 案例）
-│   │       └── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup 與詳情頁共用）
+│   │       ├── shelterAnimal.ts      # 收容動物中文對照與相簿連結判定（地圖 popup、詳情頁、合法寵物業頁共用）
+│   │       ├── storedUser.ts         # 讀回瀏覽器存的使用者資料；壞掉時回報、由 authStore 當成沒登入
+│   │       └── url.ts                # 外部資料的欄位是不是 http(s) 網址（畫成連結之前先判斷）
 │   ├── build/
 │   │   └── mdiSubsetPlugin.ts        # 建置期把 MDI 裁成實際用到的圖示：CSS 規則與字型二進位都重編（vitest 覆蓋）
 │   ├── public/                       # favicon.svg（網站圖示原稿）＋由它點陣化的 favicon.ico、apple-touch-icon.png
+│   ├── .env.example                  # 建置設定範例（VITE_API_BASE_URL；複製成 .env.development／.env.production 再填）
 │   ├── vite.config.ts                # server.proxy: /api、/health → https://localhost:7147
 │   ├── Dockerfile                    # 整站模式的前端映像：Node 建置 → nginx（建置內容從 repo 根目錄送）
 │   └── nginx.conf                    # 送出建置結果（index.html 每次向伺服器確認、帶雜湊的資源長期快取）；/api、/health 同源轉給後端容器
 │
 ├── TaiwanAgri.IntegrationTests/      # 整合測試：真的 SQL Server＋完整 HTTP 管線（WebApplicationFactory，5 個案例）
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 538 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 552 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -500,8 +506,8 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker + Docker Compose | 最新版 | 預設只起基礎設施（SQL Server / Redis / RabbitMQ）；`--profile app` 起整站（建表、後端、Worker、前端 nginx），映像多階段建置、非 root 執行 |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，538 個案例）＋整合測試（真的 SQL Server＋完整 HTTP 管線，5 個案例） |
-| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，21 檔 201 案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，552 個案例）＋整合測試（真的 SQL Server＋完整 HTTP 管線，5 個案例） |
+| 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，25 檔 227 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
 ---
@@ -676,7 +682,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端單元測試（xUnit + Moq，共 538 個測試案例）
+# 後端單元測試（xUnit + Moq，共 552 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -684,7 +690,7 @@ dotnet test
 cd TaiwanAgri.IntegrationTests
 dotnet test
 
-# 前端（Vitest，共 201 個測試案例）
+# 前端（Vitest，共 227 個測試案例）
 cd TaiwanAgri.Frontend
 npm test
 ```
@@ -694,7 +700,7 @@ npm test
 測試會在那台 SQL Server 上建一個名稱帶時間戳的新資料庫、跑完刪掉，不碰既有的資料庫；沒有設定時本機列成略過（Skipped），
 CI 則另外起一個 SQL Server 容器跑，少了資料庫是失敗、不是略過。
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個、回應的時間欄位一律標成 UTC 3 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個、行情依交易資料的類別查詢與市場清單 6 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 17 個、疫情規則的評估水位 4 個、病蟲害警報的縣市兩種寫法、翻頁穩定、分頁上限與同步時去重 12 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個、有機驗證有則更新 2 個、規則引擎等相依的同步試過第一輪再評估 3 個、一筆壞資料只略過那一筆與超長字串截到欄位上限 6 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護與 JWT 簽發 12 個）十個面向——**Service 層十二支已全部有測試覆蓋**；另有整合測試 5 個（`TaiwanAgri.IntegrationTests`），在真的 SQL Server 上走完整的 HTTP 管線，釘的是單元測試抓不到的幾種錯：SQL Server 讀回來的時間不帶時區標記（回應要標成 UTC）、疫情規則的縣市兩種寫法與評估水位、病蟲害警報同一天的翻頁與每頁上限、行情依交易資料的類別、只帶起日的區間上限，5 個都在修正前的程式上實測過會失敗；前端 21 個測試檔共 201 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，39 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`apiError`（從 400 回應取出後端說的原因、401 說登入已過期，8 個）、`authRedirect`（登入過期時只有要登入的頁面才帶去登入頁，3 個）、`identityErrors`（註冊錯誤逐條翻成中文，4 個）、`cropAutocomplete`（作物自動完成的建議與鍵盤選取，7 個）、`disasterEvents`（同一場豪雨的兩種警戒分開列、跨年同名不合併，5 個）、`lostPetPost`（啟事日期以台灣時區顯示，2 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → 單元測試 → 另起一個 SQL Server 容器跑整合測試）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個、回應的時間欄位一律標成 UTC 3 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個、行情依交易資料的類別查詢與市場清單 6 個、行情價格與作物清單的快取——命中、讀寫失敗時降級查資料庫、請求被取消時不當成快取失敗，8 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 18 個、疫情規則的評估水位 4 個、病蟲害警報的縣市兩種寫法、翻頁穩定、分頁上限與同步時去重 12 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個、有機驗證有則更新 2 個、規則引擎等相依的同步試過第一輪再評估 3 個、一筆壞資料只略過那一筆與超長字串截到欄位上限 6 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護（查無帳號、帳號已經被鎖住時也算一次密碼雜湊）、註冊失敗的處理與 JWT 簽發 17 個，註冊端點只把 Identity 擋下的原因回成 400 2 個，未處理例外的 500 帶請求編號 2 個）十個面向——**Service 層十二支已全部有測試覆蓋**；另有整合測試 5 個（`TaiwanAgri.IntegrationTests`），在真的 SQL Server 上走完整的 HTTP 管線，釘的是單元測試抓不到的幾種錯：SQL Server 讀回來的時間不帶時區標記（回應要標成 UTC）、疫情規則的縣市兩種寫法與評估水位、病蟲害警報同一天的翻頁與每頁上限、行情依交易資料的類別、只帶起日的區間上限，5 個都在修正前的程式上實測過會失敗；前端 25 個測試檔共 227 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，39 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式，含欄位有逗號、引號、換行時的跳脫）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`apiError`（從 400 回應取出後端說的原因、401 說登入已過期，8 個）、`authRedirect`（登入過期時只有要登入的頁面才帶去登入頁、登入後導回的網址帶了兩次時取第一個，7 個）、`loginForm`（登入／註冊表單還不能送出的原因，按鈕與按 Enter 共用一份，6 個）、`storedUser`（瀏覽器存的使用者資料壞掉時當成沒登入、不讓前端起不來，4 個）、`url`（外部資料的欄位是不是 http(s) 網址，3 個）、`identityErrors`（註冊錯誤逐條翻成中文，4 個）、`cropAutocomplete`（作物自動完成的建議與鍵盤選取，7 個）、`disasterEvents`（同一場豪雨的兩種警戒分開列、跨年同名不合併，5 個）、`lostPetPost`（啟事日期以台灣時區顯示，2 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/foodSafety`（追溯碼查詢的新舊回應不互蓋，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → 單元測試 → 另起一個 SQL Server 容器跑整合測試）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
 
 ---
 
@@ -1067,7 +1073,7 @@ CI 則另外起一個 SQL Server 容器跑，少了資料庫是失敗、不是�
 
 | Method | URL | 說明 | 認證 |
 |--------|-----|------|------|
-| GET | `/api/market/crops?marketType=Veg` | 作物清單 | 不需要 |
+| GET | `/api/market/crops?marketType=Veg` | 作物清單（Cache-Aside） | 不需要 |
 | GET | `/api/market/markets?marketType=Veg` | 市場清單 | 不需要 |
 | GET | `/api/market/prices` | 作物歷史價格走勢（GroupBy 聚合 + Cache-Aside） | 不需要 |
 | GET | `/api/market/disasters` | 天災警戒事件清單（GroupBy 去重；結果達筆數上限時回應帶 `X-Result-Truncated` 標頭） | 不需要 |
@@ -1229,8 +1235,12 @@ SyncWorker 繼承 `BackgroundService`，被 DI 容器以 Singleton 管理；`DbC
 **NavModule 自參照設計**
 選擇單表自參照而非兩張表，自參照 FK 使用 `OnDelete Restrict`。`Icon` 欄位存 MDI CSS class 字串，更換圖示只改 DB 不需部署前端。`RoleModulePermission.RoleId` 存 IdentityRole 的 GUID（非 Role Name），訪客流程透過 `RoleManager.FindByNameAsync("Guest")` 做名稱→GUID 轉換。
 
-**Redis Cache-Aside（GetPricesAsync）**
-Cache Key 格式：`market:prices:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}`。cropCodes 排序後 Join 確保任意排列命中同一 slot。TTL 設定 25 小時（農業部資料每天更新一次，跨天不提早過期）。Cache Key 前綴抽成 `CacheKeys.MarketPricesPrefix` 常數，為後續 RabbitMQ Cache Invalidation 預留介面。
+**Redis Cache-Aside（行情價格與作物清單）**
+兩支共用 `MarketService.GetOrLoadCachedAsync`：先查快取，沒命中才查資料庫、查完寫回；快取讀寫的任何失敗都當成沒命中、回資料庫查（請求本身被取消除外）。
+價格的 Cache Key 格式：`market:prices:v2:{marketType}:{sortedCrops}:{marketCode}:{startDate}:{endDate}`，cropCodes 排序後 Join 確保任意排列命中同一 slot。
+作物清單是 `market:crops:v1:{TcType}`——2026-11 才加：每次要對整張交易表做 DISTINCT（本機量過每次 CPU 2.2–3.1 秒），農場設定頁一進來就查三個類別。
+TTL 都是 25 小時（農業部資料每天更新一次，跨天不提早過期）。Cache Key 前綴集中在 `CacheKeys`，為後續 RabbitMQ Cache Invalidation 預留介面；
+查詢邏輯改到「同一組條件會回不同結果」時前綴升版（價格的 v2 是 2026-11 改依交易資料的類別查詢時升的）。
 
 **外部相依可選化：不拋例外不等於降級**
 Redis 與 RabbitMQ 都是可選相依。沒設 `ConnectionStrings:Redis` 時分散式快取改註冊
@@ -1416,7 +1426,7 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 （不持久、只屬於這條連線、連線一斷就刪除）：Web 停機期間發出的事件沒有佇列接，
 處理到一半程式崩潰時，還沒確認的訊息會跟著佇列一起消失；處理失敗也不會退回重送或轉進死信佇列（DLQ）。
 不補的理由是它沒有承載任何實際工作：收到事件只記 log（快取失效沒有實作），
-行情快取靠 25 小時 TTL 自然過期，雲端部署也不含 RabbitMQ。要讓它承載實際流量時，
+行情與作物清單的快取靠 25 小時 TTL 自然過期，雲端部署也不含 RabbitMQ。要讓它承載實際流量時，
 需要改成具名的持久佇列、處理失敗時退回並設定死信佇列，快取失效也要同一次做。
 
 **呼叫農業部 API 的重試不涵蓋逾時**——共用的 HttpClient 以 Polly 重試 3 次、間隔 2 秒，
@@ -1433,6 +1443,14 @@ CI 的 linter 一律唯讀——`--fix` 會在回報前把違規修掉、exit co
 2026-10 照這個方法補過一次：加上往回重掃之前，晚公布的日子都被永久跳過——2026 年 4–9 月的農產品行情有 17 天整天沒有、
 另有許多天只缺部分市場，家禽缺 4 天（這些日子事後問農業部 API 都查得到）。把進度改回缺口前一天跑一輪（約 70 分鐘、資料庫計費 3,779.5 vCore 秒），
 補回行情 84,449 筆、家禽 68 筆。
+
+**監看清單、氣象觀測、通知三張表靠「先查再寫」防重複，資料庫沒有唯一鍵**——寫入前在程式裡先查「有沒有了」，沒有才寫；
+兩個寫入同時發生時，兩邊都查到「沒有」，就各寫一筆：同一個人同時送兩次「加入監看清單」會存成兩筆（2026-11 實測）；
+整站模式開著時又從 Visual Studio 啟動 Worker，兩支同時同步會把同一筆氣象觀測存兩次，數值型規則就通知兩次；
+每日排程與「立即檢查」同時評估同一條規則時，同一筆來源可能通知兩次。農場設定第一次儲存時同時送出，
+後到的那一筆撞主鍵、回 500（2026-11 實測：同時送 8 次，4 次回 500）。
+不補的理由：補唯一鍵要一支 migration，加之前還得先清掉已經重複的資料；畫面上的按鈕送出期間會停用，正常操作碰不到，
+碰得到的是繞過畫面直接打 API，或同時開兩個同步程式（上面已經提醒不要這樣做）。
 
 **帳號機制只有最基本的一層**——開放註冊、不驗證信箱、沒有「忘記密碼」；登入憑證（JWT）存在瀏覽器的 localStorage，
 在有效期內無法個別撤銷（登出只是瀏覽器把它丟掉）。登入另有帳號鎖定（同一個帳號連錯 5 次鎖 5 分鐘）與依來源位址的次數限制。
