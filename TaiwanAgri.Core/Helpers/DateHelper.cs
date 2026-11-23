@@ -9,10 +9,12 @@ namespace TaiwanAgri.Core.Helpers
 		/// 輸入："107.07.15"　→　輸出：DateOnly(2018, 7, 15)
 		/// 輸入："107.7.5"　　→　輸出：DateOnly(2018, 7, 5)
 		/// 輸入格式錯誤（非三段、非數字）→　拋出 FormatException
+		/// 三段都是數字但日期不存在（平年的 2 月 29 日、13 月）→　拋出 ArgumentOutOfRangeException（DateOnly 建構子丟的）
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		/// <exception cref="FormatException"></exception>
+		/// <exception cref="FormatException">不是三段，或任一段不是數字</exception>
+		/// <exception cref="ArgumentOutOfRangeException">年月日的組合不是存在的日期</exception>
 		public static DateOnly ParseRocDate(string input)
 		{
 			// 1. 使用 Split 拆分
@@ -33,7 +35,7 @@ namespace TaiwanAgri.Core.Helpers
 			}
 			else
 			{
-				throw new FormatException("日期數字解析失敗'");
+				throw new FormatException("日期數字解析失敗");
 			}
 		}
 		/// <summary>

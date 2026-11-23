@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TaiwanAgri.Modules.Weather.Constants;
@@ -336,6 +337,60 @@ namespace TaiwanAgri.Tests.Weather
 			var formulation = result.Response!.Ingredients.Single().Formulations.Single();
 			Assert.True(formulation.UsagesAvailable);   // 有查到，只是真的沒有用途
 			Assert.Empty(formulation.Usages);
+		}
+
+		/// <summary>
+		/// 上游把字串欄位給成 JSON null（目前實際給的是空字串）時，當成空字串處理。
+		/// 原本 null 會蓋掉 DTO 的預設值，第一層的 .Trim() 丟 NullReferenceException，整支查詢回 500（2026-11 總檢查 3 號 C 類）
+		/// </summary>
+		[Fact]
+		public async Task Search_第一層字串欄位是null_當成空字串而不是讓查詢失敗()
+		{
+			var license = JsonSerializer.SerializeToNode(License())!.AsObject();
+			license["BrandName"] = null;
+			license["RevocationType"] = null;
+			license["RevocationDate"] = null;
+			license["IRAC"] = null;
+			var envelope = new JsonObject { ["RS"] = "OK", ["Next"] = false, ["Data"] = new JsonArray(license) };
+
+			var handler = new RouteHandler();
+			handler.When("PesticideDataQueryType", () => RawResponse(envelope.ToJsonString()));
+			handler.When("PesticideDetail", () => JsonResponse(new[] { Usage() }));
+
+			var result = await CreateService(handler).SearchAsync(Query("亞滅培"));
+
+			var issued = result.Response!.Ingredients.Single().Formulations.Single().Licenses.Single();
+			Assert.Equal(string.Empty, issued.BrandName);
+			Assert.False(issued.IsRevoked);   // 廢止類型是 null＝沒有廢止，跟空字串一樣
+		}
+
+		/// <summary>
+		/// 第二層也一樣。原本 null 會在 .Trim() 丟例外、被 catch 接住，記成「使用範圍抓取失敗」，
+		/// 畫面顯示「這次沒抓到」——其實資料抓到了，只是有欄位沒有值
+		/// </summary>
+		[Fact]
+		public async Task Search_第二層字串欄位是null_照樣回核准用途()
+		{
+			var usage = JsonSerializer.SerializeToNode(Usage())!.AsObject();
+			usage["備註"] = null;
+			usage["施用次數"] = null;
+
+			var handler = new RouteHandler();
+			handler.When("PesticideDataQueryType", () => JsonResponse(new
+			{
+				RS = "OK",
+				Next = false,
+				Data = new[] { License() }
+			}));
+			handler.When("PesticideDetail", () => RawResponse(new JsonArray(usage).ToJsonString()));
+
+			var result = await CreateService(handler).SearchAsync(Query("亞滅培"));
+
+			var formulation = result.Response!.Ingredients.Single().Formulations.Single();
+			Assert.True(formulation.UsagesAvailable);
+			var parsed = Assert.Single(formulation.Usages);
+			Assert.Equal("番茄", parsed.CropName);
+			Assert.Equal(string.Empty, parsed.Notes);
 		}
 
 		[Fact]

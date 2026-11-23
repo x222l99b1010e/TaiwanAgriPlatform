@@ -58,7 +58,8 @@ namespace TaiwanAgri.Web.Controllers
 				userId,
 				request.FarmCity,
 				request.FarmType,
-				request.Crops.Select(c => (c.CropCode, c.CropName)).ToList()
+				request.Crops.Select(c => (c.CropCode, c.CropName)).ToList(),
+				cancellationToken
 			);
 			// 204 NoContent：儲存成功，不需要回傳資料
 			// 前端儲存成功後再呼叫 GET 取得最新資料

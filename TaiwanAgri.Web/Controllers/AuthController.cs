@@ -41,7 +41,9 @@ namespace TaiwanAgri.Web.Controllers
 				var result = await _authService.RegisterAsync(request, cancellationToken);
 				return Ok(result);
 			}
-			catch (InvalidOperationException ex)
+			// 只接「被 Identity 擋下」這一種，訊息是寫給使用者看的；
+			// 其他例外（資料庫錯誤之類）交給 GlobalExceptionMiddleware 回 500，原文不回給使用者
+			catch (RegistrationRejectedException ex)
 			{
 				return BadRequest(ex.Message);
 			}

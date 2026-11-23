@@ -140,8 +140,5 @@ namespace TaiwanAgri.Worker.Weather
 		=>	decimal.TryParse(s,System.Globalization.NumberStyles.Any, 
 			System.Globalization.CultureInfo.InvariantCulture ,out var v)
 			? v : null;
-
-		private static int ParseInt(string s)
-			=> int.TryParse(s, out var v) ? v : 0;
 	}
 }
