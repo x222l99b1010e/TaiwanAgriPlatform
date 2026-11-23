@@ -36,7 +36,6 @@ namespace TaiwanAgri.Worker.Market
 			var url = MoaApiEndpoints.DebrisAlert;
 			var json = await _httpClient.GetStringAsync(url, stoppingToken);
 			var response = JsonSerializer.Deserialize<List<DebrisAlertRecordDto>>(json);
-			//var response = JsonSerializer.Deserialize<List<DebrisAlertRecordDto>>(json) ?? new List<DebrisAlertRecordDto>();
 			if (response == null)
 			{
 				_logger.LogWarning("[DebrisAlertRecordSyncWorker] API 回傳資料反序列化失敗");

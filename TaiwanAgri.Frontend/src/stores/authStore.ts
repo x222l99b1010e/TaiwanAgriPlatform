@@ -6,15 +6,21 @@ import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/api/httpBase'
 import type { LoginRequestDto, RegisterRequestDto, AuthResponseDto } from '@/api/auth'
+import { parseStoredUser, type StoredUser } from '@/utils/storedUser'
 
 export const useAuthStore = defineStore('auth', () => {
   // ─── 狀態 ────────────────────────────────────────────
 
-  // token 存在 localStorage，讓瀏覽器重新整理後仍然保持登入
+  // token 與使用者資料存在 localStorage，讓瀏覽器重新整理後仍然保持登入。
+  // 存的使用者資料讀不出來＝狀態壞了：連同 token 一起清掉、當成沒登入，重新登入一次就好。
+  // 只清使用者資料、留著 token 的話，畫面會是「已登入、卻沒有名字也沒有角色」
+  const stored = parseStoredUser(localStorage.getItem(USER_STORAGE_KEY))
+  if (stored.corrupted) {
+    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    localStorage.removeItem(USER_STORAGE_KEY)
+  }
   const token = ref<string | null>(localStorage.getItem(TOKEN_STORAGE_KEY))
-  const user = ref<Omit<AuthResponseDto, 'token'> | null>(
-    JSON.parse(localStorage.getItem(USER_STORAGE_KEY) ?? 'null')
-  )
+  const user = ref<StoredUser | null>(stored.user)
 
   // ─── computed ─────────────────────────────────────────
 

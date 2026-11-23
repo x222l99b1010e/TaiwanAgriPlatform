@@ -78,10 +78,7 @@ namespace TaiwanAgri.Web.Controllers
 				return BadRequest("天數必須大於 0");
 			if (queryDto.Days > 3650)
 				return BadRequest("天數不可超過 3650");
-			if (queryDto.Page <= 0)
-				return BadRequest("頁碼必須大於 0");
-			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
-				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
+			// 頁碼與每頁筆數的界限掛在 PagedQueryDto 上，[ApiController] 進動作之前就擋成 400，這裡不重寫
 			var result = await _foodSafetyService.GetViolationsAsync(queryDto, cancellationToken);
 			return Ok(result);
 		}
@@ -89,11 +86,6 @@ namespace TaiwanAgri.Web.Controllers
 		[HttpGet("organic-certifications")]
 		public async Task<IActionResult> GetOrganicCertifications([FromQuery] OrganicCertificationQueryDto queryDto, CancellationToken cancellationToken = default)
 		{
-			if (queryDto.Page <= 0)
-				return BadRequest("頁碼必須大於 0");
-			if (queryDto.PageSize <= 0 || queryDto.PageSize > 100)
-				return BadRequest("每頁筆數必須大於 0 且小於等於 100");
-
 			var result = await _foodSafetyService.GetOrganicCertificationsAsync(queryDto, cancellationToken);
 			return Ok(result);
 		}

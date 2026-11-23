@@ -114,6 +114,7 @@ import HintBox from '@/components/ui/HintBox.vue'
 import Btn from '@/components/ui/Btn.vue'
 import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
 import { alertTypeLabel, groupDisasterEvents } from '@/utils/disasterEvents'
+import { TAIWAN_CITIES } from '@/constants/taiwanCities'
 
 const today = taiwanDateString()
 const oneYearAgo = taiwanDateDaysAgo(365)
@@ -128,12 +129,7 @@ const errorMsg = ref('')
 /** 結果是否被後端的筆數上限截斷（截斷時受影響縣市會不完整） */
 const isTruncated = ref(false)
 
-const counties = [
-  '臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市',
-  '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣',
-  '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣',
-  '臺東縣', '澎湖縣', '金門縣', '連江縣',
-]
+const counties = TAIWAN_CITIES
 
 // 分組規則（名稱＋類別、跨年同名分開）在 utils/disasterEvents.ts，跟行情查詢頁共用；這一頁新到舊排
 const groupedEvents = computed(() => groupDisasterEvents(rawData.value).reverse())

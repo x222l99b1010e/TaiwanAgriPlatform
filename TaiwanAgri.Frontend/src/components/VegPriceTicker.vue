@@ -99,10 +99,10 @@ const animationDuration = computed(() =>
   letter-spacing: 0.05em;
 }
 
-/* 中英並排樣式 A：英文 12px／600／字距 .12em／全大寫，窄螢幕整個收掉 */
+/* 中英並排樣式 A：英文 --text-xs（12px）／600／字距 .12em／全大寫，窄螢幕整個收掉 */
 .label-en {
   font-family: var(--font-num);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: var(--weight-label);
   letter-spacing: var(--tracking-label);
   color: var(--color-on-deep-dim);

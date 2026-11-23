@@ -3,10 +3,10 @@
 // 需要登入，使用帶 JWT header 的 authClient
 
 import authClient from './authClient'
+import type { MarketType } from './market'
 
 // ─── DTO 型別 ──────────────────────────────────────────────────────────────
-
-export type MarketType = 'Veg' | 'Fruit' | 'Flower'
+// MarketType 用行情 API 的那一份（原本這裡另宣告一次，2026-11 總檢查 1-C1）
 
 export interface WatchlistItemDto {
   id: number

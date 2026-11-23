@@ -104,6 +104,24 @@ namespace TaiwanAgri.Tests.Weather
 		}
 
 		/// <summary>
+		/// 只帶迄日、而且迄日很早（0001-01-01）時，沒帶的起日停在日期下限，回空清單。
+		/// 日期驗證不擋年份、沒帶起日時也不檢查，這組參數進得來；原本往前推 14 天推過下限，丟例外、回 500
+		/// </summary>
+		[Fact]
+		public async Task 只帶很早的迄日時不丟例外而是回空清單()
+		{
+			using var db = CreateDbContext(nameof(只帶很早的迄日時不丟例外而是回空清單));
+			db.RainfallStations.Add(Station("A01", "臺北市"));
+			db.RainfallObservations.Add(Rainfall("A01", new DateTime(2026, 9, 1), 1m));
+			await db.SaveChangesAsync();
+
+			var result = await new WeatherService(db, TimeProvider.System).GetRainfallByCityAsync(
+				"臺北市", startDate: null, endDate: DateOnly.MinValue);
+
+			Assert.Empty(result);
+		}
+
+		/// <summary>
 		/// 不傳日期時的預設區間是「往前十四天到今天」。這裡刻意用相對於當下的日期種資料，
 		/// 而不是寫死日期——這支方法的預設值取自注入的時鐘，而這一則刻意仍用系統時鐘，
 		/// 驗的是「相對區間算得對」；日界本身另有一則用固定時刻的測試

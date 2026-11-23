@@ -141,9 +141,20 @@ namespace TaiwanAgri.Modules.Weather.Services
 				throw new HttpRequestException($"農藥許可證查詢失敗，上游回應 {(int)response.StatusCode}");
 			}
 
-			return await response.Content.ReadFromJsonAsync<PesticideDataQueryApiResponse>(cancellationToken)
+			return await response.Content.ReadFromJsonAsync<PesticideDataQueryApiResponse>(LicenseJsonOptions, cancellationToken)
 				?? new PesticideDataQueryApiResponse();
 		}
+
+		/// <summary>
+		/// 兩層上游的反序列化設定：各自維持原本的規則（第一層是 ReadFromJsonAsync 預設的 Web 規則、
+		/// 屬性名不分大小寫；第二層是 JsonSerializer 的預設規則），只多一條「字串欄位的 null 讀成空字串」
+		/// （理由見 <see cref="NullAsEmptyStringConverter"/>）
+		/// </summary>
+		private static readonly JsonSerializerOptions LicenseJsonOptions =
+			new(JsonSerializerDefaults.Web) { Converters = { new NullAsEmptyStringConverter() } };
+
+		private static readonly JsonSerializerOptions UsageJsonOptions =
+			new() { Converters = { new NullAsEmptyStringConverter() } };
 
 		/// <summary>
 		/// 第二層抓取。與第一層相反，這裡**吞掉所有失敗**：一個劑型的用途沒抓到，
@@ -181,7 +192,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 					return;
 				}
 
-				var usages = JsonSerializer.Deserialize<List<PesticideUsageExternalDto>>(raw);
+				var usages = JsonSerializer.Deserialize<List<PesticideUsageExternalDto>>(raw, UsageJsonOptions);
 				if (usages == null)
 				{
 					_logger.LogWarning("[Pesticide] 使用範圍反序列化結果為 null：{Url}", url);

@@ -116,6 +116,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import Btn from '@/components/ui/Btn.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import CropAutocomplete from '@/components/CropAutocomplete.vue'
+import { TAIWAN_CITIES } from '@/constants/taiwanCities'
 
 const profileStore = useProfileStore()
 
@@ -127,13 +128,8 @@ const farmCity = ref<string | null>(null)
 const farmType = ref<string | null>(null)
 const selectedCrops = ref<CropItem[]>([])
 
-// 縣市選項：用「臺」，跟全站其他頁的縣市清單（CitySelector）一致
-const cityOptions = [
-  '臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市',
-  '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣',
-  '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣',
-  '臺東縣', '澎湖縣', '金門縣', '連江縣'
-]
+// 縣市選項：全站共用的那一份（用「臺」）
+const cityOptions = TAIWAN_CITIES
 
 /**
  * 舊版的選項用「台」，之前存下來的設定是「台北市」這種寫法，對不到現在的選項，

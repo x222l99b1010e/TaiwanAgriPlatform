@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildPricesCsv } from '../exportCsv'
+import { buildCsv, buildPricesCsv, csvCell } from '../exportCsv'
 import type { PriceResponseDto } from '@/api/market'
 
 const HEADER = '日期,作物代碼,作物名稱,均價,上價,中價,下價,交易量'
@@ -55,5 +55,41 @@ describe('buildPricesCsv', () => {
 
     expect(dataLine).toBe('2026-07-10,LA2,甘藍,,30,25,20,')
     expect(dataLine).not.toContain('null')
+  })
+
+  it('作物名稱有逗號時加引號，不讓整列欄位錯位', () => {
+    const csv = buildPricesCsv([createPrice({ cropName: '甘藍,初秋' })])
+    expect(csv.split('\n')[1]).toBe('2026-07-10,LA2,"甘藍,初秋",25.5,30,25,20,1234.5')
+  })
+})
+
+// 原本直接用逗號相接，名稱裡有逗號、引號或換行的那一列會錯位（2026-11 總檢查 3 號 C 類）
+describe('csvCell（一格 CSV 的跳脫）', () => {
+  it('沒有特殊字元原樣輸出，跟原本的檔案一樣', () => {
+    expect(csvCell('臺北一')).toBe('臺北一')
+    expect(csvCell(25.5)).toBe('25.5')
+    expect(csvCell(0)).toBe('0')
+  })
+
+  it('null 與 undefined 輸出空字串', () => {
+    expect(csvCell(null)).toBe('')
+    expect(csvCell(undefined)).toBe('')
+  })
+
+  it('有逗號或換行時用雙引號包起來', () => {
+    expect(csvCell('甲,乙')).toBe('"甲,乙"')
+    expect(csvCell('甲\n乙')).toBe('"甲\n乙"')
+    expect(csvCell('甲\r\n乙')).toBe('"甲\r\n乙"')
+  })
+
+  it('裡面的雙引號寫成兩個（RFC 4180）', () => {
+    expect(csvCell('說"明"')).toBe('"說""明"""')
+  })
+})
+
+describe('buildCsv（表頭＋資料列）', () => {
+  it('每一格都經過跳脫，列之間用換行', () => {
+    expect(buildCsv(['市場', '價格'], [['甲,乙', 10], ['丙', null]]))
+      .toBe('市場,價格\n"甲,乙",10\n丙,')
   })
 })

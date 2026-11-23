@@ -32,7 +32,7 @@ namespace TaiwanAgri.Web.Controllers
 			// 一次批次查詢所有（作物, 市場）組合的最新均價，
 			// 取代原本 foreach 逐筆呼叫 GetPricesAsync 的 N+1 查詢
 			var latestPrices = await marketService.GetLatestPricesAsync(
-				watchlistItems.Select(item => (item.CropCode, item.MarketCode)));
+				watchlistItems.Select(item => (item.CropCode, item.MarketCode)), cancellationToken);
 
 			var priceLookup = latestPrices.ToDictionary(p => (p.CropCode, p.MarketCode));
 
