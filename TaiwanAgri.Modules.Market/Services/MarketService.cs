@@ -45,7 +45,7 @@ namespace TaiwanAgri.Modules.Market.Services
 			// 1. 日期解析與預設值（先解析，cache key 才能用實際日期）
 			//    預設查到「今天」＝台灣時區日界（DateTime.Today 是主機本地時區，部署在 UTC 環境會差一天）
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
-			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+			DateOnly finalStart = startDate ?? DateHelper.DaysBefore(finalEnd, 365);
 
 			// 類別一律看交易資料自己的 TcType（Veg→N04、Fruit→N05、Flower→N06），不看市場主檔的類別：
 			// 主檔以（代碼、名稱）為鍵，同時賣蔬菜與水果的市場只記在先同步的蔬菜底下，
@@ -58,36 +58,22 @@ namespace TaiwanAgri.Modules.Market.Services
 			// 2. 組裝 Cache Key（cropCodes 排序確保任意排列命中同一 slot）
 			var cacheKey = BuildPricesCacheKey(marketType, cropCodes, marketCode, finalStart, finalEnd);
 
-			// 3. Cache-Aside Step 1：查 Redis
-			//    命中（Hit）→ 直接反序列化回傳，跳過 DB 查詢
-			//    這一段的任何失敗都不能往上拋，兩種失敗的理由不同但結論相同：
-			//    ・連線層失敗——快取是加速層、資料庫才是真相，所以快取不可用時正確的行為是
-			//      「慢一點」而不是「壞掉」。不接住的話整支查詢會跟著倒，而且
-			//      StackExchange.Redis 會把指令排進 backlog 等到逾時，使用者要先等數秒才看到錯誤
-			//    ・反序列化失敗——PriceResponseDto 改欄位後，舊部署留在 Redis 的 payload
-			//      會讓每個請求都炸掉，而且要等 25 小時 TTL 到期才會自己好
-			//    兩者都當成 miss 落回 DB 查詢並在 Step 3 覆寫該 key，是唯一能自我修復的處理方式。
-			//    接 Exception 而不是 RedisConnectionException：本模組只認識 IDistributedCache
-			//    這個抽象，為了接特定例外型別而加 Redis 套件參考，等於把「底下是哪個實作」
-			//    漏進不該知道的這一層。是哪一種失敗由 log 裡的例外型別分辨
-			try
-			{
-				var cached = await _cache.GetStringAsync(cacheKey);
-				if (cached != null)
-				{
-					var hit = JsonSerializer.Deserialize<List<PriceResponseDto>>(cached);
-					if (hit != null)
-						return hit;
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogWarning(ex, "[Market] 快取讀取失敗，改查資料庫：{CacheKey}", cacheKey);
-			}
+			// 3. Cache-Aside：先查快取，沒有才查資料庫、查完寫回（快取失敗時怎麼降級見 GetOrLoadCachedAsync）
+			return await GetOrLoadCachedAsync(
+				cacheKey,
+				() => QueryPricesAsync(tcType, cropCodes, marketCode, finalStart, finalEnd, cancellationToken),
+				cancellationToken);
+		}
 
-			// 4. Cache-Aside Step 2：Redis Miss，查 SQL
-			//    AgriProductsTrans JOIN CropInfos（取作物名稱）。類別用交易資料的 TcType 篩，
-			//    不再 JOIN 市場主檔（理由見上面 tcType 那段）
+		/// <summary>
+		/// 行情價格的資料庫查詢（GetPricesAsync 的快取沒命中時才走到這裡）。
+		/// AgriProductsTrans JOIN CropInfos（取作物名稱）。類別用交易資料的 TcType 篩，
+		/// 不 JOIN 市場主檔（理由見 GetPricesAsync 的 tcType 那段）
+		/// </summary>
+		private async Task<List<PriceResponseDto>> QueryPricesAsync(
+			string tcType, string[] cropCodes, string? marketCode,
+			DateOnly finalStart, DateOnly finalEnd, CancellationToken cancellationToken)
+		{
 			var baseQuery = from t in _context.AgriProductsTrans
 							join c in _context.CropInfos
 								on t.CropCode equals c.CropCode
@@ -97,14 +83,14 @@ namespace TaiwanAgri.Modules.Market.Services
 							   && cropCodes.Contains(t.CropCode)
 							select new { t, c.CropName };
 
-			// 5. 動態追加市場過濾（marketCode 為 null 時查所有市場）
+			// 動態追加市場過濾（marketCode 為 null 時查所有市場）
 			if (!string.IsNullOrEmpty(marketCode))
 			{
 				baseQuery = baseQuery.Where(x => x.t.MarketCode == marketCode);
 			}
 
-			// 6. GroupBy + 聚合：同一天同一作物跨市場取 AVG 價格、SUM 數量
-			var result = await baseQuery
+			// GroupBy + 聚合：同一天同一作物跨市場取 AVG 價格、SUM 數量
+			return await baseQuery
 				.GroupBy(x => new { x.t.TransDate, x.t.CropCode, x.CropName })
 				.Select(g => new PriceResponseDto
 				{
@@ -119,22 +105,63 @@ namespace TaiwanAgri.Modules.Market.Services
 				})
 				.OrderByDescending(x => x.TransDate)
 				.ToListAsync(cancellationToken);
+		}
 
-			// 7. Cache-Aside Step 3：結果寫進 Redis，TTL 25 小時
-			//    農業部資料每天更新一次（昨天的歷史資料），25 小時確保跨天不提早過期
-			//    TTL 是保底機制；Worker 同步完成後會透過 RabbitMQ 主動 invalidation
-			//    寫入失敗同樣不能往上拋，而且這裡比 Step 1 更不能拋：結果已經查到手上了，
-			//    為了「沒能存進快取」而讓整支查詢失敗，是拿加速層的問題去砸掉已經成功的查詢
-			var cacheOptions = new DistributedCacheEntryOptions
+		/// <summary>
+		/// 快取的有效期限 25 小時：農業部資料每天同步一次（昨天的歷史資料），25 小時確保跨天不提早過期。
+		/// 快取只靠這個期限過期——Worker 同步完會發 RabbitMQ 事件，但 Web 這一側的 PriceUpdatedConsumer
+		/// 收到之後只記一則記錄、沒有清快取（README 已知限制「價格更新事件的訊息佇列只是骨架」、SA/SD §12.47 的否決條件），
+		/// 所以同步完之後最多 25 小時內，看到的可能還是同步之前的結果
+		/// </summary>
+		private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(25);
+
+		/// <summary>
+		/// Cache-Aside 的讀與寫：先查快取，命中就回；沒命中（或快取出問題）才呼叫 <paramref name="load"/> 查資料庫，查完寫回。
+		/// 行情價格與作物清單共用（作物清單是 2026-11 總檢查 G-C2 才加的快取，抽出來讓兩支走同一套降級規則）。
+		/// <para>
+		/// 讀與寫的任何失敗都不能往上拋，兩種失敗的理由不同但結論相同：
+		/// ・連線層失敗——快取是加速層、資料庫才是真相，所以快取不可用時正確的行為是「慢一點」而不是「壞掉」。
+		///   不接住的話整支查詢會跟著倒，而且 StackExchange.Redis 會把指令排進 backlog 等到逾時，使用者要先等數秒才看到錯誤
+		/// ・反序列化失敗——回應的 DTO 改欄位後，舊部署留在 Redis 的 payload 會讓每個請求都炸掉，
+		///   而且要等 25 小時 TTL 到期才會自己好
+		/// 兩者都當成沒命中、落回資料庫查詢並覆寫該 key，是唯一能自我修復的處理方式。
+		/// 寫入失敗更不能拋：結果已經查到手上了，為了「沒能存進快取」讓整支查詢失敗，是拿加速層的問題去砸掉已經成功的查詢。
+		/// </para>
+		/// <para>
+		/// 接 Exception 而不是 RedisConnectionException：本模組只認識 IDistributedCache 這個抽象，
+		/// 為了接特定例外型別而加 Redis 套件參考，等於把「底下是哪個實作」漏進不該知道的這一層；是哪一種失敗由記錄裡的例外型別分辨。
+		/// 唯一放行的是請求本身被取消（使用者關掉頁面）：那不是快取的問題，記成「快取讀取失敗」會誤導，往上拋由全域例外處理收掉
+		/// </para>
+		/// </summary>
+		private async Task<T> GetOrLoadCachedAsync<T>(string cacheKey, Func<Task<T>> load, CancellationToken cancellationToken)
+			where T : class
+		{
+			try
 			{
-				AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(25)
-			};
+				var cached = await _cache.GetStringAsync(cacheKey, cancellationToken);
+				if (cached != null)
+				{
+					var hit = JsonSerializer.Deserialize<T>(cached);
+					if (hit != null)
+						return hit;
+				}
+			}
+			catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+			{
+				_logger.LogWarning(ex, "[Market] 快取讀取失敗，改查資料庫：{CacheKey}", cacheKey);
+			}
+
+			var result = await load();
 
 			try
 			{
-				await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), cacheOptions);
+				await _cache.SetStringAsync(
+					cacheKey,
+					JsonSerializer.Serialize(result),
+					new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = CacheTtl },
+					cancellationToken);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 			{
 				_logger.LogWarning(ex, "[Market] 快取寫入失敗，本次結果不進快取：{CacheKey}", cacheKey);
 			}
@@ -203,6 +230,15 @@ namespace TaiwanAgri.Modules.Market.Services
 			return (items, isTruncated);
 		}
 
+		/// <summary>
+		/// 某個類別（蔬菜／水果／花卉）有交易過的作物，給下拉選單與作物自動完成用。
+		/// <para>
+		/// 有快取（2026-11 總檢查 G-C2）：第一段要對整張交易表做 DISTINCT（本機 2026-11 量：執行計畫是平行掃描整個唯一索引、
+		/// 744.8 萬列，每次 CPU 2.2–3.1 秒），農場設定頁一進來就查三次（三個類別各一次）。
+		/// 結果跟誰在看無關、只有三種條件、只隨每天的同步改變，符合 SA/SD §12.47 的三條快取判準，
+		/// 也沒有「寫入後要立刻讀到」的否決條件
+		/// </para>
+		/// </summary>
 		public async Task<List<CropResponseDto>> GetCropsAsync(string marketType, CancellationToken cancellationToken = default)
 		{
 			//1. MarketType 轉 TcType
@@ -210,6 +246,15 @@ namespace TaiwanAgri.Modules.Market.Services
 			if (tcType == null)
 				return new List<CropResponseDto>();
 
+			return await GetOrLoadCachedAsync(
+				CacheKeys.MarketCropsPrefix + tcType,
+				() => QueryCropsAsync(tcType, cancellationToken),
+				cancellationToken);
+		}
+
+		/// <summary>作物清單的資料庫查詢（GetCropsAsync 的快取沒命中時才走到這裡）</summary>
+		private async Task<List<CropResponseDto>> QueryCropsAsync(string tcType, CancellationToken cancellationToken)
+		{
 			// 兩段式的 SQL 是固定的兩條獨立查詢，不會互相依賴，效能穩定。
 			// Step 1：先從 AgriProductsTrans 撈出該 TcType 下所有出現過的 CropCode
 			//         翻譯為：SELECT DISTINCT CropCode FROM AgriProductsTrans WHERE TcType = 'N04'（蔬菜；水果 N05、花卉 N06）
@@ -323,7 +368,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		public async Task<List<PorkResponseDto>> GetPorkAsync(string? marketName = null, DateOnly? startDate = null, DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
-			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+			DateOnly finalStart = startDate ?? DateHelper.DaysBefore(finalEnd, 365);
 
 			var porkList = await _context.PorkTrans
 				.Where(p => p.TransDate >= finalStart && p.TransDate <= finalEnd)
@@ -349,7 +394,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		{
 			// 預設區間比照 GetPorkAsync：未指定就給最近一年
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
-			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+			DateOnly finalStart = startDate ?? DateHelper.DaysBefore(finalEnd, 365);
 
 			// null 或空陣列＝不篩選指標（回傳全部 17 個）。
 			// Controller 已用 PoultryMetrics.IsValid 擋掉無效代碼，這裡不重複驗證

@@ -110,7 +110,7 @@
         <Btn
           class="login-submit"
           :loading="isLoading"
-          :disabled="!email || !password || (mode === 'register' && (!confirmPassword || password !== confirmPassword))"
+          :disabled="formProblem !== null"
           @click="handleSubmit"
         >{{ isLoading ? '處理中...' : (mode === 'login' ? '登入' : '註冊並登入') }}</Btn>
       </div>
@@ -120,16 +120,18 @@
 
 <script setup lang="ts">
 import Btn from '@/components/ui/Btn.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { translateIdentityErrors } from '@/utils/identityErrors'
+import { redirectAfterLogin } from '@/utils/authRedirect'
+import { loginFormProblem } from '@/utils/loginForm'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const route = useRoute()
-const redirect = (route.query.redirect as string) || '/'
+const redirect = redirectAfterLogin(route.query.redirect)
 
 // ─── 表單狀態 ─────────────────────────────────────────
 const mode = ref<'login' | 'register'>('login')
@@ -141,6 +143,11 @@ const userType = ref('Farmer')
 const isLoading = ref(false)
 const errorLines = ref<string[]>([])
 
+/** 還不能送出的原因（null＝可以送出）。按鈕的停用與按 Enter 送出用同一份條件 */
+const formProblem = computed(() =>
+  loginFormProblem(mode.value, email.value, password.value, confirmPassword.value),
+)
+
 /** 切換登入／註冊時清掉上一個分頁的錯誤，不然登入失敗的訊息會留在註冊表單上 */
 function switchMode(next: 'login' | 'register') {
   mode.value = next
@@ -151,11 +158,10 @@ function switchMode(next: 'login' | 'register') {
 async function handleSubmit() {
   errorLines.value = []
 
-  // 送出按鈕已經用 :disabled 擋掉這個情況，但 @keyup.enter 是直接呼叫這個函式、
-  // 不會經過按鈕的 disabled 狀態，所以這裡要再擋一次，否則在確認密碼欄位按 Enter
-  // 可以繞過畫面上的擋阻直接送出不一致的密碼
-  if (mode.value === 'register' && password.value !== confirmPassword.value) {
-    errorLines.value = ['兩次輸入的密碼不一致，請重新確認']
+  // 送出按鈕已經用 :disabled 擋掉填不完整的表單，但 @keyup.enter 是直接呼叫這個函式、
+  // 不會經過按鈕的 disabled 狀態，所以這裡用同一組條件再擋一次，並說出缺的是什麼
+  if (formProblem.value) {
+    errorLines.value = [formProblem.value]
     return
   }
 

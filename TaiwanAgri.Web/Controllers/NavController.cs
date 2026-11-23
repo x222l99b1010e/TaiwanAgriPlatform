@@ -5,8 +5,6 @@ using System.Security.Claims;
 using TaiwanAgri.Core.Services;
 using TaiwanAgri.Web.Extensions;
 
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
 namespace TaiwanAgri.Web.Controllers
 {
 	[Route("api/[controller]")]
@@ -28,12 +26,9 @@ namespace TaiwanAgri.Web.Controllers
 			var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
 
 			// 2. 取得 roleName
-			//var roleId = new Claim(ClaimTypes.Role, "Admin");
 			var roleName = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
 			// 3. 呼叫 Service
 			var modules = await _navService.GetNavModulesAsync(isAuthenticated, roleName, cancellationToken);
-
-			//throw new Exception("測試 GlobalExceptionMiddleware");  // 測試 GlobalExceptionMiddleware
 
 			return Ok(modules);
 		}

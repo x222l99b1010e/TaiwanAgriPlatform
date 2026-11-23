@@ -51,10 +51,10 @@ withDefaults(
   color: var(--color-on-deep-dim);
 }
 
-/* inline 的英文是固定 12px 的標籤，不隨中文字級縮放——
+/* inline 的英文固定用最小字級 --text-xs（12px），不隨中文字級縮放——
    它在不同字級的標題旁邊要看起來是同一種東西 */
 .bilingual--inline .bilingual__en {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: var(--weight-label);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;

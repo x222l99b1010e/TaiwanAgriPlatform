@@ -1,6 +1,7 @@
 // src/utils/shelterAnimal.ts
 // 職責：ShelterAnimal（收容動物）顯示用的純函式，從 ShelterMapView 抽出來給地圖 popup 與
 // 收容所詳情頁共用，避免中文對照表兩處各刻一份、日後改一邊忘了改另一邊
+import { isHttpUrl } from '@/utils/url'
 
 export function animalKindLabel(kind: string): string {
   return { Dog: '狗', Cat: '貓', Other: '其他' }[kind] ?? kind
@@ -12,7 +13,7 @@ export function animalSexLabel(sex: string): string {
 
 /** albumFile 是後端原樣帶出的外部相簿連結字串，可能是空字串或非網址內容，渲染前一律重新判定 */
 export function isDisplayableAlbumLink(url: string | null | undefined): boolean {
-  return !!url && /^https?:\/\//i.test(url)
+  return isHttpUrl(url)
 }
 
 /**

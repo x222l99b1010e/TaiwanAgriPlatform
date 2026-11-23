@@ -155,6 +155,7 @@ import {
   lineChartOptions, crosshairPlugin,
 } from '@/constants/chartTheme'
 import { taiwanDateDaysAgo, taiwanDateString } from '@/utils/taiwanDate'
+import { buildCsv, downloadCsv } from '@/utils/exportCsv'
 
 Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -327,14 +328,7 @@ function handleExportCsv() {
     d.excludeFreezerAvgWeight,
     d.excludeFreezerCount,
   ])
-  const csv = [header, ...rows].map(r => r.join(',')).join('\n')
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'pork_market.csv'
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadCsv(buildCsv(header, rows), 'pork_market.csv')
 }
 
 // ── 匯出圖片 ──────────────────────────────────────────────────────────────

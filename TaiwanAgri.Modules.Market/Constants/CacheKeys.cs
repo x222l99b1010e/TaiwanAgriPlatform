@@ -15,5 +15,12 @@
 		/// 之後查詢邏輯再改到「同一組條件會回不同結果」時，同樣要升版
 		/// </summary>
 		public const string MarketPricesPrefix = "market:prices:v2:";
+
+		/// <summary>
+		/// 某個類別有交易過的作物清單（2026-11 總檢查 G-C2 加的快取）。
+		/// 完整格式：market:crops:v1:{TcType}（N04 蔬菜、N05 水果、N06 花卉）。
+		/// 跟價格一樣，查詢邏輯改到「同一個類別會回不同結果」時要升版
+		/// </summary>
+		public const string MarketCropsPrefix = "market:crops:v1:";
 	}
 }

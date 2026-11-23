@@ -9,10 +9,12 @@ namespace TaiwanAgri.Core.Helpers
 		/// 輸入："107.07.15"　→　輸出：DateOnly(2018, 7, 15)
 		/// 輸入："107.7.5"　　→　輸出：DateOnly(2018, 7, 5)
 		/// 輸入格式錯誤（非三段、非數字）→　拋出 FormatException
+		/// 三段都是數字但日期不存在（平年的 2 月 29 日、13 月）→　拋出 ArgumentOutOfRangeException（DateOnly 建構子丟的）
 		/// </summary>
 		/// <param name="input"></param>
 		/// <returns></returns>
-		/// <exception cref="FormatException"></exception>
+		/// <exception cref="FormatException">不是三段，或任一段不是數字</exception>
+		/// <exception cref="ArgumentOutOfRangeException">年月日的組合不是存在的日期</exception>
 		public static DateOnly ParseRocDate(string input)
 		{
 			// 1. 使用 Split 拆分
@@ -33,7 +35,7 @@ namespace TaiwanAgri.Core.Helpers
 			}
 			else
 			{
-				throw new FormatException("日期數字解析失敗'");
+				throw new FormatException("日期數字解析失敗");
 			}
 		}
 		/// <summary>
@@ -195,7 +197,7 @@ namespace TaiwanAgri.Core.Helpers
 		/// 兩件事：起日不得晚於迄日、區間長度不得超過上限。null 代表沒有指定，檢查的是
 		/// 「服務層補完預設值之後」實際要查的區間：
 		/// 沒帶迄日＝查到今天（<paramref name="today"/>，台灣日期），照樣要檢查；
-		/// 沒帶起日＝服務層補「迄日往前一年」（雨量 14 天），一定在預設上限之內，所以不檢查。
+		/// 沒帶起日＝服務層補「迄日往前一年」（雨量 14 天；用 <see cref="DaysBefore"/>，推到日期下限就停），一定在預設上限之內，所以不檢查。
 		/// 原本任一端沒帶就整個放行，而服務層會替沒帶的迄日補上今天——只帶一個很早的起日
 		/// 就完全不受上限約束（毛豬帶 2009-01-01 一次回 14 MB，2026-11 總檢查 3-A6）。
 		/// </para>
@@ -221,5 +223,18 @@ namespace TaiwanAgri.Core.Helpers
 				? $"查詢區間不得超過 {maxRangeDays} 天，目前為 {days} 天{endNote}"
 				: null;
 		}
+
+		/// <summary>
+		/// 沒帶起日時的預設起日：迄日往前推 <paramref name="days"/> 天，推過日期下限（0001-01-01）就停在下限。
+		/// <para>
+		/// 日期驗證只檢查區間長度、不擋年份，沒帶起日時也不檢查（見 <see cref="ValidateRange"/>），
+		/// 所以「只帶一個很早的迄日」進得來。原本服務層直接寫 <c>迄日.AddDays(-天數)</c>，
+		/// 迄日是 0001-01-01 這種日期時丟 ArgumentOutOfRangeException、整支查詢回 500
+		/// （2026-11 總檢查修正時另外查到：行情價格、毛豬、家禽、雨量四處）。
+		/// 停在下限之後查不到資料、回空清單，跟迄日是 9999-12-31 時一樣
+		/// </para>
+		/// </summary>
+		public static DateOnly DaysBefore(DateOnly end, int days) =>
+			end.DayNumber >= days ? end.AddDays(-days) : DateOnly.MinValue;
 	}
 }

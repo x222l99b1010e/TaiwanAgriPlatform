@@ -59,13 +59,13 @@ namespace TaiwanAgri.Web.Services
 			consumer.ReceivedAsync += async (_, ea) =>
 			{
 				var body = Encoding.UTF8.GetString(ea.Body.ToArray());
-				_logger.LogInformation("[PriceUpdatedConsumer] 收到事件：{Body}，開始清除 Redis cache", body);
+				_logger.LogInformation("[PriceUpdatedConsumer] 收到事件：{Body}", body);
 
 				// 未排程：Cache Invalidation 需搭配 RabbitMQ 正式承載流量後再做
-				// 骨架階段：清除所有 market:prices 開頭的 key，目前尚未實作
+				// 骨架階段：要清的是 market:prices 與 market:crops 開頭的 key（前綴見 CacheKeys），目前尚未實作
 				_logger.LogWarning("[PriceUpdatedConsumer] Cache invalidation 尚未實作，跳過");
 
-				await _channel!.BasicAckAsync(ea.DeliveryTag, multiple: false);
+				await _channel!.BasicAckAsync(ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
 			};
 
 			await _channel!.BasicConsumeAsync(

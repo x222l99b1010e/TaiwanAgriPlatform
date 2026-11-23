@@ -388,5 +388,75 @@ namespace TaiwanAgri.Tests.Market
 			Assert.Single(result);
 			VerifyWroteCacheOnce(mockCache);
 		}
+
+		// ── 作物清單（2026-11 總檢查 G-C2 加的快取，與價格走同一套 GetOrLoadCachedAsync）──
+
+		/// <summary>
+		/// 作物清單每次都要對整張交易表做 DISTINCT（本機量過每次 CPU 2.2–3.1 秒），
+		/// 農場設定頁一進來就查三個類別。沒命中時查資料庫、寫回快取，鍵是 market:crops:v1:{TcType}
+		/// </summary>
+		[Fact]
+		public async Task 作物清單沒命中時查資料庫並以類別的TcType為鍵寫回快取()
+		{
+			var mockCache = CacheThatMisses();
+			var dbContext = await SeedOneRowAsync("TestDb_CropsCacheMiss");
+			var service = CreateService(dbContext, mockCache.Object);
+
+			var result = await service.GetCropsAsync("Veg");
+
+			var crop = Assert.Single(result);
+			Assert.Equal("A001", crop.CropCode);
+			Assert.Equal("高麗菜", crop.CropName);
+			mockCache.Verify(
+				c => c.SetAsync(
+					"market:crops:v1:N04",
+					It.IsAny<byte[]>(),
+					It.Is<DistributedCacheEntryOptions>(o => o.AbsoluteExpirationRelativeToNow == TimeSpan.FromHours(25)),
+					It.IsAny<CancellationToken>()),
+				Times.Once());
+		}
+
+		/// <summary>命中時直接回快取的內容：資料庫裡有別的作物，回的仍是快取裡那一筆</summary>
+		[Fact]
+		public async Task 作物清單命中時直接回快取內容不查資料庫()
+		{
+			var cached = new List<CropResponseDto> { new() { CropCode = "Z999", CropName = "快取裡的作物" } };
+			var mockCache = new Mock<IDistributedCache>();
+			mockCache
+				.Setup(c => c.GetAsync("market:crops:v1:N04", It.IsAny<CancellationToken>()))
+				.ReturnsAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(cached)));
+
+			var dbContext = await SeedOneRowAsync("TestDb_CropsCacheHit");
+			var service = CreateService(dbContext, mockCache.Object);
+
+			var result = await service.GetCropsAsync("Veg");
+
+			var crop = Assert.Single(result);
+			Assert.Equal("Z999", crop.CropCode);
+			mockCache.Verify(
+				c => c.SetAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<DistributedCacheEntryOptions>(), It.IsAny<CancellationToken>()),
+				Times.Never());
+		}
+
+		/// <summary>
+		/// 請求被取消（使用者關掉頁面）不是快取的問題：不能當成「快取讀取失敗」接住、再去查資料庫，
+		/// 要往上拋，由全域例外處理當成客戶端斷線收掉
+		/// </summary>
+		[Fact]
+		public async Task 請求被取消時不當成快取失敗而是往上拋()
+		{
+			using var cts = new CancellationTokenSource();
+			cts.Cancel();
+			var mockCache = new Mock<IDistributedCache>();
+			mockCache
+				.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+				.ThrowsAsync(new OperationCanceledException(cts.Token));
+
+			var dbContext = await SeedOneRowAsync("TestDb_CacheCancelled");
+			var service = CreateService(dbContext, mockCache.Object);
+
+			await Assert.ThrowsAnyAsync<OperationCanceledException>(
+				() => service.GetCropsAsync("Veg", cts.Token));
+		}
 	}
 }

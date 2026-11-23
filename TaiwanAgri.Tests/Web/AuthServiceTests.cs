@@ -41,6 +41,9 @@ namespace TaiwanAgri.Tests.Web
 		private static (Mock<UserManager<ApplicationUser>> Users, Mock<SignInManager<ApplicationUser>> SignIn) CreateManagers()
 		{
 			var users = IdentityTestHelpers.MockUserManager<ApplicationUser>();
+			// 查無帳號那條路也會用 PasswordHasher 算一次雜湊（見 查無帳號時也要算一次密碼雜湊），
+			// 共用的 MockUserManager 建構時傳的是 null，這裡補一個真的
+			users.Object.PasswordHasher = new PasswordHasher<ApplicationUser>();
 			var signIn = new Mock<SignInManager<ApplicationUser>>(
 				users.Object,
 				Mock.Of<IHttpContextAccessor>(),
@@ -99,6 +102,90 @@ namespace TaiwanAgri.Tests.Web
 
 			Assert.Equal(a.Message, b.Message);
 			Assert.Equal("帳號或密碼錯誤", a.Message);
+		}
+
+		/// <summary>
+		/// 回應一樣還不夠，花的時間也要接近：查無帳號那條路不算雜湊的話幾毫秒就回，
+		/// 「密碼錯」要先跑完雜湊，量回應時間就分得出哪個信箱註冊過（2026-11 總檢查資安 C5）。
+		/// 時間在單元測試裡量不準，釘的是「用同一個 PasswordHasher 算過送來的那組密碼」
+		/// </summary>
+		[Fact]
+		public async Task 查無帳號時也要算一次密碼雜湊()
+		{
+			var (users, signIn) = CreateManagers();
+			var hasher = new Mock<IPasswordHasher<ApplicationUser>>();
+			users.Object.PasswordHasher = hasher.Object;
+			users.Setup(m => m.FindByEmailAsync(It.IsAny<string>())).ReturnsAsync((ApplicationUser?)null);
+			var service = new AuthService(users.Object, signIn.Object, CreateConfiguration());
+
+			await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.LoginAsync(LoginRequest()));
+
+			hasher.Verify(h => h.HashPassword(It.IsAny<ApplicationUser>(), "P@ssw0rd!"), Times.Once);
+		}
+
+		/// <summary>
+		/// 帳號已經被鎖住時，框架不比對密碼就回「失敗」，比查無帳號快得多（本機實測約 30 ms 對 110 ms），
+		/// 一樣分得出這個信箱存在。所以交給框架之前先看鎖定狀態，鎖住就算一次雜湊、回同一句話
+		/// </summary>
+		[Fact]
+		public async Task 帳號已經被鎖住時也要算一次密碼雜湊且回同一句話()
+		{
+			var user = User();
+			var (users, signIn) = CreateManagers();
+			var hasher = new Mock<IPasswordHasher<ApplicationUser>>();
+			users.Object.PasswordHasher = hasher.Object;
+			users.Setup(m => m.FindByEmailAsync(user.Email!)).ReturnsAsync(user);
+			users.Setup(m => m.IsLockedOutAsync(user)).ReturnsAsync(true);
+			var service = new AuthService(users.Object, signIn.Object, CreateConfiguration());
+
+			var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.LoginAsync(LoginRequest()));
+
+			Assert.Equal("帳號或密碼錯誤", ex.Message);
+			hasher.Verify(h => h.HashPassword(It.IsAny<ApplicationUser>(), "P@ssw0rd!"), Times.Once);
+			signIn.Verify(m => m.CheckPasswordSignInAsync(
+				It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+		}
+
+		/// <summary>
+		/// 連錯第 5 次那一次，框架是比對過密碼才把帳號鎖住，回的也是 IsLockedOut。
+		/// 這時候再補算雜湊就變成算兩次，那一次比其他情況慢一截（本機實測約 270 ms 對 130–170 ms），
+		/// 又分得出帳號存在。只有進來之前就已經被鎖住才補算
+		/// </summary>
+		[Fact]
+		public async Task 這一次才被鎖住時不另外算雜湊()
+		{
+			var user = User();
+			var (users, signIn) = CreateManagers();
+			var hasher = new Mock<IPasswordHasher<ApplicationUser>>();
+			users.Object.PasswordHasher = hasher.Object;
+			users.Setup(m => m.FindByEmailAsync(user.Email!)).ReturnsAsync(user);
+			users.Setup(m => m.IsLockedOutAsync(user)).ReturnsAsync(false);
+			signIn.Setup(m => m.CheckPasswordSignInAsync(user, It.IsAny<string>(), true))
+				.ReturnsAsync(SignInResult.LockedOut);
+			var service = new AuthService(users.Object, signIn.Object, CreateConfiguration());
+
+			var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.LoginAsync(LoginRequest()));
+
+			Assert.Equal("帳號或密碼錯誤", ex.Message);
+			hasher.Verify(h => h.HashPassword(It.IsAny<ApplicationUser>(), It.IsAny<string>()), Times.Never);
+		}
+
+		/// <summary>密碼錯（沒被鎖）時框架已經比對過密碼，不必再算一次</summary>
+		[Fact]
+		public async Task 密碼錯但沒被鎖住時不另外算雜湊()
+		{
+			var user = User();
+			var (users, signIn) = CreateManagers();
+			var hasher = new Mock<IPasswordHasher<ApplicationUser>>();
+			users.Object.PasswordHasher = hasher.Object;
+			users.Setup(m => m.FindByEmailAsync(user.Email!)).ReturnsAsync(user);
+			signIn.Setup(m => m.CheckPasswordSignInAsync(user, It.IsAny<string>(), true))
+				.ReturnsAsync(SignInResult.Failed);
+			var service = new AuthService(users.Object, signIn.Object, CreateConfiguration());
+
+			await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.LoginAsync(LoginRequest()));
+
+			hasher.Verify(h => h.HashPassword(It.IsAny<ApplicationUser>(), It.IsAny<string>()), Times.Never);
 		}
 
 		/// <summary>
@@ -253,7 +340,7 @@ namespace TaiwanAgri.Tests.Web
 					new IdentityError { Description = "密碼缺少特殊字元" }));
 			var service = new AuthService(users.Object, signIn.Object, CreateConfiguration());
 
-			var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+			var ex = await Assert.ThrowsAsync<RegistrationRejectedException>(
 				() => service.RegisterAsync(new RegisterRequestDto { Email = "new@example.com", Password = "123" }));
 
 			Assert.Contains("密碼長度不足", ex.Message);
@@ -272,10 +359,36 @@ namespace TaiwanAgri.Tests.Web
 				.ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "帳號已存在" }));
 			var service = new AuthService(users.Object, signIn.Object, CreateConfiguration());
 
-			await Assert.ThrowsAsync<InvalidOperationException>(
+			await Assert.ThrowsAsync<RegistrationRejectedException>(
 				() => service.RegisterAsync(new RegisterRequestDto { Email = "dup@example.com", Password = "P@ssw0rd!" }));
 
 			users.Verify(m => m.AddToRoleAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>()), Times.Never);
+		}
+
+		/// <summary>
+		/// 指派角色失敗時不能回成功：帳號已經建好卻沒有角色，回應照樣帶著登入憑證（2026-11 總檢查 G-C10）。
+		/// 要刪掉剛建的帳號（使用者重新註冊就好），並丟一般的 InvalidOperationException 讓全域處理回 500——
+		/// 不能丟 RegistrationRejectedException，那一種的訊息會被 Controller 原樣回給使用者
+		/// </summary>
+		[Fact]
+		public async Task 指派角色失敗時刪掉剛建的帳號並回錯而不是成功()
+		{
+			var (users, signIn) = CreateManagers();
+			ApplicationUser? 建立的使用者 = null;
+			users.Setup(m => m.CreateAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>()))
+				.Callback<ApplicationUser, string>((u, _) => 建立的使用者 = u)
+				.ReturnsAsync(IdentityResult.Success);
+			users.Setup(m => m.AddToRoleAsync(It.IsAny<ApplicationUser>(), "Guest"))
+				.ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "資料庫暫時無法連線" }));
+			users.Setup(m => m.DeleteAsync(It.IsAny<ApplicationUser>()))
+				.ReturnsAsync(IdentityResult.Success);
+			var service = new AuthService(users.Object, signIn.Object, CreateConfiguration());
+
+			await Assert.ThrowsAsync<InvalidOperationException>(
+				() => service.RegisterAsync(new RegisterRequestDto { Email = "new@example.com", Password = "P@ssw0rd!" }));
+
+			Assert.NotNull(建立的使用者);
+			users.Verify(m => m.DeleteAsync(建立的使用者), Times.Once);
 		}
 
 		/// <summary>

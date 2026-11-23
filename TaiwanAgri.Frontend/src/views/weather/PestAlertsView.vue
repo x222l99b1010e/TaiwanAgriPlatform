@@ -139,6 +139,7 @@ import { usePagination } from '@/composables/usePagination'
 import MapLayout from '@/components/layouts/MapLayout.vue'
 import StateBlock from '@/components/ui/StateBlock.vue'
 import Btn from '@/components/ui/Btn.vue'
+import type { TaiwanCity } from '@/constants/taiwanCities'
 
 const selectedCity = ref('')
 const alertsPage   = ref<PagedResult<PestAlertResponseDto> | null>(null)
@@ -212,7 +213,8 @@ const DEFAULT_ZOOM = 7
 
 /**
  * 22 縣市的概略中心座標（縣市治所或行政區重心，非精確幾何中心，燈號地圖不需要
- * 測量級精度）。key 一律用「臺」的正式寫法，跟 CitySelector 的縣市清單同一套；
+ * 測量級精度）。用 satisfies 檢查 key 正好是共用縣市清單的 22 個（TaiwanCity）：少一個或拼錯（例如寫成「台」）型別檢查就會報錯；
+ * 變數本身仍是以字串為 key 的表，下拉選到的縣市（string）可以直接查。
  * ⚠ 農業部警報資料實測是用「台」（台中市／台南市／台東縣），兩者要先正規化
  * 再查表，否則這三個縣市的燈號會直接消失、而且不會噴錯——查表 miss 只是回 undefined。
  */
@@ -239,7 +241,7 @@ const CITY_COORDS: Record<string, L.LatLngTuple> = {
   '澎湖縣': [23.5711, 119.5793],
   '金門縣': [24.4491, 118.3767],
   '連江縣': [26.1608, 119.9297],
-}
+} satisfies Record<TaiwanCity, L.LatLngTuple>
 
 // 縣市一律用正式寫法「臺」：農業部警報資料的簡寫「台」由後端處理（寫入時換掉、查詢時兩種都比、
 // 回傳時換成「臺」，見後端 TaiwanCityName），這一頁不必再自己換字

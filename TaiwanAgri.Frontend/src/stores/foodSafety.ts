@@ -69,18 +69,28 @@ export const useFoodSafetyStore = defineStore('foodSafety', () => {
     }
   }
 
+  // 請求序號防競態：一次查詢要等四支外部 API，查詢中還能點範例碼或再按一次 Enter，
+  // 先送出的回應晚到時會蓋掉後查的結果（2026-11 總檢查 2、3 號 C 類）。只採用最後一次的
+  const traceabilityRequest = useLatestRequest()
+
   /** 農產品追溯查詢（即時打農業部四支 API） */
   async function searchTraceability(traceCode: string) {
+    const mySeq = traceabilityRequest.next()
     isSearching.value = true
     searchError.value = null
     traceabilityResult.value = null
     try {
-      traceabilityResult.value = await foodSafetyApi.searchTraceability(traceCode)
+      const result = await foodSafetyApi.searchTraceability(traceCode)
+      if (!traceabilityRequest.isLatest(mySeq)) return
+      traceabilityResult.value = result
     } catch (e) {
+      if (!traceabilityRequest.isLatest(mySeq)) return
       searchError.value = '查詢失敗，請確認追溯碼是否正確'
       console.error(e)
     } finally {
-      isSearching.value = false
+      if (traceabilityRequest.isLatest(mySeq)) {
+        isSearching.value = false
+      }
     }
   }
 
