@@ -470,7 +470,7 @@ TaiwanAgriPlatform/
 │
 ├── TaiwanAgri.IntegrationTests/      # 整合測試：真的 SQL Server＋完整 HTTP 管線（WebApplicationFactory，5 個案例）
 │
-└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 552 個測試案例）
+└── TaiwanAgri.Tests/                 # xUnit + Moq（後端 560 個測試案例）
     ├── Core/                          # NavService 角色回退與選單樹；Web 與 Worker 的每個 DbContext 都帶暫時性錯誤重試
     ├── Helpers/                       # DateHelper 民國曆邊界值
     ├── Market/                        # Cache Hit / Cache Miss（Mock IDistributedCache）
@@ -506,7 +506,7 @@ TaiwanAgriPlatform/
 | 地圖 | Leaflet + leaflet.markercluster | 1.9.x | 模組 3 認領養地圖（標記聚合 + 地圖點選取座標） |
 | 圖示 | Material Design Icons（@mdi/font） | 最新版 | Navbar 模組圖示（CSS class 渲染） |
 | 容器化 | Docker + Docker Compose | 最新版 | 預設只起基礎設施（SQL Server / Redis / RabbitMQ）；`--profile app` 起整站（建表、後端、Worker、前端 nginx），映像多階段建置、非 root 執行 |
-| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，552 個案例）＋整合測試（真的 SQL Server＋完整 HTTP 管線，5 個案例） |
+| 後端測試 | xUnit + Moq | 最新穩定版 | 單元測試（Service / Controller / Worker 層，560 個案例）＋整合測試（真的 SQL Server＋完整 HTTP 管線，5 個案例） |
 | 前端測試 | Vitest | 最新穩定版 | composables / utils / 頁面樣板 / 共用元件 / store / 頁面 / 請求等待提示單元測試（`npm test`，25 檔 227 案例） |
 | HTTP 彈性 | Polly | 最新版 | HTTP 錯誤自動重試（3 次，間隔 2s；逾時不在內，見已知限制） |
 
@@ -682,7 +682,7 @@ npm run dev
 ### Step 8：執行測試
 
 ```bash
-# 後端單元測試（xUnit + Moq，共 552 個測試案例）
+# 後端單元測試（xUnit + Moq，共 560 個測試案例）
 cd TaiwanAgri.Tests
 dotnet test
 
@@ -700,7 +700,7 @@ npm test
 測試會在那台 SQL Server 上建一個名稱帶時間戳的新資料庫、跑完刪掉，不碰既有的資料庫；沒有設定時本機列成略過（Skipped），
 CI 則另外起一個 SQL Server 容器跑，少了資料庫是失敗、不是略過。
 
-後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個、回應的時間欄位一律標成 UTC 3 個）/ Helpers（含查詢區間界限）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個、行情依交易資料的類別查詢與市場清單 6 個、行情價格與作物清單的快取——命中、讀寫失敗時降級查資料庫、請求被取消時不當成快取失敗，8 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 18 個、疫情規則的評估水位 4 個、病蟲害警報的縣市兩種寫法、翻頁穩定、分頁上限與同步時去重 12 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個、有機驗證有則更新 2 個、規則引擎等相依的同步試過第一輪再評估 3 個、一筆壞資料只略過那一筆與超長字串截到欄位上限 6 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護（查無帳號、帳號已經被鎖住時也算一次密碼雜湊）、註冊失敗的處理與 JWT 簽發 17 個，註冊端點只把 Identity 擋下的原因回成 400 2 個，未處理例外的 500 帶請求編號 2 個）十個面向——**Service 層十二支已全部有測試覆蓋**；另有整合測試 5 個（`TaiwanAgri.IntegrationTests`），在真的 SQL Server 上走完整的 HTTP 管線，釘的是單元測試抓不到的幾種錯：SQL Server 讀回來的時間不帶時區標記（回應要標成 UTC）、疫情規則的縣市兩種寫法與評估水位、病蟲害警報同一天的翻頁與每頁上限、行情依交易資料的類別、只帶起日的區間上限，5 個都在修正前的程式上實測過會失敗；前端 25 個測試檔共 227 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，39 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式，含欄位有逗號、引號、換行時的跳脫）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`apiError`（從 400 回應取出後端說的原因、401 說登入已過期，8 個）、`authRedirect`（登入過期時只有要登入的頁面才帶去登入頁、登入後導回的網址帶了兩次時取第一個，7 個）、`loginForm`（登入／註冊表單還不能送出的原因，按鈕與按 Enter 共用一份，6 個）、`storedUser`（瀏覽器存的使用者資料壞掉時當成沒登入、不讓前端起不來，4 個）、`url`（外部資料的欄位是不是 http(s) 網址，3 個）、`identityErrors`（註冊錯誤逐條翻成中文，4 個）、`cropAutocomplete`（作物自動完成的建議與鍵盤選取，7 個）、`disasterEvents`（同一場豪雨的兩種警戒分開列、跨年同名不合併，5 個）、`lostPetPost`（啟事日期以台灣時區顯示，2 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/foodSafety`（追溯碼查詢的新舊回應不互蓋，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → 單元測試 → 另起一個 SQL Server 容器跑整合測試）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
+後端涵蓋 Core（`NavService` 的角色回退與選單樹狀組裝 13 個、Web 與 Worker 解析出的每個 DbContext 都帶資料庫暫時性錯誤重試 4 個、回應的時間欄位一律標成 UTC 3 個）/ Helpers（含查詢區間界限，與沒帶起日時從迄日往前推、推到日期下限就停）/ Market（含 W25 家禽價格解析 27 個 + 查詢層 7 個、行情依交易資料的類別查詢與市場清單 6 個、行情價格與作物清單的快取——命中、讀寫失敗時降級查資料庫、請求被取消時不當成快取失敗，8 個、只帶很早的迄日時行情價格／毛豬／家禽都不丟例外 3 個）/ User（含農場設定檔的作物全量取代語意 9 個）/ Watchlist / FoodSafety / Weather（通知規則的請求驗證 50 個、規則引擎的水位與跳過分支 33 個、規則 CRUD 與越權防護 20 個、通知服務的分頁邊界 14 個、氣象與病蟲害查詢 19 個、疫情規則的評估水位 4 個、病蟲害警報的縣市兩種寫法、翻頁穩定、分頁上限與同步時去重 12 個）/ Pet / Worker（往回重掃的起訖日 8 個、一次性模式的收工判斷 6 個，含「外部停機不能被記成逾時」；休市日同一批裡的重複只留一筆 3 個、有機驗證有則更新 2 個、規則引擎等相依的同步試過第一輪再評估 3 個、一筆壞資料只略過那一筆與超長字串截到欄位上限 6 個）/ Web（Controller 層驗證、分頁界限、CORS／JWT 設定／限流三項啟動檢查與跨來源可讀的回應標頭（JWT 設定 14 個）、DI 註冊位置，含 `AuthService` 的帳號列舉防護（查無帳號、帳號已經被鎖住時也算一次密碼雜湊）、註冊失敗的處理與 JWT 簽發 17 個，註冊端點只把 Identity 擋下的原因回成 400 2 個，未處理例外的 500 帶請求編號 2 個）十個面向——**Service 層十二支已全部有測試覆蓋**；另有整合測試 5 個（`TaiwanAgri.IntegrationTests`），在真的 SQL Server 上走完整的 HTTP 管線，釘的是單元測試抓不到的幾種錯：SQL Server 讀回來的時間不帶時區標記（回應要標成 UTC）、疫情規則的縣市兩種寫法與評估水位、病蟲害警報同一天的翻頁與每頁上限、行情依交易資料的類別、只帶起日的區間上限，5 個都在修正前的程式上實測過會失敗；前端 25 個測試檔共 227 個案例，涵蓋 `notificationRule`（規則顯示、表單驗證、組請求與評估結果措辭，39 個）、`useLatestRequest`（請求序號防競態）、`exportCsv`（CSV 匯出純函式，含欄位有逗號、引號、換行時的跳脫）、`usePagination`（分頁視窗計算與跳頁邊界，19 個）、`useStatTile`（首頁今日數字的載入中／有值／沒有資料／抓不到四種狀態，6 個）、`layouts`（四個頁面樣板契約，14 個）、`ui`（五個共用元件的 prop 與插槽契約，含主要按鈕的圓盤與預設圖示、載入中與停用的外觀分開、強調變體，32 個）、`calendar`（休市月曆）、`solarTerms`（二十四節氣）、`taiwanDate`（台灣時區的「今天」與「N 天前」，含台灣凌晨＝UTC 前一天的案例，5 個）、`serverWake`（請求等太久時判斷卡在伺服器、資料庫還是查詢本身；健康檢查沒過要隔一段時間才重問、晚到的結果不能留到下一次，含提示元件，15 個）、`mdiSubsetPlugin`（圖示字符規則解析，含負向案例 5 個）、`apiError`（從 400 回應取出後端說的原因、401 說登入已過期，8 個）、`authRedirect`（登入過期時只有要登入的頁面才帶去登入頁、登入後導回的網址帶了兩次時取第一個，7 個）、`loginForm`（登入／註冊表單還不能送出的原因，按鈕與按 Enter 共用一份，6 個）、`storedUser`（瀏覽器存的使用者資料壞掉時當成沒登入、不讓前端起不來，4 個）、`url`（外部資料的欄位是不是 http(s) 網址，3 個）、`identityErrors`（註冊錯誤逐條翻成中文，4 個）、`cropAutocomplete`（作物自動完成的建議與鍵盤選取，7 個）、`disasterEvents`（同一場豪雨的兩種警戒分開列、跨年同名不合併，5 個）、`lostPetPost`（啟事日期以台灣時區顯示，2 個）、`stores/notificationRule`（動作完成後有沒有把相鄰狀態一起帶新，3 個）、`stores/foodSafety`（追溯碼查詢的新舊回應不互蓋，3 個）、`stores/nav`（模組清單載入失敗時不把例外往上拋、重試會清掉失敗訊號、成功之後不重打、同時呼叫只發一個請求，5 個）與 `views/moduleEntry`（模組入口頁：標題與英文定譯、子頁卡片與文案對位、查不到文案時少一行而不是整列消失、奇偶列交錯與縮排同一個判斷、hover 特效依模組決定、**子頁清單為空／一個模組都拿不到／路徑對不到模組／清單還沒載回來四種情況各自說得不一樣**，以及特效對照表查不到時退回預設光點、後端連不上時給錯誤畫面與重試鈕、判斷順序先問失敗再問載完，12 個——本專案第一支 View 測試）。元件測試以 `vue/server-renderer` 算成 HTML 字串做結構斷言，不需要 jsdom 或 `@vue/test-utils`。CI（GitHub Actions）在每次 push / PR 自動執行三個 job：`build-and-test`（後端 restore → build → 單元測試 → 另起一個 SQL Server 容器跑整合測試）、`frontend`（`npm ci` → lint → vitest → build）與 `docker-images`（照 `docker-compose.yml` 建置四個映像、不推送，確認 Dockerfile 仍建得起來），前後端測試皆在 CI 環境執行。
 
 ---
 

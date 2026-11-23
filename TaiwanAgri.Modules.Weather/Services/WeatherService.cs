@@ -21,7 +21,7 @@ namespace TaiwanAgri.Modules.Weather.Services
 			// 部署在 UTC 主機（Azure App Service 預設）時，台灣時間每天 08:00 之前
 			// 會停在前一天，整組區間跟著差一天
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
-			DateOnly finalStart = startDate ?? finalEnd.AddDays(-14);
+			DateOnly finalStart = startDate ?? DateHelper.DaysBefore(finalEnd, 14);
 
 			var result = await _context.RainfallObservations
 				.Join(_context.RainfallStations,

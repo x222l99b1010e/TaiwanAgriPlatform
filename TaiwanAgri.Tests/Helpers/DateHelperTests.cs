@@ -215,5 +215,30 @@ namespace TaiwanAgri.Tests.Helpers
 			Assert.Null(DateHelper.ValidateRange(Today.AddYears(-1), Today, Today));
 			Assert.NotNull(DateHelper.ValidateRange(new DateOnly(1900, 1, 1), new DateOnly(2100, 1, 1), Today));
 		}
+
+		// ── DaysBefore：沒帶起日時的預設起日 ────────────────────────────────
+
+		/// <summary>一般情況：迄日往前推指定的天數（行情類一年、雨量 14 天）</summary>
+		[Fact]
+		public void DaysBefore_往前推指定的天數()
+		{
+			Assert.Equal(new DateOnly(2025, 9, 8), DateHelper.DaysBefore(Today, 365));
+			Assert.Equal(new DateOnly(2026, 8, 25), DateHelper.DaysBefore(Today, 14));
+		}
+
+		/// <summary>
+		/// 迄日很早、往前推會超過日期下限（0001-01-01）時停在下限，不丟例外。
+		/// 日期驗證只檢查區間長度、不擋年份，沒帶起日時也不檢查，所以「只帶迄日 0001-01-01」進得來；
+		/// 原本服務層直接 AddDays(-天數)，丟 ArgumentOutOfRangeException、整支查詢回 500。
+		/// 第一組剛好推到下限（沒有超過），走的是一般的那條路
+		/// </summary>
+		[Theory]
+		[InlineData("0001-01-15", 14)]
+		[InlineData("0001-01-10", 14)]
+		[InlineData("0001-01-01", 365)]
+		public void DaysBefore_推過日期下限時停在下限(string end, int days)
+		{
+			Assert.Equal(DateOnly.MinValue, DateHelper.DaysBefore(DateOnly.Parse(end), days));
+		}
 	}
 }

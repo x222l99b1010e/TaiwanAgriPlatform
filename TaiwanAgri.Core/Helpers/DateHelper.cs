@@ -197,7 +197,7 @@ namespace TaiwanAgri.Core.Helpers
 		/// 兩件事：起日不得晚於迄日、區間長度不得超過上限。null 代表沒有指定，檢查的是
 		/// 「服務層補完預設值之後」實際要查的區間：
 		/// 沒帶迄日＝查到今天（<paramref name="today"/>，台灣日期），照樣要檢查；
-		/// 沒帶起日＝服務層補「迄日往前一年」（雨量 14 天），一定在預設上限之內，所以不檢查。
+		/// 沒帶起日＝服務層補「迄日往前一年」（雨量 14 天；用 <see cref="DaysBefore"/>，推到日期下限就停），一定在預設上限之內，所以不檢查。
 		/// 原本任一端沒帶就整個放行，而服務層會替沒帶的迄日補上今天——只帶一個很早的起日
 		/// 就完全不受上限約束（毛豬帶 2009-01-01 一次回 14 MB，2026-11 總檢查 3-A6）。
 		/// </para>
@@ -223,5 +223,18 @@ namespace TaiwanAgri.Core.Helpers
 				? $"查詢區間不得超過 {maxRangeDays} 天，目前為 {days} 天{endNote}"
 				: null;
 		}
+
+		/// <summary>
+		/// 沒帶起日時的預設起日：迄日往前推 <paramref name="days"/> 天，推過日期下限（0001-01-01）就停在下限。
+		/// <para>
+		/// 日期驗證只檢查區間長度、不擋年份，沒帶起日時也不檢查（見 <see cref="ValidateRange"/>），
+		/// 所以「只帶一個很早的迄日」進得來。原本服務層直接寫 <c>迄日.AddDays(-天數)</c>，
+		/// 迄日是 0001-01-01 這種日期時丟 ArgumentOutOfRangeException、整支查詢回 500
+		/// （2026-11 總檢查修正時另外查到：行情價格、毛豬、家禽、雨量四處）。
+		/// 停在下限之後查不到資料、回空清單，跟迄日是 9999-12-31 時一樣
+		/// </para>
+		/// </summary>
+		public static DateOnly DaysBefore(DateOnly end, int days) =>
+			end.DayNumber >= days ? end.AddDays(-days) : DateOnly.MinValue;
 	}
 }

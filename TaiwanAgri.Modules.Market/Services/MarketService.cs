@@ -45,7 +45,7 @@ namespace TaiwanAgri.Modules.Market.Services
 			// 1. 日期解析與預設值（先解析，cache key 才能用實際日期）
 			//    預設查到「今天」＝台灣時區日界（DateTime.Today 是主機本地時區，部署在 UTC 環境會差一天）
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
-			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+			DateOnly finalStart = startDate ?? DateHelper.DaysBefore(finalEnd, 365);
 
 			// 類別一律看交易資料自己的 TcType（Veg→N04、Fruit→N05、Flower→N06），不看市場主檔的類別：
 			// 主檔以（代碼、名稱）為鍵，同時賣蔬菜與水果的市場只記在先同步的蔬菜底下，
@@ -368,7 +368,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		public async Task<List<PorkResponseDto>> GetPorkAsync(string? marketName = null, DateOnly? startDate = null, DateOnly? endDate = null, CancellationToken cancellationToken = default)
 		{
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
-			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+			DateOnly finalStart = startDate ?? DateHelper.DaysBefore(finalEnd, 365);
 
 			var porkList = await _context.PorkTrans
 				.Where(p => p.TransDate >= finalStart && p.TransDate <= finalEnd)
@@ -394,7 +394,7 @@ namespace TaiwanAgri.Modules.Market.Services
 		{
 			// 預設區間比照 GetPorkAsync：未指定就給最近一年
 			DateOnly finalEnd = endDate ?? TaiwanTime.Today(_timeProvider);
-			DateOnly finalStart = startDate ?? finalEnd.AddDays(-365);
+			DateOnly finalStart = startDate ?? DateHelper.DaysBefore(finalEnd, 365);
 
 			// null 或空陣列＝不篩選指標（回傳全部 17 個）。
 			// Controller 已用 PoultryMetrics.IsValid 擋掉無效代碼，這裡不重複驗證
